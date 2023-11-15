@@ -191,8 +191,8 @@ function Console() {
         <textarea
           value={knowledge}
           onChange={handleKnowledgeChange}
-          placeholder="Knowledge (optional)" // Knowledge input field
-          className="input-textarea context-textarea"
+          placeholder="Knowledge (optional)" 
+          className="input-textarea knowledge-textarea"
         ></textarea>
         <div className="input-area">
           <textarea

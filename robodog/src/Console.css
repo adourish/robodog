@@ -68,6 +68,14 @@ body {
   text-align: left; /* Left-align the text */
 }
 
+.input-textarea,
+.knowledge-textarea {
+  overflow-y: scroll;
+}
+.input-textarea,
+.content-textarea {
+  overflow-y: scroll;
+}
 /* Style for the input area */
 .input-area {
   display: flex;
