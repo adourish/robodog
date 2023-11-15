@@ -1,0 +1,86 @@
+/* Console.css */
+
+/* Reset some default styles and set background color */
+body {
+  margin: 0;
+  background-color: black;
+  overflow-x: hidden; /* Hide horizontal overflow for the entire page */
+}
+
+/* Style for the console container */
+.console {
+  color: white;
+  padding: 0px;
+  font-family: monospace;
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Make the console full-screen height */
+  overflow: hidden; /* Hide overflow for the console */
+}
+
+/* Style for the console content area */
+.console-content {
+  flex: 1;
+  overflow-y: scroll; /* Add a vertical scrollbar for the content */
+  padding-right: 17px; /* Add padding to accommodate the scrollbar width */
+}
+
+/* Style for the scrollbar */
+.console-content::-webkit-scrollbar {
+  width: 8px; /* Width of the vertical scrollbar */
+}
+
+/* Style for the scrollbar thumb */
+.console-content::-webkit-scrollbar-thumb {
+  background-color: #333; /* Scrollbar thumb color */
+  border-radius: 4px; /* Rounded corners for the scrollbar thumb */
+}
+
+/* Style for the text within <pre> elements */
+.console-content pre {
+  font-family: monospace;
+  white-space: pre-wrap; /* Allow text to wrap within <pre> elements */
+  margin: 0; /* Remove default margin for <pre> */
+  word-wrap: break-word; /* Add word-wrap for long words */
+}
+
+/* Style for the input form */
+.input-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 10px;
+}
+
+/* Style for the textareas within the input form */
+.input-textarea,
+.context-textarea {
+  background-color: transparent;
+  color: white;
+  border: 1px solid white;
+  padding: 0px;
+  margin-bottom: 0px;
+  font-family: monospace;
+  flex: 1;
+  resize: vertical;
+  overflow: hidden;
+  min-height: 60px;
+  text-align: left; /* Left-align the text */
+}
+
+/* Style for the input area */
+.input-area {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start; /* Align items vertically at the start */
+}
+
+/* Style for the submit button */
+.submit-button {
+  background-color: transparent;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-family: monospace;
+  cursor: pointer;
+}
