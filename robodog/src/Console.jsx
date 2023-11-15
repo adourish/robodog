@@ -58,7 +58,10 @@ function getMessageWithTimestamp(command, role) {
       roleEmoji = '🤖';
       break;
     case 'system':
-      roleEmoji = '🖥️';
+      roleEmoji = '💾';
+      break;
+    case 'error':
+      roleEmoji = '💩';
       break;
     default:
       roleEmoji = '';
@@ -162,7 +165,7 @@ function Console() {
       console.error('handleSubmit', ex);
       setContent([
         ...content,
-        getMessageWithTimestamp(ex, 'system')
+        getMessageWithTimestamp(ex, 'error')
       ]);
     } finally {
       setIsLoading(false); // Set loading status to false
@@ -176,7 +179,7 @@ function Console() {
         {content.map((text, index) => (
           <pre key={index}>{text}</pre>
         ))}
-        {isLoading && <pre>Wait... </pre>}
+        {isLoading && <pre>⏳</pre>}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
