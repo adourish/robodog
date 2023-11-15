@@ -117,20 +117,32 @@ function Console() {
         const cmd = commandParts[0];
 
         switch (cmd) {
-          case '/gpt3':
+          case '/gpt-3.5-turbo-16k':
+            model = 'gpt-3.5-turbo-16k';
+            setMaxChars(10000);
+            message = `Switching to GPT-3: gpt-3.5-turbo-16k`;
+            break;
+          case '/gpt-3.5-turbo-1106':
             model = 'gpt-3.5-turbo-1106';
             setMaxChars(10000);
             message = `Switching to GPT-3: gpt-3.5-turbo-1106`;
             break;
-          case '/gpt4':
+          case '/gpt-3.5-turbo':
+            model = 'gpt-3.5-turbo';
+            setMaxChars(10000);
+            message = `Switching to GPT-3: gpt-3.5-turbo`;
+            break;
+          case '/gpt-4':
             model = 'gpt-4';
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4`;
             break;
           case '/help':
             message = 'Available commands: </br>' +
-            ' /gpt3 - switch to GPT 3.5 turbo model.' +
-            ' /gpt4 - switch to latest GPT 4 model.' +
+            ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model.' +
+            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model.' +
+            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model.' +
+            ' /gpt-4 - switch to gpt-4 model.' +
             ' /help - get help.' +
             ' /reset - Reset your API key';
 
