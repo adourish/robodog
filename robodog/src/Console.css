@@ -80,7 +80,7 @@ body {
   background-color: transparent;
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 0px 0px;
   font-family: monospace;
   cursor: pointer;
 }

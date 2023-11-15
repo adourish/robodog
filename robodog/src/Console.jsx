@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './Console.css';
 
 import OpenAI from 'openai';
@@ -26,11 +26,12 @@ const openai = new OpenAI({
 });
 
 // Utility function to send a message to OpenAI
-async function sendMessageToOpenAI(text, model, context) {
+async function sendMessageToOpenAI(text, model, context, knowledge) {
   const messages = [
-    { role: 'system', content: 'You are a helpful assistant.' },
-    { role: 'assistant', content: context }, // Include context as a message
-    { role: 'user', content: text },
+    { role: 'assistant', content: 'context:' + context },
+    { role: 'assistant', content: 'knowledge:' + knowledge }, // Include context as a message
+    { role: 'user', content: 'chat: ' + text },
+    // Include knowledge as a message
   ];
 
   const response = await openai.chat.completions.create({
@@ -43,117 +44,104 @@ async function sendMessageToOpenAI(text, model, context) {
 
 // Function to generate a message with a timestamp
 function getMessageWithTimestamp(command, role) {
-  const options = { hour12: false, hour: '2-digit', minute: '2-digit' };
+  const options = { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
   const shortTimeString = new Date().toLocaleTimeString(undefined, options);
   return `${shortTimeString}${role === 'user' ? '👾' : '🤖'}: ${command}`;
 }
+
 var model = 'gpt-3.5-turbo-1106';
+
 function Console() {
   const [inputText, setInputText] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
+  const [knowledge, setKnowledge] = useState(''); // State for knowledge input
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
   const maxChars = 9000;
 
-  const totalChars = context.length + inputText.length;
+  const totalChars = context.length + inputText.length + knowledge.length; // Include knowledge length
   const remainingChars = maxChars - totalChars;
 
-  // ...
+  const handleInputChange = (event) => {
+    const value = event.target.value;
+    setInputText(value);
+  };
 
-const handleInputChange = (event) => {
-  const value = event.target.value;
-  setInputText(value);
-};
+  const handleContextChange = (event) => {
+    const value = event.target.value;
+    setContext(value);
+  };
 
-const handleContextChange = (event) => {
-  const value = event.target.value;
-  setContext(value);
-};
+  const handleKnowledgeChange = (event) => {
+    const value = event.target.value;
+    setKnowledge(value);
+  };
 
-const handleSubmit = async (event) => {
-  event.preventDefault();
-  const command = inputText.trim();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const command = inputText.trim();
 
-  if (command.length > remainingChars) {
-    // Check if input exceeds character limit and show a message
-    setContent([...content, `Input exceeds character limit: ${maxChars} characters allowed.`]);
-    return;
-  }
-
-  console.log('submit:', command);
-  setIsLoading(true); // Set loading status to true
-
-  if (command.startsWith('/')) {
-    const commandParts = command.split(' ');
-    const cmd = commandParts[0];
-
-    switch (cmd) {
-      case '/gpt3':
-        model = 'gpt-3.5-turbo-1106';
-        const switchMessageGPT3 = `Switching to GPT-3: ${command}`;
-        console.log(switchMessageGPT3);
-        setContent([
-          ...content,
-          getMessageWithTimestamp(command, 'user'),
-          getMessageWithTimestamp(switchMessageGPT3, 'assistant'),
-        ]);
-        break;
-      case '/gpt4':
-        model = 'gpt-4';
-        const switchMessageGPT4 = `Switching to GPT-4: ${command}`;
-        console.log(switchMessageGPT4);
-        setContent([
-          ...content,
-          getMessageWithTimestamp(command, 'user'),
-          getMessageWithTimestamp(switchMessageGPT4, 'assistant'),
-        ]);
-        break;
-      default:
-        model = 'gpt-3.5-turbo-1106';
-        const switchMessageDefault = `Switching to default (GPT-3.5): ${command}`;
-        console.log(switchMessageDefault);
-        setContent([
-          ...content,
-          getMessageWithTimestamp(command, 'user'),
-          getMessageWithTimestamp(switchMessageDefault, 'assistant'),
-        ]);
+    if (command.length > remainingChars) {
+      // Check if input exceeds character limit and show a message
+      setContent([...content, `Input exceeds character limit: ${maxChars} characters allowed.`]);
+      return;
     }
-  } else {
-    console.log('content:', command);
-    const response = await sendMessageToOpenAI(command, model, context);
-    setContent([
-      ...content,
-      getMessageWithTimestamp(command, 'user'),
-      getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
-    ]);
-  }
 
-  setIsLoading(false); // Set loading status to false
-  setInputText('');
-};
+    console.log('submit:', command);
+    setIsLoading(true); // Set loading status to true
 
-// ...
+    if (command.startsWith('/')) {
+      const commandParts = command.split(' ');
+      const cmd = commandParts[0];
 
+      switch (cmd) {
+        case '/gpt3':
+          model = 'gpt-3.5-turbo-1106';
+          const switchMessageGPT3 = `Switching to GPT-3: ${command}`;
+          console.log(switchMessageGPT3);
+          setContent([
+            ...content,
+            getMessageWithTimestamp(command, 'user'),
+            getMessageWithTimestamp(switchMessageGPT3, 'assistant'),
+          ]);
+          break;
+        case '/gpt4':
+          model = 'gpt-4';
+          const switchMessageGPT4 = `Switching to GPT-4: ${command}`;
+          console.log(switchMessageGPT4);
+          setContent([
+            ...content,
+            getMessageWithTimestamp(command, 'user'),
+            getMessageWithTimestamp(switchMessageGPT4, 'assistant'),
+          ]);
+          break;
+        default:
+          model = 'gpt-3.5-turbo-1106';
+          const switchMessageDefault = `Switching to default (GPT-3.5): ${command}`;
+          console.log(switchMessageDefault);
+          setContent([
+            ...content,
+            getMessageWithTimestamp(command, 'user'),
+            getMessageWithTimestamp(switchMessageDefault, 'assistant'),
+          ]);
+      }
+    } else {
+      console.log('content:', command);
+      const response = await sendMessageToOpenAI(command, model, context, knowledge); // Pass knowledge to the function
 
-  const handleNoteCommand = (text) => {
-    console.log('Note:', text);
-  };
+      // Append the content of the "Chat" textarea to the "Context" textarea
+      const updatedContext = context ? `${context}\n${command}` : command;
+      setContext(updatedContext);
 
-  const handleChatCommand = (text) => {
-    const response = sendMessageToOpenAI(text, 'gpt-3.5-turbo', context);
-    console.log('Chat:', text);
-  };
+      setContent([
+        ...content,
+        getMessageWithTimestamp(command, 'user'),
+        getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
+      ]);
+    }
 
-  const handleTaskCommand = (text) => {
-    console.log('Task:', text);
-  };
-
-  const handleCalCommand = (text) => {
-    console.log('Calendar:', text);
-  };
-
-  const handleUnknownCommand = () => {
-    console.log('Unknown command');
+    setIsLoading(false); // Set loading status to false
+    setInputText('');
   };
 
   return (
@@ -162,7 +150,7 @@ const handleSubmit = async (event) => {
         {content.map((text, index) => (
           <pre key={index}>{text}</pre>
         ))}
-        {isLoading && <pre>Wait... /</pre>}
+        {isLoading && <pre>Wait... </pre>}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
@@ -171,7 +159,13 @@ const handleSubmit = async (event) => {
         <textarea
           value={context}
           onChange={handleContextChange}
-          placeholder="Knowledge (optional)"
+          placeholder="Context (optional)"
+          className="input-textarea context-textarea"
+        ></textarea>
+        <textarea
+          value={knowledge}
+          onChange={handleKnowledgeChange}
+          placeholder="Knowledge (optional)" // Knowledge input field
           className="input-textarea context-textarea"
         ></textarea>
         <div className="input-area">
