@@ -26,6 +26,7 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
 
 * npm install
 * npm install openai
+* npm install zip-webpack-plugin
 * npm run build
 
 # Run
@@ -42,3 +43,6 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
 * /help - get help.
 * /reset - Reset your API key
 
+# Download
+
+* [Download Robodog](https://github.com/adourish/robodog/tree/main/robodog/dist/robodog.zip)

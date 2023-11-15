@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const ZipPlugin = require('zip-webpack-plugin');
 
 module.exports = {
   entry: './src/index.tsx',
@@ -41,6 +42,10 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './public/index.html',
       filename: 'robodog.html',
+    }),
+    new ZipPlugin({
+      filename: 'robodog.zip',
+      path: path.resolve(__dirname, 'dist')
     }),
   ],
   devServer: {
