@@ -119,30 +119,36 @@ function Console() {
         switch (cmd) {
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
-            setMaxChars(10000);
-            message = `Switching to GPT-3: gpt-3.5-turbo-16k`;
+            setMaxChars(20000);
+            message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
             break;
           case '/gpt-3.5-turbo-1106':
             model = 'gpt-3.5-turbo-1106';
             setMaxChars(10000);
-            message = `Switching to GPT-3: gpt-3.5-turbo-1106`;
+            message = `Switching to GPT-3.5: gpt-3.5-turbo-1106`;
             break;
           case '/gpt-3.5-turbo':
             model = 'gpt-3.5-turbo';
             setMaxChars(10000);
-            message = `Switching to GPT-3: gpt-3.5-turbo`;
+            message = `Switching to GPT-3.5: gpt-3.5-turbo`;
             break;
           case '/gpt-4':
             model = 'gpt-4';
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4`;
             break;
+          case '/gpt-4':
+            model = 'gpt-4';
+            setMaxChars(20000);
+            message = `Switching to GPT-4: gpt-4-1106-preview`;
+            break;
           case '/help':
-            message = 'Available commands: </br>' +
-            ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model.' +
-            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model.' +
-            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model.' +
-            ' /gpt-4 - switch to gpt-4 model.' +
+            message = 'Available commands: ' +
+            ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).' +
+            ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).' +
+            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).' +
+            ' /gpt-4 - switch to gpt-4 model (8,192 tokens).' +
+            ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).' +
             ' /help - get help.' +
             ' /reset - Reset your API key';
 

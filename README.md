@@ -34,8 +34,11 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
 
 # Commands
 
-* /gpt3 - switch to GPT 3.5 turbo model.
-* /gpt4 - switch to latest GPT 4 model.
-* /help - get help
+* /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).
+* /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).
+* /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).
+* /gpt-4 - switch to gpt-4 model (8,192 tokens).
+* /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
+* /help - get help.
 * /reset - Reset your API key
 
