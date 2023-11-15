@@ -25,7 +25,6 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-// Utility function to send a message to OpenAI
 async function sendMessageToOpenAI(text, model, context, knowledge) {
   const messages = [
     { role: 'assistant', content: 'context:' + context },
@@ -34,12 +33,17 @@ async function sendMessageToOpenAI(text, model, context, knowledge) {
     // Include knowledge as a message
   ];
 
-  const response = await openai.chat.completions.create({
-    model: model,
-    messages: messages,
-  });
+  try {
+    const response = await openai.chat.completions.create({
+      model: model,
+      messages: messages,
+    });
 
-  return response;
+    return response;
+  } catch (error) {
+    console.error("Error sending message to OpenAI: ", error);
+    return null; // return null if there's an error
+  }
 }
 
 // Function to generate a message with a timestamp
@@ -50,14 +54,14 @@ function getMessageWithTimestamp(command, role) {
 }
 
 var model = 'gpt-3.5-turbo-1106';
-
+var maxChars = 9000;
 function Console() {
   const [inputText, setInputText] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
   const [knowledge, setKnowledge] = useState(''); // State for knowledge input
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
-  const maxChars = 9000;
+  
 
   const totalChars = context.length + inputText.length + knowledge.length; // Include knowledge length
   const remainingChars = maxChars - totalChars;
@@ -97,6 +101,7 @@ function Console() {
       switch (cmd) {
         case '/gpt3':
           model = 'gpt-3.5-turbo-1106';
+          maxChars = useState(9000); 
           const switchMessageGPT3 = `Switching to GPT-3: ${command}`;
           console.log(switchMessageGPT3);
           setContent([
@@ -107,6 +112,7 @@ function Console() {
           break;
         case '/gpt4':
           model = 'gpt-4';
+          maxChars = useState(1800); 
           const switchMessageGPT4 = `Switching to GPT-4: ${command}`;
           console.log(switchMessageGPT4);
           setContent([
@@ -114,6 +120,21 @@ function Console() {
             getMessageWithTimestamp(command, 'user'),
             getMessageWithTimestamp(switchMessageGPT4, 'assistant'),
           ]);
+          break;
+        case '/help':
+          setContent([
+            ...content,
+            getMessageWithTimestamp(command, 'user'),
+            'Available commands:',
+            '* /gpt3 - switch to GPT 3.5 turbo model.',
+            '* /gpt4 - switch to latest GPT 4 model.',
+            '* /help - get help',
+            '* /reset - Reset your API key',
+          ]);
+          break;
+        case '/reset':
+          localStorage.removeItem('openaiAPIKey');
+          window.location.reload(); // Reload the app to prompt the user for API key again
           break;
         default:
           model = 'gpt-3.5-turbo-1106';
