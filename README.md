@@ -2,7 +2,7 @@
 
 Robot Dog is a web application built using React, TypeScript, and Webpack. It compiles into a single HTML file named `robodog.html`.
 
-![Robot Dog Screenshot](screenshot.jpg)
+![Robot Dog Screenshot](screenshot.png)
 
 * npm install
 * npm install openai
