@@ -90,15 +90,12 @@ body {
   overflow-y: scroll;
 }
 
-/* Style for the input area */
 .input-area {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  /* Align items vertically at the start */
 }
 
-/* Style for the submit button */
 .submit-button {
   background-color: transparent;
   color: white;
@@ -109,15 +106,15 @@ body {
   cursor: pointer;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 480px) {
   .submit-button {
-    font-size: 30px;
+    font-size: 60px;
 
     .input-textarea,
     .context-textarea,
     .knowledge-textarea,
     .question-textarea {
-      font-size: 16px;
+      font-size: 40px;
     }
   }
 }
