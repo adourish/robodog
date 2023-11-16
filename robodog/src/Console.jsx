@@ -215,7 +215,7 @@ function Console() {
             message = `Switching to GPT-4: gpt-4-1106-preview`;
             break;
           case '/help':
-            message = 'Available commands: ' +
+            message = 'Commands: ' +
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).' +
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).' +
               ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).' +
@@ -225,8 +225,15 @@ function Console() {
               ' /clear - clear text boxes.' +
               ' /rest - switch to rest completions.' +
               ' /stream - BROKEN switch to stream completions.' +
-              ' /reset - Reset your API key.';
-
+              ' /reset - Reset your API key.' + 
+              ' Indicators: ' +
+              ' [3432/9000] - estimated remaining context' +
+              ' [rest] - rest completion mode' +
+              ' [stream] - stream completion mode.' +
+              ' [486+929=1415] - token usage.' +
+              ' [🦥] - ready.' +
+              ' [🦧] - thinking.' +
+              ' [gpt-3.5-turbo-1106] - GPT model.';
             break;
           case '/reset':
             localStorage.removeItem('openaiAPIKey');
@@ -268,7 +275,7 @@ function Console() {
         {content.map((text, index) => (
           <pre key={index}>{text}</pre>
         ))}
-        {isLoading && <pre>⏳</pre>}
+        {isLoading && <pre>🦧</pre>}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
