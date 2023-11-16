@@ -17,23 +17,6 @@ body {
   max-width: 100%;
 }
 
-@media screen and (max-width: 767px) {
-  .console-content {
-    padding-right: 10px;
-  }
-
-  .input-form {
-    margin-top: 5px;
-  }
-
-  .input-textarea,
-  .context-textarea,
-  .knowledge-textarea,
-  .question-textarea {
-    font-size: 16px;
-  }
-}
-
 .console-content {
   flex: 1;
   overflow-y: auto;
@@ -63,7 +46,6 @@ body {
   align-items: stretch;
   margin-top: 10px;
 }
-
 
 .input-textarea,
 .context-textarea {
@@ -106,15 +88,36 @@ body {
   cursor: pointer;
 }
 
-@media screen and (max-width: 480px) {
-  .submit-button {
-    font-size: 60px;
+@media screen and (max-width: 767px) {
 
-    .input-textarea,
-    .context-textarea,
-    .knowledge-textarea,
-    .question-textarea {
-      font-size: 40px;
-    }
+  .console-content {
+    padding-right: 10px;
   }
+
+  .input-form {
+    margin-top: 5px;
+  }
+
+  .input-textarea,
+  .context-textarea,
+  .knowledge-textarea,
+  .question-textarea {
+    font-size: 16px;
+  }
+}
+
+
+@media screen and (max-width: 480px) {
+  
+  .submit-button {
+    font-size: 100px;
+  }
+
+  .input-textarea,
+  .context-textarea,
+  .knowledge-textarea,
+  .question-textarea {
+    font-size: 70px;
+  }
+
 }
