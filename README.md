@@ -47,7 +47,6 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
 
 * [Robodog](https://adourish.github.io/robodog/robodog/dist/)
 
-
 # Download
 
 * [Download Robodog](https://github.com/adourish/robodog/tree/main/robodog/dist/robodog.zip)

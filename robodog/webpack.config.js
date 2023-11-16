@@ -43,6 +43,10 @@ module.exports = {
       template: './public/index.html',
       filename: 'robodog.html',
     }),
+    new HtmlWebpackPlugin({
+      template: './public/index.html',
+      filename: 'index.html',
+    }),
     new ZipPlugin({
       filename: 'robodog.zip',
       path: path.resolve(__dirname, 'dist')
