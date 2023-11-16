@@ -14,15 +14,34 @@ body {
   font-family: monospace;
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Make the console full-screen height */
-  overflow: hidden; /* Hide overflow for the console */
+  height: 100vh;
+  overflow: hidden;
+  max-width: 100%; /* Set the maximum width to 100% */
+}
+
+@media screen and (max-width: 767px) {
+  .console-content {
+    padding-right: 10px; /* Adjust padding for better mobile experience */
+  }
+
+  .input-form {
+    margin-top: 5px; /* Adjust margin for the input form on mobile */
+  }
+
+  /* Adjust the textareas for mobile */
+  .input-textarea,
+  .context-textarea,
+  .knowledge-textarea,
+  .question-textarea {
+    font-size: 16px; /* Adjust font size for better readability on mobile */
+  }
 }
 
 /* Style for the console content area */
 .console-content {
   flex: 1;
-  overflow-y: scroll; /* Add a vertical scrollbar for the content */
-  padding-right: 17px; /* Add padding to accommodate the scrollbar width */
+  overflow-y: auto; /* Use auto instead of scroll for better mobile compatibility */
+  padding-right: 17px;
 }
 
 /* Style for the scrollbar */
