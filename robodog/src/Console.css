@@ -57,7 +57,7 @@ body {
 .context-textarea {
   background-color: transparent;
   color: white;
-  border: 1px solid white;
+  border: 0px solid rgb(8, 0, 0);
   padding: 0px;
   margin-bottom: 0px;
   font-family: monospace;
@@ -65,7 +65,7 @@ body {
   resize: vertical;
   overflow: hidden;
   min-height: 60px;
-  text-align: left; /* Left-align the text */
+  text-align: left; 
 }
 
 .input-textarea,
