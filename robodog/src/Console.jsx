@@ -131,6 +131,7 @@ function Console() {
   const [tokens, setTokens] = useState('');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo-1106');
+  const [tooBig, setTooBig] = useState('🐁');
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -151,13 +152,20 @@ function Console() {
 
   const handleCharsChange = (event) => {
     var _remainingChars = 0;
-    if (context != null && inputText != null && knowledge != null) {
+    try {
       var _totalChars = context.length + inputText.length + knowledge.length;
       setTotalChars(_totalChars)
       _remainingChars = maxChars - totalChars;
       setRemainingChars(_remainingChars);
-    }
+      if (_totalChars >= maxChars) {
+        setTooBig('🐘');
+      } else {
+        setTooBig('🐁');
+      }
 
+    } catch (ex) {
+      console.warn(ex);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -165,11 +173,7 @@ function Console() {
     var command = inputText.trim();
     var message = '';
 
-    if (command.length > remainingChars) {
-      _warning = getMessageWithTimestamp(`Your chat + knowledge + context is over the ${maxChars} characters. Good luck to you.`, 'warning')
-      setContent([...content, _warning]);
 
-    }
 
     console.log('submit:', command);
     setIsLoading(true); // Set loading status to true
@@ -237,6 +241,8 @@ function Console() {
               ' [486+929=1415] - token usage.' +
               ' [🦥] - ready.' +
               ' [🦧] - thinking.' +
+              ' [🐘] - Context + knowledge + chat is dangerously large.' +
+              ' [🐁] - Context + knowledge + chat is acceptable.' +
               ' [gpt-3.5-turbo-1106] - GPT model.';
             break;
           case '/reset':
@@ -284,7 +290,7 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
         <div className="char-count">
-          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{model}]
+          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{model}][{tooBig}]
 
         </div>
         <textarea

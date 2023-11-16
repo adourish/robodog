@@ -30,6 +30,7 @@ Robodog is a UI to call openai GPT models and is built using React, TypeScript, 
 * [🦥] - ready
 * [🦧] - thinking
 * [gpt-3.5-turbo-1106] - GPT model
+* [🐘] - Context + knowledge + chat is dangerously large.
 
 
 # Screenshots
