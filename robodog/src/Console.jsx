@@ -43,10 +43,11 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
         messages: messages,
       });
       if (response) {
-
+        var _content = response.choices[0]?.message?.content;
         setContent([
           content,
-          getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
+          getMessageWithTimestamp('', 'assistant'),
+          _content
         ]);
       }
     }
