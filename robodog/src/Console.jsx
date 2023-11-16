@@ -30,13 +30,13 @@ async function sendMessageToOpenAI(text, model, context, knowledge) {
     { role: 'assistant', content: 'knowledge:' + knowledge }, // Include context as a message
     { role: 'user', content: 'chat: ' + text }
   ];
-
+  console.log('sendMessageToOpenAI:', model, context, knowledge, text);
   try {
     const response = await openai.chat.completions.create({
       model: model,
       messages: messages,
     });
-
+    console.log(response);
     return response;
   } catch (error) {
     console.error("Error sending message to OpenAI: ", error);
@@ -117,6 +117,11 @@ function Console() {
         const cmd = commandParts[0];
 
         switch (cmd) {
+          case '/clear':
+            setContext('');
+            setKnowledge('');
+            setContent('');
+            break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
             setMaxChars(20000);
@@ -150,6 +155,7 @@ function Console() {
               ' /gpt-4 - switch to gpt-4 model (8,192 tokens).' +
               ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).' +
               ' /help - get help.' +
+              ' /clear - clear text boxes.' +
               ' /reset - Reset your API key';
 
             break;
@@ -202,7 +208,7 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          {totalChars}/{maxChars} characters remaining
+          {totalChars}/{maxChars} 
         </div>
         <textarea
           value={context}
