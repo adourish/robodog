@@ -137,8 +137,8 @@ function Console() {
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4`;
             break;
-          case '/gpt-4':
-            model = 'gpt-4';
+          case '/gpt-4-1106-preview':
+            model = '/gpt-4-1106-preview';
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4-1106-preview`;
             break;
