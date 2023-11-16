@@ -54,7 +54,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
         messages: [messages],
         stream: true,
       });
-      if (response) {
+      if (stream) {
         setContent([
           content,
           getMessageWithTimestamp(text, 'user'),
@@ -67,7 +67,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
             content,
             temp
           ]);
-          process.stdout.write(chunk.choices[0]?.delta?.content || '');
+
         }
       }
       return;
@@ -235,7 +235,7 @@ function Console() {
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
 
-        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, ...content);
+        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, content);
 
       }
     } catch (ex) {
