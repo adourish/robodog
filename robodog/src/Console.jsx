@@ -30,7 +30,10 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     { role: 'assistant', content: 'knowledge:' + knowledge }, // Include context as a message
     { role: 'user', content: 'chat: ' + text }
   ];
-
+  setContent([
+    content,
+    getMessageWithTimestamp(text, 'user')
+  ]);
   try {
     let response;
 
@@ -43,7 +46,6 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
 
         setContent([
           content,
-          getMessageWithTimestamp(text, 'user'),
           getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
         ]);
       }
@@ -57,7 +59,6 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       if (stream) {
         setContent([
           content,
-          getMessageWithTimestamp(text, 'user'),
           getMessageWithTimestamp('', 'assistant'),
         ]);
         for await (const chunk of stream) {
@@ -76,8 +77,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     console.log(response);
     return response;
   } catch (error) {
-    console.error("Error sending message to OpenAI: ", error);
     throw error;
+    console.error("Error sending message to OpenAI: ", error);
   }
 }
 
@@ -140,8 +141,8 @@ function Console() {
 
   const handleCharsChange = (event) => {
     var _remainingChars = 0;
-    if (context != null && inputText  != null  && knowledge  != null ) {
-      var _totalChars = context.length + inputText.length + knowledge.length; 
+    if (context != null && inputText != null && knowledge != null) {
+      var _totalChars = context.length + inputText.length + knowledge.length;
       setTotalChars(_totalChars)
       _remainingChars = maxChars - totalChars;
       setRemainingChars(_remainingChars);
