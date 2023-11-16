@@ -23,6 +23,10 @@ body {
   padding-right: 17px;
 }
 
+.flex-spacer {
+  flex: 1;
+}
+
 .console-content::-webkit-scrollbar {
   width: 8px;
 }
@@ -106,7 +110,7 @@ body {
   .context-textarea,
   .knowledge-textarea,
   .question-textarea {
-    font-size: 16px;
+    font-size: 14px;
     min-height: 120px;
   }
 }

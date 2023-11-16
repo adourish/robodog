@@ -43,7 +43,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
         messages: messages,
       });
       if (response) {
-        
+
 
         var _content = response.choices[0]?.message?.content;
         setContent([
@@ -128,6 +128,7 @@ function Console() {
   const [knowledge, setKnowledge] = useState(''); // State for knowledge input
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
   const [tokens, setTokens] = useState('');
+  const [thinking, setThinking] = useState('🦥');
 
   const handleInputChange = (event) => {
     const value = event.target.value;
@@ -170,6 +171,7 @@ function Console() {
 
     console.log('submit:', command);
     setIsLoading(true); // Set loading status to true
+    setThinking('🦧');
     try {
       if (command.startsWith('/')) {
         const commandParts = command.split(' ');
@@ -223,7 +225,9 @@ function Console() {
               ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).' +
               ' /help - get help.' +
               ' /clear - clear text boxes.' +
-              ' /reset - Reset your API key';
+              ' /rest - switch to rest completions.' +
+              ' /stream - BROKEN switch to stream completions.' +
+              ' /reset - Reset your API key.';
 
             break;
           case '/reset':
@@ -255,6 +259,7 @@ function Console() {
       ]);
     } finally {
       setIsLoading(false); // Set loading status to false
+      setThinking('🦥');
       setInputText('');
     }
   };
@@ -268,8 +273,10 @@ function Console() {
         {isLoading && <pre>⏳</pre>}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
+        <div className="flex-spacer" />
         <div className="char-count">
-          [{totalChars}/{maxChars}][{completionType}][{tokens}]
+          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}]
+
         </div>
         <textarea
           value={context}
