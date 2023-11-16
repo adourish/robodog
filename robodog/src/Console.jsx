@@ -309,7 +309,7 @@ function Console() {
         <textarea
           value={knowledge}
           onChange={handleKnowledgeChange}
-          placeholder="📎"
+          placeholder="📝"
           className="input-textarea knowledge-textarea"
           aria-label="knowledge"
         ></textarea>
