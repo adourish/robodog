@@ -114,8 +114,6 @@ function getMessageWithTimestamp(command, role) {
   return `${shortTimeString}${roleEmoji}: ${command}`;
 }
 
-var model = 'gpt-3.5-turbo-1106';
-
 function Console() {
 
   const [completionType, setCompletionType] = useState('rest');
@@ -129,7 +127,7 @@ function Console() {
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
   const [tokens, setTokens] = useState('');
   const [thinking, setThinking] = useState('🦥');
-
+  const [model, setModel] = useState('gpt-3.5-turbo-1106');
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -197,22 +195,22 @@ function Console() {
             message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
             break;
           case '/gpt-3.5-turbo-1106':
-            model = 'gpt-3.5-turbo-1106';
+            setModel('gpt-3.5-turbo-1106');
             setMaxChars(10000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo-1106`;
             break;
           case '/gpt-3.5-turbo':
-            model = 'gpt-3.5-turbo';
+            setModel('gpt-3.5-turbo')
             setMaxChars(10000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo`;
             break;
           case '/gpt-4':
-            model = 'gpt-4';
+            setModel('gpt-4');
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4`;
             break;
           case '/gpt-4-1106-preview':
-            model = '/gpt-4-1106-preview';
+            setModel('/gpt-4-1106-preview');
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4-1106-preview`;
             break;
@@ -275,7 +273,7 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
         <div className="char-count">
-          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}]
+          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{model}]
 
         </div>
         <textarea
