@@ -168,10 +168,12 @@ function Console() {
 
         switch (cmd) {
           case '/rest':
-            setCompletionType('rest')
+            setCompletionType('rest');
+            message = `Switching to rest completions`;
             break;
           case '/stream':
-            setCompletionType('stream')
+            setCompletionType('stream');
+            message = `Switching to stream completions`;
             break;
           case '/clear':
             setContext('');
