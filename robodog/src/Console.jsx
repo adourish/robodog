@@ -26,9 +26,9 @@ const openai = new OpenAI({
 
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens) {
   const messages = [
-    { role: 'user', content: 'question history and context:' + context + 'end question history and context.'},
-    { role: 'user', content: 'knowledge:' + knowledge + 'end knowledge.'}, 
-    { role: 'user', content: 'question: ' + text + 'end question.'}
+    { role: 'user', content: 'question history and context:' + context + 'end question history and context.' },
+    { role: 'user', content: 'knowledge:' + knowledge + 'end knowledge.' },
+    { role: 'user', content: 'question: ' + text + 'end question.' }
   ];
   setContent([
     ...content,
@@ -108,8 +108,11 @@ function getMessageWithTimestamp(command, role) {
     case 'error':
       roleEmoji = '💩';
       break;
-    default:
+    case 'warning':
       roleEmoji = '🍄';
+      break;
+    default:
+      roleEmoji = '👾';
   }
   return `${shortTimeString}${roleEmoji}: ${command}`;
 }
@@ -163,8 +166,9 @@ function Console() {
     var message = '';
 
     if (command.length > remainingChars) {
-      setContent([...content, `Input exceeds character limit: ${maxChars} characters allowed.`]);
-      return;
+      _warning = getMessageWithTimestamp(`Your chat + knowledge + context is over the ${maxChars} characters. Good luck to you.`, 'warning')
+      setContent([...content, _warning]);
+
     }
 
     console.log('submit:', command);
@@ -225,7 +229,7 @@ function Console() {
               ' /clear - clear text boxes.' +
               ' /rest - switch to rest completions.' +
               ' /stream - BROKEN switch to stream completions.' +
-              ' /reset - Reset your API key.' + 
+              ' /reset - Reset your API key.' +
               ' Indicators: ' +
               ' [3432/9000] - estimated remaining context' +
               ' [rest] - rest completion mode' +
