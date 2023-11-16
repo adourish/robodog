@@ -1,13 +1,11 @@
 /* Console.css */
 
-/* Reset some default styles and set background color */
 body {
   margin: 0;
   background-color: black;
-  overflow-x: hidden; /* Hide horizontal overflow for the entire page */
+  overflow-x: hidden;
 }
 
-/* Style for the console container */
 .console {
   color: white;
   padding: 0px;
@@ -16,54 +14,49 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  max-width: 100%; /* Set the maximum width to 100% */
+  max-width: 100%;
 }
 
 @media screen and (max-width: 767px) {
   .console-content {
-    padding-right: 10px; /* Adjust padding for better mobile experience */
+    padding-right: 10px;
   }
 
   .input-form {
-    margin-top: 5px; /* Adjust margin for the input form on mobile */
+    margin-top: 5px;
   }
 
-  /* Adjust the textareas for mobile */
   .input-textarea,
   .context-textarea,
   .knowledge-textarea,
   .question-textarea {
-    font-size: 16px; /* Adjust font size for better readability on mobile */
+    font-size: 16px;
   }
 }
 
-/* Style for the console content area */
 .console-content {
   flex: 1;
-  overflow-y: auto; /* Use auto instead of scroll for better mobile compatibility */
+  overflow-y: auto;
   padding-right: 17px;
 }
 
-/* Style for the scrollbar */
 .console-content::-webkit-scrollbar {
-  width: 8px; /* Width of the vertical scrollbar */
+  width: 8px;
 }
 
-/* Style for the scrollbar thumb */
 .console-content::-webkit-scrollbar-thumb {
-  background-color: #333; /* Scrollbar thumb color */
-  border-radius: 4px; /* Rounded corners for the scrollbar thumb */
+  background-color: #333;
+  border-radius: 4px;
 }
 
-/* Style for the text within <pre> elements */
 .console-content pre {
   font-family: monospace;
-  white-space: pre-wrap; /* Allow text to wrap within <pre> elements */
-  margin: 0; /* Remove default margin for <pre> */
-  word-wrap: break-word; /* Add word-wrap for long words */
+  white-space: pre-wrap;
+  margin: 0;
+  word-wrap: break-word;
 }
 
-/* Style for the input form */
+
 .input-form {
   display: flex;
   flex-direction: column;
@@ -71,7 +64,7 @@ body {
   margin-top: 10px;
 }
 
-/* Style for the textareas within the input form */
+
 .input-textarea,
 .context-textarea {
   background-color: transparent;
@@ -84,22 +77,25 @@ body {
   resize: vertical;
   overflow: hidden;
   min-height: 60px;
-  text-align: left; 
+  text-align: left;
 }
 
 .input-textarea,
 .knowledge-textarea {
   overflow-y: scroll;
 }
+
 .input-textarea,
 .content-textarea {
   overflow-y: scroll;
 }
+
 /* Style for the input area */
 .input-area {
   display: flex;
   flex-direction: row;
-  align-items: flex-start; /* Align items vertically at the start */
+  align-items: flex-start;
+  /* Align items vertically at the start */
 }
 
 /* Style for the submit button */
@@ -111,4 +107,17 @@ body {
   font-family: monospace;
   font-size: 30px;
   cursor: pointer;
+}
+
+@media screen and (max-width: 767px) {
+  .submit-button {
+    font-size: 30px;
+
+    .input-textarea,
+    .context-textarea,
+    .knowledge-textarea,
+    .question-textarea {
+      font-size: 16px;
+    }
+  }
 }
