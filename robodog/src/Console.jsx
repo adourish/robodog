@@ -128,7 +128,7 @@ function Console() {
   const [context, setContext] = useState('');
   const [knowledge, setKnowledge] = useState(''); // State for knowledge input
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
-  const [tokens, setTokens] = useState('');
+  const [tokens, setTokens] = useState('0+0=0');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo-1106');
   const [tooBig, setTooBig] = useState('🐁');
