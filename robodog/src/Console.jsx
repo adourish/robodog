@@ -24,7 +24,7 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content) {
+async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens) {
   const messages = [
     { role: 'assistant', content: 'context:' + context },
     { role: 'assistant', content: 'knowledge:' + knowledge }, // Include context as a message
@@ -43,12 +43,16 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
         messages: messages,
       });
       if (response) {
+        
+
         var _content = response.choices[0]?.message?.content;
         setContent([
           content,
           getMessageWithTimestamp('', 'assistant'),
           _content
         ]);
+        var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
+        setTokens(_tokens)
       }
     }
     else if (completionType === 'stream') {
@@ -121,6 +125,7 @@ function Console() {
   const [context, setContext] = useState('');
   const [knowledge, setKnowledge] = useState(''); // State for knowledge input
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
+  const [tokens, setTokens] = useState('');
 
   const handleInputChange = (event) => {
     const value = event.target.value;
@@ -237,7 +242,7 @@ function Console() {
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
 
-        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, content);
+        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, content, setTokens);
 
       }
     } catch (ex) {
@@ -262,7 +267,7 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          [{totalChars}/{maxChars}][{completionType}]
+          [{totalChars}/{maxChars}][{completionType}][{tokens}]
         </div>
         <textarea
           value={context}
