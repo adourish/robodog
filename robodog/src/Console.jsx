@@ -32,6 +32,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge) {
   ];
   console.log('sendMessageToOpenAI:', model, context, knowledge, text);
   try {
+
     const response = await openai.chat.completions.create({
       model: model,
       messages: messages,
@@ -40,6 +41,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge) {
     return response;
   } catch (error) {
     console.error("Error sending message to OpenAI: ", error);
+    throw error;
+  
     return null; // return null if there's an error
   }
 }
@@ -64,7 +67,7 @@ function getMessageWithTimestamp(command, role) {
       roleEmoji = '💩';
       break;
     default:
-      roleEmoji = '';
+      roleEmoji = '🍄';
   }
   return `${shortTimeString}${roleEmoji}: ${command}`;
 }
@@ -164,6 +167,7 @@ function Console() {
             window.location.reload(); // Reload the app to prompt the user for API key again
             break;
           default:
+            message = '🍄';
             console.log('No verbs.');
 
         }
@@ -208,7 +212,7 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          {totalChars}/{maxChars} 
+          {totalChars}/{maxChars}
         </div>
         <textarea
           value={context}
