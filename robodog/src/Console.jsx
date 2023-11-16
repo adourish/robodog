@@ -49,9 +49,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
         setContent([
           ...content,
           getMessageWithTimestamp(text, 'user'),
-          getMessageWithTimestamp('', 'assistant'),
-          _content,
-          ''
+          getMessageWithTimestamp(_content, 'assistant')
+
         ]);
         var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
         setTokens(_tokens)
@@ -296,22 +295,22 @@ function Console() {
         <textarea
           value={context}
           onChange={handleContextChange}
-          placeholder="Context (optional)"
+          placeholder="💭"
           className="input-textarea context-textarea"
-          aria-label="chat context"
+          aria-label="context text"
         ></textarea>
         <textarea
           value={knowledge}
           onChange={handleKnowledgeChange}
-          placeholder="Knowledge (optional)"
+          placeholder="📎"
           className="input-textarea knowledge-textarea"
-          aria-label="chat knowledge"
+          aria-label="knowledge"
         ></textarea>
         <div className="input-area">
           <textarea
             value={inputText}
             onChange={handleInputChange}
-            placeholder="Chat"
+            placeholder="💬"
             className="input-textarea question-textarea"
             aria-label="chat text"
           ></textarea>
