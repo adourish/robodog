@@ -116,17 +116,30 @@ body {
 }
 
 
-@media screen and (max-width: 480px) {
-  
-  .submit-button {
-    font-size: 100px;
+@media only screen and (max-width: 420px) {
+  /* These changes will be applied when screen size is 420px or less */
+
+  .console {
+    padding: 20px; /* Added bit of padding to give some space on the sides */
+  }
+
+  .input-form {
+    flex-direction: column; /* Stack the elements vertically */
   }
 
   .input-textarea,
-  .context-textarea,
-  .knowledge-textarea,
-  .question-textarea {
-    font-size: 70px;
+  .knowledge-textarea {
+    font-size: 16px; /* Increase font size for easier reading */
+    height: 50px; /* Increase the area height to avoid squish */
   }
 
+  .input-area {
+    flex-direction: column; /* Stack the elements vertically */
+  }
+
+  .submit-button {
+    height: 40px; /* Increase size of submit button for easy touch on small screens */
+    font-size: 18px; /* Increase font size for readability */
+    width: 100%; /* Make the button take up the full width */
+  }
 }
