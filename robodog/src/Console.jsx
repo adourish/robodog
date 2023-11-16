@@ -24,26 +24,60 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-async function sendMessageToOpenAI(text, model, context, knowledge) {
+async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content) {
   const messages = [
     { role: 'assistant', content: 'context:' + context },
     { role: 'assistant', content: 'knowledge:' + knowledge }, // Include context as a message
     { role: 'user', content: 'chat: ' + text }
   ];
-  console.log('sendMessageToOpenAI:', model, context, knowledge, text);
-  try {
 
-    const response = await openai.chat.completions.create({
-      model: model,
-      messages: messages,
-    });
+  try {
+    let response;
+
+    if (completionType === 'rest') {
+      response = await openai.chat.completions.create({
+        model: model,
+        messages: messages,
+      });
+      if (response) {
+
+        setContent([
+          content,
+          getMessageWithTimestamp(text, 'user'),
+          getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
+        ]);
+      }
+    }
+    else if (completionType === 'stream') {
+      const stream = await openai.chat.completions.create({
+        model: model,
+        messages: [messages],
+        stream: true,
+      });
+      if (response) {
+        setContent([
+          content,
+          getMessageWithTimestamp(text, 'user'),
+          getMessageWithTimestamp('', 'assistant'),
+        ]);
+        for await (const chunk of stream) {
+          var temp = chunk.choices[0]?.delta?.content || '';
+          console.log(temp);
+          setContent([
+            content,
+            temp
+          ]);
+          process.stdout.write(chunk.choices[0]?.delta?.content || '');
+        }
+      }
+      return;
+    }
+
     console.log(response);
     return response;
   } catch (error) {
     console.error("Error sending message to OpenAI: ", error);
     throw error;
-  
-    return null; 
   }
 }
 
@@ -75,35 +109,49 @@ function getMessageWithTimestamp(command, role) {
 var model = 'gpt-3.5-turbo-1106';
 
 function Console() {
+
+  const [completionType, setCompletionType] = useState('rest');
   const [maxChars, setMaxChars] = useState(9000);
+  const [totalChars, setTotalChars] = useState(0);
+  const [remainingChars, setRemainingChars] = useState(0);
   const [inputText, setInputText] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
   const [knowledge, setKnowledge] = useState(''); // State for knowledge input
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
 
-
-  const totalChars = context.length + inputText.length + knowledge.length; // Include knowledge length
-  const remainingChars = maxChars - totalChars;
-
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
+    handleCharsChange(event);
   };
 
   const handleContextChange = (event) => {
     const value = event.target.value;
     setContext(value);
+    handleCharsChange(event);
   };
 
   const handleKnowledgeChange = (event) => {
     const value = event.target.value;
     setKnowledge(value);
+    handleCharsChange(event);
+  };
+
+  const handleCharsChange = (event) => {
+    var _remainingChars = 0;
+    if (context != null && inputText  != null  && knowledge  != null ) {
+      var _totalChars = context.length + inputText.length + knowledge.length; 
+      setTotalChars(_totalChars)
+      _remainingChars = maxChars - totalChars;
+      setRemainingChars(_remainingChars);
+    }
+
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const command = inputText.trim();
+    var command = inputText.trim();
     var message = '';
 
     if (command.length > remainingChars) {
@@ -119,6 +167,12 @@ function Console() {
         const cmd = commandParts[0];
 
         switch (cmd) {
+          case '/rest':
+            setCompletionType('rest')
+            break;
+          case '/stream':
+            setCompletionType('stream')
+            break;
           case '/clear':
             setContext('');
             setKnowledge('');
@@ -163,7 +217,7 @@ function Console() {
             break;
           case '/reset':
             localStorage.removeItem('openaiAPIKey');
-            window.location.reload(); // Reload the app to prompt the user for API key again
+            window.location.reload();
             break;
           default:
             message = '🍄';
@@ -176,18 +230,11 @@ function Console() {
         ]);
       } else {
         console.log('content:', command);
-        const response = await sendMessageToOpenAI(command, model, context, knowledge); // Pass knowledge to the function
-        if (response) {
-          // Append the content of the "Chat" textarea to the "Context" textarea
-          const updatedContext = context ? `${context}\n${command}` : command;
-          setContext(updatedContext);
+        const updatedContext = context ? `${context}\n${command}` : command;
+        setContext(updatedContext);
 
-          setContent([
-            ...content,
-            getMessageWithTimestamp(command, 'user'),
-            getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
-          ]);
-        }
+        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, ...content);
+
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
@@ -211,7 +258,7 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          {totalChars}/{maxChars}
+          [{totalChars}/{maxChars}][{completionType}]
         </div>
         <textarea
           value={context}

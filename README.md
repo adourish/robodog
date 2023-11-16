@@ -6,6 +6,7 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
 
 # Features
 
+* Flexible runtime, install on a laptop, in github pages, your own static file server. 
 * No need to install npm or run a node server
   * The webpack build creates two files
   * It compiles into a single HTML file named `robodog.html` and a single JavaScript bundle `robotdog.bundle.js`.
@@ -43,6 +44,8 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
 * /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
 * /help - get help.
 * /clear - get help.
+* /rest - use rest completions
+* /stream - use stream completions
 * /reset - Reset your API key
 
 # Try
