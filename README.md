@@ -1,8 +1,8 @@
-# robotdog 
+# robodog 
 
 # About
 
-Robot Dog is a UI to call openai GPT models and is built using React, TypeScript, and Webpack. 
+Robodog is a UI to call openai GPT models and is built using React, TypeScript, and Webpack. 
 
 # Features
 
@@ -34,9 +34,9 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
 
 # Screenshots
 
-![Robot Dog Screenshot](screenshot.png)
+![Screenshot](screenshot.png)
 
-![Robot Dog Features](screenshot2.png)
+![Features](screenshot2.png)
 
 # Build
 
