@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
   if (storedAPIKey) {
+
     return storedAPIKey;
   } else {
     const userInput = prompt('Please enter your OpenAI API Key:');
@@ -13,6 +14,7 @@ function getAPIKey() {
       localStorage.setItem('openaiAPIKey', userInput);
       return userInput;
     } else {
+
       alert('API Key is required for this application to work.');
       return '';
     }
@@ -83,6 +85,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     console.log(response);
     return response;
   } catch (error) {
+
     throw error;
     console.error("Error sending message to OpenAI: ", error);
   }
@@ -131,6 +134,7 @@ function Console() {
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo-1106');
   const [tooBig, setTooBig] = useState('🐁');
+  const [message, setMessage] = useState('');
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -194,7 +198,8 @@ function Console() {
           case '/clear':
             setContext('');
             setKnowledge('');
-            setContent('');
+            setContent(['']);
+            setInputText('');
             break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
@@ -250,6 +255,7 @@ function Console() {
             break;
           default:
             message = '🍄';
+            setMessage('no verbs');
             console.log('No verbs.');
 
         }
@@ -267,6 +273,7 @@ function Console() {
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
+      setMessage('error');
       setContent([
         ...content,
         getMessageWithTimestamp(ex, 'error')
@@ -289,7 +296,7 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
         <div className="char-count">
-          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{model}][{tooBig}]
+          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{model}][{tooBig}][{message}]
 
         </div>
         <textarea
