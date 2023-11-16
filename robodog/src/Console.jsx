@@ -144,13 +144,13 @@ function Console() {
             break;
           case '/help':
             message = 'Available commands: ' +
-            ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).' +
-            ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).' +
-            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).' +
-            ' /gpt-4 - switch to gpt-4 model (8,192 tokens).' +
-            ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).' +
-            ' /help - get help.' +
-            ' /reset - Reset your API key';
+              ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).' +
+              ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).' +
+              ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).' +
+              ' /gpt-4 - switch to gpt-4 model (8,192 tokens).' +
+              ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).' +
+              ' /help - get help.' +
+              ' /reset - Reset your API key';
 
             break;
           case '/reset':
@@ -168,16 +168,17 @@ function Console() {
       } else {
         console.log('content:', command);
         const response = await sendMessageToOpenAI(command, model, context, knowledge); // Pass knowledge to the function
+        if (response) {
+          // Append the content of the "Chat" textarea to the "Context" textarea
+          const updatedContext = context ? `${context}\n${command}` : command;
+          setContext(updatedContext);
 
-        // Append the content of the "Chat" textarea to the "Context" textarea
-        const updatedContext = context ? `${context}\n${command}` : command;
-        setContext(updatedContext);
-
-        setContent([
-          ...content,
-          getMessageWithTimestamp(command, 'user'),
-          getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
-        ]);
+          setContent([
+            ...content,
+            getMessageWithTimestamp(command, 'user'),
+            getMessageWithTimestamp(response.choices[0]?.message?.content, 'assistant'),
+          ]);
+        }
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
@@ -212,7 +213,7 @@ function Console() {
         <textarea
           value={knowledge}
           onChange={handleKnowledgeChange}
-          placeholder="Knowledge (optional)" 
+          placeholder="Knowledge (optional)"
           className="input-textarea knowledge-textarea"
         ></textarea>
         <div className="input-area">

@@ -90,5 +90,6 @@ body {
   border: none;
   padding: 0px 0px;
   font-family: monospace;
+  font-size: 30px;
   cursor: pointer;
 }
