@@ -1,58 +1,41 @@
-/* Console.css */
-
-body {
-  margin: 0;
-  background-color: black;
-  overflow-x: hidden;
+.history--container {
+  width: 100%;
+  padding: 20px;
 }
 
-.console {
+.console--container {
   color: white;
-  padding: 0px;
-  font-family: monospace;
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  max-width: 100%;
 }
 
-.console-content {
+.console--content {
   flex: 1;
   overflow-y: auto;
   padding-right: 17px;
 }
 
-.flex-spacer {
+.flex--spacer {
   flex: 1;
 }
 
-.console-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.console-content::-webkit-scrollbar-thumb {
-  background-color: #333;
-  border-radius: 4px;
-}
-
-.console-content pre {
+.console--content pre {
   font-family: monospace;
   white-space: pre-wrap;
   margin: 0;
   word-wrap: break-word;
 }
 
-
-.input-form {
+.input--form {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   margin-top: 10px;
 }
 
-.input-textarea,
-.context-textarea {
+.input--textarea, .context--textarea, .knowledge--textarea, .question--textarea {
   background-color: transparent;
   color: white;
   border: 0px solid rgb(8, 0, 0);
@@ -63,26 +46,16 @@ body {
   resize: vertical;
   overflow: hidden;
   min-height: 60px;
-  text-align: left;
+  font-size: 16px;
 }
 
-.input-textarea,
-.knowledge-textarea {
-  overflow-y: scroll;
-}
-
-.input-textarea,
-.content-textarea {
-  overflow-y: scroll;
-}
-
-.input-area {
+.input--area {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
 }
 
-.submit-button {
+.submit--button {
   background-color: transparent;
   color: white;
   border: none;
@@ -93,40 +66,30 @@ body {
 }
 
 @media screen and (max-width: 767px) {
-
-  .submit-button {
-    font-size: 30px;
+  .submit--button {
+      font-size: 25px;
   }
 
-  .console-content {
-    padding-right: 10px;
+  .console--content {
+      padding-right: 10px;
   }
 
-  .input-form {
-    margin-top: 5px;
+  .input--form {
+      margin-top: 5px;
   }
 
-  .input-textarea,
-  .context-textarea,
-  .knowledge-textarea,
-  .question-textarea {
-    font-size: 14px;
-    min-height: 120px;
+  .input--textarea, .context--textarea, .knowledge--textarea, .question--textarea {
+      font-size: 14px;
+      min-height: 120px;
   }
 }
 
-
 @media screen and (max-width: 480px) {
-  
-  .submit-button {
-    font-size: 100px;
+  .submit--button {
+      font-size: 22px;
   }
 
-  .input-textarea,
-  .context-textarea,
-  .knowledge-textarea,
-  .question-textarea {
-    font-size: 70px;
+  .input--textarea, .context--textarea, .knowledge--textarea, .question--textarea {
+      font-size: 12px;
   }
-
 }

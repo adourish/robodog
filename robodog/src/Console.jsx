@@ -26,9 +26,9 @@ const openai = new OpenAI({
 
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens) {
   const messages = [
-    { role: 'assistant', content: 'context:' + context },
-    { role: 'assistant', content: 'knowledge:' + knowledge }, // Include context as a message
-    { role: 'user', content: 'chat: ' + text }
+    { role: 'user', content: 'question history and context:' + context + 'end question history and context.'},
+    { role: 'user', content: 'knowledge:' + knowledge + 'end knowledge.'}, 
+    { role: 'user', content: 'question: ' + text + 'end question.'}
   ];
   setContent([
     ...content,

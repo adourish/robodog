@@ -21,7 +21,11 @@ Robot Dog is a UI to call openai GPT models and is built using React, TypeScript
   * In the future, you may be able to validate using a different LLM provider.
   * Switch between cheap and expensive models.
 
+# Screenshots
+
 ![Robot Dog Screenshot](screenshot.png)
+
+![Robot Dog Features](screenshot2.png)
 
 # Build
 
