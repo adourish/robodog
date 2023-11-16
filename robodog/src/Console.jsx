@@ -43,7 +43,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge) {
     console.error("Error sending message to OpenAI: ", error);
     throw error;
   
-    return null; // return null if there's an error
+    return null; 
   }
 }
 
@@ -107,7 +107,6 @@ function Console() {
     var message = '';
 
     if (command.length > remainingChars) {
-      // Check if input exceeds character limit and show a message
       setContent([...content, `Input exceeds character limit: ${maxChars} characters allowed.`]);
       return;
     }
