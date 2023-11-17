@@ -92,6 +92,13 @@ body {
   cursor: pointer;
 }
 
+.input-textarea,
+.context-textarea,
+.knowledge-textarea,
+.question-textarea {
+  border-top: 1px solid rgb(166, 4, 4);
+}
+
 @media screen and (max-width: 767px) {
 
   .submit-button {
@@ -115,6 +122,9 @@ body {
   }
 }
 
+div.char-count {
+  color: gray;
+}
 
 @media only screen and (max-width: 420px) {
   /* These changes will be applied when screen size is 420px or less */
