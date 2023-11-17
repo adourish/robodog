@@ -20,6 +20,17 @@ The UI is responsive and will work on a phone. You can use the GitHub pages link
 
 The UX was developed with section [508](https://www.section508.gov/) and [web accessibility](https://www.w3.org/WAI/fundamentals/accessibility-intro/) in mind. All of the actions (e.g., /clear, /gpt-4, /rest /help) can be executed from the chat window without navigating a menu. I have validated the UI using the [Wave tool](https://wave.webaim.org/.), but I have not tested the UX with a screen reader like [Jaws](https://www.freedomscientific.com/products/software/jaws/). I am confident that the UX should work for the /rest mode; the/stream mode will not work. If one single person messages me and has a need for an accessible GPT client, I will play around with the Aria tags and make /stream mode accessible.
 
+# How it works
+
+The chat/question is linked to the chat history and knowledge text areas.  
+```
+ const _messages = [
+    { role: "user", content: "chat history:" + context },
+    { role: "user", content: "knowledge:" + knowledge  },
+    { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question." }
+  ];
+```
+
 # Indicators
 
 - [3432/9000] - estimated remaining context + knowledge + chat
