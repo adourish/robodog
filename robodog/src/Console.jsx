@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
 import './Console.css';
 import OpenAI from 'openai';
+import React, { useRef, useEffect, useState } from 'react';
 
 // Function to get the API key from localStorage or prompt the user
 function getAPIKey() {
@@ -18,6 +18,8 @@ function getAPIKey() {
     }
   }
 }
+
+
 
 const openai = new OpenAI({
   apiKey: getAPIKey(),
@@ -53,8 +55,6 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       }
     }
     else if (completionType === 'stream') {
-
-
       const stream = await openai.chat.completions.create({
         model: model,
         messages: _messages,
@@ -81,6 +81,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
   } catch (error) {
     throw error;
     console.error("Error sending message to OpenAI: ", error);
+  }finally{
+
   }
 }
 
@@ -127,12 +129,17 @@ function Console() {
   const [model, setModel] = useState('gpt-3.5-turbo-1106');
   const [tooBig, setTooBig] = useState('🐁');
   const [message, setMessage] = useState('');
+  const contentRef = useRef(null);
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
     handleCharsChange(event);
   };
-
+  const scrollToBottom = () => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    }
+  }
   const handleContextChange = (event) => {
     const value = event.target.value;
     setContext(value);
@@ -275,12 +282,13 @@ function Console() {
       setIsLoading(false); // Set loading status to false
       setThinking('🦥');
       setInputText('');
+      scrollToBottom();
     }
   };
 
   return (
     <div className="console">
-      <div className="console-content">
+      <div ref={contentRef} className="console-content">
         {content.map((text, index) => (
           <pre key={index}>{text}</pre>
         ))}
