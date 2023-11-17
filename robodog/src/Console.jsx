@@ -63,6 +63,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       if (stream) {
 
         for await (const chunk of stream) {
+          var _d = chunk.choices[0]?.delta;
           var _temp = chunk.choices[0]?.delta?.content || '';     
           _c = _c + _temp;
           setContent([
@@ -280,9 +281,9 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
         <div className="char-count">
-          ______________________________________________________________________________________________________
-          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{model}][{tooBig}][{message}]
-
+          
+          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{tooBig}][{message}]
+          ____________________________________________________________________________________________________
         </div>
         <textarea
           value={context}

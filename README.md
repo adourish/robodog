@@ -2,35 +2,26 @@
 
 # About
 
-Robodog AI is a UI to call openai GPT models and is built using React, TypeScript, and Webpack. 
+Robodog AI assistant is a lightweight and portable UI that utilizes OpenAI GPT models and is built with React, TypeScript, and Webpack. It does not require a backend server, as it primarily relies on OpenAI for its functionality.
 
 # Features
 
-* Flexible runtime, install on a laptop, in github pages, your own static file server. 
-* No need to install npm or run a node server
-  * The webpack build creates two files
-  * It compiles into a single HTML file named `robodog.html` and a single JavaScript bundle `robotdog.bundle.js`.
-  * You do not need to install npm to run the tool.
-  * A prompt will ask you for your API key. it is stored in local storage.
-* All chat history is added to the ‘chat context’ text box. 
-  * If you have ever had an argument with the GPT AI, you know why this is here. You can add and remove chat context at any time.
-* Add your knowledge. Any code or documents you need to ask the AI about can go here.
-* Add your question.
-* Switch between GPT3.5 and GPT4 models without losing chat context. 
-  * Validate your questions and answers on a different model. 
-  * In the future, you may be able to validate using a different LLM provider.
-  * Switch between cheap and expensive models.
+Robodog AI Assistant provides a flexible runtime, allowing installation on a laptop, Github pages, or a personal static file server without the need to install npm or run a node server. The webpack build effortlessly generates two files, compiling into a single HTML file named `robodog.html` and a JavaScript bundle called `robotdog.bundle.js`. Additionally, the tool does not require npm installation as it simply prompts for the API key, which is stored in local storage.
+
+All chat history is conveniently accumulated in the 'chat context' text box, ensuring seamless continuation of conversations with the GPT AI. The feature allows users to add or remove chat contexts as needed. Users can also incorporate their knowledge, code, or documents for AI assistance and pose questions for optimized interactions.
+
+Furthermore, users can effortlessly switch between GPT3.5 and GPT4 models without losing their chat context, enabling them to validate their questions and answers on a different model. Additionally, the system allows flexibility in choosing between cost-effective and higher-priced models, ensuring diverse options for tailored AI interactions.
 
 # Indicators
 
 * [3432/9000] - estimated remaining context
 * [rest] - rest completion mode
 * [stream] - stream completion mode
-* [486+929=1415] - token usage
 * [🦥] - ready
 * [🦧] - thinking
 * [gpt-3.5-turbo-1106] - GPT model
 * [🐘] - Context + knowledge + chat is dangerously large.
+* [🐁] - Context + knowledge + chat is acceptable.
 
 
 # Screenshots
