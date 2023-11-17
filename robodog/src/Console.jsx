@@ -280,10 +280,8 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
-        <div className="char-count">
-          
-          [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{tooBig}][{message}]
-          ____________________________________________________________________________________________________
+        <div className="char-count">     
+          [{totalChars}/{maxChars}][{completionType}][{thinking}][{tooBig}][{message}]
         </div>
         <textarea
           value={context}
