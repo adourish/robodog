@@ -31,10 +31,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     { role: "user", content: "question: " + text  }
   ];
   var _content = '';
-  setContent([
-    ...content,
-    getMessageWithTimestamp(text, 'user')
-  ]);
+  var _c = '';
+
   try {
     let response;
 
@@ -55,30 +53,27 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       }
     }
     else if (completionType === 'stream') {
-      _content = '';
+
+
       const stream = await openai.chat.completions.create({
         model: model,
         messages: _messages,
         stream: true,
       });
       if (stream) {
-        setContent([
-          ...content,
-          getMessageWithTimestamp('', 'assistant'),
-        ]);
+
         for await (const chunk of stream) {
           var _temp = chunk.choices[0]?.delta?.content || '';     
-          _content = _content + _temp;
+          _c = _c + _temp;
           setContent([
-            content,
-            _content
+            ...content,
+            getMessageWithTimestamp(text, 'user'),
+            getMessageWithTimestamp(_c, 'assistant')
           ]);
-        }      
+        }  
+
       }
-      setContent([
-        ...content,
-        getMessageWithTimestamp(_content, 'assistant'),
-      ]);
+
       return;
     }
     return response;
@@ -285,6 +280,7 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
         <div className="char-count">
+          ______________________________________________________________________________________________________
           [{totalChars}/{maxChars}][{completionType}][{tokens}][{thinking}][{model}][{tooBig}][{message}]
 
         </div>
