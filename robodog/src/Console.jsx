@@ -149,13 +149,18 @@ function Console() {
     var _remainingChars = 0;
     try {
       var _totalChars = context.length + inputText.length + knowledge.length;
-      setTotalChars(_totalChars)
+      setTotalChars(_totalChars);
       _remainingChars = maxChars - totalChars;
       setRemainingChars(_remainingChars);
+  
       if (_totalChars >= maxChars) {
-        setTooBig('🐘');
-      } else {
-        setTooBig('🐁');
+        setTooBig('🐋'); // Dinosaur emoji for the biggest level
+      } else if (_totalChars >= (maxChars * 0.75)) {
+        setTooBig('🦕'); // Bear emoji for the third level
+      } else if (_totalChars >= (maxChars * 0.5)) {
+        setTooBig('🐘'); // Lion emoji for the second level
+      } else if (_totalChars >= (maxChars * 0.25)) {
+        setTooBig('🐁'); // Mouse emoji for the first level
       }
     } catch (ex) {
       console.warn(ex);
@@ -233,8 +238,10 @@ function Console() {
               ' [486+929=1415] - token usage.' +
               ' [🦥] - ready.' +
               ' [🦧] - thinking.' +
-              ' [🐘] - Context + knowledge + chat is dangerously large.' +
-              ' [🐁] - Context + knowledge + chat is acceptable.' +
+              ' [🐋] - context + knowledge + chat is dangerously large.' +
+              ' [🦕] - context + knowledge + chat is very large.' +
+              ' [🐘] - context + knowledge + chat is large.' +
+              ' [🐁] - context + knowledge + chat is acceptable.' +
               ' [gpt-3.5-turbo-1106] - GPT model.';
             break;
           case '/reset':
@@ -288,14 +295,14 @@ function Console() {
           onChange={handleContextChange}
           placeholder="💭"
           className="input-textarea context-textarea"
-          aria-label="context text"
+          aria-label="chat history"
         ></textarea>
         <textarea
           value={knowledge}
           onChange={handleKnowledgeChange}
           placeholder="📝"
           className="input-textarea knowledge-textarea"
-          aria-label="knowledge"
+          aria-label="knowledge content"
         ></textarea>
         <div className="input-area">
           <textarea
