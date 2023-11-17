@@ -19,8 +19,6 @@ function getAPIKey() {
   }
 }
 
-
-
 const openai = new OpenAI({
   apiKey: getAPIKey(),
   dangerouslyAllowBrowser: true,
@@ -244,18 +242,21 @@ function Console() {
             setContext('');
             setKnowledge('');
             setInputText('');
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/rest':
             setCompletionType('rest');
             message = `Switching to rest completions`;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/stream':
             setCompletionType('stream');
             message = `Switching to stream completions`;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/list':
             message = 'Stashed items: ' + stashList();
-
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/stash':
             stash(verb, context, knowledge, inputText);
@@ -278,74 +279,81 @@ function Console() {
               }
             }
             message = 'Popped 💬📝💭 for ' + verb;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
             setMaxChars(20000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-3.5-turbo-1106':
             setModel('gpt-3.5-turbo-1106');
             setMaxChars(10000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo-1106`;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-3.5-turbo':
             setModel('gpt-3.5-turbo')
             setMaxChars(10000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo`;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-4':
             setModel('gpt-4');
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4`;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-4-1106-preview':
             setModel('/gpt-4-1106-preview');
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4-1106-preview`;
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/help':
-            message = 'Commands: ' +
-              ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).' +
-              ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).' +
-              ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).' +
-              ' /gpt-4 - switch to gpt-4 model (8,192 tokens).' +
-              ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).' +
-              ' /help - get help.' +
-              ' /clear - clear text boxes.' +
-              ' /rest - switch to rest completions.' +
-              ' /stream - BROKEN switch to stream completions.' +
-              ' /reset - Reset your API key.' +
-              ' /stash <name> - stash your questions and knowledge.' +
-              ' /pop <name> - pop your questions and knowledge.' +
-              ' /list - list of popped your questions and knowledge.' +
-              ' Indicators: ' +
-              ' [3432/9000] - estimated remaining context' +
-              ' [rest] - rest completion mode' +
-              ' [stream] - stream completion mode.' +
-              ' [486+929=1415] - token usage.' +
-              ' [🦥] - ready.' +
-              ' [🦧] - thinking.' +
-              ' [🐋] - context + knowledge + chat is dangerously large.' +
-              ' [🦕] - context + knowledge + chat is very large.' +
-              ' [🐘] - context + knowledge + chat is large.' +
-              ' [🐁] - context + knowledge + chat is acceptable.' +
-              ' [gpt-3.5-turbo-1106] - GPT model.';
+            var _l = [...content,
+              'Commands: ',
+              ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
+              ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
+              ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
+              ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
+              ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
+              ' /help - get help.',
+              ' /clear - clear text boxes.',
+              ' /rest - switch to rest completions.',
+              ' /stream - BROKEN switch to stream completions.',
+              ' /reset - Reset your API key.',
+              ' /stash <name> - stash your questions and knowledge.',
+              ' /pop <name> - pop your questions and knowledge.',
+              ' /list - list of popped your questions and knowledge.',
+              ' Indicators: ',
+              ' [3432/9000] - estimated remaining context',
+              ' [rest] - rest completion mode',
+              ' [stream] - stream completion mode.',
+            ' [486+929=1415] - token usage.' +
+            ' [🦥] - ready.',
+              ' [🦧] - thinking.',
+              ' [🐋] - context + knowledge + chat is dangerously large.',
+              ' [🦕] - context + knowledge + chat is very large.',
+              ' [🐘] - context + knowledge + chat is large.',
+              ' [🐁] - context + knowledge + chat is acceptable.',
+              ' [gpt-3.5-turbo-1106] - GPT model.'];
+            setContent(_l);
             break;
           case '/reset':
             localStorage.removeItem('openaiAPIKey');
             window.location.reload();
+            setContent([...content, getMessageWithTimestamp('reset', 'system')]);
             break;
           default:
             message = '🍄';
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
             setMessage('no verbs');
             console.log('No verbs.');
 
         }
-        setContent([
-          ...content,
-          getMessageWithTimestamp(message, 'system')
-        ]);
+
       } else {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
