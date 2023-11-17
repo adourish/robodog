@@ -258,6 +258,11 @@ function Console() {
             message = 'Stashed items: ' + stashList();
             setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
+            case '/model':
+              setModel(verb);
+              message = 'Model is set to ' + verb;
+              setContent([...content, getMessageWithTimestamp(message, 'system')]);
+              break;
           case '/stash':
             stash(verb, context, knowledge, inputText);
             message = 'Stashed 💬📝💭 for ' + verb;
@@ -319,6 +324,7 @@ function Console() {
               ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
               ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
               ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
+              ' /model <name> - set to a specific model.',
               ' /help - get help.',
               ' /clear - clear text boxes.',
               ' /rest - switch to rest completions.',

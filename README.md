@@ -37,7 +37,7 @@ The chat/question is linked to the chat history and knowledge text areas.
 
 # Indicators
 
-Indicators help 
+Use the char, rest, stream, status sloth/ape indicators to streamline your experience. 
 
 - [3432/9000] - estimated remaining context + knowledge + chat
 - [rest] - rest completion mode
@@ -82,6 +82,7 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).
 -   /gpt-4 - switch to gpt-4 model (8,192 tokens).
 -   /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
+-   /model <name> - set to a specific model.
 -   /help - get help.
 -   /clear - clear 💬📝💭.
 -   /rest - use rest completions.
