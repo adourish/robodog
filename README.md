@@ -49,7 +49,7 @@ The UX was developed with section [508](https://www.section508.gov/) and [web ac
 
 # Commands
 
--   /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).
+-   /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens)(default).
 -   /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).
 -   /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).
 -   /gpt-4 - switch to gpt-4 model (8,192 tokens).
@@ -57,7 +57,7 @@ The UX was developed with section [508](https://www.section508.gov/) and [web ac
 -   /help - get help.
 -   /clear - get help.
 -   /rest - use rest completions
--   /stream - use stream completions
+-   /stream - use stream completions (default)
 -   /reset - Reset your API key
 
 # Try
