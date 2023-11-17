@@ -37,22 +37,25 @@ The chat/question is linked to the chat history and knowledge text areas.
 
 # Indicators
 
+Indicators help 
+
 - [3432/9000] - estimated remaining context + knowledge + chat
 - [rest] - rest completion mode
 - [stream] - stream completion mode
 - [🦥] - ready
 - [🦧] - thinking
 - [gpt-3.5-turbo-1106] - GPT model
-- [🐋] - context + knowledge + chat is dangerously large.
-- [🦕] - context + knowledge + chat is very large.
-- [🐘] - context + knowledge + chat is large.
-- [🐁] - context + knowledge + chat is acceptable.
+- [🐋] - 💬📝💭 is dangerously large. Good luck to you.
+- [🦕] - 💬📝💭 is very large.
+- [🐘] - 💬📝💭 is large.
+- [🐁] - 💬📝💭 is acceptable.
 
 ![Features](screenshot2.png)
 
-# Screenshots
 
 ## Stash, pop, and list
+
+Switch chat contexts using the stash, pop, and list commands.
 
 -   /stash <name> - stash 💬📝💭.
 -   /pop <name> - pop 💬📝💭.
