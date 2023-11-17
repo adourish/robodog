@@ -12,9 +12,13 @@ All chat history is conveniently accumulated in the 'chat context' text box, ens
 
 Furthermore, users can effortlessly switch between GPT3.5 and GPT4 models without losing their chat context, enabling them to validate their questions and answers on a different model. Additionally, the system allows flexibility in choosing between cost-effective and higher-priced models, ensuring diverse options for tailored AI interactions.
 
+![Screenshot](screenshot.png)
+
 # Responsive
 
 The UI is responsive and will work on a phone. You can use the GitHub pages link [Robodog](https://adourish.github.io/robodog/robodog/dist/)
+
+![Mobile](mobile.png)
 
 # Accessibility
 
@@ -44,21 +48,15 @@ The chat/question is linked to the chat history and knowledge text areas.
 - [🐘] - context + knowledge + chat is large.
 - [🐁] - context + knowledge + chat is acceptable.
 
-# Screenshots
-
-## Features
-
-![Screenshot](screenshot.png)
-
-## Indicators
-
 ![Features](screenshot2.png)
 
-## Mobile
-
-![Mobile](mobile.png)
+# Screenshots
 
 ## Stash, pop, and list
+
+-   /stash <name> - stash 💬📝💭.
+-   /pop <name> - pop 💬📝💭.
+-   /list - list of stashed 💬📝💭.
 
 ![Mobile](stash.png)
 
