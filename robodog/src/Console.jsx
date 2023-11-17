@@ -29,8 +29,8 @@ const openai = new OpenAI({
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
-    { role: "user", content: "my knowledge:" + knowledge  },
-    { role: "user", content: "question: " + text  }
+    { role: "user", content: "knowledge:" + knowledge  },
+    { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question." }
   ];
   var _content = '';
   var _c = '';
@@ -294,7 +294,6 @@ function Console() {
         ))}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
-        <div className="flex-spacer" />
         <div className="char-count">     
           [{totalChars}/{maxChars}][{completionType}][{thinking}][{tooBig}][{message}]
         </div>

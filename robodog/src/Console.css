@@ -125,6 +125,10 @@ div.char-count {
     font-size: 14px;
     min-height: 120px;
   }
+
+  .char-count {
+    font-size: 16px; 
+  }
 }
 
 
@@ -134,23 +138,30 @@ div.char-count {
     font-size: 26px;
   }
 
-  .input-form {
-    flex-direction: column;
-  }
-
   .input-textarea,
   .knowledge-textarea {
     font-size: 26px;
     height: 50px;
   }
 
-  .input-area {
-    flex-direction: column; 
-  }
-
   .submit-button {
     height: 100px; 
     font-size: 48px; 
     width: 100%; 
+  }
+
+  .input-form {
+    flex-direction: column;
+  }
+  
+  .input-textarea,
+  .knowledge-textarea,
+  .question-textarea {
+    font-size: 26px;
+    min-height: 120px;
+  }
+
+  .char-count {
+    font-size: 22px; 
   }
 }
