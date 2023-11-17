@@ -50,6 +50,8 @@ The chat/question is linked to the chat history and knowledge text areas.
 
 ![Features](screenshot2.png)
 
+![Mobile](mobile.png)
+
 # Build
 
 -   cd robodog
@@ -70,10 +72,13 @@ The chat/question is linked to the chat history and knowledge text areas.
 -   /gpt-4 - switch to gpt-4 model (8,192 tokens).
 -   /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
 -   /help - get help.
--   /clear - get help.
--   /rest - use rest completions
--   /stream - use stream completions (default)
--   /reset - Reset your API key
+-   /clear - clear 💬📝💭.
+-   /rest - use rest completions.
+-   /stream - use stream completions (default).
+-   /reset - Reset your API key.
+-   /stash <name> - stash 💬📝💭.
+-   /pop <name> - pop 💬📝💭.
+-   /list - list of stashed 💬📝💭.
 
 # Try
 

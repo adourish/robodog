@@ -29,7 +29,7 @@ const openai = new OpenAI({
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
-    { role: "user", content: "knowledge:" + knowledge  },
+    { role: "user", content: "knowledge:" + knowledge },
     { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question." }
   ];
   var _content = '';
@@ -64,14 +64,14 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
 
         for await (const chunk of stream) {
           var _d = chunk.choices[0]?.delta;
-          var _temp = chunk.choices[0]?.delta?.content || '';     
+          var _temp = chunk.choices[0]?.delta?.content || '';
           _c = _c + _temp;
           setContent([
             ...content,
             getMessageWithTimestamp(text, 'user'),
             getMessageWithTimestamp(_c, 'assistant')
           ]);
-        }  
+        }
 
       }
 
@@ -81,9 +81,55 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
   } catch (error) {
     throw error;
     console.error("Error sending message to OpenAI: ", error);
-  }finally{
+  } finally {
 
   }
+}
+
+// Function to save content in local storage
+function stash(key, context, knowledge, question) {
+  const stashKey = "stash-" + key;
+  const content = {
+    context: context,
+    key: key,
+    knowledge: knowledge,
+    question: question,
+    timestamp: new Date().toISOString()
+  };
+
+  localStorage.setItem(stashKey, JSON.stringify(content));
+}
+
+// Function to get the content from local storage
+function pop(key) {
+  const stashKey = "stash-" + key;
+  const content = localStorage.getItem(stashKey);
+
+  if (content) {
+    return JSON.parse(content);
+  } else {
+    return null;
+  }
+}
+
+function stashList() {
+  const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
+  const list = keys.map(key => {
+    const content = localStorage.getItem(key);
+    const parsedContent = JSON.parse(content);
+    return { key: key, timestamp: parsedContent.timestamp };
+  });
+  var csvString = '';
+  if (list) {
+    for (var i = 0; i < list.length; i++) {
+      var _key = list[i].key;
+      csvString += _key.replace('stash-', '');
+      if (i < list.length - 1) {
+        csvString += ',';
+      }
+    }
+  }
+  return csvString;
 }
 
 // Function to generate a message with a timestamp
@@ -159,7 +205,7 @@ function Console() {
       setTotalChars(_totalChars);
       _remainingChars = maxChars - totalChars;
       setRemainingChars(_remainingChars);
-  
+
       if (_totalChars >= maxChars) {
         setTooBig('🐋'); // Dinosaur emoji for the biggest level
       } else if (_totalChars >= (maxChars * 0.75)) {
@@ -185,8 +231,20 @@ function Console() {
       if (command.startsWith('/')) {
         const commandParts = command.split(' ');
         const cmd = commandParts[0];
+        var verb = '';
+        if (commandParts.length > 1) {
+          verb = commandParts[1];
+        } else {
+
+        }
+
 
         switch (cmd) {
+          case '/clear':
+            setContext('');
+            setKnowledge('');
+            setInputText('');
+            break;
           case '/rest':
             setCompletionType('rest');
             message = `Switching to rest completions`;
@@ -195,11 +253,31 @@ function Console() {
             setCompletionType('stream');
             message = `Switching to stream completions`;
             break;
-          case '/clear':
+          case '/list':
+            message = stashList();
+
+            break;
+          case '/stash':
+            stash(verb, context, knowledge, inputText);
+            message = 'Stashed 💬📝💭 for ' + verb;
             setContext('');
             setKnowledge('');
-            setContent(['']);
             setInputText('');
+            break;
+          case '/pop':
+            var _pop = pop(verb);
+            if (_pop) {
+              if (_pop.context) {
+                setContext(_pop.context);
+              }
+              if (_pop.knowledge) {
+                setKnowledge(_pop.knowledge);
+              }
+              if (_pop.question) {
+                setInputText(_pop.question);
+              }
+            }
+            message = 'Popped 💬📝💭 for ' + verb;
             break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
@@ -238,6 +316,9 @@ function Console() {
               ' /rest - switch to rest completions.' +
               ' /stream - BROKEN switch to stream completions.' +
               ' /reset - Reset your API key.' +
+              ' /stash <name> - stash your questions and knowledge.' +
+              ' /pop <name> - pop your questions and knowledge.' +
+              ' /list - list of popped your questions and knowledge.' +
               ' Indicators: ' +
               ' [3432/9000] - estimated remaining context' +
               ' [rest] - rest completion mode' +
@@ -294,7 +375,7 @@ function Console() {
         ))}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
-        <div className="char-count">     
+        <div className="char-count">
           [{totalChars}/{maxChars}][{completionType}][{thinking}][{tooBig}][{message}]
         </div>
         <textarea
