@@ -104,7 +104,7 @@ div.char-count {
 }
 
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 1200px) {
 
   .submit-button {
     font-size: 30px;
@@ -132,22 +132,14 @@ div.char-count {
 }
 
 
-@media only screen and (max-width: 420px) {
+@media only screen and (max-width: 650px) {
   .console {
-    padding: 20px; 
     font-size: 26px;
   }
 
-  .input-textarea,
-  .knowledge-textarea {
-    font-size: 26px;
-    height: 50px;
-  }
-
-  .submit-button {
+   .submit-button {
     height: 100px; 
-    font-size: 100px; 
-    width: 100%; 
+    font-size: 80px; 
   }
 
   .input-form {
@@ -157,8 +149,15 @@ div.char-count {
   .input-textarea,
   .knowledge-textarea,
   .question-textarea {
-    font-size: 36px;
-    min-height: 120px;
+    height: 30px;
+    font-size: 26px;
+    min-height: 30px;
+  }
+
+  .question-textarea {
+    height: 100px;
+    font-size: 26px;
+    min-height: 30px;
   }
 
   .char-count {
