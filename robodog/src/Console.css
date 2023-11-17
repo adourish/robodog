@@ -131,6 +131,7 @@ div.char-count {
 @media only screen and (max-width: 420px) {
   .console {
     padding: 20px; 
+    font-size: 26px;
   }
 
   .input-form {
