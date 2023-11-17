@@ -6,7 +6,6 @@ import OpenAI from 'openai';
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
   if (storedAPIKey) {
-
     return storedAPIKey;
   } else {
     const userInput = prompt('Please enter your OpenAI API Key:');
@@ -14,7 +13,6 @@ function getAPIKey() {
       localStorage.setItem('openaiAPIKey', userInput);
       return userInput;
     } else {
-
       alert('API Key is required for this application to work.');
       return '';
     }
@@ -27,11 +25,12 @@ const openai = new OpenAI({
 });
 
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens) {
-  const messages = [
-    { role: 'user', content: 'question history and context:' + context + 'end question history and context.' },
-    { role: 'user', content: 'knowledge:' + knowledge + 'end knowledge.' },
-    { role: 'user', content: 'question: ' + text + 'end question.' }
+  const _messages = [
+    { role: "user", content: "chat history:" + context },
+    { role: "user", content: "my knowledge:" + knowledge  },
+    { role: "user", content: "question: " + text  }
   ];
+  var _content = '';
   setContent([
     ...content,
     getMessageWithTimestamp(text, 'user')
@@ -42,50 +41,48 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     if (completionType === 'rest') {
       response = await openai.chat.completions.create({
         model: model,
-        messages: messages,
+        messages: _messages,
       });
       if (response) {
-
-
-        var _content = response.choices[0]?.message?.content;
+        _content = response.choices[0]?.message?.content;
         setContent([
           ...content,
           getMessageWithTimestamp(text, 'user'),
           getMessageWithTimestamp(_content, 'assistant')
-
         ]);
         var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
         setTokens(_tokens)
       }
     }
     else if (completionType === 'stream') {
+      _content = '';
       const stream = await openai.chat.completions.create({
         model: model,
-        messages: [messages],
+        messages: _messages,
         stream: true,
       });
       if (stream) {
         setContent([
-          content,
+          ...content,
           getMessageWithTimestamp('', 'assistant'),
         ]);
         for await (const chunk of stream) {
-          var temp = chunk.choices[0]?.delta?.content || '';
-          console.log(temp);
+          var _temp = chunk.choices[0]?.delta?.content || '';     
+          _content = _content + _temp;
           setContent([
             content,
-            temp
+            _content
           ]);
-
-        }
+        }      
       }
+      setContent([
+        ...content,
+        getMessageWithTimestamp(_content, 'assistant'),
+      ]);
       return;
     }
-
-    console.log(response);
     return response;
   } catch (error) {
-
     throw error;
     console.error("Error sending message to OpenAI: ", error);
   }
@@ -120,8 +117,7 @@ function getMessageWithTimestamp(command, role) {
 }
 
 function Console() {
-
-  const [completionType, setCompletionType] = useState('rest');
+  const [completionType, setCompletionType] = useState('stream');
   const [maxChars, setMaxChars] = useState(9000);
   const [totalChars, setTotalChars] = useState(0);
   const [remainingChars, setRemainingChars] = useState(0);
@@ -165,7 +161,6 @@ function Console() {
       } else {
         setTooBig('🐁');
       }
-
     } catch (ex) {
       console.warn(ex);
     }
@@ -175,9 +170,6 @@ function Console() {
     event.preventDefault();
     var command = inputText.trim();
     var message = '';
-
-
-
     console.log('submit:', command);
     setIsLoading(true); // Set loading status to true
     setThinking('🦧');
@@ -267,9 +259,7 @@ function Console() {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
-
         const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, content, setTokens);
-
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
@@ -291,7 +281,6 @@ function Console() {
         {content.map((text, index) => (
           <pre key={index}>{text}</pre>
         ))}
-        {isLoading && <pre>🦧</pre>}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="flex-spacer" />
