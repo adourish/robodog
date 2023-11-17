@@ -254,7 +254,7 @@ function Console() {
             message = `Switching to stream completions`;
             break;
           case '/list':
-            message = stashList();
+            message = 'Stashed items: ' + stashList();
 
             break;
           case '/stash':

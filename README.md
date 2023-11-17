@@ -46,11 +46,21 @@ The chat/question is linked to the chat history and knowledge text areas.
 
 # Screenshots
 
+## Features
+
 ![Screenshot](screenshot.png)
+
+## Indicators
 
 ![Features](screenshot2.png)
 
+## Mobile
+
 ![Mobile](mobile.png)
+
+## Stash, pop, and list
+
+![Mobile](stash.png)
 
 # Build
 
