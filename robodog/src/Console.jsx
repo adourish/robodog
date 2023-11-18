@@ -51,7 +51,8 @@ async function sendMessageToOpenAI(text,
   max_tokens,
   top_p,
   frequency_penalty,
-  presence_penalty) {
+  presence_penalty,
+  scrollToBottom) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
@@ -112,6 +113,7 @@ async function sendMessageToOpenAI(text,
             getMessageWithTimestamp(_c, 'assistant')
           ]);
         }
+        scrollToBottom();
 
       }
 
@@ -239,7 +241,7 @@ function Console() {
   const [isLoading, setIsLoading] = useState(false); // State to track loading status
   const [tokens, setTokens] = useState('0+0=0');
   const [thinking, setThinking] = useState('🦥');
-  const [model, setModel] = useState('gpt-3.5-turbo-1106');
+  const [model, setModel] = useState('gpt-3.5-turbo');
   const [tooBig, setTooBig] = useState('🐁');
   const [message, setMessage] = useState('');
   const contentRef = useRef(null);
@@ -536,7 +538,8 @@ function Console() {
           max_tokens,
           top_p,
           frequency_penalty,
-          presence_penalty);
+          presence_penalty,
+          scrollToBottom);
 
       }
 
