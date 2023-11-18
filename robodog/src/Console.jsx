@@ -394,7 +394,7 @@ function Console() {
             setContent([...content, getMessageWithTimestamp(message, 'event')]);
             break;
           case '/pop':
-            var _pop = pop(verb);
+            var _pop = pop(_command.verb);
             if (_pop) {
               if (_pop.context) {
                 setContext(_pop.context);
@@ -406,7 +406,7 @@ function Console() {
                 setInputText(_pop.question);
               }
             }
-            message = 'Popped 💬📝💭 for ' + verb;
+            message = 'Popped 💬📝💭 for ' + _command.verb;
             setContent([...content, getMessageWithTimestamp(message, 'event')]);
             break;
           case '/gpt-3.5-turbo-16k':
@@ -480,12 +480,12 @@ function Console() {
               ' [486+929=1415] - token usage.',
               ' [🦥] - ready.',
               ' [🦧] - thinking.',
-              ' [🐋] - context + knowledge + chat is dangerously large.',
-              ' [🦕] - context + knowledge + chat is very large.',
-              ' [🐘] - context + knowledge + chat is large.',
-              ' [🐁] - context + knowledge + chat is acceptable.',
-              ' [🐘] - context + knowledge + chat is large.',
-              ' [🐁] - context + knowledge + chat is acceptable.',
+              ' [🐋] - 💬📝💭 is dangerously large.',
+              ' [🦕] - 💬📝💭 is very large.',
+              ' [🐘] - 💬📝💭 is large.',
+              ' [🐁] - 💬📝💭 is acceptable.',
+              ' [🐘] - 💬📝💭 is large.',
+              ' [🐁] - 💬📝💭 is acceptable.',
               ' [💭] - Chat History',
               ' [📝] - Knowledge Content',
               ' [💬] - Chat Text',
