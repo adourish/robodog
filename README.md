@@ -118,11 +118,11 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /stash <name> - stash 💬📝💭.
 -   /pop <name> - pop 💬📝💭.
 -   /list - list of stashed 💬📝💭.
--   /temperature 0.7
--   /max_tokens 500
--   /top_p 1
--   /frequency_penalty 0
--   /presence_penalty 0
+-   /temperature 0.7 - If your use case allows for high variability or personalization (such as product recommendations) from user to user, we recommend a temperature of 0.7 or higher. For more static responses, such as answers to FAQs on return policies or shipping rates, adjust it to 0.4. We’ve also found that with a higher temperature metric, the model tends to add 10 to 15 words on top of your word/token limit, so keep that in mind when setting your parameters.
+-   /max_tokens 500 - for short, concise responses (which in our experience is always best), choose a value between 30 and 50, depending on the main use cases of your chatbot.
+-   /top_p 1 - recommend keeping this at 1, adjusting your temperature instead for the best results.
+-   /frequency_penalty 0 - determine how often the same words appear in the chatbot’s response.Keep at 0.
+-   /presence_penalty 0 - determine how often the same words appear in the chatbot’s response. Keep at 0.
 
 # Try
 
