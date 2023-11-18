@@ -340,6 +340,7 @@ function Console() {
           case '/help':
             var _l = [...content,
             getMessageWithTimestamp(message, 'info'),
+            'Version: 1.0.0 ',
               'Commands: ',
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
