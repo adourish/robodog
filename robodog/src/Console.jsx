@@ -37,7 +37,21 @@ function formatJSONToString(jsonObject) {
   }
   return formattedString;
 }
-async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens, temperature, filter) {
+async function sendMessageToOpenAI(text,
+  model,
+  context,
+  knowledge,
+  completionType,
+  setContent,
+  setContext,
+  content,
+  setTokens,
+  temperature,
+  filter,
+  max_tokens,
+  top_p,
+  frequency_penalty,
+  presence_penalty) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
@@ -53,7 +67,11 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       var _p2 = {
         model: model,
         messages: _messages,
-        temperature: temperature
+        temperature: temperature,
+        max_tokens: max_tokens,
+        top_p: top_p,
+        frequency_penalty: frequency_penalty,
+        presence_penalty: presence_penalty
       };
       console.log(_p2);
       response = await openai.chat.completions.create(_p2);
@@ -73,7 +91,12 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
         model: model,
         messages: _messages,
         stream: true,
-        temperature: temperature
+        temperature: temperature,
+        max_tokens: max_tokens,
+        top_p: top_p,
+        frequency_penalty: frequency_penalty,
+        presence_penalty: presence_penalty
+
       }
       console.log(_p);
       const stream = await openai.chat.completions.create(_p);
@@ -222,7 +245,16 @@ function Console() {
   const contentRef = useRef(null);
   const [temperature, setTemperature] = useState(0.7);
   const [filter, setFilter] = useState(false);
+  const [max_tokens, setMax_tokens] = useState(500);
+  const [top_p, setTop_p] = useState(1);
+  const [frequency_penalty, setFrequency_penalty] = useState(0.0);
+  const [presence_penalty, setPresence_penalty] = useState(0.0);
+
+
+  top_p
   temperature
+  frequency_penalty
+  presence_penalty
 
   const handleInputChange = (event) => {
     const value = event.target.value;
@@ -325,6 +357,34 @@ function Console() {
               setContent([...content, getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
             }
             break;
+          case '/max_tokens':
+            if (_command.verb) {
+              var _t = Number(_command.verb);
+              setMax_tokens(_t);
+              setContent([...content, getMessageWithTimestamp("Max tokens: " + verb, 'experiment')]);
+            }
+            break;
+          case '/top_p':
+            if (_command.verb) {
+              var _t = Number(_command.verb);
+              setTop_p(_t);
+              setContent([...content, getMessageWithTimestamp("Top P: " + verb, 'experiment')]);
+            }
+            break;
+          case '/frequency_penalty':
+            if (_command.verb) {
+              var _t = Number(_command.verb);
+              setFrequency_penalty(_t);
+              setContent([...content, getMessageWithTimestamp("Frequency Penalty: " + verb, 'experiment')]);
+            }
+            break;
+          case '/presence_penalty':
+            if (_command.verb) {
+              var _t = Number(_command.verb);
+              setPresence_penalty(_t);
+              setContent([...content, getMessageWithTimestamp("Presence Penalty: " + verb, 'experiment')]);
+            }
+            break;
           case '/stash':
             stash(_command.verb, context, knowledge, inputText);
             message = 'Stashed 💬📝💭 for ' + _command.verb;
@@ -385,6 +445,10 @@ function Console() {
             "build: " + build,
             "model: " + model,
             "temperature: " + temperature,
+            "max_tokens:" + max_tokens,
+            "top_p: " + top_p,
+            "frequency_penalty: " + frequency_penalty,
+            "presence_penalty: " + presence_penalty,
               'commands: ',
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
@@ -401,6 +465,11 @@ function Console() {
               ' /stash <name> - stash your questions and knowledge.',
               ' /pop <name> - pop your questions and knowledge.',
               ' /list - list of popped your questions and knowledge.',
+              ' /temperature <double>.',
+              ' /max_tokens <number>.',
+              ' /top_p <number>.',
+              ' /frequency_penalty <double>.',
+              ' /presence_penalty <double>.',
               ' indicators: ',
               ' [3432/9000] - estimated remaining context',
               ' [rest] - rest completion mode',
@@ -450,8 +519,26 @@ function Console() {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
-        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, content, setTokens, temperature, filter);
+        const response = await sendMessageToOpenAI(command,
+          model,
+          context,
+          knowledge,
+          completionType,
+          setContent,
+          setContext,
+          content,
+          setTokens,
+          temperature,
+          filter,
+          max_tokens,
+          top_p,
+          frequency_penalty,
+          presence_penalty);
+
       }
+
+
+
     } catch (ex) {
       console.error('handleSubmit', ex);
       setMessage('error');
