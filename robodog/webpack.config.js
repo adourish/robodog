@@ -1,7 +1,8 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ZipPlugin = require('zip-webpack-plugin');
-
+const { version } = require('./package.json');
+const buildNumber = Math.floor(Date.now() / 1000);
 module.exports = {
   entry: './src/index.tsx',
   output: {
@@ -42,10 +43,18 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './public/index.html',
       filename: 'robodog.html',
+      templateParameters: {// Use a custom template to replace the version number
+        version,
+        buildNumber
+      }
     }),
     new HtmlWebpackPlugin({
       template: './public/index.html',
       filename: 'index.html',
+      templateParameters: {
+        version,
+        buildNumber
+      }
     }),
     new ZipPlugin({
       filename: 'robodog.zip',

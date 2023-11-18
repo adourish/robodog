@@ -2,6 +2,10 @@ import './Console.css';
 import OpenAI from 'openai';
 import React, { useRef, useEffect, useState } from 'react';
 
+const version = window.version;
+const buildNumber = window.buildNumber;
+const build = version + "-" + buildNumber;
+console.log(build);
 // Function to get the API key from localStorage or prompt the user
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
@@ -28,7 +32,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
-    { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question." }
+    { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question. It is for a project." }
   ];
   var _content = '';
   var _c = '';
@@ -40,6 +44,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       response = await openai.chat.completions.create({
         model: model,
         messages: _messages,
+        temperature: temperature
       });
       if (response) {
         _content = response.choices[0]?.message?.content;
@@ -201,6 +206,10 @@ function Console() {
   const [tooBig, setTooBig] = useState('🐁');
   const [message, setMessage] = useState('');
   const contentRef = useRef(null);
+  const [temperature, setTemperature] = useState(0.7);
+
+  temperature
+
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -283,9 +292,17 @@ function Console() {
             message = 'Model is set to ' + _command.verb;
             setContent([...content, getMessageWithTimestamp(message, 'experiment')]);
             break;
+          //temperature
+          case '/temperature':
+            if (_command.verb) {
+              var _t = Number(_command.verb);
+              setTemperature(_t);
+              setContent([...content, getMessageWithTimestamp("Temperature: "+ verb, 'experiment')]);
+            }
+            break;
           case '/stash':
             stash(_command.verb, context, knowledge, inputText);
-            message = 'Stashed 💬📝💭 for ' + verb;
+            message = 'Stashed 💬📝💭 for ' + _command.verb;
             setContext('');
             setKnowledge('');
             setInputText('');
@@ -340,8 +357,10 @@ function Console() {
           case '/help':
             var _l = [...content,
             getMessageWithTimestamp(message, 'info'),
-            'Version: 1.0.0 ',
-              'Commands: ',
+              "build: " + build,
+              "model: " + model,
+              "temperature: " + temperature,
+              'commands: ',
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
               ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
@@ -357,7 +376,7 @@ function Console() {
               ' /stash <name> - stash your questions and knowledge.',
               ' /pop <name> - pop your questions and knowledge.',
               ' /list - list of popped your questions and knowledge.',
-              ' Indicators: ',
+              ' indicators: ',
               ' [3432/9000] - estimated remaining context',
               ' [rest] - rest completion mode',
               ' [stream] - stream completion mode.',

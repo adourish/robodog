@@ -104,7 +104,7 @@ div.char-count {
 }
 
 
-@media screen and (max-width: 1200px) {
+@media screen and (min-width: 768px) {
 
   .submit-button {
     font-size: 30px;
@@ -132,7 +132,7 @@ div.char-count {
 }
 
 
-@media only screen and (max-width: 650px) {
+@media only screen and (max-width: 768px) {
   .console {
     font-size: 26px;
   }
