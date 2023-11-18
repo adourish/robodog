@@ -50,6 +50,33 @@ Use the char, rest, stream, status sloth/ape indicators to streamline your exper
 - [🐘] - 💬📝💭 is large.
 - [🐁] - 💬📝💭 is acceptable.
 
+# Emoji
+
+Role Emojis:
+- 👾 - User
+- 🤖 - Assistant
+- 💾 - System
+- 👹 - Event
+- 💩 - Error
+- 🍄 - Warning
+- 😹 - Info
+- 💣 - Experiment
+- 🙀 - Default
+
+Status Emojis:
+- 🦥 - Ready
+- 🦧 - Thinking
+- 🐋 - Dangerously large
+- 🦕 - Very large
+- 🐘 - Large
+- 🐁 - Acceptable
+
+Other Emojis:
+- 💭 - Chat History
+- 📝 - Knowledge Content
+- 💬 - Chat Text
+
+
 ![Features](screenshot2.png)
 
 

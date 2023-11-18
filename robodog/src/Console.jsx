@@ -130,6 +130,23 @@ function stashList() {
   return csvString;
 }
 
+function getVerb(command) {
+  var model = { "cmd": "", "verb": "", isCommand: false };
+  const commandParts = command.split(' ');
+  const cmd = commandParts[0];
+  var verb = '';
+  if (commandParts.length > 1) {
+    verb = commandParts[1];
+  } else {
+
+  }
+  if (command.startsWith('/')) {
+    model.isCommand = true;
+  }
+  model.cmd = cmd;
+  model.verb = verb;
+  return model;
+}
 // Function to generate a message with a timestamp
 function getMessageWithTimestamp(command, role) {
   const options = { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
@@ -146,14 +163,24 @@ function getMessageWithTimestamp(command, role) {
     case 'system':
       roleEmoji = '💾';
       break;
+    case 'event':
+      roleEmoji = '👹';
+      break;
     case 'error':
       roleEmoji = '💩';
       break;
     case 'warning':
       roleEmoji = '🍄';
       break;
+    case 'info':
+      roleEmoji = '😹';
+      break;
+    //experiment
+    case 'experiment':
+      roleEmoji = '💣';
+      break;
     default:
-      roleEmoji = '👾';
+      roleEmoji = '🙀';
   }
   return `${shortTimeString}${roleEmoji}: ${command}`;
 }
@@ -218,6 +245,7 @@ function Console() {
     }
   };
 
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     var command = inputText.trim();
@@ -226,23 +254,15 @@ function Console() {
     setIsLoading(true); // Set loading status to true
     setThinking('🦧');
     try {
-      if (command.startsWith('/')) {
-        const commandParts = command.split(' ');
-        const cmd = commandParts[0];
-        var verb = '';
-        if (commandParts.length > 1) {
-          verb = commandParts[1];
-        } else {
+      var _command = getVerb(command);
+      if (_command.isCommand) {
 
-        }
-
-
-        switch (cmd) {
+        switch (_command.cmd) {
           case '/clear':
             setContext('');
             setKnowledge('');
             setInputText('');
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, getMessageWithTimestamp(message, 'warning')]);
             break;
           case '/rest':
             setCompletionType('rest');
@@ -256,19 +276,20 @@ function Console() {
             break;
           case '/list':
             message = 'Stashed items: ' + stashList();
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, getMessageWithTimestamp(message, 'event')]);
             break;
-            case '/model':
-              setModel(verb);
-              message = 'Model is set to ' + verb;
-              setContent([...content, getMessageWithTimestamp(message, 'system')]);
-              break;
+          case '/model':
+            setModel(_command.verb);
+            message = 'Model is set to ' + _command.verb;
+            setContent([...content, getMessageWithTimestamp(message, 'experiment')]);
+            break;
           case '/stash':
-            stash(verb, context, knowledge, inputText);
+            stash(_command.verb, context, knowledge, inputText);
             message = 'Stashed 💬📝💭 for ' + verb;
             setContext('');
             setKnowledge('');
             setInputText('');
+            setContent([...content, getMessageWithTimestamp(message, 'event')]);
             break;
           case '/pop':
             var _pop = pop(verb);
@@ -284,7 +305,7 @@ function Console() {
               }
             }
             message = 'Popped 💬📝💭 for ' + verb;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, getMessageWithTimestamp(message, 'event')]);
             break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
@@ -292,10 +313,10 @@ function Console() {
             message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
             setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
-          case '/gpt-3.5-turbo-1106':
+          case '/gpt-4-1106-preview':
             setModel('gpt-3.5-turbo-1106');
             setMaxChars(10000);
-            message = `Switching to GPT-3.5: gpt-3.5-turbo-1106`;
+            message = `Switching to GPT-4: gpt-4-1106-preview`;
             setContent([...content, getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-3.5-turbo':
@@ -318,12 +339,14 @@ function Console() {
             break;
           case '/help':
             var _l = [...content,
+            getMessageWithTimestamp(message, 'info'),
               'Commands: ',
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
               ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
               ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
               ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
+              ' [gpt-3.5-turbo-1106] - GPT model.',
               ' /model <name> - set to a specific model.',
               ' /help - get help.',
               ' /clear - clear text boxes.',
@@ -337,14 +360,32 @@ function Console() {
               ' [3432/9000] - estimated remaining context',
               ' [rest] - rest completion mode',
               ' [stream] - stream completion mode.',
-            ' [486+929=1415] - token usage.' +
-            ' [🦥] - ready.',
+              ' [486+929=1415] - token usage.',
+              ' [🦥] - ready.',
               ' [🦧] - thinking.',
               ' [🐋] - context + knowledge + chat is dangerously large.',
               ' [🦕] - context + knowledge + chat is very large.',
               ' [🐘] - context + knowledge + chat is large.',
               ' [🐁] - context + knowledge + chat is acceptable.',
-              ' [gpt-3.5-turbo-1106] - GPT model.'];
+              ' [🐘] - context + knowledge + chat is large.',
+              ' [🐁] - context + knowledge + chat is acceptable.',
+              ' [💭] - Chat History',
+              ' [📝] - Knowledge Content',
+              ' [💬] - Chat Text',
+              ' [👾] - User',
+              ' [🤖] - Assistant',
+              ' [💾] - System',
+              ' [👹] - Event',
+              ' [💩] - Error',
+              ' [🍄] - Warning',
+              ' [😹] - Info',
+              ' [💣] - Experiment',
+              ' [🙀] - Default',
+              ' [🦥] - Ready',
+              ' [🦧] - Thinking',
+              ' [🐋] - Dangerously large',
+              ' [🦕] - Very large'
+            ];
             setContent(_l);
             break;
           case '/reset':
