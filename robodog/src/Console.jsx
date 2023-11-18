@@ -442,6 +442,7 @@ function Console() {
           case '/help':
             var _l = [...content,
             getMessageWithTimestamp(message, 'info'),
+            'settings: ',
             "build: " + build,
             "model: " + model,
             "temperature: " + temperature,
@@ -449,6 +450,7 @@ function Console() {
             "top_p: " + top_p,
             "frequency_penalty: " + frequency_penalty,
             "presence_penalty: " + presence_penalty,
+            ' ',
               'commands: ',
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
@@ -470,6 +472,7 @@ function Console() {
               ' /top_p <number>.',
               ' /frequency_penalty <double>.',
               ' /presence_penalty <double>.',
+              ' ',
               ' indicators: ',
               ' [3432/9000] - estimated remaining context',
               ' [rest] - rest completion mode',
