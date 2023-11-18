@@ -1,19 +1,11 @@
 import './Console.css';
-import OpenAI from 'openai';
+
 import React, { useRef, useEffect, useState } from 'react';
 import ConsoleService from './ConsoleService';
 const version = window.version;
 const buildNumber = window.buildNumber;
 const build = version + "-" + buildNumber;
 console.log(build);
-// Function to get the API key from localStorage or prompt the user
-
-
-
-
-
-
-// Function to generate a message with a timestamp
 
 function Console() {
   const [completionType, setCompletionType] = useState('stream');
@@ -37,12 +29,6 @@ function Console() {
   const [top_p, setTop_p] = useState(1);
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
-
-
-  top_p
-  temperature
-  frequency_penalty
-  presence_penalty
 
   const handleInputChange = (event) => {
     const value = event.target.value;
@@ -73,7 +59,6 @@ function Console() {
       setTotalChars(_totalChars);
       _remainingChars = maxChars - totalChars;
       setRemainingChars(_remainingChars);
-
       if (_totalChars >= maxChars) {
         setTooBig('🐋'); // Dinosaur emoji for the biggest level
       } else if (_totalChars >= (maxChars * 0.75)) {
@@ -87,7 +72,6 @@ function Console() {
       console.warn(ex);
     }
   };
-
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -110,7 +94,6 @@ function Console() {
               setFilter(true);
               message = `Set filter false`;
             }
-
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/clear':
@@ -138,7 +121,6 @@ function Console() {
             message = 'Model is set to ' + _command.verb;
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'experiment')]);
             break;
-          //temperature
           case '/temperature':
             if (_command.verb) {
               var _t = Number(_command.verb);
@@ -200,7 +182,7 @@ function Console() {
             break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
-   
+
             setMaxChars(20000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
@@ -219,7 +201,7 @@ function Console() {
             break;
           case '/gpt-4':
             setModel('gpt-4');
-  
+
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4`;
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
@@ -233,7 +215,7 @@ function Console() {
           case '/help':
             var _l = [...content,
             ConsoleService.getMessageWithTimestamp(message, 'info'),
-            'settings: ',
+              'settings: ',
             "build: " + build,
             "model: " + model,
             "temperature: " + temperature,
@@ -241,7 +223,7 @@ function Console() {
             "top_p: " + top_p,
             "frequency_penalty: " + frequency_penalty,
             "presence_penalty: " + presence_penalty,
-            ' ',
+              ' ',
               'commands: ',
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
@@ -331,11 +313,7 @@ function Console() {
           frequency_penalty,
           presence_penalty,
           scrollToBottom);
-
       }
-
-
-
     } catch (ex) {
       console.error('handleSubmit', ex);
       setMessage('error');
