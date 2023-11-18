@@ -118,11 +118,11 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /stash <name> - stash 💬📝💭.
 -   /pop <name> - pop 💬📝💭.
 -   /list - list of stashed 💬📝💭.
--   /temperature <double>
--   /max_tokens <number>
--   /top_p <number>
--   /frequency_penalty <double>
--   /presence_penalty <double>
+-   /temperature 0.7
+-   /max_tokens 500
+-   /top_p 1
+-   /frequency_penalty 0
+-   /presence_penalty 0
 
 # Try
 
