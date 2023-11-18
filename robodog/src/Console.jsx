@@ -462,7 +462,7 @@ function Console() {
               ' /help - get help.',
               ' /clear - clear text boxes.',
               ' /rest - switch to rest completions.',
-              ' /stream - BROKEN switch to stream completions.',
+              ' /stream - switch to stream completions.',
               ' /reset - Reset your API key.',
               ' /stash <name> - stash your questions and knowledge.',
               ' /pop <name> - pop your questions and knowledge.',
