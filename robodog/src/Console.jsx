@@ -28,7 +28,16 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens) {
+function formatJSONToString(jsonObject) {
+  let formattedString = '';
+  for (const key in jsonObject) {
+    if (jsonObject.hasOwnProperty(key)) {
+      formattedString += `${key}: ${JSON.stringify(jsonObject[key])}\n`;
+    }
+  }
+  return formattedString;
+}
+async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, content, setTokens, temperature, filter) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
@@ -41,11 +50,13 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     let response;
 
     if (completionType === 'rest') {
-      response = await openai.chat.completions.create({
+      var _p2 = {
         model: model,
         messages: _messages,
         temperature: temperature
-      });
+      };
+      console.log(_p2);
+      response = await openai.chat.completions.create(_p2);
       if (response) {
         _content = response.choices[0]?.message?.content;
         setContent([
@@ -58,11 +69,14 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       }
     }
     else if (completionType === 'stream') {
-      const stream = await openai.chat.completions.create({
+      var _p = {
         model: model,
         messages: _messages,
         stream: true,
-      });
+        temperature: temperature
+      }
+      console.log(_p);
+      const stream = await openai.chat.completions.create(_p);
       if (stream) {
 
         for await (const chunk of stream) {
@@ -207,7 +221,7 @@ function Console() {
   const [message, setMessage] = useState('');
   const contentRef = useRef(null);
   const [temperature, setTemperature] = useState(0.7);
-
+  const [filter, setFilter] = useState(false);
   temperature
 
   const handleInputChange = (event) => {
@@ -267,6 +281,17 @@ function Console() {
       if (_command.isCommand) {
 
         switch (_command.cmd) {
+          case '/filter':
+            if (filter === true) {
+              setFilter(false);
+              message = `Set filter true`;
+            } else {
+              setFilter(true);
+              message = `Set filter false`;
+            }
+
+            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            break;
           case '/clear':
             setContext('');
             setKnowledge('');
@@ -297,7 +322,7 @@ function Console() {
             if (_command.verb) {
               var _t = Number(_command.verb);
               setTemperature(_t);
-              setContent([...content, getMessageWithTimestamp("Temperature: "+ verb, 'experiment')]);
+              setContent([...content, getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
             }
             break;
           case '/stash':
@@ -357,9 +382,9 @@ function Console() {
           case '/help':
             var _l = [...content,
             getMessageWithTimestamp(message, 'info'),
-              "build: " + build,
-              "model: " + model,
-              "temperature: " + temperature,
+            "build: " + build,
+            "model: " + model,
+            "temperature: " + temperature,
               'commands: ',
               ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
               ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
@@ -425,7 +450,7 @@ function Console() {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
-        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, content, setTokens);
+        const response = await sendMessageToOpenAI(command, model, context, knowledge, completionType, setContent, setContext, content, setTokens, temperature, filter);
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
