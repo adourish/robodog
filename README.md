@@ -2,7 +2,7 @@
 
 # About
 
-Robodog AI assistant is a lightweight and portable UI that utilizes OpenAI GPT models and is built with React, TypeScript, and Webpack. It does not require a backend server, as it primarily relies on OpenAI for its functionality.
+Robodog AI assistant is a lightweight and portable UI that utilizes [OpenAI GPT](https://platform.openai.com/docs/models) models and is built with React, TypeScript, and Webpack. It does not require a backend server, as it primarily relies on OpenAI for its functionality.
 
 # Features
 
