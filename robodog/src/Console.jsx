@@ -44,6 +44,7 @@ async function sendMessageToOpenAI(text,
   completionType,
   setContent,
   setContext,
+  setMessage,
   content,
   setTokens,
   temperature,
@@ -60,7 +61,7 @@ async function sendMessageToOpenAI(text,
   ];
   var _content = '';
   var _c = '';
-
+  var _finish_reason = '';
   try {
     let response;
 
@@ -78,6 +79,8 @@ async function sendMessageToOpenAI(text,
       response = await openai.chat.completions.create(_p2);
       if (response) {
         _content = response.choices[0]?.message?.content;
+        _finish_reason = response.choices[0]?.finish_reason;
+        setMessage(_finish_reason);
         setContent([
           ...content,
           getMessageWithTimestamp(text, 'user'),
@@ -100,7 +103,7 @@ async function sendMessageToOpenAI(text,
 
       }
       console.log(_p);
-      const stream = await openai.chat.completions.create(_p);
+      const stream = await openai.beta.chat.completions.stream(_p);
       if (stream) {
 
         for await (const chunk of stream) {
@@ -113,10 +116,22 @@ async function sendMessageToOpenAI(text,
             getMessageWithTimestamp(_c, 'assistant')
           ]);
         }
-        scrollToBottom();
-
+        
+        const response = await stream.finalChatCompletion();
+        _content = response.choices[0]?.message?.content;
+        _finish_reason = response.choices[0]?.finish_reason;
+        setMessage(_finish_reason);
+        setContent([
+          ...content,
+          getMessageWithTimestamp(text, 'user'),
+          getMessageWithTimestamp(_content, 'assistant')
+        ]);
+        var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
+        setTokens(_tokens)
+        console.log(_tokens);
+        console.log(response);
       }
-
+      
       return;
     }
     return response;
@@ -124,7 +139,7 @@ async function sendMessageToOpenAI(text,
     throw error;
     console.error("Error sending message to OpenAI: ", error);
   } finally {
-
+    scrollToBottom();
   }
 }
 
@@ -310,6 +325,7 @@ function Console() {
     console.log('submit:', command);
     setIsLoading(true); // Set loading status to true
     setThinking('🦧');
+    setMessage('');
     try {
       var _command = getVerb(command);
       if (_command.isCommand) {
@@ -461,6 +477,7 @@ function Console() {
               ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
               ' [gpt-3.5-turbo-1106] - GPT model.',
               ' /model <name> - set to a specific model.',
+              ' ',
               ' /help - get help.',
               ' /clear - clear text boxes.',
               ' /rest - switch to rest completions.',
@@ -531,6 +548,7 @@ function Console() {
           completionType,
           setContent,
           setContext,
+          setMessage,
           content,
           setTokens,
           temperature,
