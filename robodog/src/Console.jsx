@@ -1,248 +1,19 @@
 import './Console.css';
 import OpenAI from 'openai';
 import React, { useRef, useEffect, useState } from 'react';
-
+import ConsoleService from './ConsoleService';
 const version = window.version;
 const buildNumber = window.buildNumber;
 const build = version + "-" + buildNumber;
 console.log(build);
 // Function to get the API key from localStorage or prompt the user
-function getAPIKey() {
-  const storedAPIKey = localStorage.getItem('openaiAPIKey');
-  if (storedAPIKey) {
-    return storedAPIKey;
-  } else {
-    const userInput = prompt('Please enter your OpenAI API Key:');
-    if (userInput) {
-      localStorage.setItem('openaiAPIKey', userInput);
-      return userInput;
-    } else {
-      alert('API Key is required for this application to work.');
-      return '';
-    }
-  }
-}
 
-const openai = new OpenAI({
-  apiKey: getAPIKey(),
-  dangerouslyAllowBrowser: true,
-});
 
-function formatJSONToString(jsonObject) {
-  let formattedString = '';
-  for (const key in jsonObject) {
-    if (jsonObject.hasOwnProperty(key)) {
-      formattedString += `${key}: ${JSON.stringify(jsonObject[key])}\n`;
-    }
-  }
-  return formattedString;
-}
-async function sendMessageToOpenAI(text,
-  model,
-  context,
-  knowledge,
-  completionType,
-  setContent,
-  setContext,
-  setMessage,
-  content,
-  setTokens,
-  temperature,
-  filter,
-  max_tokens,
-  top_p,
-  frequency_penalty,
-  presence_penalty,
-  scrollToBottom) {
-  const _messages = [
-    { role: "user", content: "chat history:" + context },
-    { role: "user", content: "knowledge:" + knowledge },
-    { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question. It is for a project." }
-  ];
-  var _content = '';
-  var _c = '';
-  var _finish_reason = '';
-  try {
-    let response;
 
-    if (completionType === 'rest') {
-      var _p2 = {
-        model: model,
-        messages: _messages,
-        temperature: temperature,
-        max_tokens: max_tokens,
-        top_p: top_p,
-        frequency_penalty: frequency_penalty,
-        presence_penalty: presence_penalty
-      };
-      console.log(_p2);
-      response = await openai.chat.completions.create(_p2);
-      if (response) {
-        _content = response.choices[0]?.message?.content;
-        _finish_reason = response.choices[0]?.finish_reason;
-        setMessage(_finish_reason);
-        setContent([
-          ...content,
-          getMessageWithTimestamp(text, 'user'),
-          getMessageWithTimestamp(_content, 'assistant')
-        ]);
-        var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-        setTokens(_tokens)
-      }
-    }
-    else if (completionType === 'stream') {
-      var _p = {
-        model: model,
-        messages: _messages,
-        stream: true,
-        temperature: temperature,
-        max_tokens: max_tokens,
-        top_p: top_p,
-        frequency_penalty: frequency_penalty,
-        presence_penalty: presence_penalty
 
-      }
-      console.log(_p);
-      const stream = await openai.beta.chat.completions.stream(_p);
-      if (stream) {
 
-        for await (const chunk of stream) {
-          var _d = chunk.choices[0]?.delta;
-          var _temp = chunk.choices[0]?.delta?.content || '';
-          _c = _c + _temp;
-          setContent([
-            ...content,
-            getMessageWithTimestamp(text, 'user'),
-            getMessageWithTimestamp(_c, 'assistant')
-          ]);
-        }
-        
-        const response = await stream.finalChatCompletion();
-        _content = response.choices[0]?.message?.content;
-        _finish_reason = response.choices[0]?.finish_reason;
-        setMessage(_finish_reason);
-        setContent([
-          ...content,
-          getMessageWithTimestamp(text, 'user'),
-          getMessageWithTimestamp(_content, 'assistant')
-        ]);
-        var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-        setTokens(_tokens)
-        console.log(_tokens);
-        console.log(response);
-      }
-      
-      return;
-    }
-    return response;
-  } catch (error) {
-    throw error;
-    console.error("Error sending message to OpenAI: ", error);
-  } finally {
-    scrollToBottom();
-  }
-}
 
-// Function to save content in local storage
-function stash(key, context, knowledge, question) {
-  const stashKey = "stash-" + key;
-  const content = {
-    context: context,
-    key: key,
-    knowledge: knowledge,
-    question: question,
-    timestamp: new Date().toISOString()
-  };
-
-  localStorage.setItem(stashKey, JSON.stringify(content));
-}
-
-// Function to get the content from local storage
-function pop(key) {
-  const stashKey = "stash-" + key;
-  const content = localStorage.getItem(stashKey);
-
-  if (content) {
-    return JSON.parse(content);
-  } else {
-    return null;
-  }
-}
-
-function stashList() {
-  const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
-  const list = keys.map(key => {
-    const content = localStorage.getItem(key);
-    const parsedContent = JSON.parse(content);
-    return { key: key, timestamp: parsedContent.timestamp };
-  });
-  var csvString = '';
-  if (list) {
-    for (var i = 0; i < list.length; i++) {
-      var _key = list[i].key;
-      csvString += _key.replace('stash-', '');
-      if (i < list.length - 1) {
-        csvString += ',';
-      }
-    }
-  }
-  return csvString;
-}
-
-function getVerb(command) {
-  var model = { "cmd": "", "verb": "", isCommand: false };
-  const commandParts = command.split(' ');
-  const cmd = commandParts[0];
-  var verb = '';
-  if (commandParts.length > 1) {
-    verb = commandParts[1];
-  } else {
-
-  }
-  if (command.startsWith('/')) {
-    model.isCommand = true;
-  }
-  model.cmd = cmd;
-  model.verb = verb;
-  return model;
-}
 // Function to generate a message with a timestamp
-function getMessageWithTimestamp(command, role) {
-  const options = { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
-  const shortTimeString = new Date().toLocaleTimeString(undefined, options);
-
-  let roleEmoji;
-  switch (role) {
-    case 'user':
-      roleEmoji = '👾';
-      break;
-    case 'assistant':
-      roleEmoji = '🤖';
-      break;
-    case 'system':
-      roleEmoji = '💾';
-      break;
-    case 'event':
-      roleEmoji = '👹';
-      break;
-    case 'error':
-      roleEmoji = '💩';
-      break;
-    case 'warning':
-      roleEmoji = '🍄';
-      break;
-    case 'info':
-      roleEmoji = '😹';
-      break;
-    //experiment
-    case 'experiment':
-      roleEmoji = '💣';
-      break;
-    default:
-      roleEmoji = '🙀';
-  }
-  return `${shortTimeString}${roleEmoji}: ${command}`;
-}
 
 function Console() {
   const [completionType, setCompletionType] = useState('stream');
@@ -262,7 +33,7 @@ function Console() {
   const contentRef = useRef(null);
   const [temperature, setTemperature] = useState(0.7);
   const [filter, setFilter] = useState(false);
-  const [max_tokens, setMax_tokens] = useState(500);
+  const [max_tokens, setMax_tokens] = useState(0);
   const [top_p, setTop_p] = useState(1);
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
@@ -327,7 +98,7 @@ function Console() {
     setThinking('🦧');
     setMessage('');
     try {
-      var _command = getVerb(command);
+      var _command = ConsoleService.getVerb(command);
       if (_command.isCommand) {
 
         switch (_command.cmd) {
@@ -340,79 +111,79 @@ function Console() {
               message = `Set filter false`;
             }
 
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/clear':
             setContext('');
             setKnowledge('');
             setInputText('');
-            setContent([...content, getMessageWithTimestamp(message, 'warning')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'warning')]);
             break;
           case '/rest':
             setCompletionType('rest');
             message = `Switching to rest completions`;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/stream':
             setCompletionType('stream');
             message = `Switching to stream completions`;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/list':
-            message = 'Stashed items: ' + stashList();
-            setContent([...content, getMessageWithTimestamp(message, 'event')]);
+            message = 'Stashed items: ' + ConsoleService.stashList();
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
             break;
           case '/model':
             setModel(_command.verb);
             message = 'Model is set to ' + _command.verb;
-            setContent([...content, getMessageWithTimestamp(message, 'experiment')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'experiment')]);
             break;
           //temperature
           case '/temperature':
             if (_command.verb) {
               var _t = Number(_command.verb);
               setTemperature(_t);
-              setContent([...content, getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
+              setContent([...content, ConsoleService.getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
             }
             break;
           case '/max_tokens':
             if (_command.verb) {
               var _t = Number(_command.verb);
               setMax_tokens(_t);
-              setContent([...content, getMessageWithTimestamp("Max tokens: " + verb, 'experiment')]);
+              setContent([...content, ConsoleService.getMessageWithTimestamp("Max tokens: " + verb, 'experiment')]);
             }
             break;
           case '/top_p':
             if (_command.verb) {
               var _t = Number(_command.verb);
               setTop_p(_t);
-              setContent([...content, getMessageWithTimestamp("Top P: " + verb, 'experiment')]);
+              setContent([...content, ConsoleService.getMessageWithTimestamp("Top P: " + verb, 'experiment')]);
             }
             break;
           case '/frequency_penalty':
             if (_command.verb) {
               var _t = Number(_command.verb);
               setFrequency_penalty(_t);
-              setContent([...content, getMessageWithTimestamp("Frequency Penalty: " + verb, 'experiment')]);
+              setContent([...content, ConsoleService.getMessageWithTimestamp("Frequency Penalty: " + verb, 'experiment')]);
             }
             break;
           case '/presence_penalty':
             if (_command.verb) {
               var _t = Number(_command.verb);
               setPresence_penalty(_t);
-              setContent([...content, getMessageWithTimestamp("Presence Penalty: " + verb, 'experiment')]);
+              setContent([...content, ConsoleService.getMessageWithTimestamp("Presence Penalty: " + verb, 'experiment')]);
             }
             break;
           case '/stash':
-            stash(_command.verb, context, knowledge, inputText);
+            ConsoleService.stash(_command.verb, context, knowledge, inputText);
             message = 'Stashed 💬📝💭 for ' + _command.verb;
             setContext('');
             setKnowledge('');
             setInputText('');
-            setContent([...content, getMessageWithTimestamp(message, 'event')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
             break;
           case '/pop':
-            var _pop = pop(_command.verb);
+            var _pop = ConsoleService.pop(_command.verb);
             if (_pop) {
               if (_pop.context) {
                 setContext(_pop.context);
@@ -425,41 +196,43 @@ function Console() {
               }
             }
             message = 'Popped 💬📝💭 for ' + _command.verb;
-            setContent([...content, getMessageWithTimestamp(message, 'event')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
             break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
+   
             setMaxChars(20000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-4-1106-preview':
             setModel('gpt-3.5-turbo-1106');
             setMaxChars(10000);
             message = `Switching to GPT-4: gpt-4-1106-preview`;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-3.5-turbo':
             setModel('gpt-3.5-turbo')
             setMaxChars(10000);
             message = `Switching to GPT-3.5: gpt-3.5-turbo`;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-4':
             setModel('gpt-4');
+  
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4`;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-4-1106-preview':
             setModel('/gpt-4-1106-preview');
             setMaxChars(20000);
             message = `Switching to GPT-4: gpt-4-1106-preview`;
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/help':
             var _l = [...content,
-            getMessageWithTimestamp(message, 'info'),
+            ConsoleService.getMessageWithTimestamp(message, 'info'),
             'settings: ',
             "build: " + build,
             "model: " + model,
@@ -527,11 +300,11 @@ function Console() {
           case '/reset':
             localStorage.removeItem('openaiAPIKey');
             window.location.reload();
-            setContent([...content, getMessageWithTimestamp('reset', 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp('reset', 'system')]);
             break;
           default:
             message = '🍄';
-            setContent([...content, getMessageWithTimestamp(message, 'system')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             setMessage('no verbs');
             console.log('No verbs.');
 
@@ -541,7 +314,7 @@ function Console() {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
-        const response = await sendMessageToOpenAI(command,
+        const response = await ConsoleService.sendMessageToOpenAI(command,
           model,
           context,
           knowledge,
@@ -568,7 +341,7 @@ function Console() {
       setMessage('error');
       setContent([
         ...content,
-        getMessageWithTimestamp(ex, 'error')
+        ConsoleService.getMessageWithTimestamp(ex, 'error')
       ]);
     } finally {
       setIsLoading(false); // Set loading status to false
