@@ -14,6 +14,10 @@ Furthermore, users can effortlessly switch between GPT3.5 and GPT4 models withou
 
 ![Screenshot](screenshot.png)
 
+# Create an API Key
+
+Create an Open AI account and generate [new secret key](https://platform.openai.com/api-keys)
+
 # Responsive
 
 The UI is responsive and will work on a phone. You can use the GitHub pages link [Robodog](https://adourish.github.io/robodog/robodog/dist/)
