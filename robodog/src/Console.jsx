@@ -268,6 +268,8 @@ function Console() {
             ' [🙀] - Default',
             ' [🦥] - Ready',
             ' [🦧] - Thinking',
+            ' [🦉] - Thinking',
+            ' [🐝] - Thinking',
             ' [🐋] - Dangerously large',
             ' [🦕] - Very large',
             ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'
@@ -309,7 +311,8 @@ function Console() {
           presence_penalty,
           scrollToBottom,
           performance,
-          setPerformance);
+          setPerformance,
+          setThinking);
       }
     } catch (ex) {
       console.error('handleSubmit', ex);

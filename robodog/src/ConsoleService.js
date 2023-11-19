@@ -22,13 +22,19 @@ function getAPIKey() {
   }
 }
 
+function getRandomEmoji() {
+  const emojis = ["🦉", "🐝", "🦧"];
+  const index = new Date().getMilliseconds() % emojis.length;
+  return emojis[index];
+}
 
-async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, setTokens, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance) {
+async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, setTokens, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
     { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question. It is for a project." }
   ];
+  setThinking(getRandomEmoji());
   var _content = '';
   var _c = '';
   var _finish_reason = '';
@@ -78,6 +84,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     const stream = await openai.beta.chat.completions.stream(_p);
     if (stream) {
       for await (const chunk of stream) {
+        setThinking(getRandomEmoji());
         var _d = chunk.choices[0]?.delta;
         var _temp = chunk.choices[0]?.delta?.content || '';
         _c = _c + _temp;
@@ -258,5 +265,6 @@ export default {
   pop,
   stash,
   formatJSONToString,
-  getTooBigEmoji
+  getTooBigEmoji,
+  getRandomEmoji
 };
