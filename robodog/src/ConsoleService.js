@@ -21,115 +21,105 @@ function getAPIKey() {
     }
 }
 
-async function sendMessageToOpenAI(text,
-    model,
-    context,
-    knowledge,
-    completionType,
-    setContent,
-    setContext,
-    setMessage,
-    content,
-    setTokens,
-    temperature,
-    filter,
-    max_tokens,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    scrollToBottom) {
-    const _messages = [
-        { role: "user", content: "chat history:" + context },
-        { role: "user", content: "knowledge:" + knowledge },
-        { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question. It is for a project." }
-    ];
-    var _content = '';
-    var _c = '';
-    var _finish_reason = '';
-    try {
-        let response;
 
-        if (completionType === 'rest') {
-            var _p2 = {
-                model: model,
-                messages: _messages,
-                temperature: temperature,
-                top_p: top_p,
-                frequency_penalty: frequency_penalty,
-                presence_penalty: presence_penalty
-            };
-            if (max_tokens > 0) {
-                _p2.max_tokens = max_tokens
-            }
-            console.log(_p2);
-            response = await openai.chat.completions.create(_p2);
-            if (response) {
-                _content = response.choices[0]?.message?.content;
-                _finish_reason = response.choices[0]?.finish_reason;
-                setMessage(_finish_reason);
-                setContent([
-                    ...content,
-                    getMessageWithTimestamp(text, 'user'),
-                    getMessageWithTimestamp(_content, 'assistant')
-                ]);
-                var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-                setTokens(_tokens)
-            }
-        }
-        else if (completionType === 'stream') {
-            var _p = {
-                model: model,
-                messages: _messages,
-                stream: true,
-                temperature: temperature,
-                top_p: top_p,
-                frequency_penalty: frequency_penalty,
-                presence_penalty: presence_penalty
+async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, setTokens, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom) {
+  const _messages = [
+      { role: "user", content: "chat history:" + context },
+      { role: "user", content: "knowledge:" + knowledge },
+      { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question. It is for a project." }
+  ];
+  var _content = '';
+  var _c = '';
+  var _finish_reason = '';
 
-            }
+  const handleRestCompletion = async () => {
+      var _p2 = {
+          model: model,
+          messages: _messages,
+          temperature: temperature,
+          top_p: top_p,
+          frequency_penalty: frequency_penalty,
+          presence_penalty: presence_penalty
+      };
+      if (max_tokens > 0) {
+          _p2.max_tokens = max_tokens;
+      }
+      console.log(_p2);
+      const response = await openai.chat.completions.create(_p2);
+      if (response) {
+          _content = response.choices[0]?.message?.content;
+          _finish_reason = response.choices[0]?.finish_reason;
+          setMessage(_finish_reason);
+          setContent([
+              ...content,
+              getMessageWithTimestamp(text, 'user'),
+              getMessageWithTimestamp(_content, 'assistant')
+          ]);
+          var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
+          setTokens(_tokens);
+      }
+      return response;
+  }
 
-            console.log(_p);
-            const stream = await openai.beta.chat.completions.stream(_p);
-            if (stream) {
+  const handleStreamCompletion = async () => {
+      var _p = {
+          model: model,
+          messages: _messages,
+          stream: true,
+          temperature: temperature,
+          top_p: top_p,
+          frequency_penalty: frequency_penalty,
+          presence_penalty: presence_penalty
+      };
 
-                for await (const chunk of stream) {
-                    var _d = chunk.choices[0]?.delta;
-                    var _temp = chunk.choices[0]?.delta?.content || '';
-                    _c = _c + _temp;
-                    setContent([
-                        ...content,
-                        getMessageWithTimestamp(text, 'user'),
-                        getMessageWithTimestamp(_c, 'assistant')
-                    ]);
-                }
+      console.log(_p);
+      const stream = await openai.beta.chat.completions.stream(_p);
+      if (stream) {
+          for await (const chunk of stream) {
+              var _d = chunk.choices[0]?.delta;
+              var _temp = chunk.choices[0]?.delta?.content || '';
+              _c = _c + _temp;
+              setContent([
+                  ...content,
+                  getMessageWithTimestamp(text, 'user'),
+                  getMessageWithTimestamp(_c, 'assistant')
+              ]);
+          }
 
-                const response = await stream.finalChatCompletion();
-                _content = response.choices[0]?.message?.content;
-                _finish_reason = response.choices[0]?.finish_reason;
-                setMessage(_finish_reason);
-                setContent([
-                    ...content,
-                    getMessageWithTimestamp(text, 'user'),
-                    getMessageWithTimestamp(_content, 'assistant')
-                ]);
-                var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-                setTokens(_tokens)
-                console.log(_tokens);
-                console.log(response);
-            }
+          const response = await stream.finalChatCompletion();
+          _content = response.choices[0]?.message?.content;
+          _finish_reason = response.choices[0]?.finish_reason;
+          setMessage(_finish_reason);
+          setContent([
+              ...content,
+              getMessageWithTimestamp(text, 'user'),
+              getMessageWithTimestamp(_content, 'assistant')
+          ]);
+          var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
+          setTokens(_tokens);
+          console.log(_tokens);
+          console.log(response);
+      }
+      return;
+  }
 
-            return;
-        }
-        return response;
-    } catch (error) {
-        throw error;
-        console.error("Error sending message to OpenAI: ", error);
-    } finally {
-        scrollToBottom();
-    }
+  try {
+      let response;
+
+      if (completionType === 'rest') {
+          response = await handleRestCompletion();
+      } else if (completionType === 'stream') {
+          await handleStreamCompletion();
+      }
+
+      return response;
+  } catch (error) {
+      throw error;
+      console.error("Error sending message to OpenAI: ", error);
+  } finally {
+      scrollToBottom();
+  }
 }
-
-
 
 // Function to generate a message with a timestamp
 function getMessageWithTimestamp(command, role) {
