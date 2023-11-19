@@ -307,5 +307,6 @@ export default {
   formatJSONToString,
   getTooBigEmoji,
   getRandomEmoji,
-  getTextContent
+  getTextContent,
+  handleUpload
 };
