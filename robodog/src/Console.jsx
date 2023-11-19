@@ -8,14 +8,15 @@ const build = version + "-" + buildNumber;
 console.log(build);
 
 function Console() {
+
+
   const [completionType, setCompletionType] = useState('stream');
   const [maxChars, setMaxChars] = useState(9000);
   const [totalChars, setTotalChars] = useState(0);
   const [inputText, setInputText] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
-  const [knowledge, setKnowledge] = useState(''); // State for knowledge input
-  const [isLoading, setIsLoading] = useState(false); // State to track loading status
+  const [knowledge, setKnowledge] = useState(''); 
   const [tokens, setTokens] = useState('0+0=0');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo');
@@ -29,6 +30,7 @@ function Console() {
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
   const [performance, setPerformance] = useState("");
+ 
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
