@@ -110,6 +110,8 @@ Switch chat contexts using the stash, pop, and list commands.
 -   npm install
 -   npm install openai
 -   npm install zip-webpack-plugin
+-   npm install pdfjs-dist
+-   npm install pdf-lib
 -   npm run build
 
 # Run

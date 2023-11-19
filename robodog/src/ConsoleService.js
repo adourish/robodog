@@ -1,10 +1,21 @@
 import OpenAI from 'openai';
-import { PerformanceCalculator} from './PerformanceCalculator';
+import { PerformanceCalculator } from './PerformanceCalculator';
+import FileService from './FileService';
 const openai = new OpenAI({
   apiKey: getAPIKey(),
   dangerouslyAllowBrowser: true,
 });
 
+function handleUpload(setKnowledge, knowledge) {
+  FileService.extractFileContent()
+    .then((text) => {
+      console.log(text);
+      setKnowledge(text);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+}
 
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
@@ -23,7 +34,7 @@ function getAPIKey() {
 }
 
 async function getTextContent(url, model, knowledge, setKnowledge) {
-  var _ftext = ''; 
+  var _ftext = '';
   try {
     console.log("get", url);
     const response = await fetch(url, { mode: 'no-cors' });

@@ -122,6 +122,10 @@ function Console() {
               setContent([...content, ConsoleService.getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
             }
             break;
+            case '/upload':
+              ConsoleService.handleUpload(setKnowledge, knowledge);
+  
+              break;
           case '/max_tokens':
             if (_command.verb) {
               var _t = Number(_command.verb);
