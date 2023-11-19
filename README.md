@@ -75,6 +75,16 @@ Status Emojis:
 - 🐘 - Large
 - 🐁 - Acceptable
 
+Performance Emojis: 
+- 🐢 - Tortoise - longer than 20 seconds
+- 🦅 - Hourglass - less than 1 second or more than 5 seconds
+- 🦘 - Kangaroo
+- 🐆 - Leopard
+- 🦌 - Deer
+- 🐕 - Dog
+- 🐅 - Tiger
+- 🐈 - Cat
+
 Other Emojis:
 - 💭 - Chat History
 - 📝 - Knowledge Content

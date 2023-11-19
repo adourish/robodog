@@ -5,6 +5,7 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
+
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
   if (storedAPIKey) {
@@ -192,7 +193,17 @@ function formatJSONToString(jsonObject) {
   return formattedString;
 }
 
-
+function getTooBigEmoji(_totalChars, maxChars) {
+  if (_totalChars >= maxChars) {
+    return '🐋'; // Dinosaur emoji for the biggest level
+  } else if (_totalChars >= (maxChars * 0.75)) {
+    return '🦕'; // Bear emoji for the third level
+  } else if (_totalChars >= (maxChars * 0.5)) {
+    return '🐘'; // Lion emoji for the second level
+  } else if (_totalChars >= (maxChars * 0.25)) {
+    return '🐁'; // Mouse emoji for the first level
+  }
+}
 // Function to save content in local storage
 function stash(key, context, knowledge, question) {
   const stashKey = "stash-" + key;
@@ -246,5 +257,6 @@ export default {
   stashList,
   pop,
   stash,
-  formatJSONToString
+  formatJSONToString,
+  getTooBigEmoji
 };

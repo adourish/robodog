@@ -11,7 +11,6 @@ function Console() {
   const [completionType, setCompletionType] = useState('stream');
   const [maxChars, setMaxChars] = useState(9000);
   const [totalChars, setTotalChars] = useState(0);
-  const [remainingChars, setRemainingChars] = useState(0);
   const [inputText, setInputText] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
@@ -59,15 +58,9 @@ function Console() {
       setTotalChars(_totalChars);
       _remainingChars = maxChars - totalChars;
       setRemainingChars(_remainingChars);
-      if (_totalChars >= maxChars) {
-        setTooBig('🐋'); // Dinosaur emoji for the biggest level
-      } else if (_totalChars >= (maxChars * 0.75)) {
-        setTooBig('🦕'); // Bear emoji for the third level
-      } else if (_totalChars >= (maxChars * 0.5)) {
-        setTooBig('🐘'); // Lion emoji for the second level
-      } else if (_totalChars >= (maxChars * 0.25)) {
-        setTooBig('🐁'); // Mouse emoji for the first level
-      }
+      var tooBig = ConsoleService.getTooBigEmoji(_totalChars, maxChars);
+      setTooBig(tooBig);
+
     } catch (ex) {
       console.warn(ex);
     }
@@ -215,7 +208,7 @@ function Console() {
           case '/help':
             var _l = [...content,
             ConsoleService.getMessageWithTimestamp(message, 'info'),
-              'settings: ',
+            'settings: ',
             "build: " + build,
             "model: " + model,
             "temperature: " + temperature,
@@ -223,59 +216,60 @@ function Console() {
             "top_p: " + top_p,
             "frequency_penalty: " + frequency_penalty,
             "presence_penalty: " + presence_penalty,
-              ' ',
-              'commands: ',
-              ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
-              ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
-              ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
-              ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
-              ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
-              ' [gpt-3.5-turbo-1106] - GPT model.',
-              ' /model <name> - set to a specific model.',
-              ' ',
-              ' /help - get help.',
-              ' /clear - clear text boxes.',
-              ' /rest - switch to rest completions.',
-              ' /stream - switch to stream completions.',
-              ' /reset - Reset your API key.',
-              ' /stash <name> - stash your questions and knowledge.',
-              ' /pop <name> - pop your questions and knowledge.',
-              ' /list - list of popped your questions and knowledge.',
-              ' /temperature <double>.',
-              ' /max_tokens <number>.',
-              ' /top_p <number>.',
-              ' /frequency_penalty <double>.',
-              ' /presence_penalty <double>.',
-              ' ',
-              ' indicators: ',
-              ' [3432/9000] - estimated remaining context',
-              ' [rest] - rest completion mode',
-              ' [stream] - stream completion mode.',
-              ' [486+929=1415] - token usage.',
-              ' [🦥] - ready.',
-              ' [🦧] - thinking.',
-              ' [🐋] - 💬📝💭 is dangerously large.',
-              ' [🦕] - 💬📝💭 is very large.',
-              ' [🐘] - 💬📝💭 is large.',
-              ' [🐁] - 💬📝💭 is acceptable.',
-              ' [🐘] - 💬📝💭 is large.',
-              ' [🐁] - 💬📝💭 is acceptable.',
-              ' [💭] - Chat History',
-              ' [📝] - Knowledge Content',
-              ' [💬] - Chat Text',
-              ' [👾] - User',
-              ' [🤖] - Assistant',
-              ' [💾] - System',
-              ' [👹] - Event',
-              ' [💩] - Error',
-              ' [🍄] - Warning',
-              ' [😹] - Info',
-              ' [💣] - Experiment',
-              ' [🙀] - Default',
-              ' [🦥] - Ready',
-              ' [🦧] - Thinking',
-              ' [🐋] - Dangerously large',
-              ' [🦕] - Very large'
+            ' ',
+            'commands: ',
+            ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
+            ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
+            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
+            ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
+            ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
+            ' [gpt-3.5-turbo-1106] - GPT model.',
+            ' /model <name> - set to a specific model.',
+            ' ',
+            ' /help - get help.',
+            ' /clear - clear text boxes.',
+            ' /rest - switch to rest completions.',
+            ' /stream - switch to stream completions.',
+            ' /reset - Reset your API key.',
+            ' /stash <name> - stash your questions and knowledge.',
+            ' /pop <name> - pop your questions and knowledge.',
+            ' /list - list of popped your questions and knowledge.',
+            ' /temperature <double>.',
+            ' /max_tokens <number>.',
+            ' /top_p <number>.',
+            ' /frequency_penalty <double>.',
+            ' /presence_penalty <double>.',
+            ' ',
+            ' indicators: ',
+            ' [3432/9000] - estimated remaining context',
+            ' [rest] - rest completion mode',
+            ' [stream] - stream completion mode.',
+            ' [486+929=1415] - token usage.',
+            ' [🦥] - ready.',
+            ' [🦧] - thinking.',
+            ' [🐋] - 💬📝💭 is dangerously large.',
+            ' [🦕] - 💬📝💭 is very large.',
+            ' [🐘] - 💬📝💭 is large.',
+            ' [🐁] - 💬📝💭 is acceptable.',
+            ' [🐘] - 💬📝💭 is large.',
+            ' [🐁] - 💬📝💭 is acceptable.',
+            ' [💭] - Chat History',
+            ' [📝] - Knowledge Content',
+            ' [💬] - Chat Text',
+            ' [👾] - User',
+            ' [🤖] - Assistant',
+            ' [💾] - System',
+            ' [👹] - Event',
+            ' [💩] - Error',
+            ' [🍄] - Warning',
+            ' [😹] - Info',
+            ' [💣] - Experiment',
+            ' [🙀] - Default',
+            ' [🦥] - Ready',
+            ' [🦧] - Thinking',
+            ' [🐋] - Dangerously large',
+            ' [🦕] - Very large',
+            ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'
             ];
             setContent(_l);
             break;
@@ -340,7 +334,7 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          
+
           [{totalChars}/{maxChars}][{completionType}][{thinking}][{tooBig}][{performance}][{message}]
         </div>
         <textarea
