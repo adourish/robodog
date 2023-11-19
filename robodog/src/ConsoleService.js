@@ -22,6 +22,33 @@ function getAPIKey() {
   }
 }
 
+async function getTextContent(url, model, knowledge, setKnowledge) {
+  var _ftext = ''; 
+  try {
+    console.log("get", url);
+    const response = await fetch(url, { mode: 'no-cors' });
+    const text = await response.text();
+    console.log("get result", text);
+    const _messages = [
+      { role: "user", content: "page result text:" + text },
+      { role: "user", content: "question:" + text + ". format in markdown." }
+    ];
+    var _p2 = {
+      model: model,
+      messages: _messages
+    };
+
+    const response2 = await openai.chat.completions.create(_p2);
+    console.log("get markdown result", response2);
+    if (response2) {
+      _content = response2.choices[0]?.message?.content;
+    }
+    return _content;
+  } catch (error) {
+    console.error('Error:', error);
+    return null;
+  }
+}
 function getRandomEmoji() {
   const emojis = ["🦉", "🐝", "🦧"];
   const index = new Date().getMilliseconds() % emojis.length;
@@ -68,6 +95,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     }
     return response;
   }
+
+
 
   const handleStreamCompletion = async () => {
     var _p = {
@@ -266,5 +295,6 @@ export default {
   stash,
   formatJSONToString,
   getTooBigEmoji,
-  getRandomEmoji
+  getRandomEmoji,
+  getTextContent
 };

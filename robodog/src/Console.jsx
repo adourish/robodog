@@ -16,7 +16,7 @@ function Console() {
   const [inputText, setInputText] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
-  const [knowledge, setKnowledge] = useState(''); 
+  const [knowledge, setKnowledge] = useState('');
   const [tokens, setTokens] = useState('0+0=0');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo');
@@ -30,7 +30,7 @@ function Console() {
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
   const [performance, setPerformance] = useState("");
- 
+
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -150,6 +150,14 @@ function Console() {
               setContent([...content, ConsoleService.getMessageWithTimestamp("Presence Penalty: " + verb, 'experiment')]);
             }
             break;
+          case '/get':
+            const updatedContext = context ? `${context}\n${_command.verb}` : "";
+            setContext(updatedContext);
+            ConsoleService.getTextContent(_command.verb, model, knowledge, setKnowledge).then((content) => {
+              setContent([...content, ConsoleService.getMessageWithTimestamp("/get " + _command.verb, 'user'), ConsoleService.getMessageWithTimestamp(content, 'event')]);
+            });
+
+            break;
           case '/stash':
             ConsoleService.stash(_command.verb, context, knowledge, inputText);
             message = 'Stashed 💬📝💭 for ' + _command.verb;
@@ -209,7 +217,7 @@ function Console() {
           case '/help':
             var _l = [...content,
             ConsoleService.getMessageWithTimestamp(message, 'info'),
-            'settings: ',
+              'settings: ',
             "build: " + build,
             "model: " + model,
             "temperature: " + temperature,
@@ -217,62 +225,62 @@ function Console() {
             "top_p: " + top_p,
             "frequency_penalty: " + frequency_penalty,
             "presence_penalty: " + presence_penalty,
-            ' ',
-            'commands: ',
-            ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
-            ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
-            ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
-            ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
-            ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
-            ' [gpt-3.5-turbo-1106] - GPT model.',
-            ' /model <name> - set to a specific model.',
-            ' ',
-            ' /help - get help.',
-            ' /clear - clear text boxes.',
-            ' /rest - switch to rest completions.',
-            ' /stream - switch to stream completions.',
-            ' /reset - Reset your API key.',
-            ' /stash <name> - stash your questions and knowledge.',
-            ' /pop <name> - pop your questions and knowledge.',
-            ' /list - list of popped your questions and knowledge.',
-            ' /temperature <double>.',
-            ' /max_tokens <number>.',
-            ' /top_p <number>.',
-            ' /frequency_penalty <double>.',
-            ' /presence_penalty <double>.',
-            ' ',
-            ' indicators: ',
-            ' [3432/9000] - estimated remaining context',
-            ' [rest] - rest completion mode',
-            ' [stream] - stream completion mode.',
-            ' [486+929=1415] - token usage.',
-            ' [🦥] - ready.',
-            ' [🦧] - thinking.',
-            ' [🐋] - 💬📝💭 is dangerously large.',
-            ' [🦕] - 💬📝💭 is very large.',
-            ' [🐘] - 💬📝💭 is large.',
-            ' [🐁] - 💬📝💭 is acceptable.',
-            ' [🐘] - 💬📝💭 is large.',
-            ' [🐁] - 💬📝💭 is acceptable.',
-            ' [💭] - Chat History',
-            ' [📝] - Knowledge Content',
-            ' [💬] - Chat Text',
-            ' [👾] - User',
-            ' [🤖] - Assistant',
-            ' [💾] - System',
-            ' [👹] - Event',
-            ' [💩] - Error',
-            ' [🍄] - Warning',
-            ' [😹] - Info',
-            ' [💣] - Experiment',
-            ' [🙀] - Default',
-            ' [🦥] - Ready',
-            ' [🦧] - Thinking',
-            ' [🦉] - Thinking',
-            ' [🐝] - Thinking',
-            ' [🐋] - Dangerously large',
-            ' [🦕] - Very large',
-            ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'
+              ' ',
+              'commands: ',
+              ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
+              ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
+              ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
+              ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
+              ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
+              ' [gpt-3.5-turbo-1106] - GPT model.',
+              ' /model <name> - set to a specific model.',
+              ' ',
+              ' /help - get help.',
+              ' /clear - clear text boxes.',
+              ' /rest - switch to rest completions.',
+              ' /stream - switch to stream completions.',
+              ' /reset - Reset your API key.',
+              ' /stash <name> - stash your questions and knowledge.',
+              ' /pop <name> - pop your questions and knowledge.',
+              ' /list - list of popped your questions and knowledge.',
+              ' /temperature <double>.',
+              ' /max_tokens <number>.',
+              ' /top_p <number>.',
+              ' /frequency_penalty <double>.',
+              ' /presence_penalty <double>.',
+              ' ',
+              ' indicators: ',
+              ' [3432/9000] - estimated remaining context',
+              ' [rest] - rest completion mode',
+              ' [stream] - stream completion mode.',
+              ' [486+929=1415] - token usage.',
+              ' [🦥] - ready.',
+              ' [🦧] - thinking.',
+              ' [🐋] - 💬📝💭 is dangerously large.',
+              ' [🦕] - 💬📝💭 is very large.',
+              ' [🐘] - 💬📝💭 is large.',
+              ' [🐁] - 💬📝💭 is acceptable.',
+              ' [🐘] - 💬📝💭 is large.',
+              ' [🐁] - 💬📝💭 is acceptable.',
+              ' [💭] - Chat History',
+              ' [📝] - Knowledge Content',
+              ' [💬] - Chat Text',
+              ' [👾] - User',
+              ' [🤖] - Assistant',
+              ' [💾] - System',
+              ' [👹] - Event',
+              ' [💩] - Error',
+              ' [🍄] - Warning',
+              ' [😹] - Info',
+              ' [💣] - Experiment',
+              ' [🙀] - Default',
+              ' [🦥] - Ready',
+              ' [🦧] - Thinking',
+              ' [🦉] - Thinking',
+              ' [🐝] - Thinking',
+              ' [🐋] - Dangerously large',
+              ' [🦕] - Very large',
+              ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'
             ];
             setContent(_l);
             break;
