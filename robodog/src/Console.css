@@ -100,9 +100,14 @@ body {
 }
 
 div.char-count {
-  color: gray;
+  color: rgb(28, 27, 27);
 }
 
+
+.context-textarea,
+.knowledge-textarea {
+  background-color: rgb(20, 20, 20);
+}
 
 @media screen and (min-width: 768px) {
 

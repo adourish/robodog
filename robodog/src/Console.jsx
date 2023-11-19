@@ -73,7 +73,6 @@ function Console() {
     var command = inputText.trim();
     var message = '';
     console.log('submit:', command);
-    setIsLoading(true); // Set loading status to true
     setThinking('🦧');
     setMessage('');
     try {
@@ -320,7 +319,6 @@ function Console() {
         ConsoleService.getMessageWithTimestamp(ex, 'error')
       ]);
     } finally {
-      setIsLoading(false); // Set loading status to false
       setThinking('🦥');
       setInputText('');
       scrollToBottom();
@@ -342,14 +340,14 @@ function Console() {
         <textarea
           value={context}
           onChange={handleContextChange}
-          placeholder="💭"
+          placeholder="Chat history💭"
           className="input-textarea context-textarea"
           aria-label="chat history"
         ></textarea>
         <textarea
           value={knowledge}
           onChange={handleKnowledgeChange}
-          placeholder="📝"
+          placeholder="Knowledge📝"
           className="input-textarea knowledge-textarea"
           aria-label="knowledge content"
         ></textarea>
@@ -357,7 +355,7 @@ function Console() {
           <textarea
             value={inputText}
             onChange={handleInputChange}
-            placeholder="💬"
+            placeholder="Chat💬"
             className="input-textarea question-textarea"
             aria-label="chat text"
           ></textarea>
