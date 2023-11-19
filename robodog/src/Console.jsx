@@ -29,7 +29,7 @@ function Console() {
   const [top_p, setTop_p] = useState(1);
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
-  const [performance, setPerformance] = useState(0);
+  const [performance, setPerformance] = useState("");
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);

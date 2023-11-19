@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import PerformanceCalculator from './PerformanceCalculator';
+import { PerformanceCalculator} from './PerformanceCalculator';
 const openai = new OpenAI({
   apiKey: getAPIKey(),
   dangerouslyAllowBrowser: true,
@@ -31,8 +31,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
   var _content = '';
   var _c = '';
   var _finish_reason = '';
-  //var calculator = new PerformanceCalculator();
-  //calculator.start();
+  var calculator = new PerformanceCalculator();
+  calculator.start();
   const handleRestCompletion = async () => {
     var _p2 = {
       model: model,
@@ -118,9 +118,9 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     throw error;
     console.error("Error sending message to OpenAI: ", error);
   } finally {
-   // calculator.end();
-    //const duration = calculator.calculateDuration();
-    //setPerformance(duration);
+    calculator.end();
+    var duration = calculator.calculateDuration();
+    setPerformance(duration);
 
     scrollToBottom();
   }
