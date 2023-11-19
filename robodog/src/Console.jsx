@@ -29,7 +29,7 @@ function Console() {
   const [top_p, setTop_p] = useState(1);
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
-
+  const [performance, setPerformance] = useState(0);
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -312,7 +312,9 @@ function Console() {
           top_p,
           frequency_penalty,
           presence_penalty,
-          scrollToBottom);
+          scrollToBottom,
+          performance,
+          setPerformance);
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
@@ -338,7 +340,8 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          [{totalChars}/{maxChars}][{completionType}][{thinking}][{tooBig}][{message}]
+          
+          [{totalChars}/{maxChars}][{completionType}][{thinking}][{tooBig}][{performance}][{message}]
         </div>
         <textarea
           value={context}
