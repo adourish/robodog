@@ -1,16 +1,6 @@
-
 import FormatService from './FormatService';
-async function extractPDFContent(pdfFilePath) {
- 
-}
-function extractTextContent(file) {
-  return new Promise((resolve, reject) => {
-    const decoder = new TextDecoder('utf-8');
-    const text = decoder.decode(file);
-    resolve(text);
-  });
-}
 
+// Define your extractMarkdownContent function
 function extractMarkdownContent(file) {
   return new Promise((resolve, reject) => {
     const decoder = new TextDecoder('utf-8');
@@ -19,7 +9,9 @@ function extractMarkdownContent(file) {
   });
 }
 
-function extractFileContent(setContent, content) {
+// ... Rest of your code ...
+
+async function extractFileContent(setContent, content) {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.md, .txt, .pdf';
@@ -27,13 +19,14 @@ function extractFileContent(setContent, content) {
     ...content,
     FormatService.getMessageWithTimestamp(fileInput.name, 'assistant')
   ]);
+
   return new Promise((resolve, reject) => {
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files[0];
       const reader = new FileReader();
 
       reader.onload = async (event) => {
-        const content = event.target.result;
+        const content = event?.target?.result;
         if (file.type === 'application/pdf') {
           try {
             const pdfText = await extractPDFContent(content);
@@ -44,12 +37,8 @@ function extractFileContent(setContent, content) {
         } else if (file.type === 'text/plain') {
           const text = extractTextContent(content);
           resolve(text);
-          
-        } else if (file.name.includes('.md')) {
-          const markdownText = extractMarkdownContent(content);
-          resolve(markdownText);
-        } else if (file.type === 'text/markdown') {
-          const markdownText = extractMarkdownContent(content);
+        } else if (file.name.endsWith('.md') || file.type === 'text/markdown') {
+          const markdownText = await extractMarkdownContent(content);
           resolve(markdownText);
         } else {
           reject('Invalid file format. Please select a PDF, text, or markdown file.');
