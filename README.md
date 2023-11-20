@@ -43,7 +43,11 @@ The chat/question is linked to the chat history and knowledge text areas.
 
 Use the char, rest, stream, status sloth/ape indicators to streamline your experience. 
 
+- [0/9000][gpt-3.5-turbo][0.7][stream][🦥][🐁][][]
+
 - [3432/9000] - estimated remaining context + knowledge + chat
+- [gpt-3.5-turbo] - GPT model
+- [0.7] - tempurature - larger numbers promote more creativity and are more prone to hallucination
 - [rest] - rest completion mode
 - [stream] - stream completion mode
 - [🦥] - ready
@@ -110,7 +114,6 @@ Switch chat contexts using the stash, pop, and list commands.
 -   npm install
 -   npm install openai
 -   npm install zip-webpack-plugin
--   npm install pdfjs-dist
 -   npm install pdfjs-dist
 -   npm run build
 

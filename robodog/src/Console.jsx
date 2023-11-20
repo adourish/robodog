@@ -351,7 +351,7 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
 
-          [{totalChars}/{maxChars}][{completionType}][{thinking}][{tooBig}][{performance}][{message}]
+          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}]
         </div>
         <textarea
           value={context}
