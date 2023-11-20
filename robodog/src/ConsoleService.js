@@ -1,18 +1,33 @@
 import OpenAI from 'openai';
 import { PerformanceCalculator } from './PerformanceCalculator';
+import FormatService from './FormatService';
 import FileService from './FileService';
 const openai = new OpenAI({
   apiKey: getAPIKey(),
   dangerouslyAllowBrowser: true,
 });
 
-function handleUpload(setKnowledge, knowledge) {
-  FileService.extractFileContent()
+function getMessageWithTimestamp(command, role) {
+  var s = FormatService.getMessageWithTimestamp(command, role);
+  return s;
+}
+
+function handleUpload(setKnowledge, knowledge, setContent, content) {
+  console.log("handleUpload")
+  FileService.extractFileContent(setContent, content)
     .then((text) => {
       console.log(text);
       setKnowledge(text);
+      setContent([
+        ...content,
+        FormatService.getMessageWithTimestamp(text, 'assistant')
+      ]);
     })
     .catch((error) => {
+      setContent([
+        ...content,
+        FormatService.getMessageWithTimestamp(error, 'assistant')
+      ]);
       console.error(error);
     });
 }
@@ -98,8 +113,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       setMessage(_finish_reason);
       setContent([
         ...content,
-        getMessageWithTimestamp(text, 'user'),
-        getMessageWithTimestamp(_content, 'assistant')
+        FormatService.getMessageWithTimestamp(text, 'user'),
+        FormatService.getMessageWithTimestamp(_content, 'assistant')
       ]);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       setTokens(_tokens);
@@ -130,8 +145,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
         _c = _c + _temp;
         setContent([
           ...content,
-          getMessageWithTimestamp(text, 'user'),
-          getMessageWithTimestamp(_c, 'assistant')
+          FormatService.getMessageWithTimestamp(text, 'user'),
+          FormatService.getMessageWithTimestamp(_c, 'assistant')
         ]);
       }
 
@@ -141,8 +156,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       setMessage(_finish_reason);
       setContent([
         ...content,
-        getMessageWithTimestamp(text, 'user'),
-        getMessageWithTimestamp(_content, 'assistant')
+        FormatService.getMessageWithTimestamp(text, 'user'),
+        FormatService.getMessageWithTimestamp(_content, 'assistant')
       ]);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       setTokens(_tokens);
@@ -175,42 +190,6 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
 }
 
 // Function to generate a message with a timestamp
-function getMessageWithTimestamp(command, role) {
-  const options = { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
-  const shortTimeString = new Date().toLocaleTimeString(undefined, options);
-
-  let roleEmoji;
-  switch (role) {
-    case 'user':
-      roleEmoji = '👾';
-      break;
-    case 'assistant':
-      roleEmoji = '🤖';
-      break;
-    case 'system':
-      roleEmoji = '💾';
-      break;
-    case 'event':
-      roleEmoji = '👹';
-      break;
-    case 'error':
-      roleEmoji = '💩';
-      break;
-    case 'warning':
-      roleEmoji = '🍄';
-      break;
-    case 'info':
-      roleEmoji = '😹';
-      break;
-    //experiment
-    case 'experiment':
-      roleEmoji = '💣';
-      break;
-    default:
-      roleEmoji = '🙀';
-  }
-  return `${shortTimeString}${roleEmoji}: ${command}`;
-}
 
 function getVerb(command) {
   var model = { "cmd": "", "verb": "", isCommand: false };

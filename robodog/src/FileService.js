@@ -1,9 +1,32 @@
-import { PDFDocument } from 'pdf-lib';
-function extractFileContent() {
+
+import FormatService from './FormatService';
+async function extractPDFContent(pdfFilePath) {
+ 
+}
+function extractTextContent(file) {
+  return new Promise((resolve, reject) => {
+    const decoder = new TextDecoder('utf-8');
+    const text = decoder.decode(file);
+    resolve(text);
+  });
+}
+
+function extractMarkdownContent(file) {
+  return new Promise((resolve, reject) => {
+    const decoder = new TextDecoder('utf-8');
+    const text = decoder.decode(file);
+    resolve(text);
+  });
+}
+
+function extractFileContent(setContent, content) {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.md, .txt, .pdf';
-
+  setContent([
+    ...content,
+    FormatService.getMessageWithTimestamp(fileInput.name, 'assistant')
+  ]);
   return new Promise((resolve, reject) => {
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files[0];
@@ -13,25 +36,21 @@ function extractFileContent() {
         const content = event.target.result;
         if (file.type === 'application/pdf') {
           try {
-            const pdfDoc = await PDFDocument.load(new Uint8Array(content));
-            const pages = pdfDoc.getPages();
-            let pdfText = '';
-            for (const page of pages) {
-              const pageText = await page.getTextContent();
-              pdfText += pageText.items.map((item) => item.str).join(' ');
-            }
+            const pdfText = await extractPDFContent(content);
             resolve(pdfText);
           } catch (error) {
             reject('Error processing PDF content');
           }
         } else if (file.type === 'text/plain') {
-          const decoder = new TextDecoder('utf-8');
-          const text = decoder.decode(content);
+          const text = extractTextContent(content);
           resolve(text);
+          
+        } else if (file.name.includes('.md')) {
+          const markdownText = extractMarkdownContent(content);
+          resolve(markdownText);
         } else if (file.type === 'text/markdown') {
-          const decoder = new TextDecoder('utf-8');
-          const text = decoder.decode(content);
-          resolve(text);
+          const markdownText = extractMarkdownContent(content);
+          resolve(markdownText);
         } else {
           reject('Invalid file format. Please select a PDF, text, or markdown file.');
         }
