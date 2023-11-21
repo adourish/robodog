@@ -15,13 +15,13 @@ async function handleFileInputChange(fileInput) {
   const fileCount = files.length;
   let importedCount = 0;
   let errorCount = 0;
-  let resultText = "Start importing " + fileCount + " files...\n";
+  let resultText = "Importing:" + fileCount + " files...\n";
 
   for (let i = 0; i < fileCount; i++) {
     const file = files[i];
     try {
       const arrayBuffer = await readFile(file);
-      resultText += "\n\nFile name: " + file.name + "\n";
+      resultText += "File: " + file.name + "\n```\n";
       switch (file.type) {
         case 'application/pdf':
           try {
@@ -49,13 +49,14 @@ async function handleFileInputChange(fileInput) {
             errorCount++;
           }
       }
+      resultText += "```\n";
     } catch (error) {
       resultText += file.name + ": " + error;
       errorCount++;
     }
   }
 
-  resultText += "\n\nImported " + importedCount + " files successfully.";
+  resultText += "Imported:" + importedCount + " files successfully.";
   resultText += "\nFailed to import " + errorCount + " files.";
 
   return resultText;
@@ -71,7 +72,7 @@ function readFile(file) {
 }
 
 function isSupportedFileFormat(fileName) {
-  const supportedFormats = ['.md', '.txt', '.pdf', '.js', '.cs', '.java', '.py', '.json', '.yaml', '.php'];
+  const supportedFormats = ['.md', '.txt', '.pdf', '.js', '.cs', '.java', '.py', '.json', '.yaml', '.php', '.sql', '.xsql'];
   return supportedFormats.some((format) => fileName.endsWith(format));
 }
 
