@@ -17,6 +17,7 @@ body {
   max-width: 100%;
 }
 
+
 .console-content {
   flex: 1;
   overflow-y: auto;

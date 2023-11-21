@@ -30,7 +30,7 @@ function Console() {
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
   const [performance, setPerformance] = useState("");
-
+  const [showTextarea, setShowTextarea] = useState(true);
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -41,6 +41,9 @@ function Console() {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }
+  const toggleTextarea = () => {
+    setShowTextarea(!showTextarea);
+  };
   const handleContextChange = (event) => {
     const value = event.target.value;
     setContext(value);
@@ -120,6 +123,13 @@ function Console() {
               var _t = Number(_command.verb);
               setTemperature(_t);
               setContent([...content, ConsoleService.getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
+            }
+            break;
+          case '/toggle':
+            if(showTextarea){
+              setShowTextarea(false);
+            }else{
+              setShowTextarea(true);
             }
             break;
           case '/import':
@@ -360,20 +370,24 @@ function Console() {
 
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}]
         </div>
-        <textarea
-          value={context}
-          onChange={handleContextChange}
-          placeholder="Chat history💭"
-          className="input-textarea context-textarea"
-          aria-label="chat history"
-        ></textarea>
-        <textarea
-          value={knowledge}
-          onChange={handleKnowledgeChange}
-          placeholder="Knowledge📝"
-          className="input-textarea knowledge-textarea"
-          aria-label="knowledge content"
-        ></textarea>
+        {showTextarea && (
+          <textarea
+            value={context}
+            onChange={handleContextChange}
+            placeholder="Chat history💭"
+            className="input-textarea context-textarea"
+            aria-label="chat history"
+          ></textarea>
+        )}
+        {showTextarea && (
+          <textarea
+            value={knowledge}
+            onChange={handleKnowledgeChange}
+            placeholder="Knowledge📝"
+            className="input-textarea knowledge-textarea"
+            aria-label="knowledge content"
+          ></textarea>
+        )}
         <div className="input-area">
           <textarea
             value={inputText}
