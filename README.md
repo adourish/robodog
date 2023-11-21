@@ -38,6 +38,11 @@ The chat/question is linked to the chat history and knowledge text areas.
     { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question." }
   ];
 ```
+# Import
+
+Use the /import command to open a file picker. You can select one or more files and they will be imported into the knowledge text area. You can use the /export feature to dump the content of your knowledge into a file.
+ 
+![Features](import.png)
 
 # Indicators
 
