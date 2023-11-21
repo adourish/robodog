@@ -251,17 +251,18 @@ function getTooBigEmoji(_totalChars, maxChars) {
   }
 }
 // Function to save content in local storage
-function stash(key, context, knowledge, question) {
+function stash(key, context, knowledge, question, content) {
   const stashKey = "stash-" + key;
-  const content = {
+  const _c = {
     context: context,
     key: key,
     knowledge: knowledge,
     question: question,
+    content: content,
     timestamp: new Date().toISOString()
   };
 
-  localStorage.setItem(stashKey, JSON.stringify(content));
+  localStorage.setItem(stashKey, JSON.stringify(_c));
 }
 
 // Function to get the content from local storage

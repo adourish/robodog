@@ -94,10 +94,11 @@ function Console() {
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/clear':
+            message = 'Content cleared.';
             setContext('');
             setKnowledge('');
             setInputText('');
-            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'warning')]);
+            setContent([ConsoleService.getMessageWithTimestamp(message, 'warning')]);
             break;
           case '/rest':
             setCompletionType('rest');
@@ -179,7 +180,7 @@ function Console() {
 
             break;
           case '/stash':
-            ConsoleService.stash(_command.verb, context, knowledge, inputText);
+            ConsoleService.stash(_command.verb, context, knowledge, inputText, content);
             message = 'Stashed 💬📝💭 for ' + _command.verb;
             setContext('');
             setKnowledge('');
@@ -198,9 +199,15 @@ function Console() {
               if (_pop.question) {
                 setInputText(_pop.question);
               }
+              if (_pop.content) {
+                var _pc = Array.isArray(_pop.content) ? _pop.content : [_pop.content];
+                message = 'Popped 💬📝💭 for ' + _command.verb;
+                setContent([..._pc, ConsoleService.getMessageWithTimestamp(message, 'event')]);
+              } else {
+                message = 'Popped 💬📝💭 for ' + _command.verb;
+                setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
+              }
             }
-            message = 'Popped 💬📝💭 for ' + _command.verb;
-            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
             break;
           case '/gpt-3.5-turbo-16k':
             model = 'gpt-3.5-turbo-16k';
