@@ -59,7 +59,7 @@ function Console() {
       var _totalChars = context.length + inputText.length + knowledge.length;
       setTotalChars(_totalChars);
       _remainingChars = maxChars - totalChars;
-      setRemainingChars(_remainingChars);
+
       var tooBig = ConsoleService.getTooBigEmoji(_totalChars, maxChars);
       setTooBig(tooBig);
 
@@ -122,11 +122,16 @@ function Console() {
               setContent([...content, ConsoleService.getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
             }
             break;
-            case '/import':
-              
-              ConsoleService.handleUpload(setKnowledge, knowledge, setContent, content);
-  
-              break;
+          case '/import':
+            ConsoleService.handleImport(setKnowledge, knowledge, setContent, content);
+            break;
+          case '/export':
+            if (_command.verb) {
+              ConsoleService.handleExport(_command.verb, knowledge, content);
+            } else {
+              ConsoleService.handleExport("", knowledge, content);
+            }
+            break;
           case '/max_tokens':
             if (_command.verb) {
               var _t = Number(_command.verb);
@@ -241,6 +246,8 @@ function Console() {
               ' /model <name> - set to a specific model.',
               ' ',
               ' /help - get help.',
+              ' /import - import files into knowledge .md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php.',
+              ' /export <filename> - export knowledge to a file.',
               ' /clear - clear text boxes.',
               ' /rest - switch to rest completions.',
               ' /stream - switch to stream completions.',

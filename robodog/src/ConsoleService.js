@@ -12,7 +12,26 @@ function getMessageWithTimestamp(command, role) {
   return s;
 }
 
-function handleUpload(setKnowledge, knowledge, setContent, content) {
+function handleExport(fileName, knowledge, content) {
+  const currentDate = new Date();
+  const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
+  if (!fileName) {
+    fileName = `${formattedDate}.txt`;
+  }
+
+  const fileContent = knowledge + '\n\n' + content.map(item => item.message).join('\n\n');
+
+  const element = document.createElement('a');
+  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileContent));
+  element.setAttribute('download', fileName);
+  element.style.display = 'none';
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+}
+
+
+function handleImport(setKnowledge, knowledge, setContent, content) {
   console.log("handleUpload")
   FileService.extractFileContent(setContent, content)
     .then((text) => {
@@ -287,5 +306,6 @@ export default {
   getTooBigEmoji,
   getRandomEmoji,
   getTextContent,
-  handleUpload
+  handleImport,
+  handleExport
 };

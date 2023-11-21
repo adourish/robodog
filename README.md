@@ -130,12 +130,13 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
 -   /model <name> - set to a specific model.
 -   /help - get help.
+-   /import - import files into knowledge .md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php.
+-   /export <filename> - export knowledge to a file.
 -   /clear - clear 💬📝💭.
 -   /rest - use rest completions.
 -   /stream - use stream completions (default).
 -   /reset - Reset your API key.
 -   /stash <name> - stash 💬📝💭.
-    /import - import txt, markdown, or PDF file into knowledge.
 -   /pop <name> - pop 💬📝💭.
 -   /list - list of stashed 💬📝💭.
 -   /temperature 0.7 - If your use case allows for high variability or personalization (such as product recommendations) from user to user, we recommend a temperature of 0.7 or higher. For more static responses, such as answers to FAQs on return policies or shipping rates, adjust it to 0.4. We’ve also found that with a higher temperature metric, the model tends to add 10 to 15 words on top of your word/token limit, so keep that in mind when setting your parameters.

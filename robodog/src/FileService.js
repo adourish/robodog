@@ -1,18 +1,15 @@
 import FormatService from './FormatService';
 
-// Extracts content from a text or markdown file
 function extractTextContent(arrayBuffer) {
   const decoder = new TextDecoder('utf-8');
   return decoder.decode(arrayBuffer);
 }
 
-// Extracts content from a PDF file
 async function extractPDFContent(arrayBuffer) {
   // Placeholder for actual PDF extraction logic
   // Replace this with your actual PDF content extraction method
 }
-
-// Handles file input change event
+const fileFormats = '.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php';
 async function handleFileInputChange(fileInput, resolve, reject) {
   const file = fileInput.files[0];
 
@@ -21,42 +18,58 @@ async function handleFileInputChange(fileInput, resolve, reject) {
     return;
   }
 
-  const reader = new FileReader();
+  var reader = null;
+  try {
+    reader = new FileReader();
 
-  reader.onload = async (event) => {
-    try {
-      const arrayBuffer = event.target.result;
+    reader.onload = async (event) => {
+      try {
+        const arrayBuffer = event.target.result;
+        console.error(file);
+        switch (file.type) {
+          case 'application/pdf':
+            try {
+              const pdfText = await extractPDFContent(file.name, arrayBuffer);
+              resolve(pdfText);
+            } catch (error) {
+              reject('Error processing PDF content');
+            }
+            break;
+          case 'text/plain':
+          case 'text/markdown':
+            var t = extractTextContent(arrayBuffer);
+            resolve(file.name + ":\n" + t);
+            break;
+          default:
+            console.error(file);
+            if (file.name.endsWith('.md') || file.name.endsWith('.txt') || file.name.endsWith('.pdf') || file.name.endsWith('.js') || file.name.endsWith('.cs') || file.name.endsWith('.java') || file.name.endsWith('.py') || file.name.endsWith('.json') || file.name.endsWith('.yaml') || file.name.endsWith('.php')) {
+              var t = extractTextContent(arrayBuffer);
+              resolve(file.name + ":\n" + t);
+            } else {
+              reject('Invalid file format. Please select a supported file format.');
+            }
 
-      switch (file.type) {
-        case 'application/pdf':
-          try {
-            const pdfText = await extractPDFContent(arrayBuffer);
-            resolve(pdfText);
-          } catch (error) {
-            reject('Error processing PDF content');
-          }
-          break;
-        case 'text/plain':
-        case 'text/markdown':
-          resolve(extractTextContent(arrayBuffer));
-          break;
-        default:
-          reject('Invalid file format. Please select a PDF, text, or markdown file.');
+        }
+      } catch (error) {
+        reject('Error processing file content');
       }
-    } catch (error) {
-      reject('Error processing file content');
-    }
-  };
+    };
 
-  reader.onerror = () => reject('Error reading file');
-  reader.readAsArrayBuffer(file);
+    reader.onerror = () => {
+      console.error(reader.error);
+      reject('Error reading file');
+    };
+
+    reader.readAsArrayBuffer(file);
+  } catch (ex) {
+    console.error(ex);
+  }
 }
 
-// Main function to extract content from file
 async function extractFileContent(setContent, content) {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
-  fileInput.accept = '.md, .txt, .pdf';
+  fileInput.accept = fileFormats;
 
   setContent([
     ...content,
