@@ -36,7 +36,8 @@ function handleImport(setKnowledge, knowledge, setContent, content) {
   FileService.extractFileContent(setContent, content)
     .then((text) => {
       console.log(text);
-      setKnowledge(text);
+      var _k = knowledge + "\n" + text;
+      setKnowledge(_k);
       setContent([
         ...content,
         FormatService.getMessageWithTimestamp(text, 'assistant')
