@@ -350,6 +350,9 @@ function Console() {
           performance,
           setPerformance,
           setThinking);
+      
+
+      
       }
     } catch (ex) {
       console.error('handleSubmit', ex);

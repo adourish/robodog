@@ -131,13 +131,15 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       _content = response.choices[0]?.message?.content;
       _finish_reason = response.choices[0]?.finish_reason;
       setMessage(_finish_reason);
-      setContent([
+      var _c = [
         ...content,
         FormatService.getMessageWithTimestamp(text, 'user'),
         FormatService.getMessageWithTimestamp(_content, 'assistant')
-      ]);
+      ];
+      setContent(_c);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       setTokens(_tokens);
+      stash("autosave", context, knowledge, text, _c);
     }
     return response;
   }
@@ -174,13 +176,15 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       _content = response.choices[0]?.message?.content;
       _finish_reason = response.choices[0]?.finish_reason;
       setMessage(_finish_reason);
-      setContent([
+      var _cc = [
         ...content,
         FormatService.getMessageWithTimestamp(text, 'user'),
         FormatService.getMessageWithTimestamp(_content, 'assistant')
-      ]);
+      ];
+      setContent(_cc);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       setTokens(_tokens);
+      stash("autosave", context, knowledge, text, _cc);
       console.log(_tokens);
       console.log(response);
     }
