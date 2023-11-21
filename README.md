@@ -134,6 +134,7 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /export <filename> - export knowledge to a file.
 -   /clear - clear 💬📝💭.
 -   /rest - use rest completions.
+-   /toggle - toggle context and knowledge text areas
 -   /stream - use stream completions (default).
 -   /reset - Reset your API key.
 -   /stash <name> - stash 💬📝💭.
