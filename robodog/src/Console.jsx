@@ -37,12 +37,12 @@ function Console() {
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
       console.log(currentIndex);
-      var total = ConsoleService.setStashIndex(currentIndex, 
-        setContext, 
-        setKnowledge, 
-        setInputText, 
-        setContent, 
-        setCurrentIndex, 
+      var total = ConsoleService.setStashIndex(currentIndex,
+        setContext,
+        setKnowledge,
+        setInputText,
+        setContent,
+        setCurrentIndex,
         setCurrentKey,
         setTemperature,
         setShowTextarea);
@@ -58,7 +58,10 @@ function Console() {
 
   useEffect(() => {
     console.log('Component has mounted!');
-  
+    var list = [ConsoleService.getMessageWithTimestamp('Bonjour.', 'info')];
+    var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+    list = list.concat(_l);
+    setContent(list);
     return () => {
       console.log('Cleaning up...');
     };
