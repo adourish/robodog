@@ -59,7 +59,7 @@ function Console() {
   useEffect(() => {
     console.log('Component has mounted!');
     var ufo = ConsoleService.getUFO();
-    var list = [ConsoleService.getMessageWithTimestamp('Bonjour.', 'info')];
+    var list = [ConsoleService.getMessageWithTimestamp('Bonjour. ', 'info')];
     var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
     list = list.concat(_l,ufo);
     setContent(list);
