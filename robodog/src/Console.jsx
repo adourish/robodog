@@ -7,6 +7,7 @@ const buildNumber = window.buildNumber;
 const build = version + "-" + buildNumber;
 console.log(build);
 
+
 function Console() {
 
 
@@ -31,6 +32,19 @@ function Console() {
   const [presence_penalty, setPresence_penalty] = useState(0.0);
   const [performance, setPerformance] = useState("");
   const [showTextarea, setShowTextarea] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const handleKeyDown = (event) => {
+    ConsoleService.setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, event.keyCode);
+  }; 
+  
+  useEffect(() => {   
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const handleInputChange = (event) => {
     const value = event.target.value;
     setInputText(value);
@@ -111,7 +125,7 @@ function Console() {
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/list':
-            message = 'Stashed items: ' + ConsoleService.stashList();
+            message = 'Stashed items: ' + ConsoleService.getStashList();
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
             break;
           case '/model':

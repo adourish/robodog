@@ -101,6 +101,48 @@ function getRandomEmoji() {
   return emojis[index];
 }
 
+function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, event) {
+  var stashList = getStashList();
+  if (stashList) {
+    var _l = stashList.split(',');
+
+    if (_l && Array.isArray(_l)) {
+      var key = _l[currentIndex];
+      if (key) {
+        
+    
+        if (event.shiftKey && event.keyCode === 38) {
+          const stashItem = pop(key);        
+          if (stashItem) {
+            console.log(stashItem);
+            if (stashItem.context) {
+              setContext(stashItem.context);
+            }
+            if (stashItem.knowledge) {
+              setKnowledge(stashItem.knowledge);
+            }
+            if (stashItem.question) {
+              setInputText(stashItem.question);
+            }
+            if (stashItem.content) {
+              setContent(stashItem.content);
+            }
+          }
+          var _i = 0;
+          // Shift + Up arrow
+          if (currentIndex >= _l.length - 1) {
+            _i = 0;
+          } else {
+            _i = currentIndex + 1;
+          }
+          setCurrentIndex(_i);
+        }
+        
+      }
+    }
+  }
+}
+
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, setTokens, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
@@ -281,7 +323,7 @@ function pop(key) {
   }
 }
 
-function stashList() {
+function getStashList() {
   const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
   const list = keys.map(key => {
     const content = localStorage.getItem(key);
@@ -305,7 +347,7 @@ export default {
   sendMessageToOpenAI,
   getMessageWithTimestamp,
   getVerb,
-  stashList,
+  getStashList,
   pop,
   stash,
   formatJSONToString,
@@ -313,5 +355,6 @@ export default {
   getRandomEmoji,
   getTextContent,
   handleImport,
-  handleExport
+  handleExport,
+  setStashIndex
 };
