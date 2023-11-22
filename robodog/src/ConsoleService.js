@@ -101,17 +101,16 @@ function getRandomEmoji() {
   return emojis[index];
 }
 
-function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, event) {
+function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex) {
   var stashList = getStashList();
+  var total = 0;
   if (stashList) {
     var _l = stashList.split(',');
-
     if (_l && Array.isArray(_l)) {
+      total = _l.length;
       var key = _l[currentIndex];
-      if (key) {
-        
-    
-        if (event.shiftKey && event.keyCode === 38) {
+      if (key) {      
+          console.log("shift+38");
           const stashItem = pop(key);        
           if (stashItem) {
             console.log(stashItem);
@@ -126,21 +125,12 @@ function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, set
             }
             if (stashItem.content) {
               setContent(stashItem.content);
-            }
-          }
-          var _i = 0;
-          // Shift + Up arrow
-          if (currentIndex >= _l.length - 1) {
-            _i = 0;
-          } else {
-            _i = currentIndex + 1;
-          }
-          setCurrentIndex(_i);
+            }         
         }
-        
       }
     }
   }
+  return total;
 }
 
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, setTokens, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking) {

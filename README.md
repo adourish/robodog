@@ -150,6 +150,7 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /top_p 1 - recommend keeping this at 1, adjusting your temperature instead for the best results.
 -   /frequency_penalty 0 - determine how often the same words appear in the chatbot’s response.Keep at 0.
 -   /presence_penalty 0 - determine how often the same words appear in the chatbot’s response. Keep at 0.
+-   SHIFT+UP - cycle through stash list.
 
 # Try
 

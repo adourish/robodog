@@ -35,15 +35,26 @@ function Console() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const handleKeyDown = (event) => {
-    ConsoleService.setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, event.keyCode);
-  }; 
-  
-  useEffect(() => {   
+    if (event.shiftKey && event.keyCode === 38) {
+      console.log(currentIndex);
+      var total = ConsoleService.setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex);
+      if (currentIndex >= total - 1) {
+        setCurrentIndex(0);
+      } else {
+        var _i = currentIndex + 1;
+        console.log(_i);
+        setCurrentIndex(_i);
+      }
+      
+    }
+  };
+
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex]);
 
   const handleInputChange = (event) => {
     const value = event.target.value;
@@ -141,9 +152,9 @@ function Console() {
             }
             break;
           case '/toggle':
-            if(showTextarea){
+            if (showTextarea) {
               setShowTextarea(false);
-            }else{
+            } else {
               setShowTextarea(true);
             }
             break;
@@ -291,6 +302,7 @@ function Console() {
               ' /top_p <number>.',
               ' /frequency_penalty <double>.',
               ' /presence_penalty <double>.',
+              ' SHIFT+UP - cycle through stash list',
               ' ',
               ' indicators: ',
               ' [3432/9000] - estimated remaining context',
@@ -364,9 +376,9 @@ function Console() {
           performance,
           setPerformance,
           setThinking);
-      
 
-      
+
+
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
