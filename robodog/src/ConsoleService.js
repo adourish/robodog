@@ -51,7 +51,92 @@ function handleImport(setKnowledge, knowledge, setContent, content) {
       console.error(error);
     });
 }
+function getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty) {
+  var settings = ['settings: ',
+    "build: " + build,
+    "model: " + model,
+    "temperature: " + temperature,
+    "max_tokens:" + max_tokens,
+    "top_p: " + top_p,
+    "frequency_penalty: " + frequency_penalty,
+    "presence_penalty: " + presence_penalty];
+  return settings;
+}
 
+function getCommands() {
+  var commands = ['commands: ',
+    ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
+    ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
+    ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
+    ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
+    ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
+    ' [gpt-3.5-turbo-1106] - GPT model.',
+    ' /model <name> - set to a specific model.',
+    ' ',
+    ' /help - get help.',
+    ' /import - import files into knowledge .md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php.',
+    ' /export <filename> - export knowledge to a file.',
+    ' /clear - clear text boxes.',
+    ' /rest - switch to rest completions.',
+    ' /stream - switch to stream completions.',
+    ' /reset - Reset your API key.',
+    ' /stash <name> - stash your questions and knowledge.',
+    ' /pop <name> - pop your questions and knowledge.',
+    ' /list - list of popped your questions and knowledge.',
+    ' /temperature <double>.',
+    ' /max_tokens <number>.',
+    ' /top_p <number>.',
+    ' /frequency_penalty <double>.',
+    ' /presence_penalty <double>.',
+    ' SHIFT+UP - cycle through stash list.'];
+  return commands;
+}
+
+function getIndicators() {
+  var indicators = [' indicators: ',
+    ' [3432/9000] - estimated remaining context',
+    ' [rest] - rest completion mode',
+    ' [stream] - stream completion mode.',
+    ' [486+929=1415] - token usage.',
+    ' [🦥] - ready.',
+    ' [🦧] - thinking.',
+    ' [🐋] - 💬📝💭 is dangerously large.',
+    ' [🦕] - 💬📝💭 is very large.',
+    ' [🐘] - 💬📝💭 is large.',
+    ' [🐁] - 💬📝💭 is acceptable.',
+    ' [🐘] - 💬📝💭 is large.',
+    ' [🐁] - 💬📝💭 is acceptable.',
+    ' [💭] - Chat History',
+    ' [📝] - Knowledge Content',
+    ' [💬] - Chat Text',
+    ' [👾] - User',
+    ' [🤖] - Assistant',
+    ' [💾] - System',
+    ' [👹] - Event',
+    ' [💩] - Error',
+    ' [🍄] - Warning',
+    ' [😹] - Info',
+    ' [💣] - Experiment',
+    ' [🙀] - Default',
+    ' [🦥] - Ready',
+    ' [🦧] - Thinking',
+    ' [🦉] - Thinking',
+    ' [🐝] - Thinking',
+    ' [🐋] - Dangerously large',
+    ' [🦕] - Very large',
+    ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'];
+  return indicators;
+
+}
+function getHelp(message, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty) {
+  var list = [getMessageWithTimestamp(message, 'info')];
+  var settings = getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+  var commands = getCommands();
+  var indicators = getIndicators();
+  getMessageWithTimestamp(message, 'info');
+  var list = list.concat(settings, commands, indicators);
+  return list;
+}
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
   if (storedAPIKey) {
@@ -101,13 +186,13 @@ function getRandomEmoji() {
   return emojis[index];
 }
 
-function setStashIndex(currentIndex, 
-  setContext, 
-  setKnowledge, 
-  setInputText, 
-  setContent, 
-  setCurrentIndex, 
-  setCurrentKey, 
+function setStashIndex(currentIndex,
+  setContext,
+  setKnowledge,
+  setInputText,
+  setContent,
+  setCurrentIndex,
+  setCurrentKey,
   setTemperature,
   setShowTextarea) {
   var stashList = getStashList();
@@ -117,30 +202,30 @@ function setStashIndex(currentIndex,
     if (_l && Array.isArray(_l)) {
       total = _l.length;
       var key = _l[currentIndex];
-      if (key) {      
-          console.log("shift+38");
-          const stashItem = pop(key);
-          setCurrentKey(key);        
-          if (stashItem) {
-            console.log(stashItem);
-            if (stashItem.context) {
-              setContext(stashItem.context);
-            }
-            if (stashItem.knowledge) {
-              setKnowledge(stashItem.knowledge);
-            }
-            if (stashItem.question) {
-              setInputText(stashItem.question);
-            }
-            if (stashItem.content) {
-              setContent(stashItem.content);
-            }   
-            if (stashItem.temperature) {
-              setTemperature(stashItem.temperature);
-            }
-            if (stashItem.showTextarea) {
-              setShowTextarea(stashItem.showTextarea);
-            }         
+      if (key) {
+        console.log("shift+38");
+        const stashItem = pop(key);
+        setCurrentKey(key);
+        if (stashItem) {
+          console.log(stashItem);
+          if (stashItem.context) {
+            setContext(stashItem.context);
+          }
+          if (stashItem.knowledge) {
+            setKnowledge(stashItem.knowledge);
+          }
+          if (stashItem.question) {
+            setInputText(stashItem.question);
+          }
+          if (stashItem.content) {
+            setContent(stashItem.content);
+          }
+          if (stashItem.temperature) {
+            setTemperature(stashItem.temperature);
+          }
+          if (stashItem.showTextarea) {
+            setShowTextarea(stashItem.showTextarea);
+          }
         }
       }
     }
@@ -363,5 +448,9 @@ export default {
   getTextContent,
   handleImport,
   handleExport,
-  setStashIndex
+  setStashIndex,
+  getHelp,
+  getCommands,
+  getSettings,
+  getIndicators
 };

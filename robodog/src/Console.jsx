@@ -21,7 +21,6 @@ function Console() {
   const [model, setModel] = useState('gpt-3.5-turbo');
   const [tooBig, setTooBig] = useState('🐁');
   const [message, setMessage] = useState('');
-  const contentRef = useRef(null);
   const [temperature, setTemperature] = useState(0.7);
   const [filter, setFilter] = useState(false);
   const [max_tokens, setMax_tokens] = useState(0);
@@ -32,6 +31,8 @@ function Console() {
   const [showTextarea, setShowTextarea] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKey, setCurrentKey] = useState('');
+
+  const contentRef = useRef(null);
 
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
@@ -54,6 +55,14 @@ function Console() {
       }
     }
   };
+
+  useEffect(() => {
+    console.log('Component has mounted!');
+  
+    return () => {
+      console.log('Cleaning up...');
+    };
+  }, [setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -278,76 +287,7 @@ function Console() {
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/help':
-            var _l = [...content,
-            ConsoleService.getMessageWithTimestamp(message, 'info'),
-              'settings: ',
-            "build: " + build,
-            "model: " + model,
-            "temperature: " + temperature,
-            "max_tokens:" + max_tokens,
-            "top_p: " + top_p,
-            "frequency_penalty: " + frequency_penalty,
-            "presence_penalty: " + presence_penalty,
-              ' ',
-              'commands: ',
-              ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
-              ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
-              ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
-              ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
-              ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
-              ' [gpt-3.5-turbo-1106] - GPT model.',
-              ' /model <name> - set to a specific model.',
-              ' ',
-              ' /help - get help.',
-              ' /import - import files into knowledge .md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php.',
-              ' /export <filename> - export knowledge to a file.',
-              ' /clear - clear text boxes.',
-              ' /rest - switch to rest completions.',
-              ' /stream - switch to stream completions.',
-              ' /reset - Reset your API key.',
-              ' /stash <name> - stash your questions and knowledge.',
-              ' /pop <name> - pop your questions and knowledge.',
-              ' /list - list of popped your questions and knowledge.',
-              ' /temperature <double>.',
-              ' /max_tokens <number>.',
-              ' /top_p <number>.',
-              ' /frequency_penalty <double>.',
-              ' /presence_penalty <double>.',
-              ' SHIFT+UP - cycle through stash list.',
-              ' ',
-              ' indicators: ',
-              ' [3432/9000] - estimated remaining context',
-              ' [rest] - rest completion mode',
-              ' [stream] - stream completion mode.',
-              ' [486+929=1415] - token usage.',
-              ' [🦥] - ready.',
-              ' [🦧] - thinking.',
-              ' [🐋] - 💬📝💭 is dangerously large.',
-              ' [🦕] - 💬📝💭 is very large.',
-              ' [🐘] - 💬📝💭 is large.',
-              ' [🐁] - 💬📝💭 is acceptable.',
-              ' [🐘] - 💬📝💭 is large.',
-              ' [🐁] - 💬📝💭 is acceptable.',
-              ' [💭] - Chat History',
-              ' [📝] - Knowledge Content',
-              ' [💬] - Chat Text',
-              ' [👾] - User',
-              ' [🤖] - Assistant',
-              ' [💾] - System',
-              ' [👹] - Event',
-              ' [💩] - Error',
-              ' [🍄] - Warning',
-              ' [😹] - Info',
-              ' [💣] - Experiment',
-              ' [🙀] - Default',
-              ' [🦥] - Ready',
-              ' [🦧] - Thinking',
-              ' [🦉] - Thinking',
-              ' [🐝] - Thinking',
-              ' [🐋] - Dangerously large',
-              ' [🦕] - Very large',
-              ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'
-            ];
+            var _l = ConsoleService.getHelp('', build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
             setContent(_l);
             break;
           case '/reset':
