@@ -62,33 +62,108 @@ function getSettings(build, model, temperature, max_tokens, top_p, frequency_pen
     "presence_penalty: " + presence_penalty];
   return settings;
 }
-
+const _options = [
+  {
+    "command": "/gpt-3.5-turbo",
+    "description": "Use gpt-3.5-turbo-1106 model (4,096 tokens)"
+  },
+  {
+    "command": "/gpt-3.5-turbo-16k",
+    "description": "Use gpt-3.5-turbo-16k model (16,385 tokens)"
+  },
+  {
+    "command": "/gpt-3.5-turbo-1106",
+    "description": "Use gpt-3.5-turbo-1106 model (16,385 tokens)"
+  },
+  {
+    "command": "/gpt-4",
+    "description": "Use gpt-4 model (8,192 tokens)"
+  },
+  {
+    "command": "/gpt-4-1106-preview",
+    "description": "Use gpt-4-1106-preview model (128,000 tokens)"
+  },
+  {
+    "command": "/gpt-3.5-turbo-1106",
+    "description": "Use gpt-3.5-turbo-1106"
+  },
+  {
+    "command": "/model <name>",
+    "description": "Use model <name>"
+  },
+  {
+    "command": "/help",
+    "description": "Get help."
+  },
+  {
+    "command": "/import",
+    "description": "Import files into knowledge (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php)"
+  },
+  {
+    "command": "/export <filename>",
+    "description": "Export knowledge to a file."
+  },
+  {
+    "command": "/clear",
+    "description": "Clear screen."
+  },
+  {
+    "command": "/rest",
+    "description": "Use rest completions"
+  },
+  {
+    "command": "/stream",
+    "description": "Use stream completions"
+  },
+  {
+    "command": "/reset",
+    "description": "Reset API key"
+  },
+  {
+    "command": "/stash <name>",
+    "description": "Stash questions and knowledge"
+  },
+  {
+    "command": "/pop <name>",
+    "description": "Pop questions and knowledge"
+  },
+  {
+    "command": "/list",
+    "description": "list stashed questions and knowledge"
+  },
+  {
+    "command": "/temperature <double>",
+    "description": "Set tempurature."
+  },
+  {
+    "command": "/max_tokens <number>",
+    "description": "Set max tokens."
+  },
+  {
+    "command": "/top_p <number>",
+    "description": "Set top p."
+  },
+  {
+    "command": "/frequency_penalty <double>",
+    "description": "Set frequency penalty."
+  },
+  {
+    "command": "/presence_penalty <double>",
+    "description": "Set presence penalty."
+  },
+  {
+    "command": "SHIFT+UP",
+    "description": "Cycle through stash list."
+  }
+];
 function getCommands() {
-  var commands = ['commands: ',
-    ' /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens).',
-    ' /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).',
-    ' /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).',
-    ' /gpt-4 - switch to gpt-4 model (8,192 tokens).',
-    ' /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).',
-    ' [gpt-3.5-turbo-1106] - GPT model.',
-    ' /model <name> - set to a specific model.',
-    ' ',
-    ' /help - get help.',
-    ' /import - import files into knowledge .md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php.',
-    ' /export <filename> - export knowledge to a file.',
-    ' /clear - clear text boxes.',
-    ' /rest - switch to rest completions.',
-    ' /stream - switch to stream completions.',
-    ' /reset - Reset your API key.',
-    ' /stash <name> - stash your questions and knowledge.',
-    ' /pop <name> - pop your questions and knowledge.',
-    ' /list - list of popped your questions and knowledge.',
-    ' /temperature <double>.',
-    ' /max_tokens <number>.',
-    ' /top_p <number>.',
-    ' /frequency_penalty <double>.',
-    ' /presence_penalty <double>.',
-    ' SHIFT+UP - cycle through stash list.'];
+  var commands = ['commands: '];
+  for (var i = 0; i < _options.length; i++) {
+    var command = _options[i].command;
+    var description = _options[i].description;
+    commands.push(' ' + command + ' - ' + description);
+  }
+  
   return commands;
 }
 
