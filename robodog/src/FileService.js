@@ -9,7 +9,7 @@ async function extractPDFContent(arrayBuffer) {
   // Placeholder for actual PDF extraction logic
   // Replace this with your actual PDF content extraction method
 }
-const fileFormats = '.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php';
+const fileFormats = '.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .xsql, .json, .xml';
 async function handleFileInputChange(fileInput) {
   const files = fileInput.files;
   const fileCount = files.length;
@@ -72,7 +72,7 @@ function readFile(file) {
 }
 
 function isSupportedFileFormat(fileName) {
-  const supportedFormats = ['.md', '.txt', '.pdf', '.js', '.cs', '.java', '.py', '.json', '.yaml', '.php', '.sql', '.xsql'];
+  const supportedFormats = ['.md', '.txt', '.pdf', '.js', '.cs', '.java', '.py', '.json', '.yaml', '.php', '.sql', '.xsql', '.xml', '.csv', '.json'];
   return supportedFormats.some((format) => fileName.endsWith(format));
 }
 

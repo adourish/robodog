@@ -101,7 +101,15 @@ function getRandomEmoji() {
   return emojis[index];
 }
 
-function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setCurrentKey) {
+function setStashIndex(currentIndex, 
+  setContext, 
+  setKnowledge, 
+  setInputText, 
+  setContent, 
+  setCurrentIndex, 
+  setCurrentKey, 
+  setTemperature,
+  setShowTextarea) {
   var stashList = getStashList();
   var total = 0;
   if (stashList) {
@@ -126,6 +134,12 @@ function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, set
             }
             if (stashItem.content) {
               setContent(stashItem.content);
+            }   
+            if (stashItem.temperature) {
+              setTemperature(stashItem.temperature);
+            }
+            if (stashItem.showTextarea) {
+              setShowTextarea(stashItem.showTextarea);
             }         
         }
       }
@@ -288,7 +302,7 @@ function getTooBigEmoji(_totalChars, maxChars) {
   }
 }
 // Function to save content in local storage
-function stash(key, context, knowledge, question, content) {
+function stash(key, context, knowledge, question, content, temperature, showTextarea) {
   const stashKey = "stash-" + key;
   const _c = {
     context: context,
@@ -296,6 +310,8 @@ function stash(key, context, knowledge, question, content) {
     knowledge: knowledge,
     question: question,
     content: content,
+    temperature: temperature,
+    showTextarea: showTextarea,
     timestamp: new Date().toISOString()
   };
 

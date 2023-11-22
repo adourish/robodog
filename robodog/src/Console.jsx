@@ -36,7 +36,15 @@ function Console() {
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
       console.log(currentIndex);
-      var total = ConsoleService.setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setCurrentKey);
+      var total = ConsoleService.setStashIndex(currentIndex, 
+        setContext, 
+        setKnowledge, 
+        setInputText, 
+        setContent, 
+        setCurrentIndex, 
+        setCurrentKey,
+        setTemperature,
+        setShowTextarea);
       if (currentIndex >= total - 1) {
         setCurrentIndex(0);
       } else {
@@ -52,7 +60,7 @@ function Console() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex]);
+  }, [currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setTemperature, setShowTextarea]);
 
   const handleInputChange = (event) => {
     const value = event.target.value;
@@ -65,10 +73,6 @@ function Console() {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }
-
-  const toggleTextarea = () => {
-    setShowTextarea(!showTextarea);
-  };
 
   const handleContextChange = (event) => {
     const value = event.target.value;
@@ -204,7 +208,7 @@ function Console() {
 
             break;
           case '/stash':
-            ConsoleService.stash(_command.verb, context, knowledge, inputText, content);
+            ConsoleService.stash(_command.verb, context, knowledge, inputText, content, temperature, showTextarea);
             setCurrentKey(_command.verb);
             message = 'Stashed 💬📝💭 for ' + _command.verb;
             setContext('');
@@ -224,6 +228,12 @@ function Console() {
               }
               if (_pop.question) {
                 setInputText(_pop.question);
+              }
+              if (_pop.temperature) {
+                setInputText(_pop.temperature);
+              }
+              if (_pop.showTextarea) {
+                setInputText(_pop.showTextarea);
               }
               if (_pop.content) {
                 var _pc = Array.isArray(_pop.content) ? _pop.content : [_pop.content];

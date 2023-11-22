@@ -135,7 +135,7 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
 -   /model <name> - set to a specific model.
 -   /help - get help.
--   /import - import files into knowledge .md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php.
+-   /import - import files into knowledge (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .xsql, .json, .xml).
 -   /export <filename> - export knowledge to a file.
 -   /clear - clear 💬📝💭.
 -   /rest - use rest completions.
