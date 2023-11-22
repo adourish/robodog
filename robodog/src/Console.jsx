@@ -7,9 +7,7 @@ const buildNumber = window.buildNumber;
 const build = version + "-" + buildNumber;
 console.log(build);
 
-
 function Console() {
-
 
   const [completionType, setCompletionType] = useState('stream');
   const [maxChars, setMaxChars] = useState(9000);
@@ -33,11 +31,12 @@ function Console() {
   const [performance, setPerformance] = useState("");
   const [showTextarea, setShowTextarea] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentKey, setCurrentKey] = useState('');
 
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
       console.log(currentIndex);
-      var total = ConsoleService.setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex);
+      var total = ConsoleService.setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setCurrentKey);
       if (currentIndex >= total - 1) {
         setCurrentIndex(0);
       } else {
@@ -45,7 +44,6 @@ function Console() {
         console.log(_i);
         setCurrentIndex(_i);
       }
-      
     }
   };
 
@@ -61,14 +59,17 @@ function Console() {
     setInputText(value);
     handleCharsChange(event);
   };
+
   const scrollToBottom = () => {
     if (contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }
+
   const toggleTextarea = () => {
     setShowTextarea(!showTextarea);
   };
+
   const handleContextChange = (event) => {
     const value = event.target.value;
     setContext(value);
@@ -87,7 +88,6 @@ function Console() {
       var _totalChars = context.length + inputText.length + knowledge.length;
       setTotalChars(_totalChars);
       _remainingChars = maxChars - totalChars;
-
       var tooBig = ConsoleService.getTooBigEmoji(_totalChars, maxChars);
       setTooBig(tooBig);
 
@@ -106,7 +106,6 @@ function Console() {
     try {
       var _command = ConsoleService.getVerb(command);
       if (_command.isCommand) {
-
         switch (_command.cmd) {
           case '/filter':
             if (filter === true) {
@@ -206,6 +205,7 @@ function Console() {
             break;
           case '/stash':
             ConsoleService.stash(_command.verb, context, knowledge, inputText, content);
+            setCurrentKey(_command.verb);
             message = 'Stashed 💬📝💭 for ' + _command.verb;
             setContext('');
             setKnowledge('');
@@ -214,6 +214,7 @@ function Console() {
             break;
           case '/pop':
             var _pop = ConsoleService.pop(_command.verb);
+            setCurrentKey(_command.verb);
             if (_pop) {
               if (_pop.context) {
                 setContext(_pop.context);
@@ -302,7 +303,7 @@ function Console() {
               ' /top_p <number>.',
               ' /frequency_penalty <double>.',
               ' /presence_penalty <double>.',
-              ' SHIFT+UP - cycle through stash list',
+              ' SHIFT+UP - cycle through stash list.',
               ' ',
               ' indicators: ',
               ' [3432/9000] - estimated remaining context',
@@ -349,7 +350,6 @@ function Console() {
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             setMessage('no verbs');
             console.log('No verbs.');
-
         }
 
       } else {
@@ -376,9 +376,6 @@ function Console() {
           performance,
           setPerformance,
           setThinking);
-
-
-
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
@@ -404,7 +401,7 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
 
-          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}]
+          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}]
         </div>
         {showTextarea && (
           <textarea

@@ -101,7 +101,7 @@ function getRandomEmoji() {
   return emojis[index];
 }
 
-function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex) {
+function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setCurrentKey) {
   var stashList = getStashList();
   var total = 0;
   if (stashList) {
@@ -111,7 +111,8 @@ function setStashIndex(currentIndex, setContext, setKnowledge, setInputText, set
       var key = _l[currentIndex];
       if (key) {      
           console.log("shift+38");
-          const stashItem = pop(key);        
+          const stashItem = pop(key);
+          setCurrentKey(key);        
           if (stashItem) {
             console.log(stashItem);
             if (stashItem.context) {
