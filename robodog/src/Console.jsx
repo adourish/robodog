@@ -46,7 +46,7 @@ function Console() {
       var _commands = ConsoleService.getCommands();
       var _options = ConsoleService.getOptions();
       var _fc = ConsoleService.getFormattedCommands();
-      var list = [ConsoleService.getMessageWithTimestamp('Bonjour. ', 'info')];
+      var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'ufo')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       list = list.concat(_l, ufo);
       setCommands(_commands);
