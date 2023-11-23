@@ -113,6 +113,12 @@ Switch chat contexts using the stash, pop, and list commands.
 
 ![Mobile](stash.png)
 
+## Menu
+
+Use the drop down menu to select options.
+
+![Features](menu.png)
+
 # Build
 
 -   cd robodog

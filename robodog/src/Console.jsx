@@ -324,16 +324,25 @@ function Console() {
   }
   function handleDropdownChange(event) {
     const selectedValue = event.target.value;
-    const selectedOption = options.find(
-      (option) => option.command === selectedValue
-    );
+    const selectedOption = options.find((option) => option.command === selectedValue);
     setSelectedOption(selectedOption);
+    
     if (selectedOption && selectedOption.command) {
       var _c = selectedOption.command;
+      
+      if (_c.includes("<name>")) {
+        const name = prompt("Please enter a name:" + selectedOption.description);
+        _c = _c.replace("<name>", name);
+      }
+      
+      if (_c.includes("<number>")) {
+        const number = prompt("Please enter a number:" + selectedOption.description);
+        _c = _c.replace("<number>", number);
+      }
+      
       setInputText(_c);
       console.log(_c);
     }
-
   }
 
   function handleVerbChange(event) {
