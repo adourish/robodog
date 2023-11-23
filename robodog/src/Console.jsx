@@ -179,7 +179,7 @@ function Console() {
           if (_command.verb) {
             var _t = Number(_command.verb);
             setTemperature(_t);
-            setContent([...content, ConsoleService.getMessageWithTimestamp("Temperature: " + verb, 'experiment')]);
+            setContent([...content, ConsoleService.getMessageWithTimestamp("Temperature: " + _command.verb, 'experiment')]);
           }
           break;
         case '/toggle':
