@@ -33,9 +33,12 @@ function Console() {
   const [currentKey, setCurrentKey] = useState('');
   const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
+  const [options, setOptions] = useState([]);
+  const [formattedCommands, setFormattedCommands] = useState([]);
   const contentRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  
+  const [selectedOption, setSelectedOption] = useState("");
+
   const handleCommandSelect = (command) => {
     setSelectedCommand(command);
     executeCommands(command);
@@ -46,12 +49,17 @@ function Console() {
     if (!isLoaded) {
       var ufo = ConsoleService.getUFO();
       var _commands = ConsoleService.getCommands();
+      var _options = ConsoleService.getOptions();
+      var _fc = ConsoleService.getFormattedCommands();
       var list = [ConsoleService.getMessageWithTimestamp('Bonjour. ', 'info')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       list = list.concat(_l, ufo);
+      setCommands(_commands);
+      setOptions(_options);
       setIsLoaded(true);
       setContent(list);
       setCommands(_commands);
+      setFormattedCommands(_fc);
     }
     return () => {
       console.log('Cleaning up...');
@@ -83,7 +91,7 @@ function Console() {
   const handleCtrlS = (event) => {
     if (event.ctrlKey && event.keyCode === 83) {
       // Save logic here
-      event.preventDefault(); 
+      event.preventDefault();
       var key = ConsoleService.save(context, knowledge, inputText, content, temperature, showTextarea);
     }
   };
@@ -320,8 +328,24 @@ function Console() {
       }
     }
   }
+  function handleDropdownChange(event) {
+    const selectedValue = event.target.value;
+    const selectedOption = options.find(
+      (option) => option.command === selectedValue
+    );
+    setSelectedOption(selectedOption);
 
+    console.log(selectedOption);
+  }
 
+  function handleVerbChange(event) {
+    const verb = event.target.value;
+    setCommand(verb);
+  }
+
+  function onExecuteCommandsClick(event) {
+    console.log(event)
+  }
   const handleSubmit = async (event) => {
     event.preventDefault();
     var command = inputText.trim();
@@ -375,7 +399,18 @@ function Console() {
   return (
 
     <div className="console">
-
+      <div className="top-menu">
+        <select onChange={handleDropdownChange}>
+          <option disabled selected>
+            Select an option
+          </option>
+          {options.map((option, index) => (
+            <option key={index} value={option.command}>
+              {option.command} {option.description}
+            </option>
+          ))}
+        </select>
+      </div>
       <div ref={contentRef} className="console-content">
         {content.map((text, index) => (
           <pre key={index}>{text}</pre>

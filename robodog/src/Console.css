@@ -43,8 +43,22 @@ body {
   margin: 0;
   word-wrap: break-word;
 }
+.top-menu {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  background-color: #000000; /* black background color */
+}
 
-
+.top-menu button {
+  padding: 10px 20px;
+  margin: 5px;
+  background-color: #ffffff; /* white button background color */
+  border: 0;
+  color: #000000; /* black button text color */
+  cursor: pointer;
+  border-radius: 2px;
+}
 .input-form {
   display: flex;
   flex-direction: column;

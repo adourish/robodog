@@ -185,7 +185,22 @@ function getCommands() {
   
   return commands;
 }
+function getOptions(){
+  return _options;
+}
+function getFormattedCommands() {
+  var options = getOptions();
+  var commands = ['commands:'];
 
+  for (var i = 0; i < options.length; i++) {
+    var option = options[i];
+    var command = option.command;
+    var description = option.description;
+    commands.push(` ${command} - ${description}`);
+  }
+  
+  return commands;
+}
 function getIndicators() {
   var indicators = [' indicators: ',
     ' [3432/9000] - estimated remaining context',
@@ -573,5 +588,7 @@ export default {
   getSettings,
   getIndicators,
   getUFO,
-  save
+  save,
+  getOptions,
+  getFormattedCommands
 };
