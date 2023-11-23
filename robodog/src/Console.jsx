@@ -334,8 +334,11 @@ function Console() {
       (option) => option.command === selectedValue
     );
     setSelectedOption(selectedOption);
-
-    console.log(selectedOption);
+      if(selectedOption && selectedOption.command){
+        setInputText(selectedCommand.command);
+        console.log(selectedOption);
+      }
+    
   }
 
   function handleVerbChange(event) {
