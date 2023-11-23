@@ -35,27 +35,7 @@ function Console() {
   const [commands, setCommands] = useState([]);
   const contentRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const handleKeyDown = (event) => {
-    if (event.shiftKey && event.keyCode === 38) {
-      console.log(currentIndex);
-      var total = ConsoleService.setStashIndex(currentIndex,
-        setContext,
-        setKnowledge,
-        setInputText,
-        setContent,
-        setCurrentIndex,
-        setCurrentKey,
-        setTemperature,
-        setShowTextarea);
-      if (currentIndex >= total - 1) {
-        setCurrentIndex(0);
-      } else {
-        var _i = currentIndex + 1;
-        console.log(_i);
-        setCurrentIndex(_i);
-      }
-    }
-  };
+  
   const handleCommandSelect = (command) => {
     setSelectedCommand(command);
     executeCommands(command);
@@ -77,6 +57,28 @@ function Console() {
       console.log('Cleaning up...');
     };
   }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty]);
+
+  const handleKeyDown = (event) => {
+    if (event.shiftKey && event.keyCode === 38) {
+      console.log(currentIndex);
+      var total = ConsoleService.setStashIndex(currentIndex,
+        setContext,
+        setKnowledge,
+        setInputText,
+        setContent,
+        setCurrentIndex,
+        setCurrentKey,
+        setTemperature,
+        setShowTextarea);
+      if (currentIndex >= total - 1) {
+        setCurrentIndex(0);
+      } else {
+        var _i = currentIndex + 1;
+        console.log(_i);
+        setCurrentIndex(_i);
+      }
+    }
+  };
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -124,6 +126,7 @@ function Console() {
   };
 
   function executeCommands(_command) {
+    var message = '';
     if (_command.isCommand) {
       switch (_command.cmd) {
         case '/filter':
