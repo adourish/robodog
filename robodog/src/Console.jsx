@@ -39,11 +39,6 @@ function Console() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
 
-  const handleCommandSelect = (command) => {
-    setSelectedCommand(command);
-    executeCommands(command);
-  };
-
   useEffect(() => {
     console.log('Component has mounted!');
     if (!isLoaded) {
@@ -130,7 +125,6 @@ function Console() {
   };
 
   const handleCharsChange = (event) => {
-    var _remainingChars = 0;
     try {
       var _totalChars = context.length + inputText.length + knowledge.length;
       setTotalChars(_totalChars);
@@ -334,11 +328,12 @@ function Console() {
       (option) => option.command === selectedValue
     );
     setSelectedOption(selectedOption);
-      if(selectedOption && selectedOption.command){
-        setInputText(selectedCommand.command);
-        console.log(selectedOption);
-      }
-    
+    if (selectedOption && selectedOption.command) {
+      var _c = selectedOption.command;
+      setInputText(_c);
+      console.log(_c);
+    }
+
   }
 
   function handleVerbChange(event) {

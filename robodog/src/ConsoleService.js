@@ -112,10 +112,10 @@ const _options = [
   },
   {
     "command": "/import",
-    "description": "Import files into knowledge (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php)"
+    "description": "Import files into knowledge (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)"
   },
   {
-    "command": "/export <filename>",
+    "command": "/export <name>",
     "description": "Export knowledge to a file."
   },
   {
@@ -147,8 +147,8 @@ const _options = [
     "description": "list stashed questions and knowledge"
   },
   {
-    "command": "/temperature <double>",
-    "description": "Set tempurature."
+    "command": "/temperature <number>",
+    "description": "Temperature is a number between 0 and 2, Default value of 1 or 0.7 depending on the model."
   },
   {
     "command": "/max_tokens <number>",
@@ -159,11 +159,11 @@ const _options = [
     "description": "Set top p."
   },
   {
-    "command": "/frequency_penalty <double>",
+    "command": "/frequency_penalty <number>",
     "description": "Set frequency penalty."
   },
   {
-    "command": "/presence_penalty <double>",
+    "command": "/presence_penalty <number>",
     "description": "Set presence penalty."
   },
   {
