@@ -80,12 +80,22 @@ function Console() {
     }
   };
 
+  const handleCtrlS = (event) => {
+    if (event.ctrlKey && event.keyCode === 83) {
+      // Save logic here
+      event.preventDefault(); 
+      var key = ConsoleService.save(context, knowledge, inputText, content, temperature, showTextarea);
+    }
+  };
+
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleCtrlS);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleCtrlS);
     };
-  }, [currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setTemperature, setShowTextarea]);
+  }, [currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, inputText]);
 
   const handleInputChange = (event) => {
     const value = event.target.value;
@@ -184,9 +194,10 @@ function Console() {
           break;
         case '/export':
           if (_command.verb) {
-            ConsoleService.handleExport(_command.verb, knowledge, content);
+            var key = _command.verb;
+            ConsoleService.handleExport(key, context, knowledge, question, content, temperature, showTextarea);
           } else {
-            ConsoleService.handleExport("", knowledge, content);
+            ConsoleService.handleExport("", context, knowledge, question, content, temperature, showTextarea);
           }
           break;
         case '/max_tokens':
@@ -379,7 +390,7 @@ function Console() {
           <textarea
             value={context}
             onChange={handleContextChange}
-            placeholder="Chat history💭"
+            placeholder="Chat history💭: "
             className="input-textarea context-textarea"
             aria-label="chat history"
           ></textarea>
@@ -388,7 +399,7 @@ function Console() {
           <textarea
             value={knowledge}
             onChange={handleKnowledgeChange}
-            placeholder="Knowledge📝"
+            placeholder="Knowledge📝: examples, data, code"
             className="input-textarea knowledge-textarea"
             aria-label="knowledge content"
           ></textarea>
@@ -397,7 +408,7 @@ function Console() {
           <textarea
             value={inputText}
             onChange={handleInputChange}
-            placeholder="Chat💬"
+            placeholder="Chat💬: "
             className="input-textarea question-textarea"
             aria-label="chat text"
           ></textarea>

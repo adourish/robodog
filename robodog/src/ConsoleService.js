@@ -11,15 +11,30 @@ function getMessageWithTimestamp(command, role) {
   var s = FormatService.getMessageWithTimestamp(command, role);
   return s;
 }
+function save(context, knowledge, question, content, temperature, showTextarea){
+  const currentDate = new Date();
+  const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
+  var key = "snapshot" + "-" + formattedDate;
+  stash(key, context, knowledge, question, content, temperature, )
+  handleExport(key, context, knowledge, question, content, temperature, showTextarea);
+  return key;
+}
 
-function handleExport(fileName, knowledge, content) {
+function handleExport(fileName, context, knowledge, question, content, temperature, showTextarea) {
   const currentDate = new Date();
   const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
   if (!fileName) {
     fileName = `${formattedDate}.txt`;
   }
 
-  const fileContent = knowledge + '\n\n' + content.map(item => item.message).join('\n\n');
+  let concatenatedString = '';
+
+  if (Array.isArray(content)) {
+    for (let i = 0; i < content.length; i++) {
+      concatenatedString += content[i] + "\n";
+    }
+  }
+  var fileContent = "Temperature:" + temperature + "\n\n Question:\n\n"+ question + "\n\nChat history:\n\n" + context + "\n\nKnowledge:\n\n" + knowledge + '\n\nContent:\n\n' + concatenatedString + '\n\n';
 
   const element = document.createElement('a');
   element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileContent));
@@ -553,5 +568,6 @@ export default {
   getCommands,
   getSettings,
   getIndicators,
-  getUFO
+  getUFO,
+  save
 };
