@@ -169,6 +169,10 @@ const _options = [
   {
     "command": "SHIFT+UP",
     "description": "Cycle through stash list."
+  },
+  {
+    "command": "CTRL+S",
+    "description": "Save a snapshot to storage."
   }
 ];
 function getCommands() {

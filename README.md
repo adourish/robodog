@@ -151,7 +151,7 @@ Switch chat contexts using the stash, pop, and list commands.
 -   /frequency_penalty 0 - determine how often the same words appear in the chatbot’s response.Keep at 0.
 -   /presence_penalty 0 - determine how often the same words appear in the chatbot’s response. Keep at 0.
 -   SHIFT+UP - cycle through stash list.
-
+-   CTRL + S - saSave a snapshot to storage
 # Try
 
 -   [Robodog](https://adourish.github.io/robodog/robodog/dist/)
