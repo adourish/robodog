@@ -7,6 +7,12 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
+function calculateTokens(text) {
+  text = text.trim();
+  var tokens = text.match(/\S+/g) || [];
+  return tokens.length;
+}
+
 function getMessageWithTimestamp(command, role) {
   var s = FormatService.getMessageWithTimestamp(command, role);
   return s;
@@ -97,10 +103,6 @@ const _options = [
   {
     "command": "/gpt-4-1106-preview",
     "description": "Use gpt-4-1106-preview model (128,000 tokens)"
-  },
-  {
-    "command": "/gpt-3.5-turbo-1106",
-    "description": "Use gpt-3.5-turbo-1106"
   },
   {
     "command": "/model <name>",
@@ -590,5 +592,6 @@ export default {
   getUFO,
   save,
   getOptions,
-  getFormattedCommands
+  getFormattedCommands,
+  calculateTokens
 };

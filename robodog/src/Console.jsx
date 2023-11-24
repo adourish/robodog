@@ -10,7 +10,7 @@ console.log(build);
 function Console() {
 
   const [completionType, setCompletionType] = useState('stream');
-  const [maxChars, setMaxChars] = useState(9000);
+  const [maxChars, setMaxChars] = useState(4096);
   const [totalChars, setTotalChars] = useState(0);
   const [inputText, setInputText] = useState('');
   const [content, setContent] = useState([]);
@@ -126,7 +126,10 @@ function Console() {
 
   const handleCharsChange = (event) => {
     try {
-      var _totalChars = context.length + inputText.length + knowledge.length;
+      var c = ConsoleService.calculateTokens(context);
+      var i = ConsoleService.calculateTokens(inputText);
+      var k = ConsoleService.calculateTokens(knowledge);
+      var _totalChars = c + i + k;
       setTotalChars(_totalChars);
       _remainingChars = maxChars - totalChars;
       var tooBig = ConsoleService.getTooBigEmoji(_totalChars, maxChars);
@@ -277,31 +280,25 @@ function Console() {
           break;
         case '/gpt-3.5-turbo-16k':
           model = 'gpt-3.5-turbo-16k';
-          setMaxChars(20000);
+          setMaxChars(16385);
           message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
-          setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
-          break;
-        case '/gpt-4-1106-preview':
-          setModel('gpt-3.5-turbo-1106');
-          setMaxChars(10000);
-          message = `Switching to GPT-4: gpt-4-1106-preview`;
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-3.5-turbo':
           setModel('gpt-3.5-turbo')
-          setMaxChars(10000);
+          setMaxChars(4096);
           message = `Switching to GPT-3.5: gpt-3.5-turbo`;
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-4':
           setModel('gpt-4');
-          setMaxChars(20000);
+          setMaxChars(8192);
           message = `Switching to GPT-4: gpt-4`;
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-4-1106-preview':
           setModel('/gpt-4-1106-preview');
-          setMaxChars(20000);
+          setMaxChars(128000);
           message = `Switching to GPT-4: gpt-4-1106-preview`;
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
           break;
