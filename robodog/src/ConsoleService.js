@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import axios from 'axios';
 import { PerformanceCalculator } from './PerformanceCalculator';
 import FormatService from './FormatService';
 import FileService from './FileService';
@@ -287,6 +288,18 @@ function getAPIKey() {
       return '';
     }
   }
+}
+
+async function getEngines() {
+  const apiKey = await getAPIKey();
+  
+  const response = await axios.get('https://api.openai.com/v1/engines', {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    }
+  });
+
+  return response.data; // return the list of available engines
 }
 
 async function getTextContent(url, model, knowledge, setKnowledge) {
@@ -593,5 +606,6 @@ export default {
   save,
   getOptions,
   getFormattedCommands,
-  calculateTokens
+  calculateTokens,
+  getEngines
 };

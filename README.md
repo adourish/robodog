@@ -126,6 +126,7 @@ Use the drop down menu to select options.
 -   npm install openai
 -   npm install zip-webpack-plugin
 -   npm install pdfjs-dist
+-   npm install axios
 -   npm run build
 
 # Run

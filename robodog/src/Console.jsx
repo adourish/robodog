@@ -131,7 +131,6 @@ function Console() {
       var k = ConsoleService.calculateTokens(knowledge);
       var _totalChars = c + i + k;
       setTotalChars(_totalChars);
-      _remainingChars = maxChars - totalChars;
       var tooBig = ConsoleService.getTooBigEmoji(_totalChars, maxChars);
       setTooBig(tooBig);
 
@@ -174,6 +173,22 @@ function Console() {
         case '/list':
           message = 'Stashed items: ' + ConsoleService.getStashList();
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
+          break;
+        case '/models':
+          ConsoleService.getEngines().then(data => {
+            const formattedEngines = [...content, ConsoleService.getMessageWithTimestamp(message, 'event')];
+            for (let i = 0; i < data.data.length; i++) {
+              const engine = data.data[i];
+              const formattedEngine = engine.id + " - " + engine.owner;
+              formattedEngines.push(formattedEngine);
+            }
+            setContent(formattedEngines);
+            console.log(formattedEngines);
+            console.log(data);
+          }).catch(err => {
+            console.error(err);
+          });
+
           break;
         case '/model':
           setModel(_command.verb);
@@ -323,20 +338,20 @@ function Console() {
     const selectedValue = event.target.value;
     const selectedOption = options.find((option) => option.command === selectedValue);
     setSelectedOption(selectedOption);
-    
+
     if (selectedOption && selectedOption.command) {
       var _c = selectedOption.command;
-      
+
       if (_c.includes("<name>")) {
         const name = prompt("Please enter a name:" + selectedOption.description);
         _c = _c.replace("<name>", name);
       }
-      
+
       if (_c.includes("<number>")) {
         const number = prompt("Please enter a number:" + selectedOption.description);
         _c = _c.replace("<number>", number);
       }
-      
+
       setInputText(_c);
       console.log(_c);
     }
