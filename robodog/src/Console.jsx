@@ -293,6 +293,25 @@ function Console() {
             }
           }
           break;
+        case '/files':
+          ConsoleService.getUploadedFiles()
+            .then(files => {
+              console.log('Uploaded Files:', files);
+            })
+            .catch(error => {
+              console.error('Error:', error);
+            });
+          break;
+        case '/upload':
+          ConsoleService.uploadContentToOpenAI(_command.verb, knowledge)
+            .then(fileId => {
+              console.log('File ID:', fileId);
+            })
+            .catch(error => {
+              console.error('Error:', error);
+            });
+
+          break;
         case '/gpt-3.5-turbo-16k':
           model = 'gpt-3.5-turbo-16k';
           setMaxChars(16385);

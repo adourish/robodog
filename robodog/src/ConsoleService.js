@@ -302,6 +302,31 @@ async function getEngines() {
   return response.data; // return the list of available engines
 }
 
+async function uploadContentToOpenAI(purpose, content) {
+  const apiKey = await getAPIKey();
+  const endpoint = 'https://api.openai.com/v1/files';
+
+  const data = {
+    purpose: purpose,
+    file: content
+  };
+
+  try {
+    const response = await axios.post(endpoint, data, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    const fileId = response.data.id;
+    return fileId;
+  } catch (error) {
+    console.error('Error:', error);
+    return null;
+  }
+}
+
 async function getTextContent(url, model, knowledge, setKnowledge) {
   var _ftext = '';
   try {
@@ -583,7 +608,25 @@ function getStashList() {
   }
   return csvString;
 }
+async function getUploadedFiles() {
+  const apiKey = getAPIKey();
+  const endpoint = 'https://api.openai.com/v1/files';
 
+  try {
+    const response = await axios.get(endpoint, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const files = response.data;
+    return files;
+  } catch (error) {
+    console.error('Error:', error);
+    return null;
+  }
+}
 export default {
   sendMessageToOpenAI,
   getMessageWithTimestamp,
@@ -607,5 +650,7 @@ export default {
   getOptions,
   getFormattedCommands,
   calculateTokens,
-  getEngines
+  getEngines,
+  uploadContentToOpenAI,
+  getUploadedFiles
 };
