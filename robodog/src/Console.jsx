@@ -12,7 +12,7 @@ function Console() {
   const [completionType, setCompletionType] = useState('stream');
   const [maxChars, setMaxChars] = useState(4096);
   const [totalChars, setTotalChars] = useState(0);
-  const [inputText, setInputText] = useState('');
+  const [question, setQuestion] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
   const [knowledge, setKnowledge] = useState('');
@@ -59,7 +59,7 @@ function Console() {
     return () => {
       console.log('Cleaning up...');
     };
-  }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty]);
+  }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty]);
 
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
@@ -67,7 +67,7 @@ function Console() {
       var total = ConsoleService.setStashIndex(currentIndex,
         setContext,
         setKnowledge,
-        setInputText,
+        setQuestion,
         setContent,
         setCurrentIndex,
         setCurrentKey,
@@ -87,7 +87,7 @@ function Console() {
     if (event.ctrlKey && event.keyCode === 83) {
       // Save logic here
       event.preventDefault();
-      var key = ConsoleService.save(context, knowledge, inputText, content, temperature, showTextarea);
+      var key = ConsoleService.save(context, knowledge, question, content, temperature, showTextarea);
     }
   };
 
@@ -98,11 +98,11 @@ function Console() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', handleCtrlS);
     };
-  }, [currentIndex, setContext, setKnowledge, setInputText, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, inputText]);
+  }, [currentIndex, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, question]);
 
   const handleInputChange = (event) => {
     const value = event.target.value;
-    setInputText(value);
+    setQuestion(value);
     handleCharsChange(event);
   };
 
@@ -127,7 +127,7 @@ function Console() {
   const handleCharsChange = (event) => {
     try {
       var c = ConsoleService.calculateTokens(context);
-      var i = ConsoleService.calculateTokens(inputText);
+      var i = ConsoleService.calculateTokens(question);
       var k = ConsoleService.calculateTokens(knowledge);
       var _totalChars = c + i + k;
       setTotalChars(_totalChars);
@@ -157,7 +157,7 @@ function Console() {
           message = 'Content cleared.';
           setContext('');
           setKnowledge('');
-          setInputText('');
+          setQuestion('');
           setContent([ConsoleService.getMessageWithTimestamp(message, 'warning')]);
           break;
         case '/rest':
@@ -256,12 +256,12 @@ function Console() {
           });
           break;
         case '/stash':
-          ConsoleService.stash(_command.verb, context, knowledge, inputText, content, temperature, showTextarea);
+          ConsoleService.stash(_command.verb, context, knowledge, question, content, temperature, showTextarea);
           setCurrentKey(_command.verb);
           message = 'Stashed 💬📝💭 for ' + _command.verb;
           setContext('');
           setKnowledge('');
-          setInputText('');
+          setQuestion('');
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
           break;
         case '/pop':
@@ -275,13 +275,13 @@ function Console() {
               setKnowledge(_pop.knowledge);
             }
             if (_pop.question) {
-              setInputText(_pop.question);
+              setQuestion(_pop.question);
             }
             if (_pop.temperature) {
-              setInputText(_pop.temperature);
+              setQuestion(_pop.temperature);
             }
             if (_pop.showTextarea) {
-              setInputText(_pop.showTextarea);
+              setQuestion(_pop.showTextarea);
             }
             if (_pop.content) {
               var _pc = Array.isArray(_pop.content) ? _pop.content : [_pop.content];
@@ -371,7 +371,7 @@ function Console() {
         _c = _c.replace("<number>", number);
       }
 
-      setInputText(_c);
+      setQuestion(_c);
       console.log(_c);
     }
   }
@@ -386,7 +386,7 @@ function Console() {
   }
   const handleSubmit = async (event) => {
     event.preventDefault();
-    var command = inputText.trim();
+    var command = question.trim();
     var message = '';
     console.log('submit:', command);
     setThinking('🦧');
@@ -429,7 +429,7 @@ function Console() {
       ]);
     } finally {
       setThinking('🦥');
-      setInputText('');
+      setQuestion('');
       scrollToBottom();
     }
   };
@@ -479,7 +479,7 @@ function Console() {
         )}
         <div className="input-area">
           <textarea
-            value={inputText}
+            value={question}
             onChange={handleInputChange}
             placeholder="Chat💬: "
             className="input-textarea question-textarea"

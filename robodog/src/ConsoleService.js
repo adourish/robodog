@@ -363,7 +363,7 @@ function getRandomEmoji() {
 function setStashIndex(currentIndex,
   setContext,
   setKnowledge,
-  setInputText,
+  setQuestion,
   setContent,
   setCurrentIndex,
   setCurrentKey,
@@ -389,7 +389,7 @@ function setStashIndex(currentIndex,
             setKnowledge(stashItem.knowledge);
           }
           if (stashItem.question) {
-            setInputText(stashItem.question);
+            setQuestion(stashItem.question);
           }
           if (stashItem.content) {
             setContent(stashItem.content);
