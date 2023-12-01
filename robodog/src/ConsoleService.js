@@ -18,11 +18,11 @@ function getMessageWithTimestamp(command, role) {
   var s = FormatService.getMessageWithTimestamp(command, role);
   return s;
 }
-function save(context, knowledge, question, content, temperature, showTextarea){
+function save(context, knowledge, question, content, temperature, showTextarea) {
   const currentDate = new Date();
   const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
   var key = "snapshot" + "-" + formattedDate;
-  stash(key, context, knowledge, question, content, temperature, )
+  stash(key, context, knowledge, question, content, temperature,)
   handleExport(key, context, knowledge, question, content, temperature, showTextarea);
   return key;
 }
@@ -41,7 +41,7 @@ function handleExport(fileName, context, knowledge, question, content, temperatu
       concatenatedString += content[i] + "\n";
     }
   }
-  var fileContent = "Temperature:" + temperature + "\n\n Question:\n\n"+ question + "\n\nChat history:\n\n" + context + "\n\nKnowledge:\n\n" + knowledge + '\n\nContent:\n\n' + concatenatedString + '\n\n';
+  var fileContent = "Temperature:" + temperature + "\n\n Question:\n\n" + question + "\n\nChat history:\n\n" + context + "\n\nKnowledge:\n\n" + knowledge + '\n\nContent:\n\n' + concatenatedString + '\n\n';
 
   const element = document.createElement('a');
   element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileContent));
@@ -185,10 +185,10 @@ function getCommands() {
     var description = _options[i].description;
     commands.push(' ' + command + ' - ' + description);
   }
-  
+
   return commands;
 }
-function getOptions(){
+function getOptions() {
   return _options;
 }
 function getFormattedCommands() {
@@ -201,7 +201,7 @@ function getFormattedCommands() {
     var description = option.description;
     commands.push(` ${command} - ${description}`);
   }
-  
+
   return commands;
 }
 function getIndicators() {
@@ -292,7 +292,7 @@ function getAPIKey() {
 
 async function getEngines() {
   const apiKey = await getAPIKey();
-  
+
   const response = await axios.get('https://api.openai.com/v1/engines', {
     headers: {
       'Authorization': `Bearer ${apiKey}`
@@ -302,13 +302,21 @@ async function getEngines() {
   return response.data; // return the list of available engines
 }
 
-async function uploadContentToOpenAI(purpose, content) {
+async function uploadContentToOpenAI(fileName, content) {
+  const currentDate = new Date();
+  const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
+  if (!fileName) {
+    fileName = `${formattedDate}.json`;
+  }
+  var messages =  [{"role": "system", "content": content}];
+
   const apiKey = await getAPIKey();
   const endpoint = 'https://api.openai.com/v1/files';
-
+  const blob = new Blob([messages], { type: 'text/plain' });
+  const file = new File([blob], fileName + '.json');
   const data = {
-    purpose: purpose,
-    file: content
+    purpose: "fine-tune",
+    file: file
   };
 
   try {
