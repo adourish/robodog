@@ -48,15 +48,21 @@ body {
   justify-content: space-between;
   flex-wrap: wrap;
   width: 100%;
-  background-color: #000000; /* black background color */
+  background-color: #000000; 
+}
+
+.top-menu select {
+  background-color: #000000; 
+  color: #ffffff; 
+  width: 100%;
 }
 
 .top-menu button {
   padding: 10px 20px;
   margin: 5px;
-  background-color: #ffffff; /* white button background color */
+  background-color: #ffffff; 
   border: 0;
-  color: #000000; /* black button text color */
+  color: #000000; 
   cursor: pointer;
   border-radius: 2px;
 }
