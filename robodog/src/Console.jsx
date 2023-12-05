@@ -4,7 +4,9 @@ import React, { useRef, useEffect, useState } from 'react';
 import ConsoleService from './ConsoleService';
 const version = window.version;
 const buildNumber = window.buildNumber;
-const build = version + "-" + buildNumber;
+const buildInfo = window.buildInfo;
+const build = version + " - " + buildNumber + " - " + buildInfo;
+
 console.log(build);
 
 function Console() {
@@ -16,7 +18,6 @@ function Console() {
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
   const [knowledge, setKnowledge] = useState('');
-  const [tokens, setTokens] = useState('0+0=0');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo');
   const [tooBig, setTooBig] = useState('🐁');
@@ -408,7 +409,6 @@ function Console() {
           setContext,
           setMessage,
           content,
-          setTokens,
           temperature,
           filter,
           max_tokens,
@@ -418,7 +418,8 @@ function Console() {
           scrollToBottom,
           performance,
           setPerformance,
-          setThinking);
+          setThinking,
+          currentKey);
       }
     } catch (ex) {
       console.error('handleSubmit', ex);

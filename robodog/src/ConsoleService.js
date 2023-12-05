@@ -415,7 +415,7 @@ function setStashIndex(currentIndex,
   return total;
 }
 
-async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, setTokens, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking) {
+async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
@@ -452,13 +452,10 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       ];
       setContent(_c);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-      setTokens(_tokens);
-      stash("autosave", context, knowledge, text, _c);
+      stash(currentKey, context, knowledge, text, _c);
     }
     return response;
   }
-
-
 
   const handleStreamCompletion = async () => {
     var _p = {
@@ -497,8 +494,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       ];
       setContent(_cc);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-      setTokens(_tokens);
-      stash("autosave", context, knowledge, text, _cc);
+      stash(currentKey, context, knowledge, text, _cc);
       console.log(_tokens);
       console.log(response);
     }
