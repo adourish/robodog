@@ -31,7 +31,7 @@ function Console() {
   const [performance, setPerformance] = useState("");
   const [showTextarea, setShowTextarea] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentKey, setCurrentKey] = useState('');
+  const [currentKey, setCurrentKey] = useState('autosave');
   const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
@@ -54,13 +54,14 @@ function Console() {
       setOptions(_options);
       setIsLoaded(true);
       setContent(list);
+      setCurrentKey('autosave');
       setCommands(_commands);
       setFormattedCommands(_fc);
     }
     return () => {
       console.log('Cleaning up...');
     };
-  }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty]);
+  }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey]);
 
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {

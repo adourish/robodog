@@ -290,6 +290,23 @@ function getAPIKey() {
   }
 }
 
+function getIFTTTKey() {
+  const storedAPIKey = localStorage.getItem('iftttKey');
+  if (storedAPIKey) {
+    return storedAPIKey;
+  } else {
+    const userInput = prompt('Please enter your IFTTT Key:');
+    if (userInput) {
+      localStorage.setItem('iftttKey', userInput);
+      return userInput;
+    } else {
+      localStorage.setItem('', userInput);
+      console.log('IFTTT Key is required for this IFTTT webhooks to work.');
+      return '';
+    }
+  }
+}
+
 async function getEngines() {
   const apiKey = await getAPIKey();
 
@@ -308,7 +325,7 @@ async function uploadContentToOpenAI(fileName, content) {
   if (!fileName) {
     fileName = `${formattedDate}.json`;
   }
-  var messages =  [{"role": "system", "content": content}];
+  var messages = [{ "role": "system", "content": content }];
 
   const apiKey = await getAPIKey();
   const endpoint = 'https://api.openai.com/v1/files';
@@ -415,6 +432,25 @@ function setStashIndex(currentIndex,
   return total;
 }
 
+async function callIftttWebhook(event, question, knowledge, context, content) {
+  var p = { "content": content }
+  var key = getIFTTTKey();
+  const iftttWebhookUrl = "https://maker.ifttt.com/trigger/" + event + "/json/with/key/" + key;
+
+  try {
+    const response = await axios.post(iftttWebhookUrl, p, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log(response.data);
+  } catch (error) {
+    // Error occurred while calling IFTTT webhook
+    console.error(error);
+  }
+}
+
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
@@ -453,6 +489,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       setContent(_c);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       stash(currentKey, context, knowledge, text, _c);
+      var payload = _content + " " + knowledge + " " + context;
+      callIftttWebhook(currentKey, text, knowledge, context, _c)
     }
     return response;
   }
@@ -495,8 +533,9 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       setContent(_cc);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       stash(currentKey, context, knowledge, text, _cc);
-      console.log(_tokens);
-      console.log(response);
+      var payload = _content + " " + knowledge + " " + context;
+      callIftttWebhook(currentKey, text, knowledge, context, _c)
+
     }
     return;
   }
@@ -592,6 +631,7 @@ function pop(key) {
     return null;
   }
 }
+
 
 function getStashList() {
   const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
