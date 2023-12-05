@@ -54,7 +54,7 @@ function handleExport(fileName, context, knowledge, question, content, temperatu
 
 
 function handleImport(setKnowledge, knowledge, setContent, content) {
-  console.log("handleUpload")
+  console.debug("handleUpload")
   FileService.extractFileContent(setContent, content)
     .then((text) => {
       console.log(text);
@@ -308,7 +308,7 @@ function getIFTTTKey() {
 }
 
 async function getEngines() {
-  const apiKey = await getAPIKey();
+  const apiKey = getAPIKey();
 
   const response = await axios.get('https://api.openai.com/v1/engines', {
     headers: {
@@ -433,21 +433,29 @@ function setStashIndex(currentIndex,
 }
 
 async function callIftttWebhook(event, question, knowledge, context, content) {
-  var p = { "content": content }
+  var p = { "content": "test" }
   var key = getIFTTTKey();
-  const iftttWebhookUrl = "https://maker.ifttt.com/trigger/" + event + "/json/with/key/" + key;
+  if (key && key !== "") {
+    const url = "https://maker.ifttt.com/trigger/" + event + "/json/with/key/" + key;
 
-  try {
-    const response = await axios.post(iftttWebhookUrl, p, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log(response.data);
-  } catch (error) {
-    // Error occurred while calling IFTTT webhook
-    console.error(error);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: p
+      }).then((res) => {
+        if (res.ok) {
+          return res.json();
+        }
+      }).catch(error => {
+        console.error(error);
+      });
+    } catch (error) {
+      console.error(error);
+    }
   }
 }
 
@@ -475,7 +483,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     if (max_tokens > 0) {
       _p2.max_tokens = max_tokens;
     }
-    console.log(_p2);
+    console.debug(_p2);
     const response = await openai.chat.completions.create(_p2);
     if (response) {
       _content = response.choices[0]?.message?.content;
@@ -506,7 +514,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       presence_penalty: presence_penalty
     };
 
-    console.log(_p);
+    console.debug(_p);
     const stream = await openai.beta.chat.completions.stream(_p);
     if (stream) {
       for await (const chunk of stream) {
