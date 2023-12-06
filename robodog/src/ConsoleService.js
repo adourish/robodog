@@ -3,6 +3,7 @@ import axios from 'axios';
 import { PerformanceCalculator } from './PerformanceCalculator';
 import FormatService from './FormatService';
 import FileService from './FileService';
+
 const openai = new OpenAI({
   apiKey: getAPIKey(),
   dangerouslyAllowBrowser: true,
@@ -432,32 +433,7 @@ function setStashIndex(currentIndex,
   return total;
 }
 
-async function callIftttWebhook(event, question, knowledge, context, content) {
-  var p = { "content": "test" }
-  var key = getIFTTTKey();
-  if (key && key !== "") {
-    const url = "https://maker.ifttt.com/trigger/" + event + "/json/with/key/" + key;
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: p
-      }).then((res) => {
-        if (res.ok) {
-          return res.json();
-        }
-      }).catch(error => {
-        console.error(error);
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  }
-}
 
 async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey) {
   const _messages = [
@@ -497,8 +473,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       setContent(_c);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       stash(currentKey, context, knowledge, text, _c);
-      var payload = _content + " " + knowledge + " " + context;
-      callIftttWebhook(currentKey, text, knowledge, context, _c)
+
     }
     return response;
   }
@@ -541,8 +516,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       setContent(_cc);
       var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
       stash(currentKey, context, knowledge, text, _cc);
-      var payload = _content + " " + knowledge + " " + context;
-      callIftttWebhook(currentKey, text, knowledge, context, _c)
+
 
     }
     return;

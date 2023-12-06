@@ -35,6 +35,7 @@ function Console() {
   const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
+  const [stashList, setStashList] = useState([]);
   const [formattedCommands, setFormattedCommands] = useState([]);
   const contentRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -49,6 +50,12 @@ function Console() {
       var _fc = ConsoleService.getFormattedCommands();
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'ufo')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+      var _stashList = ConsoleService.getStashList();
+
+      if (_stashList) {
+        var stashList = _stashList.split(',');
+        setStashList(stashList);
+      }
       list = list.concat(_l, ufo);
       setCommands(_commands);
       setOptions(_options);
@@ -61,7 +68,7 @@ function Console() {
     return () => {
       console.log('Cleaning up...');
     };
-  }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey]);
+  }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList]);
 
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
@@ -378,6 +385,11 @@ function Console() {
     }
   }
 
+  function handleStashListChange(event) {
+    const selectedValue = event.target.value;
+    console.log(selectedValue);
+  }
+
   function handleVerbChange(event) {
     const verb = event.target.value;
     setCommand(verb);
@@ -450,6 +462,16 @@ function Console() {
             </option>
           ))}
         </select>
+        <select onChange={handleStashListChange}>
+          <option disabled selected>
+            Select a save point
+          </option>
+          {stashList.map((item, index) => (
+            <option key={index} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
       </div>
       <div ref={contentRef} className="console-content">
         {content.map((text, index) => (
@@ -458,7 +480,6 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}]
         </div>
         {showTextarea && (
