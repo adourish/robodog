@@ -385,6 +385,40 @@ function getRandomEmoji() {
   const index = new Date().getMilliseconds() % emojis.length;
   return emojis[index];
 }
+function setStashKey(key, 
+  currentIndex,
+  setContext,
+  setKnowledge,
+  setQuestion,
+  setContent,
+  setCurrentIndex,
+  setCurrentKey,
+  setTemperature,
+  setShowTextarea) {
+    const stashItem = pop(key);
+    setCurrentKey(key);
+    if (stashItem) {
+      console.log(stashItem);
+      if (stashItem.context) {
+        setContext(stashItem.context);
+      }
+      if (stashItem.knowledge) {
+        setKnowledge(stashItem.knowledge);
+      }
+      if (stashItem.question) {
+        setQuestion(stashItem.question);
+      }
+      if (stashItem.content) {
+        setContent(stashItem.content);
+      }
+      if (stashItem.temperature) {
+        setTemperature(stashItem.temperature);
+      }
+      if (stashItem.showTextarea) {
+        setShowTextarea(stashItem.showTextarea);
+      }
+    }
+  }
 
 function setStashIndex(currentIndex,
   setContext,
@@ -403,30 +437,18 @@ function setStashIndex(currentIndex,
       total = _l.length;
       var key = _l[currentIndex];
       if (key) {
-        console.log("shift+38");
-        const stashItem = pop(key);
-        setCurrentKey(key);
-        if (stashItem) {
-          console.log(stashItem);
-          if (stashItem.context) {
-            setContext(stashItem.context);
-          }
-          if (stashItem.knowledge) {
-            setKnowledge(stashItem.knowledge);
-          }
-          if (stashItem.question) {
-            setQuestion(stashItem.question);
-          }
-          if (stashItem.content) {
-            setContent(stashItem.content);
-          }
-          if (stashItem.temperature) {
-            setTemperature(stashItem.temperature);
-          }
-          if (stashItem.showTextarea) {
-            setShowTextarea(stashItem.showTextarea);
-          }
-        }
+        console.log("shift+38:" + key);
+        setStashKey(key, 
+          currentIndex,
+          setContext,
+          setKnowledge,
+          setQuestion,
+          setContent,
+          setCurrentIndex,
+          setCurrentKey,
+          setTemperature,
+          setShowTextarea);
+        
       }
     }
   }
@@ -678,5 +700,6 @@ export default {
   calculateTokens,
   getEngines,
   uploadContentToOpenAI,
-  getUploadedFiles
+  getUploadedFiles,
+  setStashKey
 };

@@ -386,8 +386,20 @@ function Console() {
   }
 
   function handleStashListChange(event) {
-    const selectedValue = event.target.value;
-    console.log(selectedValue);
+    const key = event?.target?.value;
+    if (key) {
+      ConsoleService.setStashKey(key,
+        currentIndex,
+        setContext,
+        setKnowledge,
+        setQuestion,
+        setContent,
+        setCurrentIndex,
+        setCurrentKey,
+        setTemperature,
+        setShowTextarea);
+      console.log(key);
+    }
   }
 
   function handleVerbChange(event) {
