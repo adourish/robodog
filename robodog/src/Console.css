@@ -44,29 +44,31 @@ body {
   margin: 0;
   word-wrap: break-word;
 }
+
 .top-menu {
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
   width: 100%;
-  background-color: #000000; 
+  background-color: #000000;
 }
 
 .top-menu select {
-  background-color: #000000; 
-  color: #ffffff; 
+  background-color: #000000;
+  color: #ffffff;
   width: 100%;
 }
 
 .top-menu button {
   padding: 10px 20px;
   margin: 5px;
-  background-color: #ffffff; 
+  background-color: #ffffff;
   border: 0;
-  color: #000000; 
+  color: #000000;
   cursor: pointer;
   border-radius: 2px;
 }
+
 .input-form {
   display: flex;
   flex-direction: column;
@@ -155,7 +157,7 @@ div.char-count {
   }
 
   .char-count {
-    font-size: 16px; 
+    font-size: 16px;
   }
 }
 
@@ -165,15 +167,15 @@ div.char-count {
     font-size: 26px;
   }
 
-   .submit-button {
-    height: 120px; 
-    font-size: 100px; 
+  .submit-button {
+    height: 120px;
+    font-size: 100px;
   }
 
   .input-form {
     flex-direction: column;
   }
-  
+
   .input-textarea,
   .knowledge-textarea,
   .question-textarea {
@@ -189,6 +191,10 @@ div.char-count {
   }
 
   .char-count {
-    font-size: 30px; 
+    font-size: 30px;
+  }
+
+  .top-menu select {
+    font-size: 30px;
   }
 }
