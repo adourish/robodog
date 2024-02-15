@@ -134,7 +134,7 @@ div.char-count {
   background-color: rgb(20, 20, 20);
 }
 
-@media screen and (min-width: 840px) {
+@media screen and (min-width: 940px) {
 
   .submit-button {
     font-size: 30px;
@@ -162,7 +162,7 @@ div.char-count {
 }
 
 
-@media only screen and (max-width: 840px) {
+@media only screen and (max-width: 940px) {
   .console {
     font-size: 26px;
   }
