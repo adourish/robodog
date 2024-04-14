@@ -1,4 +1,4 @@
-b /* Console.css */
+/* Console.css */
 
 body {
   margin: 0;
@@ -8,7 +8,6 @@ body {
 
 
 .console {
-  background-color: #000000;
   color: white;
   padding: 0px;
   font-family: monospace;
@@ -79,7 +78,7 @@ body {
 
 .input-textarea,
 .context-textarea {
-  background-color: black;
+  background-color: transparent;
   color: white;
   border: 0px solid rgb(8, 0, 0);
   padding: 0px;
@@ -109,7 +108,7 @@ body {
 }
 
 .submit-button {
-  background-color: black;
+  background-color: transparent;
   color: white;
   border: none;
   padding: 0px 0px;
@@ -165,12 +164,12 @@ div.char-count {
 
 @media only screen and (max-width: 940px) {
   .console {
-    font-size: 16px;
+    font-size: 26px;
   }
 
   .submit-button {
-    height: 100px;
-    font-size: 80px;
+    height: 120px;
+    font-size: 100px;
   }
 
   .input-form {
@@ -180,22 +179,22 @@ div.char-count {
   .input-textarea,
   .knowledge-textarea,
   .question-textarea {
-    height: 20px;
-    font-size: 16px;
+    height: 30px;
+    font-size: 26px;
     min-height: 30px;
   }
 
   .question-textarea {
-    height: 80px;
-    font-size: 16px;
-    min-height: 20px;
+    height: 120px;
+    font-size: 26px;
+    min-height: 30px;
   }
 
   .char-count {
-    font-size: 20px;
+    font-size: 30px;
   }
 
   .top-menu select {
-    font-size: 20px;
+    font-size: 30px;
   }
 }
