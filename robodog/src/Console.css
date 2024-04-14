@@ -1,4 +1,4 @@
-/* Console.css */
+b /* Console.css */
 
 body {
   margin: 0;
@@ -164,12 +164,12 @@ div.char-count {
 
 @media only screen and (max-width: 940px) {
   .console {
-    font-size: 26px;
+    font-size: 16px;
   }
 
   .submit-button {
-    height: 120px;
-    font-size: 100px;
+    height: 100px;
+    font-size: 80px;
   }
 
   .input-form {
@@ -179,22 +179,22 @@ div.char-count {
   .input-textarea,
   .knowledge-textarea,
   .question-textarea {
-    height: 30px;
-    font-size: 26px;
+    height: 20px;
+    font-size: 16px;
     min-height: 30px;
   }
 
   .question-textarea {
-    height: 120px;
-    font-size: 26px;
-    min-height: 30px;
+    height: 80px;
+    font-size: 16px;
+    min-height: 20px;
   }
 
   .char-count {
-    font-size: 30px;
+    font-size: 20px;
   }
 
   .top-menu select {
-    font-size: 30px;
+    font-size: 20px;
   }
 }
