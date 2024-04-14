@@ -8,6 +8,7 @@ body {
 
 
 .console {
+  background-color: #000000;
   color: white;
   padding: 0px;
   font-family: monospace;
@@ -78,7 +79,7 @@ body {
 
 .input-textarea,
 .context-textarea {
-  background-color: transparent;
+  background-color: black;
   color: white;
   border: 0px solid rgb(8, 0, 0);
   padding: 0px;
@@ -108,7 +109,7 @@ body {
 }
 
 .submit-button {
-  background-color: transparent;
+  background-color: black;
   color: white;
   border: none;
   padding: 0px 0px;
