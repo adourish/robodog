@@ -164,7 +164,7 @@ div.char-count {
 
 @media only screen and (max-width: 940px) {
   .console {
-    font-size: 26px;
+    font-size: 16px;
   }
 
   .submit-button {
@@ -180,13 +180,13 @@ div.char-count {
   .knowledge-textarea,
   .question-textarea {
     height: 30px;
-    font-size: 26px;
+    font-size: 16px;
     min-height: 30px;
   }
 
   .question-textarea {
     height: 120px;
-    font-size: 26px;
+    font-size: 16px;
     min-height: 30px;
   }
 
