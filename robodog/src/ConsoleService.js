@@ -369,9 +369,9 @@ async function getTextContent(url, model, knowledge, setKnowledge) {
       messages: _messages
     };
     if (model === 'dall-e-3') {
-      response3 = client.images.generate(
+      response3 = openai.images.generate(
         model = "dall-e-3",
-        prompt = "a white siamese cat",
+        prompt = text,
         size = "1024x1024",
         quality = "standard",
         n = 1,
