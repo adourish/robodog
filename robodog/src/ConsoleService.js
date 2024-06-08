@@ -499,9 +499,9 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     }
     console.debug("handleRestCompletion",_p2);
     if (model.includes("dall-e".toLowerCase())) {
-      response3 = client.images.generate(
+      response3 = openai.images.generate(
         model = "dall-e-3",
-        prompt = "a white siamese cat",
+        prompt = text,
         size = "1024x1024",
         quality = "standard",
         n = 1,
