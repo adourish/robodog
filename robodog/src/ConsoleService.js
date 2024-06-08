@@ -368,13 +368,28 @@ async function getTextContent(url, model, knowledge, setKnowledge) {
       model: model,
       messages: _messages
     };
-
-    const response2 = await openai.chat.completions.create(_p2);
-    console.log("get markdown result", response2);
-    if (response2) {
-      _content = response2.choices[0]?.message?.content;
+    if (model.includes("dall-e".toLowerCase())) {
+      response3 = client.images.generate(
+        model="dall-e-3",
+        prompt="a white siamese cat",
+        size="1024x1024",
+        quality="standard",
+        n=1,
+      );
+      var image_url = response.data[0].url;
+      console.log(image_url);
+      _content = image_url;
+      if(response3){
+        return _content;
+      }
+    } else {
+      const response2 = await openai.chat.completions.create(_p2);
+      console.log("get markdown result", response2);
+      if (response2) {
+        _content = response2.choices[0]?.message?.content;
+      }
+      return _content;
     }
-    return _content;
   } catch (error) {
     console.error('Error:', error);
     return null;
@@ -385,7 +400,7 @@ function getRandomEmoji() {
   const index = new Date().getMilliseconds() % emojis.length;
   return emojis[index];
 }
-function setStashKey(key, 
+function setStashKey(key,
   currentIndex,
   setContext,
   setKnowledge,
@@ -395,30 +410,30 @@ function setStashKey(key,
   setCurrentKey,
   setTemperature,
   setShowTextarea) {
-    const stashItem = pop(key);
-    setCurrentKey(key);
-    if (stashItem) {
-      console.log(stashItem);
-      if (stashItem.context) {
-        setContext(stashItem.context);
-      }
-      if (stashItem.knowledge) {
-        setKnowledge(stashItem.knowledge);
-      }
-      if (stashItem.question) {
-        setQuestion(stashItem.question);
-      }
-      if (stashItem.content) {
-        setContent(stashItem.content);
-      }
-      if (stashItem.temperature) {
-        setTemperature(stashItem.temperature);
-      }
-      if (stashItem.showTextarea) {
-        setShowTextarea(stashItem.showTextarea);
-      }
+  const stashItem = pop(key);
+  setCurrentKey(key);
+  if (stashItem) {
+    console.log(stashItem);
+    if (stashItem.context) {
+      setContext(stashItem.context);
+    }
+    if (stashItem.knowledge) {
+      setKnowledge(stashItem.knowledge);
+    }
+    if (stashItem.question) {
+      setQuestion(stashItem.question);
+    }
+    if (stashItem.content) {
+      setContent(stashItem.content);
+    }
+    if (stashItem.temperature) {
+      setTemperature(stashItem.temperature);
+    }
+    if (stashItem.showTextarea) {
+      setShowTextarea(stashItem.showTextarea);
     }
   }
+}
 
 function setStashIndex(currentIndex,
   setContext,
@@ -438,7 +453,7 @@ function setStashIndex(currentIndex,
       var key = _l[currentIndex];
       if (key) {
         console.log("shift+38:" + key);
-        setStashKey(key, 
+        setStashKey(key,
           currentIndex,
           setContext,
           setKnowledge,
@@ -448,7 +463,7 @@ function setStashIndex(currentIndex,
           setCurrentKey,
           setTemperature,
           setShowTextarea);
-        
+
       }
     }
   }

@@ -321,7 +321,13 @@ function Console() {
             });
 
           break;
-        case '/gpt-3.5-turbo-16k':
+          case '/dall-e-3':
+            model = 'dall-e-3';
+            setMaxChars(16385);
+            message = `Switching to dall-e-3: dall-e-3`;
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
+            break;
+          case '/gpt-3.5-turbo-16k':
           model = 'gpt-3.5-turbo-16k';
           setMaxChars(16385);
           message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
