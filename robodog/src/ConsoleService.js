@@ -561,7 +561,9 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
 
   try {
     let response;
-
+    if(model === 'dall-e-3'){
+      response = await handleRestCompletion();
+    }
     if (completionType === 'rest') {
       response = await handleRestCompletion();
     } else if (completionType === 'stream') {
