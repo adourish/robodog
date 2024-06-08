@@ -370,16 +370,16 @@ async function getTextContent(url, model, knowledge, setKnowledge) {
     };
     if (model.includes("dall-e".toLowerCase())) {
       response3 = client.images.generate(
-        model="dall-e-3",
-        prompt="a white siamese cat",
-        size="1024x1024",
-        quality="standard",
-        n=1,
+        model = "dall-e-3",
+        prompt = "a white siamese cat",
+        size = "1024x1024",
+        quality = "standard",
+        n = 1,
       );
       var image_url = response.data[0].url;
       console.log(image_url);
       _content = image_url;
-      if(response3){
+      if (response3) {
         return _content;
       }
     } else {
@@ -497,22 +497,41 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       _p2.max_tokens = max_tokens;
     }
     console.debug(_p2);
-    const response = await openai.chat.completions.create(_p2);
-    if (response) {
-      _content = response.choices[0]?.message?.content;
-      _finish_reason = response.choices[0]?.finish_reason;
-      setMessage(_finish_reason);
+    if (model.includes("dall-e".toLowerCase())) {
+      response3 = client.images.generate(
+        model = "dall-e-3",
+        prompt = "a white siamese cat",
+        size = "1024x1024",
+        quality = "standard",
+        n = 1,
+      );
+      var image_url = response.data[0].url;
+      console.log(image_url);
+      _content = image_url;
       var _c = [
         ...content,
         FormatService.getMessageWithTimestamp(text, 'user'),
         FormatService.getMessageWithTimestamp(_content, 'assistant')
       ];
       setContent(_c);
-      var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-      stash(currentKey, context, knowledge, text, _c);
+    } else {
+      const response = await openai.chat.completions.create(_p2);
+      if (response) {
+        _content = response.choices[0]?.message?.content;
+        _finish_reason = response.choices[0]?.finish_reason;
+        setMessage(_finish_reason);
+        var _c = [
+          ...content,
+          FormatService.getMessageWithTimestamp(text, 'user'),
+          FormatService.getMessageWithTimestamp(_content, 'assistant')
+        ];
+        setContent(_c);
+        var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
+        stash(currentKey, context, knowledge, text, _c);
 
+      }
+      return response;
     }
-    return response;
   }
 
   const handleStreamCompletion = async () => {
@@ -561,8 +580,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
 
   try {
     let response;
-    if(model === 'dall-e-3'){
-      console.log('dall-e-3',model);
+    if (model === 'dall-e-3') {
+      console.log('dall-e-3', model);
       response = await handleRestCompletion();
     }
     if (completionType === 'rest') {
