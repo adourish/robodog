@@ -368,7 +368,7 @@ async function getTextContent(url, model, knowledge, setKnowledge) {
       model: model,
       messages: _messages
     };
-    if (model.includes("dall-e".toLowerCase())) {
+    if (model === 'dall-e-3') {
       response3 = client.images.generate(
         model = "dall-e-3",
         prompt = "a white siamese cat",
