@@ -493,10 +493,11 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       frequency_penalty: frequency_penalty,
       presence_penalty: presence_penalty
     };
+
     if (max_tokens > 0) {
       _p2.max_tokens = max_tokens;
     }
-    console.debug(_p2);
+    console.debug("handleRestCompletion",_p2);
     if (model.includes("dall-e".toLowerCase())) {
       response3 = client.images.generate(
         model = "dall-e-3",
@@ -581,7 +582,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
   try {
     let response;
     if (model === 'dall-e-3') {
-      console.log('dall-e-3', model);
+      console.log('run dall-e-3', model);
       response = await handleRestCompletion();
     }
     if (completionType === 'rest') {
