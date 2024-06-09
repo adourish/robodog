@@ -32,6 +32,7 @@ function Console() {
   const [showTextarea, setShowTextarea] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKey, setCurrentKey] = useState('autosave');
+  const [size, setSize] = useState('1024x1024"');
   const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
@@ -68,7 +69,7 @@ function Console() {
     return () => {
       console.log('Cleaning up...');
     };
-  }, [isLoaded, setIsLoaded, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList]);
+  }, [isLoaded, setIsLoaded, size, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList, setSize]);
 
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
@@ -450,7 +451,9 @@ function Console() {
           performance,
           setPerformance,
           setThinking,
-          currentKey);
+          currentKey,
+          setSize,
+          size);
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
@@ -498,7 +501,7 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}]
+          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]
         </div>
         {showTextarea && (
           <textarea

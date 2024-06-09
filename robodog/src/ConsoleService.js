@@ -457,7 +457,7 @@ function setStashIndex(currentIndex,
 
 
 
-async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey) {
+async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
@@ -545,10 +545,10 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
   }
 
   const handleDalliRestCompletion = async () => {
-    var size = "1024x1024";
+    const _daliprompt = "chat history:" + context + "knowledge:" + knowledge + "question:" + text;
     var p3 = {
       model: "dall-e-3",
-      prompt: text,
+      prompt: _daliprompt,
       size: size, 
       quality: "standard",
       n: 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
@@ -559,7 +559,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     if (response3) {
       var image_url = response3.data[0].url;
       _content = image_url;
-      setMessage(image_url);
+      setMessage("image");
       var _c = [
         ...content,
         FormatService.getMessageWithTimestamp(text, 'user'),
