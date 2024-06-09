@@ -32,7 +32,7 @@ function Console() {
   const [showTextarea, setShowTextarea] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKey, setCurrentKey] = useState('autosave');
-  const [size, setSize] = useState('1024x1024"');
+  const [size, setSize] = useState('1024x1024');
   const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
