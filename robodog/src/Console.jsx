@@ -32,7 +32,7 @@ function Console() {
   const [showTextarea, setShowTextarea] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKey, setCurrentKey] = useState('autosave');
-  const [size, setSize] = useState('1024x1024');
+  const [size, setSize] = useState('1792x1024');
   const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
@@ -325,7 +325,7 @@ function Console() {
           case '/dall-e-3':
             model = 'dall-e-3';
             setMaxChars(16385);
-            message = `Switching to dall-e-3: dall-e-3`;
+            message = `Switching to dall-e-3: dall-e-3 1024x1024, 1024x1792 or 1792x1024`;
             setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
             break;
           case '/gpt-3.5-turbo-16k':
