@@ -555,7 +555,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     };
 
     response3 = openai.images.generate(p3);
-
+    console.debug('handleDalliRestCompletion',p3);
     if (response3) {
       var image_url = response3.data[0].url;
       _content = image_url;
