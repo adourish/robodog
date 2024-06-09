@@ -569,7 +569,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       stash(currentKey, context, knowledge, text, _c);
 
     }
-    return response;
+    return response3;
   }
   try {
     let response;
