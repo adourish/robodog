@@ -368,28 +368,13 @@ async function getTextContent(url, model, knowledge, setKnowledge) {
       model: model,
       messages: _messages
     };
-    if (model === 'dall-e-3') {
-      response3 = openai.images.generate(
-        model = "dall-e-3",
-        prompt = text,
-        size = "1024x1024",
-        quality = "standard",
-        n = 1,
-      );
-      var image_url = response.data[0].url;
-      console.log(image_url);
-      _content = image_url;
-      if (response3) {
-        return _content;
-      }
-    } else {
-      const response2 = await openai.chat.completions.create(_p2);
-      console.log("get markdown result", response2);
-      if (response2) {
-        _content = response2.choices[0]?.message?.content;
-      }
-      return _content;
+
+    const response2 = await openai.chat.completions.create(_p2);
+    console.log("get markdown result", response2);
+    if (response2) {
+      _content = response2.choices[0]?.message?.content;
     }
+    return _content;
   } catch (error) {
     console.error('Error:', error);
     return null;
@@ -400,7 +385,7 @@ function getRandomEmoji() {
   const index = new Date().getMilliseconds() % emojis.length;
   return emojis[index];
 }
-function setStashKey(key,
+function setStashKey(key, 
   currentIndex,
   setContext,
   setKnowledge,
@@ -410,30 +395,30 @@ function setStashKey(key,
   setCurrentKey,
   setTemperature,
   setShowTextarea) {
-  const stashItem = pop(key);
-  setCurrentKey(key);
-  if (stashItem) {
-    console.log(stashItem);
-    if (stashItem.context) {
-      setContext(stashItem.context);
-    }
-    if (stashItem.knowledge) {
-      setKnowledge(stashItem.knowledge);
-    }
-    if (stashItem.question) {
-      setQuestion(stashItem.question);
-    }
-    if (stashItem.content) {
-      setContent(stashItem.content);
-    }
-    if (stashItem.temperature) {
-      setTemperature(stashItem.temperature);
-    }
-    if (stashItem.showTextarea) {
-      setShowTextarea(stashItem.showTextarea);
+    const stashItem = pop(key);
+    setCurrentKey(key);
+    if (stashItem) {
+      console.log(stashItem);
+      if (stashItem.context) {
+        setContext(stashItem.context);
+      }
+      if (stashItem.knowledge) {
+        setKnowledge(stashItem.knowledge);
+      }
+      if (stashItem.question) {
+        setQuestion(stashItem.question);
+      }
+      if (stashItem.content) {
+        setContent(stashItem.content);
+      }
+      if (stashItem.temperature) {
+        setTemperature(stashItem.temperature);
+      }
+      if (stashItem.showTextarea) {
+        setShowTextarea(stashItem.showTextarea);
+      }
     }
   }
-}
 
 function setStashIndex(currentIndex,
   setContext,
@@ -453,7 +438,7 @@ function setStashIndex(currentIndex,
       var key = _l[currentIndex];
       if (key) {
         console.log("shift+38:" + key);
-        setStashKey(key,
+        setStashKey(key, 
           currentIndex,
           setContext,
           setKnowledge,
@@ -463,7 +448,7 @@ function setStashIndex(currentIndex,
           setCurrentKey,
           setTemperature,
           setShowTextarea);
-
+        
       }
     }
   }
@@ -493,46 +478,26 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
       frequency_penalty: frequency_penalty,
       presence_penalty: presence_penalty
     };
-
     if (max_tokens > 0) {
       _p2.max_tokens = max_tokens;
     }
-    console.debug("handleRestCompletion",_p2);
-    if (model.includes("dall-e".toLowerCase())) {
-      response3 = openai.images.generate(
-        model = "dall-e-3",
-        prompt = text,
-        size = "1024x1024",
-        quality = "standard",
-        n = 1,
-      );
-      var image_url = response.data[0].url;
-      console.log(image_url);
-      _content = image_url;
+    console.debug(_p2);
+    const response = await openai.chat.completions.create(_p2);
+    if (response) {
+      _content = response.choices[0]?.message?.content;
+      _finish_reason = response.choices[0]?.finish_reason;
+      setMessage(_finish_reason);
       var _c = [
         ...content,
         FormatService.getMessageWithTimestamp(text, 'user'),
         FormatService.getMessageWithTimestamp(_content, 'assistant')
       ];
       setContent(_c);
-    } else {
-      const response = await openai.chat.completions.create(_p2);
-      if (response) {
-        _content = response.choices[0]?.message?.content;
-        _finish_reason = response.choices[0]?.finish_reason;
-        setMessage(_finish_reason);
-        var _c = [
-          ...content,
-          FormatService.getMessageWithTimestamp(text, 'user'),
-          FormatService.getMessageWithTimestamp(_content, 'assistant')
-        ];
-        setContent(_c);
-        var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
-        stash(currentKey, context, knowledge, text, _c);
+      var _tokens = response.usage?.completion_tokens + '+' + response.usage?.prompt_tokens + '=' + response.usage?.total_tokens;
+      stash(currentKey, context, knowledge, text, _c);
 
-      }
-      return response;
     }
+    return response;
   }
 
   const handleStreamCompletion = async () => {
@@ -579,14 +544,37 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     return;
   }
 
+  const handleDalliRestCompletion = async () => {
+
+    response3 = openai.images.generate(
+      model = "dall-e-3",
+      prompt = text,
+      size = "1024x1024",
+      quality = "standard",
+      n = 1,
+    );
+
+    if (response) {
+      var image_url = response.data[0].url;
+      _content = image_url;
+      setMessage(image_url);
+      var _c = [
+        ...content,
+        FormatService.getMessageWithTimestamp(text, 'user'),
+        FormatService.getMessageWithTimestamp(_content, 'assistant')
+      ];
+      setContent(_c);
+      stash(currentKey, context, knowledge, text, _c);
+
+    }
+    return response;
+  }
   try {
     let response;
+
     if (model === 'dall-e-3') {
-      console.log('run dall-e-3', model);
-      response = await handleRestCompletion();
-    }
-    if (completionType === 'rest') {
-      console.log('rest')
+      response = await handleDalliRestCompletion();
+    } else if (completionType === 'rest') {
       response = await handleRestCompletion();
     } else if (completionType === 'stream') {
       await handleStreamCompletion();
