@@ -322,13 +322,13 @@ function Console() {
             });
 
           break;
-          case '/dall-e-3':
-            model = 'dall-e-3';
-            setMaxChars(16385);
-            message = `Switching to dall-e-3: dall-e-3 1024x1024, 1024x1792 or 1792x1024`;
-            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
-            break;
-          case '/gpt-3.5-turbo-16k':
+        case '/dall-e-3':
+          model = 'dall-e-3';
+          setMaxChars(16385);
+          message = `Switching to dall-e-3: dall-e-3 1024x1024, 1024x1792 or 1792x1024`;
+          setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
+          break;
+        case '/gpt-3.5-turbo-16k':
           model = 'gpt-3.5-turbo-16k';
           setMaxChars(16385);
           message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
@@ -495,9 +495,16 @@ function Console() {
         </select>
       </div>
       <div ref={contentRef} className="console-content">
-        {content.map((text, index) => (
-          <pre key={index}>{text}</pre>
-        ))}
+        {content.map((text, index) => {
+          const urlPattern = /https:\/\/.*\.png/;
+          const isImageUrl = urlPattern.test(text);
+
+          if (isImageUrl) {
+            return <img key={index} src={text} alt="image" />;
+          } else {
+            return <pre key={index}>{text}</pre>;
+          }
+        })}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
