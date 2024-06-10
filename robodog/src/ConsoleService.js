@@ -558,13 +558,12 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     console.debug('handleDalliRestCompletion',p3);
     if (response3) {
       var image_url = response3.data[0].url;
-      var _imgLink = '<img src="' +  image_url +  '" alt="image" style="{width: \'60vw\', height: \'auto\'} />';
-      _content = _imgLink
+      _content = image_url
       setMessage("image");
       var _c = [
         ...content,
         FormatService.getMessageWithTimestamp(text, 'user'),
-        FormatService.getMessageWithTimestamp(_content, 'assistant')
+        FormatService.getMessageWithTimestamp(_content, 'image')
       ];
       setContent(_c);
       stash(currentKey, context, knowledge, text, _c);

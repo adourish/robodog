@@ -1,9 +1,12 @@
-function getMessageWithTimestamp(command, role) {
+function getMessageWithTimestamp(command, role, url) {
   const options = { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
   const shortTimeString = new Date().toLocaleTimeString(undefined, options);
 
   let roleEmoji;
   switch (role) {
+    case 'image':
+      roleEmoji = '🖼';
+      break;
     case 'user':
       roleEmoji = '👾';
       break;
@@ -39,7 +42,8 @@ function getMessageWithTimestamp(command, role) {
     "datetime": `${shortTimeString}`,
     "role": role,
     "roleEmoji": `${roleEmoji}`,
-    "command": `${command}`
+    "command": `${command}`,
+    "url": url
   };
   return item;
 }
