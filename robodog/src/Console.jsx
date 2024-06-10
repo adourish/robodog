@@ -497,7 +497,10 @@ function Console() {
       <div ref={contentRef} className="console-content">
         {content.map((text, index) => {
           return text.includes('<img') ? (
-            <pre key={index}>{text}</pre>
+            <div 
+                key={index} 
+                dangerouslySetInnerHTML={{ __html: text }} 
+            />
           ) : (
             <pre key={index}>{text}</pre>
           );
