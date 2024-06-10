@@ -558,8 +558,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     console.debug('handleDalliRestCompletion',p3);
     if (response3) {
       var image_url = response3.data[0].url;
-      var _link = '<code>&lt;img src="' + image_url + '" alt="alt text" &gt;</code>'
-      _content = image_url + "\n" + _link;
+      _content = image_url
       setMessage("image");
       var _c = [
         ...content,
