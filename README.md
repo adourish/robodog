@@ -12,6 +12,7 @@ All chat history is conveniently accumulated in the 'chat context' text box, ens
 
 Furthermore, users can effortlessly switch between GPT3.5 and GPT4 models without losing their chat context, enabling them to validate their questions and answers on a different model. Additionally, the system allows flexibility in choosing between cost-effective and higher-priced models, ensuring diverse options for tailored AI interactions.
 
+
 ![Screenshot](screenshot.png)
 
 # Create an API Key
@@ -23,6 +24,12 @@ Create an Open AI account and generate [new secret key](https://platform.openai.
 The UI is responsive and will work on a phone. You can use the GitHub pages link [Robodog](https://adourish.github.io/robodog/robodog/dist/)
 
 ![Mobile](mobile.png)
+
+# Dall-e-
+
+Dall-e-3 is supported
+
+![Mobile](screenshot3dalle3.png)
 
 # Accessibility
 
@@ -141,6 +148,7 @@ Use the drop down menu to select options.
 -   /gpt-4 - switch to gpt-4 model (8,192 tokens).
 -   /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
 -   /model <name> - set to a specific model.
+-   /model dall-e-3
 -   /help - get help.
 -   /import - import files into knowledge (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .xsql, .json, .xml).
 -   /export <filename> - export knowledge to a file.
