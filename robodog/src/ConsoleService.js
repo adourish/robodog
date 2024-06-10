@@ -83,7 +83,16 @@ function getSettings(build, model, temperature, max_tokens, top_p, frequency_pen
     "top_p: " + top_p,
     "frequency_penalty: " + frequency_penalty,
     "presence_penalty: " + presence_penalty];
-  return settings;
+    var commands = ufo.map((line, index) => {
+      return {
+        "datetime": new Date().toLocaleTimeString(),
+        "role": "setting",
+        "roleEmoji": "🚁",
+        "command": line,
+        "url": ""
+      };
+    });
+  return commands;
 }
 const _options = [
   {
