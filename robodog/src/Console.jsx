@@ -496,27 +496,11 @@ function Console() {
       </div>
       <div ref={contentRef} className="console-content">
         {content.map((text, index) => {
-          // Split the text on the date, which we assume is followed by a space and the robot emoji
-          let parts = text.split(/(\d{2}:\d{2}:\d{2}🤖: )/);
-
-          // Create a new array to hold the processed parts
-          let processedParts = [];
-
-          parts.forEach((part, i) => {
-            const urlPattern = /https:\/\/.*\.(png|jpg|jpeg)/;
-            const isImageUrl = urlPattern.test(part);
-
-            if (isImageUrl) {
-              // If the part is a URL, render it as an image
-              processedParts.push(<img key={`${index}-${i}`} src={part} alt="image" style={{width: '60vw', height: 'auto'}} />);
-            } else {
-              // Otherwise, render it as preformatted text
-              processedParts.push(<pre key={`${index}-${i}`}>{text}</pre>);
-            }
-          });
-
-          // Return the processed parts
-          return processedParts;
+          return text.includes('<img') ? (
+            {text}
+          ) : (
+            <pre key={index}>{text}</pre>
+          );
         })}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
