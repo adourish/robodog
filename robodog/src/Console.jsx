@@ -498,12 +498,12 @@ function Console() {
         {content.map((item, index) => {
           if (item.role === 'image') { 
             return (
-              <img key={index} src={item.command} alt="" />
+              <img key={index} src={item.command} alt="{item.role}" />
             );
           } else {
             return (
               <pre key={index}>
-                {item.datetime} {item.role} {item.command}
+                {item.datetime} {item.roleEmoji} {item.command}
               </pre>
             );
           }

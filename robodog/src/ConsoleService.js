@@ -273,7 +273,16 @@ function getUFO() {
     '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
     '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀'
   ];
-  return ufo;
+  var commands = ufo.map((line, index) => {
+    return {
+      "datetime": new Date().toLocaleTimeString(),
+      "role": "ufo",
+      "roleEmoji": "🛸",
+      "command": line,
+      "url": ""
+    };
+  });
+  return commands;
 }
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
