@@ -83,7 +83,7 @@ function getSettings(build, model, temperature, max_tokens, top_p, frequency_pen
     "top_p: " + top_p,
     "frequency_penalty: " + frequency_penalty,
     "presence_penalty: " + presence_penalty];
-    var commands = ufo.map((line, index) => {
+    var commands = settings.map((line, index) => {
       return {
         "datetime": new Date().toLocaleTimeString(),
         "role": "setting",
@@ -247,7 +247,17 @@ function getIndicators() {
     ' [🐋] - Dangerously large',
     ' [🦕] - Very large',
     ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'];
-  return indicators;
+
+    var commands = indicators.map((line, index) => {
+      return {
+        "datetime": new Date().toLocaleTimeString(),
+        "role": "setting",
+        "roleEmoji": "🚁",
+        "command": line,
+        "url": ""
+      };
+    });
+  return commands;
 
 }
 function getHelp(message, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty) {
