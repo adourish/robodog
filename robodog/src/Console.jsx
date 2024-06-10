@@ -508,10 +508,10 @@ function Console() {
 
             if (isImageUrl) {
               // If the part is a URL, render it as an image
-              processedParts.push(<img key={`${index}-${i}`} src={part} alt="image" />);
+              processedParts.push(<img key={`${index}-${i}`} src={part} alt="image" style={{width: '100%', height: 'auto'}} />);
             } else {
               // Otherwise, render it as preformatted text
-              processedParts.push(<pre key={`${index}-${i}`}>{part}</pre>);
+              processedParts.push(<pre key={`${index}-${i}`}>{text}</pre>);
             }
           });
 
