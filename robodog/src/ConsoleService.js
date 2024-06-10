@@ -189,11 +189,20 @@ const _options = [
   }
 ];
 function getCommands() {
-  var commands = ['commands: '];
+    var commands = [];
   for (var i = 0; i < _options.length; i++) {
     var command = _options[i].command;
     var description = _options[i].description;
-    commands.push(' ' + command + ' - ' + description);
+
+      var item = {
+        "datetime": new Date().toLocaleTimeString(),
+        "role": "setting",
+        "roleEmoji": "🚁",
+        "command": ' ' + command + ' - ' + description,
+        "url": ""
+      };
+
+    commands.push(item);
   }
 
   return commands;
