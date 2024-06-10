@@ -35,7 +35,13 @@ function getMessageWithTimestamp(command, role) {
     default:
       roleEmoji = '🙀';
   }
-  return `${shortTimeString}${roleEmoji}: ${command}`;
+  var item = {
+    "datetime": `${shortTimeString}`,
+    "role": role,
+    "roleEmoji": `${roleEmoji}`,
+    "command": `${command}`
+  };
+  return item;
 }
 
 export default { getMessageWithTimestamp };

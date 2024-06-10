@@ -494,16 +494,19 @@ function Console() {
           ))}
         </select>
       </div>
-      <div ref={contentRef} className="console-content">
-        {content.map((text, index) => {
-          return text.includes('<img') ? (
-            <div 
-                key={index} 
-                dangerouslySetInnerHTML={{ __html: text }} 
-            />
-          ) : (
-            <pre key={index}>{text}</pre>
-          );
+      <div className="console-content">
+        {content.map((item, index) => {
+          if (item.role === 'image') { 
+            return (
+              <img key={index} src={item.command} alt="" />
+            );
+          } else {
+            return (
+              <pre key={index}>
+                {item.datetime} {item.role} {item.command}
+              </pre>
+            );
+          }
         })}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
