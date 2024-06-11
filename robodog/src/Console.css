@@ -69,6 +69,11 @@ body {
   border-radius: 2px;
 }
 
+.image-size-50 {
+  width: 50vw;
+  height: 50vh;
+}
+
 .input-form {
   display: flex;
   flex-direction: column;
