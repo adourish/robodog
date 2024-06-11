@@ -498,7 +498,7 @@ function Console() {
         {content.map((item, index) => {
           if (item.role === 'image') { 
             return (
-              <div><img key={index} src={item.command} alt={item.role} className='image-size-50' /></div>
+              <div key={index}><img src={item.command} alt={item.role} className='image-size-50' /></div>
             );
           } else {
             return (
