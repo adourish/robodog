@@ -133,8 +133,10 @@ function Console() {
   };
 
   const scrollToBottom = () => {
-    if (contentRef.current) {
+    if (contentRef && contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    } else{ 
+      console.debug('no scroll');
     }
   }
 
