@@ -132,7 +132,7 @@ function Console() {
     handleCharsChange(event);
   };
 
-  const scrollToBottom = (contentRef) => {
+  const scrollToBottom = () => {
     if (contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
@@ -484,7 +484,7 @@ function Console() {
     } finally {
       setThinking('🦥');
       setQuestion('');
-      scrollToBottom(contentRef);
+      scrollToBottom();
     }
   };
 
