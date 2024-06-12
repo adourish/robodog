@@ -71,6 +71,22 @@ function Console() {
     };
   }, [isLoaded, setIsLoaded, size, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList, setSize]);
 
+  const setFocusOnLastItem = () => {
+    setContent(prevContent => {
+      return prevContent.map((item, index) => {
+        if (index === prevContent.length - 1) {
+          return { ...item, focus: true };
+        }
+        return item;
+      });
+    });
+  };
+
+  useEffect(() => {
+    // Call the function to set focus on the last item when content changes
+    setFocusOnLastItem();
+  }, [content]);
+
   const handleKeyDown = (event) => {
     if (event.shiftKey && event.keyCode === 38) {
       console.log(currentIndex);
@@ -505,7 +521,7 @@ function Console() {
             );
           } else {
             return (
-              <pre key={index}>
+              <pre key={index} focus={item.focus}>
                 {item.datetime} {item.roleEmoji} {item.command}
               </pre>
             );
