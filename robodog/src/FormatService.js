@@ -43,7 +43,8 @@ function getMessageWithTimestamp(command, role, url) {
     "role": role,
     "roleEmoji": `${roleEmoji}`,
     "command": `${command}`,
-    "url": url
+    "url": url,
+    "focus": false
   };
   return item;
 }
