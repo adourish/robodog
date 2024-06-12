@@ -190,6 +190,7 @@ function Console() {
             for (let i = 0; i < data.data.length; i++) {
               const engine = data.data[i];
               const formattedEngine = engine.id + " - " + engine.owner;
+              ConsoleService.getMessageWithTimestamp(formattedEngine, 'event')
               formattedEngines.push(formattedEngine);
             }
             setContent(formattedEngines);
