@@ -185,15 +185,17 @@ function Console() {
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
           break;
         case '/models':
+          var list = [];
           ConsoleService.getEngines().then(data => {
-            const formattedEngines = [...content, ConsoleService.getMessageWithTimestamp(message, 'event')];
+            const startItem = [...content, ConsoleService.getMessageWithTimestamp(message, 'event')];
+            list.push(startItem);
             for (let i = 0; i < data.data.length; i++) {
               const engine = data.data[i];
               const formattedEngine = engine.id + " - " + engine.owner;
               var item = ConsoleService.getMessageWithTimestamp(formattedEngine, 'event')
-              formattedEngines.push(item);
+              list.push(item);
             }
-            setContent(formattedEngines);
+            setContent(list);
             console.log(formattedEngines);
             console.log(data);
           }).catch(err => {
