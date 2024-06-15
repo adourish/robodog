@@ -50,7 +50,11 @@ function Console() {
       var _options = ConsoleService.getOptions();
       var _fc = ConsoleService.getFormattedCommands();
       var _key = ConsoleService.getAPIKey();
-      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is' + _key + ' use /key <key> to reset', 'ufo')];
+
+      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + _key + '" use /key <key> to reset', 'key')];
+      if(!_key){
+        list2.push(ConsoleService.getMessageWithTimestamp('Your API key is not set use /key <key> to set it', 'key'));
+      }
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'ufo')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = ConsoleService.getStashList();
@@ -59,8 +63,8 @@ function Console() {
         var stashList = _stashList.split(',');
         setStashList(stashList);
       }
-      list = list.concat(_l, ufo);
-      list = list.concat(list, list2);
+      list = list.concat(_l, ufo, list2);
+
       setCommands(_commands);
       setOptions(_options);
       setIsLoaded(true);
