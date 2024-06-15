@@ -178,7 +178,7 @@ div.char-count {
     font-family: monospace;
     display: flex;
     flex-direction: column;
-    height: 90vh;
+    height: 95%;
     overflow: hidden;
     max-width: 90%;
   }
