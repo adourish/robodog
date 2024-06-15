@@ -747,7 +747,7 @@ async function getUploadedFiles() {
   }
 }
 export default {
-  sendMessageToOpenAI,
+  askQuestion,
   getMessageWithTimestamp,
   getVerb,
   getStashList,
