@@ -51,7 +51,7 @@ function Console() {
       var _fc = ConsoleService.getFormattedCommands();
       var _key = ConsoleService.getAPIKey();
 
-      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + _key + '" use /key <key> to reset', 'key')];
+      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + _key + '" set your key using /key <key> or /reset to remove your key', 'key')];
       if(!_key){
         list2.push(ConsoleService.getMessageWithTimestamp('Your API key is not set use /key <key> to set it', 'key'));
       }
