@@ -178,7 +178,7 @@ div.char-count {
     font-family: monospace;
     display: flex;
     flex-direction: column;
-    height: 60vh;
+    height: 90vh;
     overflow: hidden;
     max-width: 90%;
   }
@@ -192,8 +192,8 @@ div.char-count {
   }
 
   .input-textarea {
-    font-size: 18px;
-    min-height: 40px;
+    font-size: 22px;
+    min-height: 70px;
   }
 
   .context-textarea,
