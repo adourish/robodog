@@ -37,7 +37,7 @@ function handleExport(fileName, context, knowledge, question, content, temperatu
 
   let concatenatedString = '';
 
-  
+
   if (Array.isArray(content)) {
     for (let i = 0; i < content.length; i++) {
       concatenatedString += content[i] + "\n";
@@ -318,15 +318,14 @@ function getAPIKey() {
   if (storedAPIKey) {
     return storedAPIKey;
   } else {
-    const userInput = prompt('Please enter your OpenAI API Key:');
-    if (userInput) {
-      localStorage.setItem('openaiAPIKey', userInput);
-      return userInput;
-    } else {
-      alert('API Key is required for this application to work.');
-      return '';
-    }
+    return '';
   }
+
+
+}
+
+function setAPIKey(key) {
+  localStorage.setItem('openaiAPIKey', key);
 }
 
 function getIFTTTKey() {
@@ -748,6 +747,8 @@ async function getUploadedFiles() {
   }
 }
 export default {
+  getAPIKey,
+  setAPIKey,
   askQuestion,
   getMessageWithTimestamp,
   getVerb,

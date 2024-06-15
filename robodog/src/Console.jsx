@@ -49,6 +49,8 @@ function Console() {
       var _commands = ConsoleService.getCommands();
       var _options = ConsoleService.getOptions();
       var _fc = ConsoleService.getFormattedCommands();
+      var _key = ConsoleService.getAPIKey();
+      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is' + _key + ' use /key <key> to reset', 'ufo')];
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'ufo')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = ConsoleService.getStashList();
@@ -58,6 +60,7 @@ function Console() {
         setStashList(stashList);
       }
       list = list.concat(_l, ufo);
+      list = list.concat(list, list2);
       setCommands(_commands);
       setOptions(_options);
       setIsLoaded(true);
@@ -285,6 +288,14 @@ function Console() {
           ConsoleService.getTextContent(_command.verb, model, knowledge, setKnowledge).then((content) => {
             setContent([...content, ConsoleService.getMessageWithTimestamp("/get " + _command.verb, 'user'), ConsoleService.getMessageWithTimestamp(content, 'event')]);
           });
+          break;
+        case '/key':
+          ConsoleService.setAPIKey(_command.verb);
+          message = 'Set API key ' + _command.verb;
+          setContext('');
+          setKnowledge('');
+          setQuestion('');
+          setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
           break;
         case '/stash':
           ConsoleService.stash(_command.verb, context, knowledge, question, content, temperature, showTextarea);
