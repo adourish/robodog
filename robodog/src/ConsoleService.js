@@ -37,6 +37,7 @@ function handleExport(fileName, context, knowledge, question, content, temperatu
 
   let concatenatedString = '';
 
+  
   if (Array.isArray(content)) {
     for (let i = 0; i < content.length; i++) {
       concatenatedString += content[i] + "\n";
