@@ -185,25 +185,17 @@ div.char-count {
     flex-direction: column;
   }
 
- .question-textarea
-  {
-    height: 10px;
-    font-size: 12px;
-    min-height: 10px;
-  }
-  .knowledge-textarea,
-  .question-textarea {
-    height: 20px;
-    font-size: 16px;
+  .input-textarea {
+    font-size: 14px;
     min-height: 20px;
   }
 
+  .context-textarea,
+  .knowledge-textarea,
   .question-textarea {
-    height: 80px;
-    font-size: 16px;
-    min-height: 30px;
+    font-size: 10px;
+    min-height: 20px;
   }
-
   .char-count {
     font-size: 20px;
   }

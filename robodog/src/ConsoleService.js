@@ -195,9 +195,9 @@ function getCommands() {
     var description = _options[i].description;
 
       var item = {
-        "datetime": new Date().toLocaleTimeString(),
+        "datetime": "",
         "role": "setting",
-        "roleEmoji": "🚁",
+        "roleEmoji": "",
         "command": ' ' + command + ' - ' + description,
         "url": ""
       };
@@ -259,9 +259,9 @@ function getIndicators() {
 
     var commands = indicators.map((line, index) => {
       return {
-        "datetime": new Date().toLocaleTimeString(),
+        "datetime": "",
         "role": "setting",
-        "roleEmoji": "🚁",
+        "roleEmoji": "",
         "command": line,
         "url": ""
       };
@@ -303,9 +303,9 @@ function getUFO() {
   ];
   var commands = ufo.map((line, index) => {
     return {
-      "datetime": new Date().toLocaleTimeString(),
+      "datetime": "",
       "role": "ufo",
-      "roleEmoji": "🛸",
+      "roleEmoji": "",
       "command": line,
       "url": ""
     };
