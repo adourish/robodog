@@ -173,9 +173,15 @@ div.char-count {
 
 @media only screen and (max-width: 940px) {
   .console {
-    font-size: 16px;
+    color: white;
+    padding: 0px;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    height: 60vh;
+    overflow: hidden;
+    max-width: 90%;
   }
-
   .submit-button {
     height: 50px;
     font-size: 50px;
@@ -186,8 +192,8 @@ div.char-count {
   }
 
   .input-textarea {
-    font-size: 14px;
-    min-height: 20px;
+    font-size: 18px;
+    min-height: 40px;
   }
 
   .context-textarea,
@@ -197,7 +203,7 @@ div.char-count {
     min-height: 20px;
   }
   .char-count {
-    font-size: 20px;
+    font-size: 12px;
   }
 
   .top-menu select {
