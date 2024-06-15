@@ -85,9 +85,9 @@ function getSettings(build, model, temperature, max_tokens, top_p, frequency_pen
     "presence_penalty: " + presence_penalty];
     var commands = settings.map((line, index) => {
       return {
-        "datetime": new Date().toLocaleTimeString(),
+        "datetime": "",
         "role": "setting",
-        "roleEmoji": "🚁",
+        "roleEmoji": "",
         "command": line,
         "url": ""
       };
