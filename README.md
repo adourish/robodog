@@ -4,6 +4,38 @@
 
 Robodog AI assistant is a lightweight and portable UI that utilizes [OpenAI GPT](https://platform.openai.com/docs/models) models and is built with React, TypeScript, and Webpack. It does not require a backend server, as it primarily relies on OpenAI for its functionality.
 
+# History
+
+## Version 1.0.0
+- Support for /models <model>. Most text based models are supported
+- Support for /gpt-3.5-turbo and /gpt-4 quick
+- Support for rest completions
+
+## Version 1.1.0
+- Support for stream completions
+
+## Version 1.2.0
+- Support for /stash /pop /list save points
+- Support for /clear and /reset
+- Support for /tempurature and /frequency_penelty
+
+## Version 1.3.0
+- Support for /import (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)
+- Support for drop down commands selection
+- Auto save point
+
+## Version 1.4.0
+- Section 508 support
+- Mobile support (some issues)
+- Support for CTRL+SHIFT+UP cycle through save points
+- Support for CTRL+S to save content to a file
+
+## Version 1.5.0
+- Support for /model dall-e-3
+
+## Version 1.5.0
+- Support for 
+
 # Features
 
 Robodog AI Assistant provides a flexible runtime, allowing installation on a laptop, Github pages, or a personal static file server without the need to install npm or run a node server. The webpack build generates two files, compiling them into a single HTML file named `robodog.html` and a JavaScript bundle called `robotdog.bundle.js`. Additionally, the tool does not require npm installation as it simply prompts for the API key, which is stored in local storage.

@@ -178,9 +178,9 @@ div.char-count {
     font-family: monospace;
     display: flex;
     flex-direction: column;
-    height: 70vh;
+    height: 98vh;
     overflow: hidden;
-    max-width: 90%;
+    max-width: 98%;
   }
   .submit-button {
     height: 50px;
@@ -192,7 +192,7 @@ div.char-count {
   }
 
   .question-textarea {
-    font-size: 22px;
+    font-size: 18px;
     min-height: 70px;
   }
 
