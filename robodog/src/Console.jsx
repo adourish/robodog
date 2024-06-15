@@ -88,7 +88,7 @@ function Console() {
   }, [content]);
 
   const handleKeyDown = (event) => {
-    if (event.shiftKey && event.keyCode === 38) {
+    if (event.ctrlKey && event.shiftKey && event.keyCode === 38) {
       console.log(currentIndex);
       var total = ConsoleService.setStashIndex(currentIndex,
         setContext,

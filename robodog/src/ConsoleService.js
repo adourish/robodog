@@ -180,7 +180,7 @@ const _options = [
     "description": "Set presence penalty."
   },
   {
-    "command": "SHIFT+UP",
+    "command": "CTRL+SHIFT+UP",
     "description": "Cycle through stash list."
   },
   {
