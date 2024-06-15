@@ -153,7 +153,11 @@ div.char-count {
     margin-top: 5px;
   }
 
-  .input-textarea,
+  .input-textarea {
+    font-size: 14px;
+    min-height: 120px;
+  }
+
   .context-textarea,
   .knowledge-textarea,
   .question-textarea {
@@ -181,7 +185,12 @@ div.char-count {
     flex-direction: column;
   }
 
-  .input-textarea,
+ .question-textarea
+  {
+    height: 10px;
+    font-size: 12px;
+    min-height: 10px;
+  }
   .knowledge-textarea,
   .question-textarea {
     height: 20px;
