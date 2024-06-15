@@ -178,7 +178,7 @@ div.char-count {
     font-family: monospace;
     display: flex;
     flex-direction: column;
-    height: 95%;
+    height: 70vh;
     overflow: hidden;
     max-width: 90%;
   }
@@ -191,14 +191,13 @@ div.char-count {
     flex-direction: column;
   }
 
-  .input-textarea {
+  .question-textarea {
     font-size: 22px;
     min-height: 70px;
   }
 
   .context-textarea,
-  .knowledge-textarea,
-  .question-textarea {
+  .knowledge-textarea {
     font-size: 10px;
     min-height: 20px;
   }
