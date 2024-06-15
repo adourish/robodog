@@ -453,7 +453,7 @@ function Console() {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
-        const response = await ConsoleService.sendMessageToOpenAI(command,
+        const response = await ConsoleService.askQuestion(command,
           model,
           context,
           knowledge,

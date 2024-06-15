@@ -33,8 +33,8 @@ Robodog AI assistant is a lightweight and portable UI that utilizes [OpenAI GPT]
 ## Version 1.5.0
 - Support for /model dall-e-3
 
-## Version 1.5.0
-- Support for 
+## Version 1.6.0
+- Medium refactor to to support other AI providers. I don't have any AI keys to try them, if I do, I will add support. I am unlikely to provide support for any Google/Alphabet models. I am in the process og a google-ectomy and would prefer not to support any of the google products. It all started last year when I wanted to use google APIs to get access to my tasks and notes. A long story short, it was very frustrating.
 
 # Features
 

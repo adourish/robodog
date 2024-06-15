@@ -83,15 +83,15 @@ function getSettings(build, model, temperature, max_tokens, top_p, frequency_pen
     "top_p: " + top_p,
     "frequency_penalty: " + frequency_penalty,
     "presence_penalty: " + presence_penalty];
-    var commands = settings.map((line, index) => {
-      return {
-        "datetime": "",
-        "role": "setting",
-        "roleEmoji": "",
-        "command": line,
-        "url": ""
-      };
-    });
+  var commands = settings.map((line, index) => {
+    return {
+      "datetime": "",
+      "role": "setting",
+      "roleEmoji": "",
+      "command": line,
+      "url": ""
+    };
+  });
   return commands;
 }
 const _options = [
@@ -189,18 +189,18 @@ const _options = [
   }
 ];
 function getCommands() {
-    var commands = [];
+  var commands = [];
   for (var i = 0; i < _options.length; i++) {
     var command = _options[i].command;
     var description = _options[i].description;
 
-      var item = {
-        "datetime": "",
-        "role": "setting",
-        "roleEmoji": "",
-        "command": ' ' + command + ' - ' + description,
-        "url": ""
-      };
+    var item = {
+      "datetime": "",
+      "role": "setting",
+      "roleEmoji": "",
+      "command": ' ' + command + ' - ' + description,
+      "url": ""
+    };
 
     commands.push(item);
   }
@@ -257,15 +257,15 @@ function getIndicators() {
     ' [🦕] - Very large',
     ' [🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'];
 
-    var commands = indicators.map((line, index) => {
-      return {
-        "datetime": "",
-        "role": "setting",
-        "roleEmoji": "",
-        "command": line,
-        "url": ""
-      };
-    });
+  var commands = indicators.map((line, index) => {
+    return {
+      "datetime": "",
+      "role": "setting",
+      "roleEmoji": "",
+      "command": line,
+      "url": ""
+    };
+  });
   return commands;
 
 }
@@ -422,7 +422,7 @@ function getRandomEmoji() {
   const index = new Date().getMilliseconds() % emojis.length;
   return emojis[index];
 }
-function setStashKey(key, 
+function setStashKey(key,
   currentIndex,
   setContext,
   setKnowledge,
@@ -432,30 +432,30 @@ function setStashKey(key,
   setCurrentKey,
   setTemperature,
   setShowTextarea) {
-    const stashItem = pop(key);
-    setCurrentKey(key);
-    if (stashItem) {
-      console.log(stashItem);
-      if (stashItem.context) {
-        setContext(stashItem.context);
-      }
-      if (stashItem.knowledge) {
-        setKnowledge(stashItem.knowledge);
-      }
-      if (stashItem.question) {
-        setQuestion(stashItem.question);
-      }
-      if (stashItem.content) {
-        setContent(stashItem.content);
-      }
-      if (stashItem.temperature) {
-        setTemperature(stashItem.temperature);
-      }
-      if (stashItem.showTextarea) {
-        setShowTextarea(stashItem.showTextarea);
-      }
+  const stashItem = pop(key);
+  setCurrentKey(key);
+  if (stashItem) {
+    console.log(stashItem);
+    if (stashItem.context) {
+      setContext(stashItem.context);
+    }
+    if (stashItem.knowledge) {
+      setKnowledge(stashItem.knowledge);
+    }
+    if (stashItem.question) {
+      setQuestion(stashItem.question);
+    }
+    if (stashItem.content) {
+      setContent(stashItem.content);
+    }
+    if (stashItem.temperature) {
+      setTemperature(stashItem.temperature);
+    }
+    if (stashItem.showTextarea) {
+      setShowTextarea(stashItem.showTextarea);
     }
   }
+}
 
 function setStashIndex(currentIndex,
   setContext,
@@ -475,7 +475,7 @@ function setStashIndex(currentIndex,
       var key = _l[currentIndex];
       if (key) {
         console.log("shift+38:" + key);
-        setStashKey(key, 
+        setStashKey(key,
           currentIndex,
           setContext,
           setKnowledge,
@@ -485,7 +485,7 @@ function setStashIndex(currentIndex,
           setCurrentKey,
           setTemperature,
           setShowTextarea);
-        
+
       }
     }
   }
@@ -494,7 +494,7 @@ function setStashIndex(currentIndex,
 
 
 
-async function sendMessageToOpenAI(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
+async function askQuestion(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
   const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge },
@@ -506,6 +506,8 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
   var _finish_reason = '';
   var calculator = new PerformanceCalculator();
   calculator.start();
+
+  // handle open ai test completions
   const handleRestCompletion = async () => {
     var _p2 = {
       model: model,
@@ -537,6 +539,7 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     return response;
   }
 
+  // handle open ai stream completions
   const handleStreamCompletion = async () => {
     var _p = {
       model: model,
@@ -581,18 +584,19 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     return;
   }
 
+  // hanlde open ai dall-e-3 completions
   const handleDalliRestCompletion = async () => {
     const _daliprompt = "chat history:" + context + "knowledge:" + knowledge + "question:" + text;
     var p3 = {
       model: "dall-e-3",
       prompt: _daliprompt,
-      size: size, 
+      size: size,
       quality: "standard",
-      n: 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+      n: 1
     };
 
     const response3 = await openai.images.generate(p3);
-    console.debug('handleDalliRestCompletion',p3);
+    console.debug('handleDalliRestCompletion', p3);
     if (response3) {
       var image_url = response3.data[0].url;
       _content = image_url
@@ -608,9 +612,10 @@ async function sendMessageToOpenAI(text, model, context, knowledge, completionTy
     }
     return response3;
   }
+
+  //
   try {
     let response;
-
     if (model === 'dall-e-3') {
       response = await handleDalliRestCompletion();
     } else if (completionType === 'rest') {
