@@ -536,6 +536,13 @@ function Console() {
             return (
               <div key={index}><img src={item.command} alt={item.role} className='image-size-50' /></div>
             );
+          } else if(item.role === 'ufo') {
+            return (
+              <pre class='ufo-text' key={index} focus={item.focus}>
+                {item.datetime} {item.roleEmoji} {item.command}
+              </pre>
+            );
+          
           } else {
             return (
               <pre key={index} focus={item.focus}>

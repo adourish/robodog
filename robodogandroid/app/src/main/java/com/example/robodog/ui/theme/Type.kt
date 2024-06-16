@@ -1,4 +1,4 @@
-package com.example.robodog.ui.theme
+package com.unclebulgaria.robodog.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

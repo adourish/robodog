@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.robodog"
+    namespace = "com.unclebulgaria.robodog"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.robodog"
+        applicationId = "com.unclebulgaria.robodog"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

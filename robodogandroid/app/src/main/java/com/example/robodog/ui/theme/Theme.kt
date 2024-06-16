@@ -1,4 +1,4 @@
-package com.example.robodog.ui.theme
+package com.unclebulgaria.robodog.ui.theme
 
 import android.app.Activity
 import android.os.Build

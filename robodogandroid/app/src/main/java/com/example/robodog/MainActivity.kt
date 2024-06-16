@@ -1,4 +1,4 @@
-package com.example.robodog
+package com.unclebulgaria.robodog
 
 import android.os.Bundle
 import android.webkit.WebSettings
@@ -15,6 +15,9 @@ class MainActivity : AppCompatActivity() {
         val mWebView = findViewById<WebView>(R.id.webview)
         val webSettings = mWebView.settings
         webSettings.javaScriptEnabled = true
+        webSettings.allowContentAccess = true
+        webSettings.domStorageEnabled = true
+        
 
         mWebView.loadUrl("https://adourish.github.io/robodog/robodog/dist/")
     }

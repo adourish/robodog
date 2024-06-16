@@ -190,6 +190,9 @@ div.char-count {
   .input-form {
     flex-direction: column;
   }
+  .ufo-text {
+    font-size: 8px;
+  }
 
   .question-textarea {
     font-size: 18px;

@@ -1,4 +1,4 @@
-package com.example.robodog
+package com.unclebulgaria.robodog
 
 import org.junit.Test
 
