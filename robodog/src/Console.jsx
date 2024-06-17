@@ -51,9 +51,9 @@ function Console() {
       var _fc = ConsoleService.getFormattedCommands();
       var _key = ConsoleService.getAPIKey();
 
-      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + _key + '" set your key using /key <key> or /reset to remove your key', 'key')];
+      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + _key + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
       if (!_key) {
-        list2.push(ConsoleService.getMessageWithTimestamp('Your API key is not set use /key <key> to set it', 'key'));
+        list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key'));
       }
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
