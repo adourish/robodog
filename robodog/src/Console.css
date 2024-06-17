@@ -110,6 +110,10 @@ body {
   font-size: 10px;
 }
 
+.ufo-text {
+  font-size: 10px;
+}
+
 .input-area {
   display: flex;
   flex-direction: row;
@@ -186,6 +190,7 @@ div.char-count {
     overflow: hidden;
     max-width: 98%;
   }
+
   .submit-button {
     height: 50px;
     font-size: 50px;
@@ -194,6 +199,7 @@ div.char-count {
   .input-form {
     flex-direction: column;
   }
+
   .ufo-text {
     font-size: 8px;
   }
@@ -208,6 +214,7 @@ div.char-count {
     font-size: 10px;
     min-height: 20px;
   }
+
   .char-count {
     font-size: 12px;
   }

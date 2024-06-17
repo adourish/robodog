@@ -55,7 +55,7 @@ function Console() {
       if (!_key) {
         list2.push(ConsoleService.getMessageWithTimestamp('Your API key is not set use /key <key> to set it', 'key'));
       }
-      var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'ufo')];
+      var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = ConsoleService.getStashList();
 
@@ -534,23 +534,24 @@ function Console() {
         {content.map((item, index) => {
           if (item.role === 'image') {
             return (
-              <div key={index}><img src={item.command} alt={item.role} className='image-size-50' /></div>
+              <div key="{index}"><img src={item.command} alt={item.role} className='image-size-50' /></div>
             );
           } else if (item.role === 'ufo') {
             return (
-              <pre class='ufo-text' key={index} focus={item.focus}>
-                <code>
-                  {item.datetime} {item.roleEmoji} {item.command}
-                </code>
+              <pre class='ufo-text' key={index} focus={item.focus} alt="{item.datetime}{item.roleEmoji}">
+                <code>{item.command}</code>
+              </pre>
+            );
+          } else if (item.role === 'setting' || item.role === 'help') {
+            return (
+              <pre class='setting-text' key="{index}" focus="{item.focus}"  alt="{item.datetime}{item.roleEmoji}">
+                <code>{item.command}</code>
               </pre>
             );
 
           } else {
             return (
-              <pre key={index} focus={item.focus}>
-                <code>
-                  {item.datetime} {item.roleEmoji} {item.command}
-                </code>
+              <pre key="{index}" focus="{item.focus}"><code>{item.datetime} {item.roleEmoji}:{item.command}</code>
               </pre>
             );
           }
