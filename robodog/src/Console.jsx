@@ -52,7 +52,7 @@ function Console() {
       var _key = ConsoleService.getAPIKey();
 
       var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + _key + '" set your key using /key <key> or /reset to remove your key', 'key')];
-      if(!_key){
+      if (!_key) {
         list2.push(ConsoleService.getMessageWithTimestamp('Your API key is not set use /key <key> to set it', 'key'));
       }
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'ufo')];
@@ -142,7 +142,7 @@ function Console() {
   const scrollToBottom = () => {
     if (contentRef && contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
-    } else{ 
+    } else {
       console.debug('no scroll');
     }
   }
@@ -532,21 +532,25 @@ function Console() {
       </div>
       <div className="console-content">
         {content.map((item, index) => {
-          if (item.role === 'image') { 
+          if (item.role === 'image') {
             return (
               <div key={index}><img src={item.command} alt={item.role} className='image-size-50' /></div>
             );
-          } else if(item.role === 'ufo') {
+          } else if (item.role === 'ufo') {
             return (
               <pre class='ufo-text' key={index} focus={item.focus}>
-                {item.datetime} {item.roleEmoji} {item.command}
+                <code>
+                  {item.datetime} {item.roleEmoji} {item.command}
+                </code>
               </pre>
             );
-          
+
           } else {
             return (
               <pre key={index} focus={item.focus}>
-                {item.datetime} {item.roleEmoji} {item.command}
+                <code>
+                  {item.datetime} {item.roleEmoji} {item.command}
+                </code>
               </pre>
             );
           }
