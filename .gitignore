@@ -1,0 +1,8 @@
+/node_modules/.bin
+/node_modules/@babel/code-frame
+/node_modules/@babel/highlight/node_modules/color-name
+/node_modules/@babel/helper-validator-identifier/lib
+/node_modules/
+/node_modules/@npmcli/metavuln-calculator/node_modules/json-parse-even-better-errors
+/robodogvscode/robodog/node_modules/c8
+/robodogvscode/robodog/node_modules/
