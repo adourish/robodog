@@ -453,6 +453,13 @@ function Console() {
   function onExecuteCommandsClick(event) {
     console.log(event)
   }
+  const handleKnowledgeEvent = async (event) => {
+    event.preventDefault();
+  };
+  const handleHistoryEvent = async (event) => {
+    event.preventDefault();
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     var command = question.trim();
@@ -544,7 +551,7 @@ function Console() {
             );
           } else if (item.role === 'setting' || item.role === 'help') {
             return (
-              <pre class='setting-text' key="{index}" focus="{item.focus}"  alt="{item.datetime}{item.roleEmoji}">
+              <pre class='setting-text' key="{index}" focus="{item.focus}" alt="{item.datetime}{item.roleEmoji}">
                 <code>{item.command}</code>
               </pre>
             );
@@ -561,7 +568,7 @@ function Console() {
         <div className="char-count">
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]
         </div>
-
+        <div className="input-area">
           <textarea
             value={context}
             onChange={handleContextChange}
@@ -569,8 +576,9 @@ function Console() {
             className="input-textarea context-textarea"
             aria-label="chat history"
           ></textarea>
-          <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-          <div className="input-area">
+          <button type="button" onClick={handleHisgtoryEvent} aria-label="history" className="submit-button">🔎</button>
+        </div>
+        <div className="input-area">
           <textarea
             value={knowledge}
             onChange={handleKnowledgeChange}
@@ -578,7 +586,7 @@ function Console() {
             className="input-textarea knowledge-textarea"
             aria-label="knowledge content"
           ></textarea>
-          <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
+          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="submit-button">🔎</button>
         </div>
         <div className="input-area">
           <textarea
