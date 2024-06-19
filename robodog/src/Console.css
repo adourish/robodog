@@ -176,10 +176,11 @@ div.char-count {
     font-size: 14px;
     min-height: 120px;
   }
+
   .knowledge-big-textarea,
   .question-big-textarea {
     font-size: 14px;
-    min-height: 220px;
+    min-height: 320px;
   }
   .char-count {
     font-size: 16px;
