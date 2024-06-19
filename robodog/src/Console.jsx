@@ -17,9 +17,11 @@ function Console() {
   const [question, setQuestion] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
+  const [contextButton, setcontextButton] = useState('⬜');
   const [knowledgeTextarea, setknowledgeTextarea] = useState('knowledge-small-textarea');
   const [contextTextarea, setcontextTextarea] = useState('context-small-textarea');
   const [knowledge, setKnowledge] = useState('');
+  const [knowledgeButton, setknowledgeButton] = useState('⬜');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo');
   const [tooBig, setTooBig] = useState('🐁');
@@ -458,25 +460,31 @@ function Console() {
   const handleKnowledgeEvent = async (event) => {
     event.preventDefault();
     console.log('handleKnowledgeEvent', knowledgeTextarea)
-    if(knowledgeTextarea === 'knowledge-textarea'){
+    if (knowledgeTextarea === 'knowledge-textarea') {
       setknowledgeTextarea('knowledge-big-textarea');
-    } else if(knowledgeTextarea === 'knowledge-big-textarea'){
+      setknowledgeButton('▪️');
+    } else if (knowledgeTextarea === 'knowledge-big-textarea') {
       setknowledgeTextarea('knowledge-small-textarea');
-    }else{
+      setknowledgeButton('◻️');
+    } else {
       setknowledgeTextarea('knowledge-textarea');
+      setknowledgeButton('⬜');
     }
   };
   const handleHistoryEvent = async (event) => {
     event.preventDefault();
     console.log('handleHistoryEvent', contextTextarea)
-    if(contextTextarea === 'context-textarea'){
+    if (contextTextarea === 'context-textarea') {
       setcontextTextarea('context-big-textarea');
-    } else if(contextTextarea === 'context-big-textarea'){
+      setcontentButton('▪️');
+    } else if (contextTextarea === 'context-big-textarea') {
       setcontextTextarea('context-small-textarea');
+      setknowledgeButton('◻️');
     } else {
       setcontextTextarea('context-textarea');
+      setknowledgeButton('⬜');
     }
-};
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -594,7 +602,7 @@ function Console() {
             className={`input-textarea ${contextTextarea}`}
             aria-label="chat history"
           ></textarea>
-          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="submit-button">🔎</button>
+          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="submit-button">{contextButton}</button>
         </div>
         <div className="input-area">
           <textarea
@@ -604,7 +612,7 @@ function Console() {
             className={`input-textarea ${knowledgeTextarea}`}
             aria-label="knowledge content"
           ></textarea>
-          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="submit-button">🔎</button>
+          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="submit-button">{knowledgeButton}</button>
         </div>
         <div className="input-area">
           <textarea
