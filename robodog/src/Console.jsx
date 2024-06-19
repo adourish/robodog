@@ -570,7 +570,7 @@ function Console() {
             aria-label="chat history"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-        
+          <div className="input-area">
           <textarea
             value={knowledge}
             onChange={handleKnowledgeChange}
@@ -579,7 +579,7 @@ function Console() {
             aria-label="knowledge content"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-        
+        </div>
         <div className="input-area">
           <textarea
             value={question}
