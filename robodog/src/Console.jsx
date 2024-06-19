@@ -584,7 +584,7 @@ function Console() {
             className="input-textarea context-textarea"
             aria-label="chat history"
           ></textarea>
-          <button type="button" onClick={handleHisgtoryEvent} aria-label="history" className="submit-button">🔎</button>
+          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="submit-button">🔎</button>
         </div>
         <div className="input-area">
           <textarea
