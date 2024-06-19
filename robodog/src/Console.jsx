@@ -457,13 +457,14 @@ function Console() {
   }
   const handleKnowledgeEvent = async (event) => {
     event.preventDefault();
-
+    console.log('handleKnowledgeEvent', knowledgeTextarea)
     if(knowledgeTextarea === 'knowledge-textarea'){
       setknowledgeTextarea('knowledge-big-textarea');
     }
   };
   const handleHistoryEvent = async (event) => {
     event.preventDefault();
+    console.log('handleHistoryEvent', contextTextarea)
     if(contextTextarea === 'context-textarea'){
       setknowledgeTextarea('context-big-textarea');
     }
