@@ -476,13 +476,13 @@ function Console() {
     console.log('handleHistoryEvent', contextTextarea)
     if (contextTextarea === 'context-textarea') {
       setcontextTextarea('context-big-textarea');
-      setcontentButton('▪️');
+      setcontextButton('▪️');
     } else if (contextTextarea === 'context-big-textarea') {
       setcontextTextarea('context-small-textarea');
-      setknowledgeButton('◻️');
+      setcontextButton('◻️');
     } else {
       setcontextTextarea('context-textarea');
-      setknowledgeButton('⬜');
+      setcontextButton('⬜');
     }
   };
 
