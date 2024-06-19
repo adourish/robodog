@@ -457,14 +457,15 @@ function Console() {
   }
   const handleKnowledgeEvent = async (event) => {
     event.preventDefault();
-    if(contextTextarea === 'context-textarea'){
-      setknowledgeTextarea('context-big-textarea');
+
+    if(knowledgeTextarea === 'knowledge-textarea'){
+      setknowledgeTextarea('knowledge-big-textarea');
     }
   };
   const handleHistoryEvent = async (event) => {
     event.preventDefault();
-    if(knowledgeTextarea === 'knowledge-textarea'){
-      setknowledgeTextarea('knowledge-big-textarea');
+    if(contextTextarea === 'context-textarea'){
+      setknowledgeTextarea('context-big-textarea');
     }
   };
 
