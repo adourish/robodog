@@ -243,12 +243,12 @@ div.char-count {
   .context-textarea,
   .knowledge-textarea {
     font-size: 10px;
-    min-height: 20px;
+    min-height: 40px;
   }
   .knowledge-big-textarea,
   .context-big-textarea {
     font-size: 10px;
-    min-height: 30px;
+    min-height: 60px;
   }
   .knowledge-small-textarea,
   .context-small-textarea {

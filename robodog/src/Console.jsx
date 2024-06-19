@@ -623,6 +623,7 @@ function Console() {
             aria-label="chat text"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
+          
         </div>
       </form>
     </div>
