@@ -460,7 +460,7 @@ function Console() {
     console.log('handleKnowledgeEvent', knowledgeTextarea)
     if(knowledgeTextarea === 'knowledge-textarea'){
       setknowledgeTextarea('knowledge-big-textarea');
-    } else if(contextTextarea === 'knowledge-big-textarea'){
+    } else if(knowledgeTextarea === 'knowledge-big-textarea'){
       setknowledgeTextarea('knowledge-small-textarea');
     }else{
       setknowledgeTextarea('knowledge-textarea');
