@@ -166,24 +166,25 @@ div.char-count {
     min-height: 120px;
   }
 
-  .context-textarea {
-    font-size: 14px;
-    min-height: 120px;
-  }
-
-  .knowledge-textarea,
   .question-textarea {
     font-size: 14px;
     min-height: 120px;
   }
 
+  .knowledge-textarea,
+  .context-textarea {
+    font-size: 14px;
+    min-height: 120px;
+  }
+
   .knowledge-big-textarea,
-  .question-big-textarea {
+  .context-big-textarea {
     font-size: 14px;
     min-height: 320px;
   }
+
   .knowledge-small-textarea,
-  .question-small-textarea {
+  .context-small-textarea {
     font-size: 14px;
     min-height: 30px;
   }
@@ -230,9 +231,14 @@ div.char-count {
     min-height: 20px;
   }
   .knowledge-big-textarea,
-  .question-big-textarea {
+  .context-big-textarea {
     font-size: 10px;
     min-height: 30px;
+  }
+  .knowledge-small-textarea,
+  .context-small-textarea {
+    font-size: 10px;
+    min-height: 20px;
   }
 
   .char-count {
