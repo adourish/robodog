@@ -54,10 +54,10 @@ function Console() {
       var _options = ConsoleService.getOptions();
       var _fc = ConsoleService.getFormattedCommands();
       var _key = ConsoleService.getAPIKey();
-      if(_key){
+      if (_key) {
         const stars = _key.split("").map(char => "*").join("");
+        var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
       }
-      var list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + _key + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
       if (!_key) {
         list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key'));
       }
@@ -625,7 +625,7 @@ function Console() {
             aria-label="chat text"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-          
+
         </div>
       </form>
     </div>
