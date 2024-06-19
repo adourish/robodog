@@ -17,7 +17,7 @@ function Console() {
   const [question, setQuestion] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
-  const [knowledgeTextarea, setContextTextarea] = useState('knowledge-textarea');
+  const [knowledgeTextarea, setknowledgeTextarea] = useState('knowledge-textarea');
   const [contextTextarea, setcontextTextarea] = useState('context-textarea');
   const [knowledge, setKnowledge] = useState('');
   const [thinking, setThinking] = useState('🦥');
@@ -460,6 +460,8 @@ function Console() {
     console.log('handleKnowledgeEvent', knowledgeTextarea)
     if(knowledgeTextarea === 'knowledge-textarea'){
       setknowledgeTextarea('knowledge-big-textarea');
+    } else if(contextTextarea === 'knowledge-big-textarea'){
+      setknowledgeTextarea('knowledge-small-textarea');
     }else{
       setknowledgeTextarea('knowledge-textarea');
     }
@@ -468,11 +470,13 @@ function Console() {
     event.preventDefault();
     console.log('handleHistoryEvent', contextTextarea)
     if(contextTextarea === 'context-textarea'){
-      setContextTextarea('context-big-textarea');
-    }else{
-      setContextTextarea('context-textarea');
+      setcontextTextarea('context-big-textarea');
+    } else if(contextTextarea === 'context-big-textarea'){
+      setcontextTextarea('context-small-textarea');
+    } else {
+      setcontextTextarea('context-textarea');
     }
-  };
+};
 
   const handleSubmit = async (event) => {
     event.preventDefault();
