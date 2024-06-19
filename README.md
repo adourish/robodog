@@ -36,6 +36,9 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 ## Version 1.6.0
 - Medium refactor to to support other AI providers. I don't have any AI keys to try them, if I do, I will add support. I am unlikely to provide support for any Google/Alphabet models. I am in the process og a google-ectomy and would prefer not to support any of the google products. It all started last year when I wanted to use google APIs to get access to my tasks and notes. A long story short, it was very frustrating.
 
+## Version 1.6.1
+- Minor UX changes
+
 # Features
 
 Robodog AI Assistant provides a flexible runtime, allowing installation on a laptop, Github pages, or a personal static file server without the need to install npm or run a node server. The webpack build generates two files, compiling them into a single HTML file named `robodog.html` and a JavaScript bundle called `robotdog.bundle.js`. Additionally, the tool does not require npm installation as it simply prompts for the API key, which is stored in local storage.
