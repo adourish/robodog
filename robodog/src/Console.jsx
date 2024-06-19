@@ -604,7 +604,7 @@ function Console() {
             className={`input-textarea ${contextTextarea}`}
             aria-label="chat history"
           ></textarea>
-          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="submit-button">{contextButton}</button>
+          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="history-button">{contextButton}</button>
         </div>
         <div className="input-area">
           <textarea
@@ -614,7 +614,7 @@ function Console() {
             className={`input-textarea ${knowledgeTextarea}`}
             aria-label="knowledge content"
           ></textarea>
-          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="submit-button">{knowledgeButton}</button>
+          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="knowledge-button">{knowledgeButton}</button>
         </div>
         <div className="input-area">
           <textarea

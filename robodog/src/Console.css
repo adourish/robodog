@@ -129,6 +129,24 @@ body {
   font-size: 30px;
   cursor: pointer;
 }
+.history-button {
+  background-color: transparent;
+  color: white;
+  border: none;
+  padding: 0px 0px;
+  font-family: monospace;
+  font-size: 30px;
+  cursor: pointer;
+}
+.knowledge-button {
+  background-color: transparent;
+  color: white;
+  border: none;
+  padding: 0px 0px;
+  font-family: monospace;
+  font-size: 30px;
+  cursor: pointer;
+}
 
 .input-textarea,
 .context-textarea,
@@ -223,8 +241,17 @@ div.char-count {
   }
 
   .submit-button {
-    height: 50px;
-    font-size: 50px;
+    height:45px;
+    font-size: 45px;
+  }
+
+  .history-button {
+    height: 35px;
+    font-size: 35px;
+  }
+  .knowledge-button {
+    height: 35px;
+    font-size: 35px;
   }
 
   .input-form {
