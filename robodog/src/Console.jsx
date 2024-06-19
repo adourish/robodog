@@ -56,11 +56,10 @@ function Console() {
       var _key = ConsoleService.getAPIKey();
       var list2 = [];
       if (_key && _key != null) {
-        const stars = _key.split("").map(char => "*").join("");
-        list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
-      }
-      if (!_key) {
-        list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key'));
+          const stars = _key.split("").map(char => "*").join("");
+          list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
+      } else {
+          list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key'));
       }
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
