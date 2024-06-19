@@ -561,7 +561,7 @@ function Console() {
         <div className="char-count">
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]
         </div>
-        {showTextarea && (
+
           <textarea
             value={context}
             onChange={handleContextChange}
@@ -569,8 +569,8 @@ function Console() {
             className="input-textarea context-textarea"
             aria-label="chat history"
           ></textarea>
-        )}
-        {showTextarea && (
+          <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
+        
           <textarea
             value={knowledge}
             onChange={handleKnowledgeChange}
@@ -578,7 +578,8 @@ function Console() {
             className="input-textarea knowledge-textarea"
             aria-label="knowledge content"
           ></textarea>
-        )}
+          <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
+        
         <div className="input-area">
           <textarea
             value={question}

@@ -31,7 +31,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:host="quaestio.org"
+                    android:host="https://adourish.github.io/robodog/robodog/dist/"
                     android:scheme="https" />
             </intent-filter>
         </activity>

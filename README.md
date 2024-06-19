@@ -2,7 +2,7 @@
 
 # About
 
-Robodog AI assistant is a lightweight and portable UI that utilizes [OpenAI GPT](https://platform.openai.com/docs/models) models and is built with React, TypeScript, and Webpack. It does not require a backend server, as it primarily relies on OpenAI for its functionality.
+Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall-e-3, and gpt-3.5-turbo-16k. A highly portal GPT UI with support for upload files, save points, and temperature configurations. 
 
 # History
 
