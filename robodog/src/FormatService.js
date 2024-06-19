@@ -29,7 +29,7 @@ function getMessageWithTimestamp(command, role, url) {
       roleEmoji = '😹';
       break;
     case 'title':
-      roleEmoji = '🌍';
+      roleEmoji = '🛸';
       break;
     case 'ufo':
       roleEmoji = '🛸';
