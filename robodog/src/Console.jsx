@@ -17,7 +17,7 @@ function Console() {
   const [question, setQuestion] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
-  const [knowledgeTextarea, setknowledgeTextarea] = useState('knowledge-textarea');
+  const [knowledgeTextarea, setContextTextarea] = useState('knowledge-textarea');
   const [contextTextarea, setcontextTextarea] = useState('context-textarea');
   const [knowledge, setKnowledge] = useState('');
   const [thinking, setThinking] = useState('🦥');
