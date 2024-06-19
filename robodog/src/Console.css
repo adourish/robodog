@@ -171,19 +171,34 @@ div.char-count {
     min-height: 120px;
   }
 
-  .knowledge-textarea,
-  .context-textarea {
+  .knowledge-textarea
+ {
     font-size: 14px;
-    min-height: 120px;
+    min-height: 90px;
   }
 
-  .knowledge-big-textarea,
+  .knowledge-big-textarea
+ {
+    font-size: 14px;
+    min-height: 320px;
+  }
+
+  .knowledge-small-textarea
+ {
+    font-size: 14px;
+    min-height: 30px;
+  }
+
+  .context-textarea {
+    font-size: 14px;
+    min-height: 90px;
+  }
+
   .context-big-textarea {
     font-size: 14px;
     min-height: 320px;
   }
 
-  .knowledge-small-textarea,
   .context-small-textarea {
     font-size: 14px;
     min-height: 30px;
