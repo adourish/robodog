@@ -166,13 +166,21 @@ div.char-count {
     min-height: 120px;
   }
 
-  .context-textarea,
+  .context-textarea {
+    font-size: 14px;
+    min-height: 120px;
+  }
+
   .knowledge-textarea,
   .question-textarea {
     font-size: 14px;
     min-height: 120px;
   }
-
+  .knowledge-big-textarea,
+  .question-big-textarea {
+    font-size: 14px;
+    min-height: 220px;
+  }
   .char-count {
     font-size: 16px;
   }
@@ -213,6 +221,11 @@ div.char-count {
   .knowledge-textarea {
     font-size: 10px;
     min-height: 20px;
+  }
+  .knowledge-big-textarea,
+  .question-big-textarea {
+    font-size: 10px;
+    min-height: 30px;
   }
 
   .char-count {

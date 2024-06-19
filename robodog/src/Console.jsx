@@ -17,6 +17,8 @@ function Console() {
   const [question, setQuestion] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
+  const [knowledgeTextarea, setknowledgeTextarea] = useState('knowledge-textarea');
+  const [contextTextarea, setcontextTextarea] = useState('context-textarea');
   const [knowledge, setKnowledge] = useState('');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo');
@@ -76,7 +78,7 @@ function Console() {
     return () => {
       console.log('Cleaning up...');
     };
-  }, [isLoaded, setIsLoaded, size, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList, setSize]);
+  }, [isLoaded, setIsLoaded, size, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList, setSize, knowledgeTextarea, setknowledgeTextarea, contextTextarea, setcontextTextarea]);
 
   const setFocusOnLastItem = () => {
     setContent(prevContent => {
@@ -455,9 +457,15 @@ function Console() {
   }
   const handleKnowledgeEvent = async (event) => {
     event.preventDefault();
+    if(contextTextarea === 'context-textarea'){
+      setknowledgeTextarea('context-big-textarea');
+    }
   };
   const handleHistoryEvent = async (event) => {
     event.preventDefault();
+    if(knowledgeTextarea === 'knowledge-textarea'){
+      setknowledgeTextarea('knowledge-big-textarea');
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -583,7 +591,7 @@ function Console() {
             value={knowledge}
             onChange={handleKnowledgeChange}
             placeholder="Knowledge📝: examples, data, code"
-            className="input-textarea knowledge-textarea"
+            className="input-textarea {knowledgeTextarea}"
             aria-label="knowledge content"
           ></textarea>
           <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="submit-button">🔎</button>
