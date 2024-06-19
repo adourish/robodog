@@ -582,7 +582,7 @@ function Console() {
             value={context}
             onChange={handleContextChange}
             placeholder="Chat history💭: "
-            className="input-textarea context-textarea"
+            className={`input-textarea ${contextTextarea}`}
             aria-label="chat history"
           ></textarea>
           <button type="button" onClick={handleHistoryEvent} aria-label="history" className="submit-button">🔎</button>
@@ -592,7 +592,7 @@ function Console() {
             value={knowledge}
             onChange={handleKnowledgeChange}
             placeholder="Knowledge📝: examples, data, code"
-            className="input-textarea {knowledgeTextarea}"
+            className={`input-textarea ${knowledgeTextarea}`}
             aria-label="knowledge content"
           ></textarea>
           <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="submit-button">🔎</button>
