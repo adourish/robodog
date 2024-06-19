@@ -460,13 +460,17 @@ function Console() {
     console.log('handleKnowledgeEvent', knowledgeTextarea)
     if(knowledgeTextarea === 'knowledge-textarea'){
       setknowledgeTextarea('knowledge-big-textarea');
+    }else{
+      setknowledgeTextarea('knowledge-textarea');
     }
   };
   const handleHistoryEvent = async (event) => {
     event.preventDefault();
     console.log('handleHistoryEvent', contextTextarea)
     if(contextTextarea === 'context-textarea'){
-      setknowledgeTextarea('context-big-textarea');
+      setContextTextarea('context-big-textarea');
+    }else{
+      setContextTextarea('context-textarea');
     }
   };
 
