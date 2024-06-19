@@ -17,8 +17,8 @@ function Console() {
   const [question, setQuestion] = useState('');
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
-  const [knowledgeTextarea, setknowledgeTextarea] = useState('knowledge-textarea');
-  const [contextTextarea, setcontextTextarea] = useState('context-textarea');
+  const [knowledgeTextarea, setknowledgeTextarea] = useState('knowledge-small-textarea');
+  const [contextTextarea, setcontextTextarea] = useState('context-small-textarea');
   const [knowledge, setKnowledge] = useState('');
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo');
