@@ -55,7 +55,7 @@ function Console() {
       var _fc = ConsoleService.getFormattedCommands();
       var _key = ConsoleService.getAPIKey();
       var list2 = [];
-      if (_key) {
+      if (_key && _key != null) {
         const stars = _key.split("").map(char => "*").join("");
         list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
       }
