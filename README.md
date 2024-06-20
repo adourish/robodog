@@ -164,6 +164,13 @@ Use the drop down menu to select options.
 
 ![Features](menu.png)
 
+## Optical Character Recignition (OCR) support using the Tesseract library
+
+- image-to-text using Tesseract
+- text-to-image using dall-e-3
+
+![Features](screenshot-ocr.png)
+
 # Build
 
 -   cd robodog

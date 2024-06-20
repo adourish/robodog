@@ -387,16 +387,7 @@ function Console() {
               console.error('Error:', error);
             });
           break;
-        case '/upload':
-          ConsoleService.uploadContentToOpenAI(_command.verb, knowledge)
-            .then(fileId => {
-              console.log('File ID:', fileId);
-            })
-            .catch(error => {
-              console.error('Error:', error);
-            });
 
-          break;
         case '/dall-e-3':
           model = 'dall-e-3';
           setMaxChars(16385);
