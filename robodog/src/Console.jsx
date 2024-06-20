@@ -629,7 +629,9 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]
+          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]<label htmlFor="uploader" className="label-uploader">📷</label>
+          <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
+
         </div>
         <div className="input-area">
           <textarea
@@ -660,8 +662,6 @@ function Console() {
             aria-label="chat text"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-          <label htmlFor="uploader" className="label-uploader">📷</label>
-          <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
 
 
         </div>
