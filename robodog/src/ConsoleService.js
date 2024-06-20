@@ -36,12 +36,13 @@ function handleExport(fileName, context, knowledge, question, content, temperatu
     fileName = `${formattedDate}.txt`;
   }
 
-  let concatenatedString = '';
 
-
+  let concatenatedString = "";
   if (Array.isArray(content)) {
     for (let i = 0; i < content.length; i++) {
-      concatenatedString += content[i] + "\n";
+      if (content[i].datetime && content[i].roleEmoji && content[i].command) {
+        concatenatedString += `${content[i].datetime} ${content[i].roleEmoji}: ${content[i].command}\n`;
+      }
     }
   }
   var fileContent = "Temperature:" + temperature + "\n\n Question:\n\n" + question + "\n\nChat history:\n\n" + context + "\n\nKnowledge:\n\n" + knowledge + '\n\nContent:\n\n' + concatenatedString + '\n\n';
