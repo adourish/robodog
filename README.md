@@ -40,7 +40,7 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 - Minor UX changes
 
 ## Version 1.7.0
-- Added Optical Character Recignition (OCR) support using the Tesseract library
+- Added Optical Character Recognition (OCR) support using the Tesseract library
 
 # Features
 
@@ -164,7 +164,9 @@ Use the drop down menu to select options.
 
 ![Features](menu.png)
 
-## Optical Character Recignition (OCR) support using the Tesseract library
+## Optical Character Recognition (OCR) support using the Tesseract library
+
+Optical Character Recognition (OCR) is the process that converts an image of text into a machine-readable text format. For example, if you scan a form or a receipt, your computer saves the scan as an image file. You cannot use a text editor to edit, search, or count the words in the image file.
 
 - image-to-text using Tesseract
 - text-to-image using dall-e-3
