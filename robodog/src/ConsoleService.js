@@ -127,7 +127,7 @@ const _options = [
   },
   {
     "command": "/import",
-    "description": "Import files into knowledge (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)"
+    "description": "Import files into knowledge (.md, .txt, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)"
   },
   {
     "command": "/export <name>",

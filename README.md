@@ -20,7 +20,7 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 - Support for /tempurature and /frequency_penelty
 
 ## Version 1.3.0
-- Support for /import (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)
+- Support for /import (.md, .txt, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)
 - Support for drop down commands selection
 - Auto save point
 
