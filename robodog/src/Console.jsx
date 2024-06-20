@@ -600,7 +600,6 @@ function Console() {
       <div className="input-area">
         <label for="uploader" class="label-uploader">📷</label>
         <input type="file" id="uploader" multiple onChange={handleOCRUpload} style="display: none;" />
-        <button type="button" onClick={handleFileUpload} aria-label="file" className="file-button">📜</button>
       </div>
       <div className="console-content">
         {content.map((item, index) => {
