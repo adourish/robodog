@@ -47,10 +47,14 @@ body {
 
 .top-menu {
   display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  justify-content: space-between; /* Adjust alignment as needed */
+  flex-wrap: nowrap; /* Prevent wrapping onto the next line */
   width: 100%;
   background-color: #000000;
+}
+
+.top-menu select, .top-menu button, .label-uploader {
+  margin-right: 10px; /* Adjust spacing between items */
 }
 
 .top-menu select {

@@ -580,8 +580,6 @@ function Console() {
     <div className="console">
       <form onSubmit={handleSubmit} className="input-form">
         <div className="top-menu">
-
-        </div>
         <div className="input-area">
         <select onChange={handleDropdownChange}>
             <option disabled selected>
@@ -606,6 +604,8 @@ function Console() {
           <label htmlFor="uploader" className="label-uploader">📷</label>
           <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
         </div>
+        </div>
+
         <div className="console-content">
           {content.map((item, index) => {
             if (item.role === 'image') {
