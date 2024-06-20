@@ -1,5 +1,5 @@
 import './Console.css';
-
+import Tesseract from 'tesseract.js';
 import React, { useRef, useEffect, useState } from 'react';
 import ConsoleService from './ConsoleService';
 const version = window.version;
@@ -152,6 +152,26 @@ function Console() {
       console.debug('no scroll');
     }
   }
+
+  const handleFileUpload = (event) => {
+    const files = event.target.files;
+    const fileReader = new FileReader();
+  
+    fileReader.onload = async () => {
+      try {
+        const imageBase64 = fileReader.result;
+        const { data: { text } } = await Tesseract.recognize(imageBase64, 'eng');
+    
+        setKnowledge(knowledge + text);
+      } catch (error) {
+        console.error('Error reading image file:', error);
+      } finally {
+        // Any cleanup or additional logic can be added in the finally block
+      }
+    };
+  
+    fileReader.readAsDataURL(files[0]);
+  };
 
   const handleContextChange = (event) => {
     const value = event.target.value;
@@ -376,6 +396,13 @@ function Console() {
           message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
           break;
+          //gpt-4o
+          case '/gpt-4o':
+            model = 'gpt-4o';
+            setMaxChars(16385);
+            message = `Switching to GPT-4o: gpt-4o`;
+            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
+            break;
         case '/gpt-3.5-turbo':
           setModel('gpt-3.5-turbo')
           setMaxChars(4096);
@@ -625,7 +652,7 @@ function Console() {
             aria-label="chat text"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-
+          <input type="file" id="uploader" multiple onChange={handleFileUpload} />
         </div>
       </form>
     </div>

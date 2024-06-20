@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import axios from 'axios';
+import Tesseract from 'tesseract.js';
 import { PerformanceCalculator } from './PerformanceCalculator';
 import FormatService from './FormatService';
 import FileService from './FileService';
