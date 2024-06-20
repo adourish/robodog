@@ -154,14 +154,11 @@ function Console() {
   }
 
   const handleFileUpload = (event) => {
-    ConsoleService.uploadContentToOpenAI(_command.verb, knowledge)
-      .then(fileId => {
-        console.log('File ID:', fileId);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
-
+    const fileContent = knowledge; // Using the knowledge content for file upload
+    // Perform file upload logic using the fileContent
+    // This could be a call to your backend API to handle the file upload
+    // For demonstration purposes, you can log the fileContent here
+    console.log('File Content:', fileContent);
   };
 
   const handleOCRUpload = (event) => {
@@ -173,7 +170,7 @@ function Console() {
         const imageBase64 = fileReader.result;
         const { data: { text } } = await Tesseract.recognize(imageBase64, 'eng');
 
-        setKnowledge(knowledge + text);
+        setKnowledge(knowledge + text); // Append the extracted text to the knowledge state
       } catch (error) {
         console.error('Error reading image file:', error);
       } finally {
@@ -604,7 +601,11 @@ function Console() {
             ))}
           </select>
         </div>
-
+        <div className="input-area">
+          <label htmlFor="uploader" className="label-uploader">📷</label>
+          <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
+          <button type="button" onClick={handleFileUpload} aria-label="file" className="file-button">📜</button>
+        </div>
         <div className="console-content">
           {content.map((item, index) => {
             if (item.role === 'image') {
