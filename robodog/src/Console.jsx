@@ -580,7 +580,10 @@ function Console() {
     <div className="console">
       <form onSubmit={handleSubmit} className="input-form">
         <div className="top-menu">
-          <select onChange={handleDropdownChange}>
+
+        </div>
+        <div className="input-area">
+        <select onChange={handleDropdownChange}>
             <option disabled selected>
               Select an option
             </option>
@@ -600,11 +603,8 @@ function Console() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="input-area">
           <label htmlFor="uploader" className="label-uploader">📷</label>
           <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
-          <button type="button" onClick={handleFileUpload} aria-label="file" className="file-button">📜</button>
         </div>
         <div className="console-content">
           {content.map((item, index) => {
