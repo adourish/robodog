@@ -637,7 +637,7 @@ function Console() {
         <div className="char-count">
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]<label htmlFor="uploader" className="label-uploader">📷</label>
           <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
-          <button type="button" onClick={handleFileUpload} aria-label="history" className="label-uploader">📎</button>
+          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader">📝</button>
 
         </div>
         <div className="input-area">
