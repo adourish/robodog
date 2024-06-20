@@ -155,16 +155,7 @@ function Console() {
 
   const handleFileUpload = (event) => {
     event.preventDefault();
-    const fileContent = knowledge; // Using the knowledge content for file upload
-    ConsoleService.uploadContentToOpenAI("upload", knowledge)
-    .then(fileId => {
-      console.log('File ID:', fileId);
-    })
-    .catch(error => {
-      console.error('Error:', error);
-    });
-
-    console.log('File Content:', fileContent);
+    ConsoleService.handleImport(setKnowledge, knowledge, setContent, content);
   };
 
   const handleOCRUpload = (event) => {
