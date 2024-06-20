@@ -578,62 +578,56 @@ function Console() {
   return (
 
     <div className="console">
+      <div className="top-menu">
+        <select onChange={handleDropdownChange}>
+          <option disabled selected>
+            Select an option
+          </option>
+          {options.map((option, index) => (
+            <option key={index} value={option.command}>
+              {option.command} {option.description}
+            </option>
+          ))}
+        </select>
+        <select onChange={handleStashListChange}>
+          <option disabled selected>
+            Select a save point
+          </option>
+          {stashList.map((item, index) => (
+            <option key={index} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="console-content">
+        {content.map((item, index) => {
+          if (item.role === 'image') {
+            return (
+              <div key="{index}"><img src={item.command} alt={item.role} className='image-size-50' /></div>
+            );
+          } else if (item.role === 'ufo') {
+            return (
+              <pre class='ufo-text' key={index} focus={item.focus} alt="{item.datetime}{item.roleEmoji}">
+                <code>{item.command}</code>
+              </pre>
+            );
+          } else if (item.role === 'setting' || item.role === 'help') {
+            return (
+              <pre class='setting-text' key="{index}" focus="{item.focus}" alt="{item.datetime}{item.roleEmoji}">
+                <code>{item.command}</code>
+              </pre>
+            );
+
+          } else {
+            return (
+              <pre key="{index}" focus="{item.focus}"><code>{item.datetime} {item.roleEmoji}:{item.command}</code>
+              </pre>
+            );
+          }
+        })}
+      </div>
       <form onSubmit={handleSubmit} className="input-form">
-        <div className="top-menu">
-          <div className="input-area">
-            <select onChange={handleDropdownChange}>
-              <option disabled selected>
-                Select an option
-              </option>
-              {options.map((option, index) => (
-                <option key={index} value={option.command}>
-                  {option.command} {option.description}
-                </option>
-              ))}
-            </select>
-            <select onChange={handleStashListChange}>
-              <option disabled selected>
-                Select a save point
-              </option>
-              {stashList.map((item, index) => (
-                <option key={index} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="uploader" className="label-uploader">📷</label>
-            <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
-          </div>
-        </div>
-
-        <div className="console-content">
-          {content.map((item, index) => {
-            if (item.role === 'image') {
-              return (
-                <div key="{index}"><img src={item.command} alt={item.role} className='image-size-50' /></div>
-              );
-            } else if (item.role === 'ufo') {
-              return (
-                <pre class='ufo-text' key={index} focus={item.focus} alt="{item.datetime}{item.roleEmoji}">
-                  <code>{item.command}</code>
-                </pre>
-              );
-            } else if (item.role === 'setting' || item.role === 'help') {
-              return (
-                <pre class='setting-text' key="{index}" focus="{item.focus}" alt="{item.datetime}{item.roleEmoji}">
-                  <code>{item.command}</code>
-                </pre>
-              );
-
-            } else {
-              return (
-                <pre key="{index}" focus="{item.focus}"><code>{item.datetime} {item.roleEmoji}:{item.command}</code>
-                </pre>
-              );
-            }
-          })}
-        </div>
-
         <div className="char-count">
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]
         </div>
