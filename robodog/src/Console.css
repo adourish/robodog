@@ -158,10 +158,13 @@ body {
   user-select: none;
 }
 .button-uploader {
+  background-color: transparent;
+  color: white;
+  border: none;
+  padding: 0px 0px;
+  font-family: monospace;
   font-size: 12px;
-  display: inline-block;
   cursor: pointer;
-  user-select: none;
 }
 
 .input-textarea,
