@@ -138,6 +138,14 @@ const _options = [
     "description": "Clear screen."
   },
   {
+    "command": "/key <key>",
+    "description": "set key."
+  },
+  {
+    "command": "/getkey",
+    "description": "get your key."
+  },
+  {
     "command": "/rest",
     "description": "Use rest completions"
   },
