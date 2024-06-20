@@ -636,7 +636,7 @@ function Console() {
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]<label htmlFor="uploader" className="label-uploader">📷</label>
-          <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
+          <input type="file" id="uploader"  accept=".png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm" onChange={handleOCRUpload} style={{ display: 'none' }} />
           <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader">📝</button>
 
         </div>
