@@ -160,13 +160,21 @@ function Console() {
 
   const handleOCRUpload = (event) => {
     const files = event.target.files;
+    const file = files[0];
+  
+    const validImageTypes = ['image/png', 'image/jpeg', 'image/tiff', 'image/x-jp2', 'image/gif', 'image/webp', 'image/bmp', 'image/x-portable-anymap'];
+  
+    if (!validImageTypes.includes(file.type)) {
+      console.error('Invalid file type:', file.type);
+      return;
+    }
     const fileReader = new FileReader();
-
+  
     fileReader.onload = async () => {
       try {
         const imageBase64 = fileReader.result;
         const { data: { text } } = await Tesseract.recognize(imageBase64, 'eng');
-
+  
         setKnowledge(knowledge + text); // Append the extracted text to the knowledge state
       } catch (error) {
         console.error('Error reading image file:', error);
@@ -174,9 +182,9 @@ function Console() {
         // Any cleanup or additional logic can be added in the finally block
       }
     };
-
-    fileReader.readAsDataURL(files[0]);
-  };
+  
+    fileReader.readAsDataURL(file);
+   }; 
 
   const handleContextChange = (event) => {
     const value = event.target.value;
