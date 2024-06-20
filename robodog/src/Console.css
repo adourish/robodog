@@ -256,12 +256,12 @@ div.char-count {
   }
 
   .history-button {
-    height: 35px;
-    font-size: 35px;
+    height: 20px;
+    font-size: 20px;
   }
   .knowledge-button {
-    height: 35px;
-    font-size: 35px;
+    height: 20px;
+    font-size: 20px;
   }
 
   .input-form {
@@ -285,7 +285,7 @@ div.char-count {
   .knowledge-big-textarea,
   .context-big-textarea {
     font-size: 10px;
-    min-height: 60px;
+    min-height: 100px;
   }
   .knowledge-small-textarea,
   .context-small-textarea {

@@ -154,10 +154,16 @@ function Console() {
   }
 
   const handleFileUpload = (event) => {
+    event.preventDefault();
     const fileContent = knowledge; // Using the knowledge content for file upload
-    // Perform file upload logic using the fileContent
-    // This could be a call to your backend API to handle the file upload
-    // For demonstration purposes, you can log the fileContent here
+    ConsoleService.uploadContentToOpenAI(_command.verb, knowledge)
+    .then(fileId => {
+      console.log('File ID:', fileId);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
+
     console.log('File Content:', fileContent);
   };
 
@@ -631,6 +637,8 @@ function Console() {
         <div className="char-count">
           [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]<label htmlFor="uploader" className="label-uploader">📷</label>
           <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
+          <button type="button" onClick={handleFileUpload} aria-label="history" className="label-uploader">📎</button>
+
         </div>
         <div className="input-area">
           <textarea
