@@ -624,12 +624,12 @@ function Console() {
         })}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
-        <div className="char-count">
-          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]<label htmlFor="uploader" className="label-uploader"  title="Upload Image">📷</label>
-          <input type="file" id="uploader"  accept=".png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm" onChange={handleOCRUpload} style={{ display: 'none' }} />
-          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader"  title="Upload File">📝</button>
-
-        </div>
+      <div className="char-count">
+  [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}]
+  <label htmlFor="uploader" className="label-uploader" title="Upload Image" tabindex="0">📷</label>
+  <input type="file" id="uploader" accept=".png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm" onChange={handleOCRUpload} style={{ display: 'none' }} />
+  <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader" title="Upload File">📝</button>
+</div>
         <div className="input-area">
           <textarea
             value={context}
@@ -638,7 +638,7 @@ function Console() {
             className={`input-textarea ${contextTextarea}`}
             aria-label="chat history"
           ></textarea>
-          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="history-button">{contextButton}</button>
+          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="history-button"  title="Bigger and Smaller">{contextButton}</button>
         </div>
         <div className="input-area">
           <textarea
@@ -648,7 +648,7 @@ function Console() {
             className={`input-textarea ${knowledgeTextarea}`}
             aria-label="knowledge content"
           ></textarea>
-          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="knowledge-button">{knowledgeButton}</button>
+          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="knowledge-button"  title="Bigger and Smaller">{knowledgeButton}</button>
         </div>
         <div className="input-area">
           <textarea
@@ -658,7 +658,7 @@ function Console() {
             className="input-textarea question-textarea"
             aria-label="chat text"
           ></textarea>
-          <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
+          <button type="submit" aria-label="chat submit" className="submit-button"  title="Ask Question">🤖</button>
 
 
         </div>

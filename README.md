@@ -4,6 +4,13 @@
 
 Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall-e-3, and gpt-3.5-turbo-16k. A highly portal GPT UI with support for upload files, save points, and temperature configurations. 
 
+# Try robodog
+
+- [Robodog](https://adourish.github.io/robodog/robodog/dist/)
+- Type "/key <api key>" then click "🤖" 
+
+![Screenshot](screenshot-quick.png)
+
 # History
 
 ## Version 1.0.0
