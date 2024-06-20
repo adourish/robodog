@@ -660,7 +660,9 @@ function Console() {
             aria-label="chat text"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-
+          <label for="uploader" class="label-uploader">📷</label>
+          <input type="file" id="uploader" multiple onChange={handleOCRUpload} style="display: none;" />
+ 
         </div>
       </form>
     </div>
