@@ -1,12 +1,12 @@
 import './Console.css';
-import Tesseract from 'tesseract.js';
+
 import React, { useRef, useEffect, useState } from 'react';
 import ConsoleService from './ConsoleService';
 const version = window.version;
 const buildNumber = window.buildNumber;
 const buildInfo = window.buildInfo;
 const build = version + " - " + buildNumber + " - " + buildInfo;
-
+import Tesseract from 'tesseract.js';
 console.log(build);
 
 function Console() {
