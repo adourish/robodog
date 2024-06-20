@@ -156,7 +156,7 @@ function Console() {
   const handleFileUpload = (event) => {
     event.preventDefault();
     const fileContent = knowledge; // Using the knowledge content for file upload
-    ConsoleService.uploadContentToOpenAI(_command.verb, knowledge)
+    ConsoleService.uploadContentToOpenAI("upload", knowledge)
     .then(fileId => {
       console.log('File ID:', fileId);
     })
