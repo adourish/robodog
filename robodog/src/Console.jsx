@@ -155,14 +155,6 @@ function Console() {
 
   const handleFileUpload = (event) => {
 
-    event.preventDefault();
-    ConsoleService.uploadContentToOpenAI(_command.verb, knowledge)
-      .then(fileId => {
-        console.log('File ID:', fileId);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
 
   };
 
