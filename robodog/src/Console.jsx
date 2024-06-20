@@ -56,10 +56,10 @@ function Console() {
       var _key = ConsoleService.getAPIKey();
       var list2 = [];
       if (_key && _key != null) {
-          const stars = _key.split("").map(char => "*").join("");
-          list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
+        const stars = _key.split("").map(char => "*").join("");
+        list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
       } else {
-          list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key'));
+        list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key'));
       }
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
@@ -154,14 +154,27 @@ function Console() {
   }
 
   const handleFileUpload = (event) => {
+
+    event.preventDefault();
+    ConsoleService.uploadContentToOpenAI(_command.verb, knowledge)
+      .then(fileId => {
+        console.log('File ID:', fileId);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+
+  };
+
+  const handleOCRUpload = (event) => {
     const files = event.target.files;
     const fileReader = new FileReader();
-  
+
     fileReader.onload = async () => {
       try {
         const imageBase64 = fileReader.result;
         const { data: { text } } = await Tesseract.recognize(imageBase64, 'eng');
-    
+
         setKnowledge(knowledge + text);
       } catch (error) {
         console.error('Error reading image file:', error);
@@ -169,7 +182,7 @@ function Console() {
         // Any cleanup or additional logic can be added in the finally block
       }
     };
-  
+
     fileReader.readAsDataURL(files[0]);
   };
 
@@ -396,13 +409,13 @@ function Console() {
           message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
           break;
-          //gpt-4o
-          case '/gpt-4o':
-            model = 'gpt-4o';
-            setMaxChars(16385);
-            message = `Switching to GPT-4o: gpt-4o`;
-            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
-            break;
+        //gpt-4o
+        case '/gpt-4o':
+          model = 'gpt-4o';
+          setMaxChars(16385);
+          message = `Switching to GPT-4o: gpt-4o`;
+          setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'system')]);
+          break;
         case '/gpt-3.5-turbo':
           setModel('gpt-3.5-turbo')
           setMaxChars(4096);
@@ -592,6 +605,11 @@ function Console() {
           ))}
         </select>
       </div>
+      <div className="input-area">
+        <label for="uploader" class="label-uploader">📷</label>
+        <input type="file" id="uploader" multiple onChange={handleOCRUpload} style="display: none;" />
+        <button type="button" onClick={handleFileUpload} aria-label="file" className="file-button">📜</button>
+      </div>
       <div className="console-content">
         {content.map((item, index) => {
           if (item.role === 'image') {
@@ -652,7 +670,7 @@ function Console() {
             aria-label="chat text"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button">🤖</button>
-          <input type="file" id="uploader" multiple onChange={handleFileUpload} />
+
         </div>
       </form>
     </div>
