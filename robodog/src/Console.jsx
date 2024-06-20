@@ -580,30 +580,30 @@ function Console() {
     <div className="console">
       <form onSubmit={handleSubmit} className="input-form">
         <div className="top-menu">
-        <div className="input-area">
-        <select onChange={handleDropdownChange}>
-            <option disabled selected>
-              Select an option
-            </option>
-            {options.map((option, index) => (
-              <option key={index} value={option.command}>
-                {option.command} {option.description}
+          <div className="input-area">
+            <select onChange={handleDropdownChange}>
+              <option disabled selected>
+                Select an option
               </option>
-            ))}
-          </select>
-          <select onChange={handleStashListChange}>
-            <option disabled selected>
-              Select a save point
-            </option>
-            {stashList.map((item, index) => (
-              <option key={index} value={item}>
-                {item}
+              {options.map((option, index) => (
+                <option key={index} value={option.command}>
+                  {option.command} {option.description}
+                </option>
+              ))}
+            </select>
+            <select onChange={handleStashListChange}>
+              <option disabled selected>
+                Select a save point
               </option>
-            ))}
-          </select>
-          <label htmlFor="uploader" className="label-uploader">📷</label>
-          <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
-        </div>
+              {stashList.map((item, index) => (
+                <option key={index} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="uploader" className="label-uploader">📷</label>
+            <input type="file" id="uploader" multiple onChange={handleOCRUpload} style={{ display: 'none' }} />
+          </div>
         </div>
 
         <div className="console-content">
