@@ -524,10 +524,10 @@ function Console() {
     console.log('handleKnowledgeEvent', knowledgeTextarea)
     if (knowledgeTextarea === 'knowledge-textarea') {
       setknowledgeTextarea('knowledge-big-textarea');
-      setknowledgeButton('▪️');
+      setknowledgeButton('🟥');
     } else if (knowledgeTextarea === 'knowledge-big-textarea') {
       setknowledgeTextarea('knowledge-small-textarea');
-      setknowledgeButton('◻️');
+      setknowledgeButton('🟦');
     } else {
       setknowledgeTextarea('knowledge-textarea');
       setknowledgeButton('⬜');
@@ -538,10 +538,10 @@ function Console() {
     console.log('handleHistoryEvent', contextTextarea)
     if (contextTextarea === 'context-textarea') {
       setcontextTextarea('context-big-textarea');
-      setcontextButton('▪️');
+      setcontextButton('🟥');
     } else if (contextTextarea === 'context-big-textarea') {
       setcontextTextarea('context-small-textarea');
-      setcontextButton('◻️');
+      setcontextButton('🟦');
     } else {
       setcontextTextarea('context-textarea');
       setcontextButton('⬜');
