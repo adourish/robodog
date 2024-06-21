@@ -519,7 +519,7 @@ function Console() {
   function onExecuteCommandsClick(event) {
     console.log(event)
   }
-  const handleKnowledgeEvent = async (event) => {
+  const handleKnowledgeSizeEvent = async (event) => {
     event.preventDefault();
     console.log('handleKnowledgeEvent', knowledgeTextarea)
     if (knowledgeTextarea === 'knowledge-textarea') {
@@ -527,13 +527,13 @@ function Console() {
       setknowledgeButton('🟥');
     } else if (knowledgeTextarea === 'knowledge-big-textarea') {
       setknowledgeTextarea('knowledge-small-textarea');
-      setknowledgeButton('🟦');
+      setknowledgeButton('⬜');
     } else {
       setknowledgeTextarea('knowledge-textarea');
-      setknowledgeButton('⬜');
+      setknowledgeButton('🟦');
     }
   };
-  const handleHistoryEvent = async (event) => {
+  const handleHistorySizeEvent = async (event) => {
     event.preventDefault();
     console.log('handleHistoryEvent', contextTextarea)
     if (contextTextarea === 'context-textarea') {
@@ -541,10 +541,10 @@ function Console() {
       setcontextButton('🟥');
     } else if (contextTextarea === 'context-big-textarea') {
       setcontextTextarea('context-small-textarea');
-      setcontextButton('🟦');
+      setcontextButton('⬜');
     } else {
       setcontextTextarea('context-textarea');
-      setcontextButton('⬜');
+      setcontextButton('🟦');
     }
   };
 
@@ -668,7 +668,7 @@ function Console() {
             className={`input-textarea ${contextTextarea}`}
             aria-label="chat history"
           ></textarea>
-          <button type="button" onClick={handleHistoryEvent} aria-label="history" className="history-button" title="Bigger and Smaller">{contextButton}</button>
+          <button type="button" onClick={handleHistorySizeEvent} aria-label="history" className="history-button" title="Bigger and Smaller">{contextButton}</button>
         </div>
         <div className="input-area">
           <textarea
@@ -678,7 +678,7 @@ function Console() {
             className={`input-textarea ${knowledgeTextarea}`}
             aria-label="knowledge content"
           ></textarea>
-          <button type="button" onClick={handleKnowledgeEvent} aria-label="knowledge" className="knowledge-button" title="Bigger and Smaller">{knowledgeButton}</button>
+          <button type="button" onClick={handleKnowledgeSizeEvent} aria-label="knowledge" className="knowledge-button" title="Bigger and Smaller">{knowledgeButton}</button>
         </div>
         <div className="input-area">
           <textarea
@@ -689,8 +689,6 @@ function Console() {
             aria-label="chat text"
           ></textarea>
           <button type="submit" aria-label="chat submit" className="submit-button" title="Ask Question">🤖</button>
-
-
         </div>
       </form>
     </div>
