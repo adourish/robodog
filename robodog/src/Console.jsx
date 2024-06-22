@@ -113,7 +113,10 @@ function Console() {
     ConsoleService.setAPIKey(key);
     setOpenAIKey(key);
   };
-
+  const handleModelChange = (model) => {
+    console.debug('handleModelChange',model);
+    setModel(model)
+  };
   const handleKeyDown = (event) => {
     if (event.ctrlKey && event.shiftKey && event.keyCode === 38) {
       console.log(currentIndex);
@@ -686,6 +689,17 @@ function Console() {
             className="input-field"
             value={openAIKey}
             onChange={(e) => handleOpenAIKeyChange(e.target.value)}
+          />
+
+        </div>
+        <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
+          <label htmlFor="model">Model:</label>
+          <input
+            type="text"
+            id="model"
+            className="input-field"
+            value={model}
+            onChange={(e) => handleModelChange(e.target.value)}
           />
 
         </div>
