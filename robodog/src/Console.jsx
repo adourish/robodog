@@ -25,6 +25,8 @@ function Console() {
   const [thinking, setThinking] = useState('🦥');
   const [model, setModel] = useState('gpt-3.5-turbo');
   const [tooBig, setTooBig] = useState('🐁');
+  const [showSettings, setShowSettings] = useState(false);
+  const [openAIKey, setOpenAIKey] = useState('')
   const [message, setMessage] = useState('');
   const [temperature, setTemperature] = useState(0.7);
   const [filter, setFilter] = useState(false);
@@ -57,6 +59,7 @@ function Console() {
       var list2 = [];
       if (_key && _key != null) {
         console.debug(_key);
+        setOpenAIKey(_key);
         const stars = _key.split("").map(char => "*").join("");
         list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
       } else {
@@ -100,6 +103,16 @@ function Console() {
     // Call the function to set focus on the last item when content changes
     setFocusOnLastItem();
   }, [content]);
+
+  const handleSettingsToggle = () => {
+    console.debug('handleSettingsToggle', showSettings)
+    setShowSettings(!showSettings);
+  };
+  const handleOpenAIKeyChange = (key) => {
+    console.debug('handleOpenAIKeyChange',key);
+    ConsoleService.setAPIKey(key);
+    setOpenAIKey(key);
+  };
 
   const handleKeyDown = (event) => {
     if (event.ctrlKey && event.shiftKey && event.keyCode === 38) {
@@ -193,7 +206,7 @@ function Console() {
         const imageBase64 = fileReader.result;
         const { data: { text } } = await Tesseract.recognize(imageBase64, 'eng');
 
-        setKnowledge(knowledge + text); 
+        setKnowledge(knowledge + text);
       } catch (error) {
         console.error('Error reading image file:', error);
       } finally {
@@ -352,8 +365,8 @@ function Console() {
           break;
         case '/key':
           ConsoleService.setAPIKey(_command.verb);
-          
-          var _key =  ConsoleService.getAPIKey();
+
+          var _key = ConsoleService.getAPIKey();
           message = 'Set API key ' + _key;
           setContext('');
           setKnowledge('');
@@ -361,15 +374,15 @@ function Console() {
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
           //window.location.reload();
           break;
-          case '/getkey':
-            var _key =  ConsoleService.getAPIKey();
-            message = 'Your API key is ' + _key;
-            setContext('');
-            setKnowledge('');
-            setQuestion('');
-            setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
+        case '/getkey':
+          var _key = ConsoleService.getAPIKey();
+          message = 'Your API key is ' + _key;
+          setContext('');
+          setKnowledge('');
+          setQuestion('');
+          setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
 
-            break;
+          break;
 
 
         case '/stash':
@@ -628,6 +641,8 @@ function Console() {
           ))}
         </select>
       </div>
+
+
       <div className="console-content">
         {content.map((item, index) => {
           if (item.role === 'image') {
@@ -656,11 +671,22 @@ function Console() {
         })}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
-      <div className="char-count">
-          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}](<label htmlFor="uploader" className="label-uploader" onKeyDown={handleOCRKeyDown} title="Upload Image" tabindex="0">📷</label>
+        <div className="char-count">
+          ⸤{totalChars}/{maxChars}⸥⸤{model}⸥⸤{temperature}⸥⸤{completionType}⸥⸤{thinking}⸥⸤{tooBig}⸥⸤{performance}⸥⸤{message}⸥⸤{currentKey}⸥⸤{size}⸥⸤<label htmlFor="uploader" className="label-uploader" onKeyDown={handleOCRKeyDown} title="Upload Image" tabindex="0">📷</label>
           <input type="file" id="uploader" accept=".png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm" onChange={handleOCRUpload} style={{ display: 'none' }} />
           <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader" title="Upload File">📤</button>
-          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>)
+          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>⸥⸤
+          <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>⸥
+        </div>
+        <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
+          <label htmlFor="openAIKey">Open AI key:</label>
+          <input
+            type="text"
+            id="openAIKey"
+            className="input-field"
+            value={openAIKey}
+            onChange={(e) => handleOpenAIKeyChange(e.target.value)}
+          />
 
         </div>
         <div className="input-area">

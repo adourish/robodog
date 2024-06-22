@@ -151,6 +151,11 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
+.input-field {
+  width: 100%; /* Set the width to 100% of the container */
+  padding: 10px; /* Add padding for better readability */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
 .label-uploader {
   font-size: 16px;
   display: inline-block;
@@ -166,7 +171,13 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
+.hidden {
+  display: none;
+}
 
+.visible {
+  display: block;
+}
 .input-textarea,
 .context-textarea,
 .knowledge-textarea,
