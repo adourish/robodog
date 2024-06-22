@@ -5,10 +5,13 @@ import { PerformanceCalculator } from './PerformanceCalculator';
 import FormatService from './FormatService';
 import FileService from './FileService';
 
-const openai = new OpenAI({
-  apiKey: getAPIKey(),
-  dangerouslyAllowBrowser: true,
-});
+function getOpenAI() {
+  const openai = new OpenAI({
+    apiKey: getAPIKey(),
+    dangerouslyAllowBrowser: true,
+  });
+  return openai;
+}
 
 function calculateTokens(text) {
   text = text.trim();
@@ -325,38 +328,34 @@ function getUFO() {
 }
 function getAPIKey() {
   const storedAPIKey = localStorage.getItem('openaiAPIKey');
+  console.debug('getAPIKey', storedAPIKey)
   if (storedAPIKey) {
     return storedAPIKey;
   } else {
     return '';
   }
-
-
 }
 
 function setAPIKey(key) {
+  console.debug('setAPIKey', key)
   localStorage.setItem('openaiAPIKey', key);
 }
-
-function getIFTTTKey() {
-  const storedAPIKey = localStorage.getItem('iftttKey');
+async function getAPIKeyAsync() {
+  const storedAPIKey = await localStorage.getItem('openaiAPIKey');
+  console.debug('getAPIKey', storedAPIKey)
   if (storedAPIKey) {
     return storedAPIKey;
   } else {
-    const userInput = prompt('Please enter your IFTTT Key:');
-    if (userInput) {
-      localStorage.setItem('iftttKey', userInput);
-      return userInput;
-    } else {
-      localStorage.setItem('', userInput);
-      console.log('IFTTT Key is required for this IFTTT webhooks to work.');
-      return '';
-    }
+    return '';
   }
 }
 
+async function setAPIKeyAsync(key) {
+  console.debug('setAPIKey', key)
+  await localStorage.setItem('openaiAPIKey', key);
+}
 async function getEngines() {
-  const apiKey = getAPIKey();
+  const apiKey = await getAPIKeyAsync();
 
   const response = await axios.get('https://api.openai.com/v1/engines', {
     headers: {
@@ -375,7 +374,7 @@ async function uploadContentToOpenAI(fileName, content) {
   }
   var messages = [{ "role": "system", "content": content }];
 
-  const apiKey = await getAPIKey();
+  const apiKey = await getAPIKeyAsync();
   const endpoint = 'https://api.openai.com/v1/files';
   const blob = new Blob([messages], { type: 'text/plain' });
   const file = new File([blob], fileName + '.json');
@@ -415,7 +414,7 @@ async function getTextContent(url, model, knowledge, setKnowledge) {
       model: model,
       messages: _messages
     };
-
+    const openai = getOpenAI();
     const response2 = await openai.chat.completions.create(_p2);
     console.log("get markdown result", response2);
     if (response2) {
@@ -531,6 +530,7 @@ async function askQuestion(text, model, context, knowledge, completionType, setC
       _p2.max_tokens = max_tokens;
     }
     console.debug(_p2);
+    const openai = getOpenAI();
     const response = await openai.chat.completions.create(_p2);
     if (response) {
       _content = response.choices[0]?.message?.content;
@@ -562,6 +562,7 @@ async function askQuestion(text, model, context, knowledge, completionType, setC
     };
 
     console.debug(_p);
+    const openai = getOpenAI();
     const stream = await openai.beta.chat.completions.stream(_p);
     if (stream) {
       for await (const chunk of stream) {
@@ -604,7 +605,7 @@ async function askQuestion(text, model, context, knowledge, completionType, setC
       quality: "standard",
       n: 1
     };
-
+    const openai = getOpenAI();
     const response3 = await openai.images.generate(p3);
     console.debug('handleDalliRestCompletion', p3);
     if (response3) {
@@ -738,7 +739,7 @@ function getStashList() {
   return csvString;
 }
 async function getUploadedFiles() {
-  const apiKey = getAPIKey();
+  const apiKey = await getAPIKeyAsync();
   const endpoint = 'https://api.openai.com/v1/files';
 
   try {

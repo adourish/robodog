@@ -6,7 +6,8 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 
 # Try robodog
 
-- [Robodog](https://adourish.github.io/robodog/robodog/dist/)
+- [Robodog web](https://adourish.github.io/robodog/robodog/dist/)
+- [Robodog Android](https://play.google.com/store/apps/details?id=com.unclebulgaria.robodog)
 - Type "/key <api key>" then click "🤖" 
 
 ![Screenshot](screenshot-quick.png)

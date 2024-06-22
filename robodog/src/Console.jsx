@@ -56,6 +56,7 @@ function Console() {
       var _key = ConsoleService.getAPIKey();
       var list2 = [];
       if (_key && _key != null) {
+        console.debug(_key);
         const stars = _key.split("").map(char => "*").join("");
         list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
       } else {
@@ -351,15 +352,17 @@ function Console() {
           break;
         case '/key':
           ConsoleService.setAPIKey(_command.verb);
-          message = 'Set API key ' + _command.verb;
+          
+          var _key =  ConsoleService.getAPIKey();
+          message = 'Set API key ' + _key;
           setContext('');
           setKnowledge('');
           setQuestion('');
           setContent([...content, ConsoleService.getMessageWithTimestamp(message, 'event')]);
-          window.location.reload();
+          //window.location.reload();
           break;
           case '/getkey':
-            var _key = ConsoleService.getAPIKey();
+            var _key =  ConsoleService.getAPIKey();
             message = 'Your API key is ' + _key;
             setContext('');
             setKnowledge('');
@@ -460,7 +463,7 @@ function Console() {
           break;
         case '/reset':
           localStorage.removeItem('openaiAPIKey');
-          window.location.reload();
+          //window.location.reload();
           setContent([...content, ConsoleService.getMessageWithTimestamp('reset', 'system')]);
           break;
         default:
