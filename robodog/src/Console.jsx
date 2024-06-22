@@ -672,11 +672,11 @@ function Console() {
       </div>
       <form onSubmit={handleSubmit} className="input-form">
         <div className="char-count">
-          ⸤{totalChars}/{maxChars}⸥⸤{model}⸥⸤{temperature}⸥⸤{completionType}⸥⸤{thinking}⸥⸤{tooBig}⸥⸤{performance}⸥⸤{message}⸥⸤{currentKey}⸥⸤{size}⸥⸤<label htmlFor="uploader" className="label-uploader" onKeyDown={handleOCRKeyDown} title="Upload Image" tabindex="0">📷</label>
+          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}][<label htmlFor="uploader" className="label-uploader" onKeyDown={handleOCRKeyDown} title="Upload Image" tabindex="0">📷</label>
           <input type="file" id="uploader" accept=".png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm" onChange={handleOCRUpload} style={{ display: 'none' }} />
           <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader" title="Upload File">📤</button>
-          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>⸥⸤
-          <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>⸥
+          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>][
+          <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>]
         </div>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
           <label htmlFor="openAIKey">Open AI key:</label>
