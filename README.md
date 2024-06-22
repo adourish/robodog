@@ -48,6 +48,7 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 
 ## Version 1.7.0
 - Added Optical Character Recognition (OCR) support using the Tesseract library
+- Android closed testing
 
 # Features
 

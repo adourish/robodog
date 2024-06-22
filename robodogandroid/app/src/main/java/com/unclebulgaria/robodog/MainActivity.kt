@@ -16,7 +16,9 @@ class MainActivity : AppCompatActivity() {
         webSettings.javaScriptEnabled = true
         webSettings.allowContentAccess = true
         webSettings.domStorageEnabled = true
-        
+        webSettings.setAllowFileAccess(true)
+        webSettings.setAllowFileAccessFromFileURLs(true)
+        webSettings.setAllowUniversalAccessFromFileURLs(true)
 
         mWebView.loadUrl("https://adourish.github.io/robodog/robodog/dist/")
     }
