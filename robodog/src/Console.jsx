@@ -61,9 +61,9 @@ function Console() {
         console.debug(_key);
         setOpenAIKey(_key);
         const stars = _key.split("").map(char => "*").join("");
-        list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key')];
+        list2 = [ConsoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key')];
       } else {
-        list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key.', 'key'));
+        list2.push(ConsoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key'));
       }
       var list = [ConsoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = ConsoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
