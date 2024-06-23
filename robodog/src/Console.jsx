@@ -677,7 +677,7 @@ function Console() {
         <span className="char-count">
           <label htmlFor="totalChars">[{totalChars}/{maxChars}]</label>
           <label htmlFor="model">[{model}]</label>
-          <label htmlFor="temperature">[{temperature}]</label>
+          <label htmlFor="temperature" className="status-hidden">[{temperature}]</label>
           <label htmlFor="completionType" className="status-hidden">[{completionType}]</label>
           <label htmlFor="thinking">[{thinking}]</label>
           <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
