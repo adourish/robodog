@@ -189,6 +189,13 @@ div.char-count {
   color: rgb(126, 125, 125);
 }
 
+.status-hidden {
+  display: inline;
+}
+
+.status-visible {
+  display: inline;
+}
 
 .context-textarea,
 .knowledge-textarea {
@@ -255,6 +262,7 @@ div.char-count {
   .char-count {
     font-size: 16px;
   }
+  
 }
 
 
@@ -268,6 +276,14 @@ div.char-count {
     height: 98vh;
     overflow: hidden;
     max-width: 98%;
+  }
+
+  .status-hidden {
+    display: none;
+  }
+  
+  .status-visible {
+    display: inline;
   }
 
   .submit-button {

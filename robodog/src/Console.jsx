@@ -109,12 +109,12 @@ function Console() {
     setShowSettings(!showSettings);
   };
   const handleOpenAIKeyChange = (key) => {
-    console.debug('handleOpenAIKeyChange',key);
+    console.debug('handleOpenAIKeyChange', key);
     ConsoleService.setAPIKey(key);
     setOpenAIKey(key);
   };
   const handleModelChange = (model) => {
-    console.debug('handleModelChange',model);
+    console.debug('handleModelChange', model);
     setModel(model)
   };
   const handleKeyDown = (event) => {
@@ -674,13 +674,23 @@ function Console() {
         })}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
-        <div className="char-count">
-          [{totalChars}/{maxChars}][{model}][{temperature}][{completionType}][{thinking}][{tooBig}][{performance}][{message}][{currentKey}][{size}][<label htmlFor="uploader" className="label-uploader" onKeyDown={handleOCRKeyDown} title="Upload Image" tabindex="0">📷</label>
+        <span className="char-count">
+          <label htmlFor="totalChars">[{totalChars}/{maxChars}]</label>
+          <label htmlFor="model">[{model}]</label>
+          <label htmlFor="temperature">[{temperature}]</label>
+          <label htmlFor="completionType" className="status-hidden">[{completionType}]</label>
+          <label htmlFor="thinking">[{thinking}]</label>
+          <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
+          <label htmlFor="performance" className="status-hidden">[{performance}]</label>
+          <label htmlFor="message">[{message}]</label>
+          <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
+          <label htmlFor="size"  className="status-hidden">[{size}]</label>
+          <label htmlFor="uploader" className="label-uploader status-hidden" onKeyDown={handleOCRKeyDown} title="Upload Image" tabindex="0">📷</label>
           <input type="file" id="uploader" accept=".png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm" onChange={handleOCRUpload} style={{ display: 'none' }} />
-          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader" title="Upload File">📤</button>
-          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>][
-          <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>]
-        </div>
+          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader status-hidden" title="Upload File">📤</button>
+          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader status-hidden" title="Download">📥</button>
+          <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader status-hidden" title="Settings">⚙️</button>
+        </span>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
           <label htmlFor="openAIKey">Open AI key:</label>
           <input

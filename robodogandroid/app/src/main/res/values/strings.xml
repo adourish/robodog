@@ -1,5 +1,4 @@
 <resources>
     <string name="app_name">robodog</string>
-    <string name="website_domain">quaestio.org</string>
-    <string name="website_url">https://quaestio.org</string>
+    <string name="base_url">https://adourish.github.io/robodog/robodog/dist/</string>
 </resources>
