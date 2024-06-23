@@ -190,35 +190,6 @@ function Console() {
     setThinking('🦥');
   };
 
-  const handleOCRUpload = (event) => {
-    event.preventDefault();
-    setThinking('🦧');
-    const files = event.target.files;
-    const file = files[0];
-
-    const validImageTypes = ['image/png', 'image/jpeg', 'image/tiff', 'image/x-jp2', 'image/gif', 'image/webp', 'image/bmp', 'image/x-portable-anymap'];
-
-    if (!validImageTypes.includes(file.type)) {
-      console.error('Invalid file type:', file.type);
-      return;
-    }
-    const fileReader = new FileReader();
-
-    fileReader.onload = async () => {
-      try {
-        const imageBase64 = fileReader.result;
-        const { data: { text } } = await Tesseract.recognize(imageBase64, 'eng');
-
-        setKnowledge(knowledge + text);
-      } catch (error) {
-        console.error('Error reading image file:', error);
-      } finally {
-        setThinking('🦥');
-      }
-    };
-
-    fileReader.readAsDataURL(file);
-  };
 
   const handleContextChange = (event) => {
     const value = event.target.value;
@@ -685,8 +656,6 @@ function Console() {
           <label htmlFor="message">[{message}]</label>
           <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
           <label htmlFor="size"  className="status-hidden">[{size}]</label>
-          <label htmlFor="uploader" className="label-uploader status-hidden" onKeyDown={handleOCRKeyDown} title="Upload Image" tabindex="0">📷</label>
-          <input type="file" id="uploader" accept=".png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm" onChange={handleOCRUpload} style={{ display: 'none' }} />
           <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader status-hidden" title="Upload File">📤</button>
           <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader status-hidden" title="Download">📥</button>
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>

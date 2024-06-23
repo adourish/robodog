@@ -212,6 +212,11 @@ div.char-count {
     padding-right: 10px;
   }
 
+
+  .status-size-hidden {
+    display: none;
+  }
+  
   .input-form {
     margin-top: 5px;
   }
