@@ -76,6 +76,8 @@ Furthermore, users can effortlessly switch between GPT3.5 and GPT4 models withou
 
 ![Screenshot](screenshot-architecture.png)
 
+![Screenshot](screenshot-architecture2.png)
+
 # Create an API Key
 
 Create an Open AI account and generate [new secret key](https://platform.openai.com/api-keys)
