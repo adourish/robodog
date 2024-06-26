@@ -6,3 +6,6 @@
 /node_modules/@npmcli/metavuln-calculator/node_modules/json-parse-even-better-errors
 /robodogvscode/robodog/node_modules/c8
 /robodogvscode/robodog/node_modules/
+/robodogcli/node_modules/.bin
+/robodogcli/node_modules/
+*.map
