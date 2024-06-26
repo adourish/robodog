@@ -8,6 +8,11 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 
 - [Robodog web](https://adourish.github.io/robodog/robodog/dist/)
 - [Robodog Android](https://play.google.com/store/apps/details?id=com.unclebulgaria.robodog)
+- [npm install robodoglib](https://www.npmjs.com/package/robodoglib)
+- [npm install robodogcli](https://www.npmjs.com/package/robodogcli)
+- [npm install robodog](https://www.npmjs.com/package/robodog)
+
+# Configure API Key
 - Type "/key <api key>" then click "🤖" 
 
 ![Screenshot](screenshot-quick.png)
@@ -56,6 +61,10 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 
 ## Version 1.7.1
 - Bug fixes and UX
+
+## Version 1.7.2
+- CLI and RobodogLib npm package. 
+  npm install - 
 
 ## Roadmap 
 - OCR support for Android
