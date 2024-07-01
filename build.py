@@ -3,36 +3,25 @@ import os
 import shutil
 import subprocess
 
-# defining the directories
-directories = [r".\robodog\robodoglib", r".\robodog\robodogcli", r".\robodog\robodog"]
-
-# get the base directory
+directories = [r"robodoglib", r"robodogcli", r"robodog"]
 base_dir = os.getcwd()
-
-# loop through each directory
+print(f"Base directory: {base_dir}")
 for dir in directories:
     print(f"Working on directory: {dir}")
-    # make sure the directory exists
     os.makedirs(dir, exist_ok=True)
     
     try:
-        # navigate to the directory
         dir_path = os.path.join(base_dir, dir)
         os.chdir(dir_path)
         print(f"Navigated to directory: {dir_path}")
-
-        # run the npm install and build commands
         print("Running 'npm install'...")
         subprocess.check_call('npm install', shell=True)
         print("'npm install' completed.")
-
         print("Running 'npm run build'...")
         subprocess.check_call('npm run build', shell=True)
         print("'npm run build' completed.")
-
-        # copy the root readme.md into the current directory
         readme_src = os.path.join(base_dir, 'README.md')
-        readme_dest = os.path.join(dir_path, 'README.md') # Corrected line
+        readme_dest = os.path.join(dir_path, 'README.md') 
         print(f"Copying README.md from {readme_src} to {readme_dest}")
         shutil.copy(readme_src, readme_dest) # Corrected line
         print("README.md copied.")
