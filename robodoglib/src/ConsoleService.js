@@ -125,15 +125,7 @@ class ConsoleService {
     return tokens.length;
   }
 
-  copyToClipboard(text, copySuccess, setCopySuccess) {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        setCopySuccess('Copied!');
-      })
-      .catch(err => {
-        setCopySuccess('Failed to copy text');
-      });
-  }
+
   getMessageWithTimestamp(command, role) {
     var s = formatService.getMessageWithTimestamp(command, role);
     return s;
@@ -142,8 +134,8 @@ class ConsoleService {
     const currentDate = new Date();
     const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
     var key = "snapshot" + "-" + formattedDate;
-    stash(key, context, knowledge, question, content, temperature,)
-    handleExport(key, context, knowledge, question, content, temperature, showTextarea);
+    this.stash(key, context, knowledge, question, content, temperature,)
+    this.handleExport(key, context, knowledge, question, content, temperature, showTextarea);
     return key;
   }
 
@@ -414,7 +406,6 @@ class ConsoleService {
   }
 
   async getTextContent(url, model, knowledge, setKnowledge) {
-    var _ftext = '';
     var _content;
     try {
       console.log("get", url);
@@ -568,7 +559,7 @@ class ConsoleService {
       frequency_penalty: frequency_penalty,
       presence_penalty: presence_penalty
     };
-    var _c;
+    var _c = '';
     var _r = { "content": null, "finish_reason": null, "text": null }
     console.debug(_p);
     const openai = this.getOpenAI();
