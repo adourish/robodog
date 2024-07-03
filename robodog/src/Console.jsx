@@ -650,7 +650,7 @@ function Console() {
             );
           } else {
             return (
-              <pre key={index} focus={item.focus} onClick={()=>copyToClipboard(item.command)}>
+              <pre  class='console-text' key={index} focus={item.focus} onClick={()=>copyToClipboard(item.command)}>
               <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
               </pre>
             );

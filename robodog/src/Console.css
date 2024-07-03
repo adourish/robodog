@@ -114,6 +114,10 @@ body {
   font-size: 10px;
 }
 
+.console-text {
+  font-size: 12px;
+}
+
 .ufo-text {
   font-size: 10px;
 }
@@ -314,7 +318,7 @@ div.char-count {
   }
 
   .question-textarea {
-    font-size: 16px;
+    font-size: 14px;
     min-height: 70px;
   }
 
