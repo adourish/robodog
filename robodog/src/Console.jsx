@@ -39,6 +39,7 @@ function Console() {
   const [filter, setFilter] = useState(false);
   const [max_tokens, setMax_tokens] = useState(0);
   const [top_p, setTop_p] = useState(1);
+  const [copySuccess, setCopySuccess] = useState('');
   const [frequency_penalty, setFrequency_penalty] = useState(0.0);
   const [presence_penalty, setPresence_penalty] = useState(0.0);
   const [performance, setPerformance] = useState("");
@@ -504,15 +505,24 @@ function Console() {
       console.log(key);
     }
   }
-
-  function handleVerbChange(event) {
-    const verb = event.target.value;
-    setCommand(verb);
+  function copyToClipboard(text) {
+    var first6chars = text.substring(0, 6);
+    if (text.length < 6) {
+      first6chars = text;
+    } else {
+      setCopySuccess(first6chars);
+    }
+  
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopySuccess(first6chars);
+      })
+      .catch(err => {
+        setCopySuccess('Failed to copy text ');
+      });
   }
 
-  function onExecuteCommandsClick(event) {
-    console.log(event)
-  }
+
   const handleKnowledgeSizeEvent = async (event) => {
     event.preventDefault();
     console.log('handleKnowledgeEvent', knowledgeTextarea)
@@ -638,10 +648,10 @@ function Console() {
                 <code>{item.command}</code>
               </pre>
             );
-
           } else {
             return (
-              <pre key="{index}" focus="{item.focus}"><code>{item.datetime} {item.roleEmoji}:{item.command}</code>
+              <pre key={index} focus={item.focus} onClick={()=>copyToClipboard(item.command)}>
+              <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
               </pre>
             );
           }
@@ -657,6 +667,7 @@ function Console() {
           <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
           <label htmlFor="performance" className="status-hidden">[{performance}]</label>
           <label htmlFor="message">[{message}]</label>
+          <label htmlFor="copy">[{copySuccess}]</label>
           <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
           <label htmlFor="size" className="status-hidden">[{size}]</label>
           <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader status-hidden" title="Upload File">📤</button>

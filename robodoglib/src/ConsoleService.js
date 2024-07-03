@@ -125,6 +125,15 @@ class ConsoleService {
     return tokens.length;
   }
 
+  copyToClipboard(text, copySuccess, setCopySuccess) {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopySuccess('Copied!');
+      })
+      .catch(err => {
+        setCopySuccess('Failed to copy text');
+      });
+  }
   getMessageWithTimestamp(command, role) {
     var s = formatService.getMessageWithTimestamp(command, role);
     return s;
