@@ -481,7 +481,7 @@ class ConsoleService {
     setCurrentKey,
     setTemperature,
     setShowTextarea) {
-    var stashList = getStashList();
+    var stashList = this.getStashList();
     var total = 0;
     if (stashList) {
       var _l = stashList.split(',');
