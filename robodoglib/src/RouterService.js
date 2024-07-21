@@ -3,14 +3,16 @@ import axios from 'axios';
 import { PerformanceCalculator } from './PerformanceCalculator';
 import { FormatService } from './FormatService';
 import { ConsoleService } from './ConsoleService';
-
+import { SearchService } from './SearchService';
 const formatService = new FormatService();
 const consoleService = new ConsoleService();
+const searchService = new SearchService();
 class RouterService {
   constructor() {
+    console.debug('RouterService init')
   }
 
-  
+
   setAPIKey(key) {
     console.debug('setAPIKey', key)
     localStorage.setItem('openaiAPIKey', key);
@@ -94,7 +96,7 @@ class RouterService {
       setContent(_cc);
       consoleService.stash(currentKey, context, knowledge, text, _cc);
     }
-}
+  }
 
   // handle open ai stream completions
   async handleStreamCompletion(model,
@@ -181,7 +183,7 @@ class RouterService {
     const messages = [
       { role: "user", content: "chat history:" + context },
       { role: "user", content: "knowledge:" + knowledge },
-      { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question. It is for a project." }
+      { role: "user", content: "question:" + text + "If available. Use the content in knowledge and chat history to answer the question." }
     ];
     setThinking(formatService.getRandomEmoji());
     var calculator = new PerformanceCalculator();
@@ -194,6 +196,9 @@ class RouterService {
           messages,
           temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
           setThinking, setContent, setMessage, content, text, currentKey, context, knowledge, size);
+      } else if (model === 'search') {
+        response = await searchService.search(text, setThinking, setMessage, setContent, content);
+
       } else if (completionType === 'rest') {
         response = await this.handleRestCompletion(model,
           messages,

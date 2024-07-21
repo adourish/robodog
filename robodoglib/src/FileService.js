@@ -7,8 +7,10 @@ GlobalWorkerOptions.workerSrc = pdfjsWorker;
 var formatService = new FormatService();
 class FileService {
   constructor() {
+    console.debug('SearchService init')
     this.fileFormats = this.getSupportFiledFormats();
   }
+
   async extractTextContent(arrayBuffer) {
     console.debug('extractTextContent', arrayBuffer)
     const decoder = new TextDecoder('utf-8');

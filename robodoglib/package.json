@@ -5,7 +5,7 @@
     "type": "git",
     "url": "https://github.com/adourish/robodog"
   },
-  "description": "Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall-e-3, and gpt-3.5-turbo-16k. A highly portal GPT UI with support for upload files, save points, and temperature configurations.", 
+  "description": "Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall-e-3, and gpt-3.5-turbo-16k. A highly portal GPT UI with support for upload files, save points, and temperature configurations.",
   "dependencies": {
     "@react-pdf/renderer": "^3.4.4",
     "@testing-library/jest-dom": "^5.17.0",
@@ -17,10 +17,11 @@
     "@types/react-dom": "^18.2.15",
     "axios": "^1.7.2",
     "babel-preset-es2015": "^6.24.1",
+    "duckduckgo-search": "^1.0.7",
     "openai": "^4.18.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^2.5.207",
-
+    "search-engine-client": "^1.2.6",
     "tesseract.js": "^5.1.0",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4",

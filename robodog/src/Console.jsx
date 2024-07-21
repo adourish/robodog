@@ -284,6 +284,11 @@ function Console() {
           message = 'Model is set to ' + _command.verb;
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
           break;
+        case '/search':
+          setModel('search');
+          message = 'Model is set to search';
+          setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+          break;
         case '/temperature':
           if (_command.verb) {
             var _t = Number(_command.verb);
@@ -606,7 +611,7 @@ function Console() {
           currentKey,
           setSize,
           size);
-          console.debug(response);
+        console.debug(response);
       }
     } catch (ex) {
       console.error('handleSubmit', ex);
