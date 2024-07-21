@@ -4,6 +4,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import RobodogLib from '../../robodoglib/dist/robodoglib.bundle.js';
 console.log(RobodogLib)
 const consoleService = new RobodogLib.ConsoleService()
+const routerService = new RobodogLib.RouterService();
+const formatService = new RobodogLib.FormatService();
 if (consoleService) {
   console.log('index bundle', consoleService)
 }
@@ -63,7 +65,7 @@ function Console() {
       var _commands = consoleService.getCommands();
       var _options = consoleService.getOptions();
       var _fc = consoleService.getFormattedCommands();
-      var _key = consoleService.getAPIKey();
+      var _key = routerService.getAPIKey();
       var list2 = [];
       if (_key && _key != null) {
         console.debug(_key);
@@ -118,7 +120,7 @@ function Console() {
   };
   const handleOpenAIKeyChange = (key) => {
     console.debug('handleOpenAIKeyChange', key);
-    consoleService.setAPIKey(key);
+    routerService.setAPIKey(key);
     setOpenAIKey(key);
   };
   const handleModelChange = (model) => {
@@ -213,7 +215,7 @@ function Console() {
       var k = consoleService.calculateTokens(knowledge);
       var _totalChars = c + i + k;
       setTotalChars(_totalChars);
-      var tooBig = consoleService.getTooBigEmoji(_totalChars, maxChars);
+      var tooBig = formatService.getTooBigEmoji(_totalChars, maxChars);
       setTooBig(tooBig);
 
     } catch (ex) {
@@ -343,9 +345,9 @@ function Console() {
           });
           break;
         case '/key':
-          consoleService.setAPIKey(_command.verb);
+          routerService.setAPIKey(_command.verb);
 
-          _key = consoleService.getAPIKey();
+          _key = routerService.getAPIKey();
           message = 'Set API key ' + _key;
           setContext('');
           setKnowledge('');
@@ -354,7 +356,7 @@ function Console() {
           //window.location.reload();
           break;
         case '/getkey':
-          _key = consoleService.getAPIKey();
+          _key = routerService.getAPIKey();
           message = 'Your API key is ' + _key;
           setContext('');
           setKnowledge('');
@@ -582,7 +584,7 @@ function Console() {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
-        var response = await consoleService.askQuestion(command,
+        var response = await routerService.askQuestion(command,
           model,
           context,
           knowledge,
@@ -604,6 +606,7 @@ function Console() {
           currentKey,
           setSize,
           size);
+          console.debug(response);
       }
     } catch (ex) {
       console.error('handleSubmit', ex);

@@ -1,6 +1,23 @@
 class FormatService {
 
+  getRandomEmoji() {
+    const emojis = ["🦉", "🐝", "🦧"];
+    const index = new Date().getMilliseconds() % emojis.length;
+    return emojis[index];
+  }
 
+  getTooBigEmoji(_totalChars, maxChars) {
+    if (_totalChars >= maxChars) {
+      return '🐋'; // Dinosaur emoji for the biggest level
+    } else if (_totalChars >= (maxChars * 0.75)) {
+      return '🦕'; // Bear emoji for the third level
+    } else if (_totalChars >= (maxChars * 0.5)) {
+      return '🐘'; // Lion emoji for the second level
+    } else if (_totalChars >= (maxChars * 0.25)) {
+      return '🐁'; // Mouse emoji for the first level
+    }
+  }
+  
   getMessageWithTimestamp(command, role, url) {
     const options = { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
     const shortTimeString = new Date().toLocaleTimeString(undefined, options);
