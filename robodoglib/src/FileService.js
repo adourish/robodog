@@ -7,7 +7,7 @@ GlobalWorkerOptions.workerSrc = pdfjsWorker;
 var formatService = new FormatService();
 class FileService {
   constructor() {
-    this.fileFormats = '.pdf, .md, .txt, .js, .cs, .java, .py, json, .yaml, .php, .csv, .xsql, .json, .xml, png, .jpg, .jpeg, .tiff, .jp2, .gif, .webp, .bmp, .pnm';
+    this.fileFormats = this.getSupportFiledFormats();
   }
   async extractTextContent(arrayBuffer) {
     console.debug('extractTextContent', arrayBuffer)
@@ -130,9 +130,13 @@ class FileService {
     });
   }
 
-  isSupportedFileFormat(fileName) {
+  getSupportFiledFormats(){
     const supportedFormats = ['.md', '.txt', '.js', '.cs', '.java', '.py', '.json', '.yaml', '.php', '.sql', '.xsql', '.xml', '.csv', '.json', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pbm', '.pgm', '.ppm', '.tiff', '.tif'];
-    return supportedFormats.some((format) => fileName.endsWith(format));
+    return supportedFormats;
+  }
+  isSupportedFileFormat(fileName) {
+    const supportedFormats = this.getSupportFiledFormats();
+     return supportedFormats.some((format) => fileName.endsWith(format));
   }
 
   async extractFileContent(setContent, content) {
