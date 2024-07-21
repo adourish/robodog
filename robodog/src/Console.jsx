@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import RobodogLib from '../../robodoglib/dist/robodoglib.bundle.js';
 console.log(RobodogLib)
 const consoleService = new RobodogLib.ConsoleService()
-if(consoleService){
+if (consoleService) {
   console.log('index bundle', consoleService)
 }
 var build = '';
@@ -323,14 +323,14 @@ function Console() {
           break;
         case '/frequency_penalty':
           if (_command.verb) {
-             _t = Number(_command.verb);
+            _t = Number(_command.verb);
             setFrequency_penalty(_t);
             setContent([...content, consoleService.getMessageWithTimestamp("Frequency Penalty: " + verb, 'experiment')]);
           }
           break;
         case '/presence_penalty':
           if (_command.verb) {
-             _t = Number(_command.verb);
+            _t = Number(_command.verb);
             setPresence_penalty(_t);
             setContent([...content, consoleService.getMessageWithTimestamp("Presence Penalty: " + verb, 'experiment')]);
           }
@@ -345,7 +345,7 @@ function Console() {
         case '/key':
           consoleService.setAPIKey(_command.verb);
 
-           _key = consoleService.getAPIKey();
+          _key = consoleService.getAPIKey();
           message = 'Set API key ' + _key;
           setContext('');
           setKnowledge('');
@@ -354,7 +354,7 @@ function Console() {
           //window.location.reload();
           break;
         case '/getkey':
-           _key = consoleService.getAPIKey();
+          _key = consoleService.getAPIKey();
           message = 'Your API key is ' + _key;
           setContext('');
           setKnowledge('');
@@ -365,13 +365,29 @@ function Console() {
 
 
         case '/stash':
-          consoleService.stash(_command.verb, context, knowledge, question, content, temperature, showTextarea);
-          setCurrentKey(_command.verb);
-          message = 'Stashed 💬📝💭 for ' + _command.verb;
-          setContext('');
-          setKnowledge('');
-          setQuestion('');
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
+          if (_command.verb === 'clear') {
+            consoleService.clearStashList();
+            var _stashList = consoleService.getStashList();
+
+            if (_stashList) {
+              var stashList = _stashList.split(',');
+              setStashList(stashList);
+            }
+          } else {
+            consoleService.stash(_command.verb, context, knowledge, question, content, temperature, showTextarea);
+            setCurrentKey(_command.verb);
+            message = 'Stashed 💬📝💭 for ' + _command.verb;
+            setContext('');
+            setKnowledge('');
+            setQuestion('');
+            setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
+            var _stashList2 = consoleService.getStashList();
+
+            if (_stashList2) {
+              var stashList2 = _stashList2.split(',');
+              setStashList(stashList2);
+            }
+          }
           break;
         case '/pop':
           var _pop = consoleService.pop(_command.verb);
@@ -492,7 +508,7 @@ function Console() {
   function handleStashListChange(event) {
     const key = event?.target?.value;
     if (key) {
-      ConsoleService.setStashKey(key,
+      consoleService.setStashKey(key,
         currentIndex,
         setContext,
         setKnowledge,
@@ -512,7 +528,7 @@ function Console() {
     } else {
       setCopySuccess(first6chars);
     }
-  
+
     navigator.clipboard.writeText(text)
       .then(() => {
         setCopySuccess(first6chars);
@@ -650,8 +666,8 @@ function Console() {
             );
           } else {
             return (
-              <pre  class='console-text' key={index} focus={item.focus} onClick={()=>copyToClipboard(item.command)}>
-              <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
+              <pre class='console-text' key={index} focus={item.focus} onClick={() => copyToClipboard(item.command)}>
+                <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
               </pre>
             );
           }

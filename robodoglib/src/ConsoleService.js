@@ -447,7 +447,7 @@ class ConsoleService {
     setCurrentKey,
     setTemperature,
     setShowTextarea) {
-    const stashItem = pop(key);
+    const stashItem = this.pop(key);
     setCurrentKey(key);
     if (stashItem) {
       console.log(stashItem);
@@ -737,6 +737,15 @@ class ConsoleService {
     }
   }
 
+  clearStashList() {
+    const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
+    if (keys) {
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+        localStorage.removeItem(key);
+      }
+    }
+  }
 
   getStashList() {
     const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
