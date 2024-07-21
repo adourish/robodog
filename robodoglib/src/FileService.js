@@ -131,7 +131,7 @@ class FileService {
   }
 
   isSupportedFileFormat(fileName) {
-    const supportedFormats = ['.md', '.txt', '.js', '.cs', '.java', '.py', '.json', '.yaml', '.php', '.sql', '.xsql', '.xml', '.csv', '.json', '.jpg', '.png', '.jpeg', '.gif', '.bmp'];
+    const supportedFormats = ['.md', '.txt', '.js', '.cs', '.java', '.py', '.json', '.yaml', '.php', '.sql', '.xsql', '.xml', '.csv', '.json', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pbm', '.pgm', '.ppm', '.tiff', '.tif'];
     return supportedFormats.some((format) => fileName.endsWith(format));
   }
 
