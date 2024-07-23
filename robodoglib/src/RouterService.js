@@ -14,12 +14,12 @@ class RouterService {
 
 
   setAPIKey(key) {
-    console.debug('setAPIKey', key)
+    console.debug('Set openaiAPIKey', key)
     localStorage.setItem('openaiAPIKey', key);
   }
   async getAPIKeyAsync() {
     const storedAPIKey = await localStorage.getItem('openaiAPIKey');
-    console.debug('getAPIKey', storedAPIKey)
+    console.debug('Get openaiAPIKey', storedAPIKey)
     if (storedAPIKey) {
       return storedAPIKey;
     } else {
@@ -28,7 +28,7 @@ class RouterService {
   }
 
   async setAPIKeyAsync(key) {
-    console.debug('setAPIKey', key)
+    console.debug('Set openaiAPIKey', key)
     await localStorage.setItem('openaiAPIKey', key);
   }
   async getEngines() {
@@ -95,6 +95,7 @@ class RouterService {
       ];
       setContent(_cc);
       consoleService.stash(currentKey, context, knowledge, text, _cc);
+      return _cc;
     }
   }
 
@@ -141,10 +142,11 @@ class RouterService {
         formatService.getMessageWithTimestamp(_content, 'assistant')
       ];
       setContent(_cc);
+
       consoleService.stash(currentKey, context, knowledge, text, _cc);
 
     }
-    return _r;
+    return _cc;
   }
 
   // hanlde open ai dall-e-3 completions
@@ -176,10 +178,25 @@ class RouterService {
       consoleService.stash(currentKey, context, knowledge, text, _c);
 
     }
-    return response3;
+    return _c;
   }
 
-  async askQuestion(text, model, context, knowledge, completionType, setContent, setContext, setMessage, content, temperature, filter, max_tokens, top_p, frequency_penalty, presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
+  async askQuestion(text, 
+    model, 
+    search,
+    context, 
+    knowledge, 
+    completionType, 
+    setContent, 
+    setContext, 
+    setMessage, 
+    content, 
+    temperature, 
+    filter, 
+    max_tokens, 
+    top_p, 
+    frequency_penalty, 
+    presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
     const messages = [
       { role: "user", content: "chat history:" + context },
       { role: "user", content: "knowledge:" + knowledge },
@@ -188,7 +205,7 @@ class RouterService {
     setThinking(formatService.getRandomEmoji());
     var calculator = new PerformanceCalculator();
     calculator.start();
-
+    var _cc = []
     try {
       let response;
       if (model === 'dall-e-3') {
@@ -197,18 +214,19 @@ class RouterService {
           temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
           setThinking, setContent, setMessage, content, text, currentKey, context, knowledge, size);
       } else if (model === 'search') {
-        response = await searchService.search(text, setThinking, setMessage, setContent, content);
+        _cc = await searchService.search(text, setThinking, setMessage, setContent, content);
 
       } else if (completionType === 'rest') {
-        response = await this.handleRestCompletion(model,
+        _cc = await this.handleRestCompletion(model,
           messages,
           temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
           setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
       } else if (completionType === 'stream') {
-        response = await this.handleStreamCompletion(model,
+        _cc = await this.handleStreamCompletion(model,
           messages,
           temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
           setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
+
       }
 
       return response;

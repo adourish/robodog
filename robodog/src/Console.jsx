@@ -6,6 +6,7 @@ console.log(RobodogLib)
 const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
+const searchService = new RobodogLib.SearchService();
 if (consoleService) {
   console.log('index bundle', consoleService)
 }
@@ -36,7 +37,9 @@ function Console() {
   const [tooBig, setTooBig] = useState('🐁');
   const [showSettings, setShowSettings] = useState(false);
   const [openAIKey, setOpenAIKey] = useState('')
+  const [rapidAPIKey, setRapidAPIKey] = useState('')
   const [message, setMessage] = useState('');
+  const [search, setSearch] = useState('🔎');
   const [temperature, setTemperature] = useState(0.7);
   const [filter, setFilter] = useState(false);
   const [max_tokens, setMax_tokens] = useState(0);
@@ -66,14 +69,23 @@ function Console() {
       var _options = consoleService.getOptions();
       var _fc = consoleService.getFormattedCommands();
       var _key = routerService.getAPIKey();
+      var _key2 = searchService.getAPIKey();
       var list2 = [];
       if (_key && _key != null) {
         console.debug(_key);
         setOpenAIKey(_key);
         const stars = _key.split("").map(char => "*").join("");
-        list2 = [consoleService.getMessageWithTimestamp('Your API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key')];
+        list2 = [consoleService.getMessageWithTimestamp('Your Open AI API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key')];
       } else {
-        list2.push(consoleService.getMessageWithTimestamp('You have not set your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key'));
+        list2.push(consoleService.getMessageWithTimestamp('You have not set your Open AI API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key'));
+      }
+      if (_key2 && _key2 != null) {
+        console.debug(_key2);
+        setRapidAPIKey(_key2);
+        const stars2 = _key2.split("").map(char => "*").join("");
+        list2 = [consoleService.getMessageWithTimestamp('Your Rapid API key is "' + stars2 + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key')];
+      } else {
+        list2.push(consoleService.getMessageWithTimestamp('You have not set your Rapid API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key'));
       }
       var list = [consoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = consoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
@@ -122,6 +134,11 @@ function Console() {
     console.debug('handleOpenAIKeyChange', key);
     routerService.setAPIKey(key);
     setOpenAIKey(key);
+  };
+  const handleRapidAPIKeyChange = (key) => {
+    console.debug('handleRapidAPIKeyChange', key);
+    searchService.setAPIKey(key);
+    setRapidAPIKey(key);
   };
   const handleModelChange = (model) => {
     console.debug('handleModelChange', model);
@@ -285,8 +302,13 @@ function Console() {
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
           break;
         case '/search':
-          setModel('search');
-          message = 'Model is set to search';
+          if(search !== ''){
+            setSearch('');
+          }else{
+            setSearch('🔎');
+          }
+          
+          message = 'Search mode active';
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
           break;
         case '/temperature':
@@ -591,6 +613,7 @@ function Console() {
         setContext(updatedContext);
         var response = await routerService.askQuestion(command,
           model,
+          search,
           context,
           knowledge,
           completionType,
@@ -611,6 +634,14 @@ function Console() {
           currentKey,
           setSize,
           size);
+          if(search !== ''){
+            //var cc2 = await searchService.search(command, setThinking, setMessage, setContent, content);
+            //if(cc2){
+
+            //setContent(cc2)
+            //console.log(cc2)
+            //}
+          }
         console.debug(response);
       }
     } catch (ex) {
@@ -666,6 +697,10 @@ function Console() {
                 <code>{item.command}</code>
               </pre>
             );
+          } else if (item.role === 'search') {
+            return (
+              <div key="{index}">{`${item.command}`}<a href={item.url}  rel="noreferrer" target="_blank" alt={item.role}>🔗</a></div>
+            );
           } else if (item.role === 'setting' || item.role === 'help') {
             return (
               <pre class='setting-text' key="{index}" focus="{item.focus}" alt="{item.datetime}{item.roleEmoji}">
@@ -685,6 +720,7 @@ function Console() {
         <span className="char-count">
           <label htmlFor="totalChars">[{totalChars}/{maxChars}]</label>
           <label htmlFor="model">[{model}]</label>
+          <label htmlFor="search">[{search}]</label>
           <label htmlFor="temperature" className="status-hidden">[{temperature}]</label>
           <label htmlFor="completionType" className="status-hidden">[{completionType}]</label>
           <label htmlFor="thinking">[{thinking}]</label>
@@ -699,7 +735,7 @@ function Console() {
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
         </span>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
-          <label htmlFor="openAIKey">Open AI key:</label>
+          <label htmlFor="openAIKey">Open AI Key:</label>
           <input
             type="text"
             id="openAIKey"
@@ -707,7 +743,14 @@ function Console() {
             value={openAIKey}
             onChange={(e) => handleOpenAIKeyChange(e.target.value)}
           />
-
+          <label htmlFor="rapidAPIKey">Rapid API Key:</label>
+          <input
+            type="text"
+            id="rapidAPIKey"
+            className="input-field"
+            value={rapidAPIKey}
+            onChange={(e) => handleRapidAPIKeyChange(e.target.value)}
+          />
         </div>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
           <label htmlFor="model">Model:</label>
