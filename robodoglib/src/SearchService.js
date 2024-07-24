@@ -3,7 +3,7 @@ import { FormatService } from './FormatService';
 import { ConsoleService } from './ConsoleService';
 const formatService = new FormatService();
 const consoleService = new ConsoleService();
-const duckduckgoSearch = require("duckduckgo-search");
+
 
 class SearchService {
   constructor() {

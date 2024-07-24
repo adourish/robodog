@@ -279,7 +279,7 @@ function Console() {
           break;
         case '/models':
           var list = [];
-          consoleService.getEngines().then(data => {
+          routerService.getEngines().then(data => {
             const startItem = [...content, consoleService.getMessageWithTimestamp(message, 'event')];
             list.push(startItem);
             for (let i = 0; i < data.data.length; i++) {
