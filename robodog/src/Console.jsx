@@ -720,18 +720,17 @@ function Console() {
         <span className="char-count">
           <label htmlFor="totalChars">[{totalChars}/{maxChars}]</label>
           <label htmlFor="model">[{model}]</label>
-          <label htmlFor="search">[{search}]</label>
           <label htmlFor="temperature" className="status-hidden">[{temperature}]</label>
           <label htmlFor="completionType" className="status-hidden">[{completionType}]</label>
           <label htmlFor="thinking">[{thinking}]</label>
           <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
           <label htmlFor="performance" className="status-hidden">[{performance}]</label>
-          <label htmlFor="message">[{message}]</label>
-          <label htmlFor="copy">[{copySuccess}]</label>
+          <label htmlFor="message"  className="status-hidden">[{message}]</label>
+          <label htmlFor="copy"  className="status-hidden">[{copySuccess}]</label>
           <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
           <label htmlFor="size" className="status-hidden">[{size}]</label>
-          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader status-hidden" title="Upload File">📤</button>
-          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader status-hidden" title="Download">📥</button>
+          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader " title="Upload File">📤</button>
+          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader " title="Download">📥</button>
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
         </span>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
