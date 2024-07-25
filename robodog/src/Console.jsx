@@ -7,6 +7,7 @@ const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
 const searchService = new RobodogLib.SearchService();
+const providerService = new RobodogLib.ProviderService();
 if (consoleService) {
   console.log('index bundle', consoleService)
 }
@@ -37,6 +38,7 @@ function Console() {
   const [tooBig, setTooBig] = useState('🐁');
   const [showSettings, setShowSettings] = useState(false);
   const [openAIKey, setOpenAIKey] = useState('')
+  const [yamlConfig, setYamlConfig] = useState('')
   const [rapidAPIKey, setRapidAPIKey] = useState('')
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('🔎');
@@ -70,6 +72,8 @@ function Console() {
       var _fc = consoleService.getFormattedCommands();
       var _key = routerService.getAPIKey();
       var _key2 = searchService.getAPIKey();
+      var _yamlConfig = providerService.getYaml();
+      setYamlConfig(_yamlConfig);
       var list2 = [];
       if (_key && _key != null) {
         console.debug(_key);
@@ -132,8 +136,15 @@ function Console() {
   };
   const handleOpenAIKeyChange = (key) => {
     console.debug('handleOpenAIKeyChange', key);
-    routerService.setAPIKey(key);
+    routerService.setYaml(key);
     setOpenAIKey(key);
+  };
+
+  //handleYamlConfigKeyChange
+  const handleYamlConfigKeyChange = (key) => {
+    console.debug('handleYamlConfigKeyChange', key);
+    providerService.setYaml(key);
+    setYamlConfig(key);
   };
   const handleRapidAPIKeyChange = (key) => {
     console.debug('handleRapidAPIKeyChange', key);
@@ -302,12 +313,12 @@ function Console() {
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
           break;
         case '/search':
-          if(search !== ''){
+          if (search !== '') {
             setSearch('');
-          }else{
+          } else {
             setSearch('🔎');
           }
-          
+
           message = 'Search mode active';
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
           break;
@@ -634,14 +645,14 @@ function Console() {
           currentKey,
           setSize,
           size);
-          if(search !== ''){
-            //var cc2 = await searchService.search(command, setThinking, setMessage, setContent, content);
-            //if(cc2){
+        if (search !== '') {
+          //var cc2 = await searchService.search(command, setThinking, setMessage, setContent, content);
+          //if(cc2){
 
-            //setContent(cc2)
-            //console.log(cc2)
-            //}
-          }
+          //setContent(cc2)
+          //console.log(cc2)
+          //}
+        }
         console.debug(response);
       }
     } catch (ex) {
@@ -699,7 +710,7 @@ function Console() {
             );
           } else if (item.role === 'search') {
             return (
-              <div key="{index}">{`${item.command}`}<a href={item.url}  rel="noreferrer" target="_blank" alt={item.role}>🔗</a></div>
+              <div key="{index}">{`${item.command}`}<a href={item.url} rel="noreferrer" target="_blank" alt={item.role}>🔗</a></div>
             );
           } else if (item.role === 'setting' || item.role === 'help') {
             return (
@@ -725,8 +736,8 @@ function Console() {
           <label htmlFor="thinking">[{thinking}]</label>
           <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
           <label htmlFor="performance" className="status-hidden">[{performance}]</label>
-          <label htmlFor="message"  className="status-hidden">[{message}]</label>
-          <label htmlFor="copy"  className="status-hidden">[{copySuccess}]</label>
+          <label htmlFor="message" className="status-hidden">[{message}]</label>
+          <label htmlFor="copy" className="status-hidden">[{copySuccess}]</label>
           <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
           <label htmlFor="size" className="status-hidden">[{size}]</label>
           <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader " title="Upload File">📤</button>
@@ -734,6 +745,13 @@ function Console() {
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
         </span>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
+          <label htmlFor="yamlConfig">Config:</label>
+          <textarea
+            id="yamlConfig"
+            className="input-field"
+            value={yamlConfig}
+            onChange={(e) => handleYamlConfigKeyChange(e.target.value)}
+          />
           <label htmlFor="openAIKey">Open AI Key:</label>
           <input
             type="text"
