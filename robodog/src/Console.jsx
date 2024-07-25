@@ -278,7 +278,7 @@ function Console() {
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
           break;
         case '/models':
-          var list = [];
+          var list = [...content];
           routerService.getEngines().then(data => {
             const startItem = [...content, consoleService.getMessageWithTimestamp(message, 'event')];
             list.push(startItem);

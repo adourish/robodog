@@ -4,9 +4,11 @@ import { PerformanceCalculator } from './PerformanceCalculator';
 import { FormatService } from './FormatService';
 import { ConsoleService } from './ConsoleService';
 import { SearchService } from './SearchService';
+import { ProviderService } from './ProviderService';
 const formatService = new FormatService();
 const consoleService = new ConsoleService();
 const searchService = new SearchService();
+const providerService = new ProviderService();
 class RouterService {
   constructor() {
     console.debug('RouterService init')
@@ -197,6 +199,8 @@ class RouterService {
     top_p, 
     frequency_penalty, 
     presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
+    var config = providerService.getJson();
+    console.log(config)
     const messages = [
       { role: "user", content: "chat history:" + context },
       { role: "user", content: "knowledge:" + knowledge },
