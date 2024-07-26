@@ -184,6 +184,20 @@ configs:
     }
   }
 
+  getModel(modelName){
+    var model = null;
+    var config = this.getYaml();
+    if(config && config.models){
+      var models = config.models;
+      for (var i = 0; i < models.length; i++) {
+        if (models[i].model === modelName) {
+          model = models[i];
+          break;
+        }
+      }
+    }
+    return model;
+  }
   getJson() {
     const yamlContent = this.getYaml();
     try {
