@@ -57,11 +57,13 @@ class RouterService {
       apiKey: _apiKey,
       dangerouslyAllowBrowser: true
     }
-    if(_provider.provider === 'openAI'){
+    if (_provider.provider === 'openAI') {
       const openai = new OpenAI(_c);
+      console.log(openai);
       return openai;
-    }else{
-      const llamaAI = new LlamaAI(_c);
+    } else {
+      const llamaAI = new LlamaAI(_apiKey, _baseUrl);
+      console.log(llamaAI)
       return llamaAI;
     }
 
@@ -132,6 +134,7 @@ class RouterService {
     var _r = { "content": null, "finish_reason": null, "text": null }
     console.debug(_p);
     const openai = this.getOpenAI(model);
+    console.log(openai)
     const stream = openai.beta.chat.completions.stream(_p);
     if (stream) {
       for await (const chunk of stream) {
@@ -196,23 +199,24 @@ class RouterService {
     return _c;
   }
 
-  async askQuestion(text, 
-    model, 
+  async askQuestion(text,
+    model,
     search,
-    context, 
-    knowledge, 
-    completionType, 
-    setContent, 
-    setContext, 
-    setMessage, 
-    content, 
-    temperature, 
-    filter, 
-    max_tokens, 
-    top_p, 
-    frequency_penalty, 
+    context,
+    knowledge,
+    completionType,
+    setContent,
+    setContext,
+    setMessage,
+    content,
+    temperature,
+    filter,
+    max_tokens,
+    top_p,
+    frequency_penalty,
     presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
-    var config = providerService.getJson();
+
+
     console.log(config)
     const messages = [
       { role: "user", content: "chat history:" + context },
@@ -224,29 +228,47 @@ class RouterService {
     calculator.start();
     var _cc = []
     try {
-      let response;
-      if (model === 'dall-e-3') {
-        response = await this.handleDalliRestCompletion(model,
-          messages,
-          temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
-          setThinking, setContent, setMessage, content, text, currentKey, context, knowledge, size);
-      } else if (model === 'search') {
-        _cc = await searchService.search(text, setThinking, setMessage, setContent, content);
+      var config = providerService.getJson();
+      var _model = providerService.getModel(model);
+      var _provider = providerService.getProvider(_model.provider)
+      console.log('askQuestion', _provider, _model)
+      if (_model && _model.provider && _provider && _provider.provider) {
+        if (model === 'dall-e-3') {
+          console.log('rounter handleDalliRestCompletion')
+          _cc = await this.handleDalliRestCompletion(model,
+            messages,
+            temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
+            setThinking, setContent, setMessage, content, text, currentKey, context, knowledge, size);
+        } else if (model === 'search') {
+          console.log('rounter search')
+          _cc = await searchService.search(text, setThinking, setMessage, setContent, content);
 
-      } else if (completionType === 'rest') {
-        _cc = await this.handleRestCompletion(model,
-          messages,
-          temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
-          setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
-      } else if (completionType === 'stream') {
-        _cc = await this.handleStreamCompletion(model,
-          messages,
-          temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
-          setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
+        } else if (_model.provider === 'openAI' && _model.stream === true) {
+          console.log('rounter openAI handleStreamCompletion')
+          _cc = await this.handleStreamCompletion(model,
+            messages,
+            temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
+            setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
+        } else if (_model.provider === 'openAI' && _model.stream === false) {
+          console.log('rounter openAI handleRestCompletion')
+          _cc = await this.handleRestCompletion(model,
+            messages,
+            temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
+            setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
+        } else if (_model.provider === 'llamaAI' && _model.stream === false) {
+          console.log('rounter openAI handleRestCompletion')
+          _cc = await this.handleRestCompletion(model,
+            messages,
+            temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
+            setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
+        }else{
+          console.log('no matching model condigtions');
+        }
 
+      } else {
+        console.log('no matching provider or model');
       }
 
-      return response;
     } catch (error) {
       console.error("Error sending message to OpenAI: ", error);
       throw error;
@@ -256,6 +278,7 @@ class RouterService {
       setPerformance(duration);
       scrollToBottom();
     }
+    return _cc;
   }
 
 }

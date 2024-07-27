@@ -7,6 +7,7 @@ const buildNumber = Math.floor(Date.now() / 1000);
 const buildInfo = currentDateTime.toDateString() + ' ' + currentDateTime.toLocaleTimeString();
 module.exports = {
   entry: './src/index.tsx',
+  mode: 'development',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'robodog.bundle.js',

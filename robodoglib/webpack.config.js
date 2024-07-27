@@ -25,6 +25,6 @@ module.exports = {
       }
     ]
   },
-  mode: 'production' // This will minify the output file
+  mode: 'development' // This will minify the output file
 };
 

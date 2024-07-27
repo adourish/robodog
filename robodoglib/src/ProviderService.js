@@ -41,6 +41,11 @@ class ProviderService {
     return model;
   }
 
+  reset(){
+    localStorage.removeItem('openaiAPIKey');
+    localStorage.removeItem('yaml');
+    localStorage.removeItem('rapidapiAPIKey');
+  }
   getModels(){
     var config = this.getJson();
     if(config.configs && config.configs.models){
