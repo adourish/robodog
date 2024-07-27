@@ -12,7 +12,7 @@ configs:
     - provider: openAI
       baseUrl: "https://api.openai.com"
       apiKey: ""
-    - provider: lamaAI
+    - provider: llamaAI
       baseUrl: "https://api.llama-api.com"
       apiKey: ""
     - provider: searchAPI
@@ -36,7 +36,7 @@ configs:
       model: gpt-3.5-turbo
       stream: true
       specialist: nlp
-    - provider: lamaAI
+    - provider: llamaAI
       model: llama3-70b
       stream: false
       specialist: nlp
