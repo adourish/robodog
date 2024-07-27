@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import LlamaAI from 'llamaai';
 import axios from 'axios';
 import { PerformanceCalculator } from './PerformanceCalculator';
 import { FormatService } from './FormatService';
@@ -56,8 +57,14 @@ class RouterService {
       apiKey: _apiKey,
       dangerouslyAllowBrowser: true
     }
-    const openai = new OpenAI(_c);
-    return openai;
+    if(_provider.provider === 'openAI'){
+      const openai = new OpenAI(_c);
+      return openai;
+    }else{
+      const llamaAI = new LlamaAI(_c);
+      return llamaAI;
+    }
+
   }
 
   getAPIKey() {
