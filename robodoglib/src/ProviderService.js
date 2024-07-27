@@ -26,6 +26,21 @@ class ProviderService {
     }
   }
 
+  getSpecialist(specialistName){
+    var model = null;
+    var config = this.getJson();
+    if(config.configs && config.configs.specialists){
+      var specialists = config.configs.specialists;
+      for (var i = 0; i < specialists.length; i++) {
+        if (specialists[i].model === specialistName) {
+          specialists = specialists[i];
+          break;
+        }
+      }
+    }
+    return specialists;
+  }
+
   getModel(modelName){
     var model = null;
     var config = this.getJson();
