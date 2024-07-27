@@ -46,11 +46,17 @@ class RouterService {
   }
 
 
-  getOpenAI() {
-    const openai = new OpenAI({
-      apiKey: this.getAPIKey(),
+  getOpenAI(model) {
+    var _model = providerService.getModel(model);
+    var _provider = providerService.getProvider(_model.provider)
+    var _apiKey = _provider.apiKey;
+    var _baseUrl = _provider.baseURL;
+    var _c = {
+      apiKey: _apiKey,
       dangerouslyAllowBrowser: true,
-    });
+      baseURL: _baseUrl
+    }
+    const openai = new OpenAI(_c);
     return openai;
   }
 
@@ -82,7 +88,7 @@ class RouterService {
       _p2.max_tokens = max_tokens;
     }
     console.debug(_p2);
-    const openai = this.getOpenAI();
+    const openai = this.getOpenAI(model);
     const response = await openai.chat.completions.create(_p2);
     if (response) {
       var _content = response.choices[0]?.message?.content;
@@ -118,7 +124,7 @@ class RouterService {
     var _c = '';
     var _r = { "content": null, "finish_reason": null, "text": null }
     console.debug(_p);
-    const openai = this.getOpenAI();
+    const openai = this.getOpenAI(model);
     const stream = openai.beta.chat.completions.stream(_p);
     if (stream) {
       for await (const chunk of stream) {
@@ -164,7 +170,7 @@ class RouterService {
       quality: "standard",
       n: 1
     };
-    const openai = this.getOpenAI();
+    const openai = this.getOpenAI(model);
     const response3 = await openai.images.generate(p3);
     console.debug('handleDalliRestCompletion', p3);
     if (response3) {

@@ -70,27 +70,9 @@ function Console() {
       var _commands = consoleService.getCommands();
       var _options = consoleService.getOptions();
       var _fc = consoleService.getFormattedCommands();
-      var _key = routerService.getAPIKey();
-      var _key2 = searchService.getAPIKey();
       var _yamlConfig = providerService.getYaml();
       setYamlConfig(_yamlConfig);
-      var list2 = [];
-      if (_key && _key != null) {
-        console.debug(_key);
-        setOpenAIKey(_key);
-        const stars = _key.split("").map(char => "*").join("");
-        list2 = [consoleService.getMessageWithTimestamp('Your Open AI API key is "' + stars + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key')];
-      } else {
-        list2.push(consoleService.getMessageWithTimestamp('You have not set your Open AI API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key'));
-      }
-      if (_key2 && _key2 != null) {
-        console.debug(_key2);
-        setRapidAPIKey(_key2);
-        const stars2 = _key2.split("").map(char => "*").join("");
-        list2 = [consoleService.getMessageWithTimestamp('Your Rapid API key is "' + stars2 + '". To set or update your API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key')];
-      } else {
-        list2.push(consoleService.getMessageWithTimestamp('You have not set your Rapid API key. Please use the command set key command "/key <key>" or reset command "/reset" to remove your key. Or just click ⚙️', 'key'));
-      }
+      
       var list = [consoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = consoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = consoleService.getStashList();
@@ -99,7 +81,7 @@ function Console() {
         var stashList = _stashList.split(',');
         setStashList(stashList);
       }
-      list = list.concat(_l, ufo, list2);
+      list = list.concat(_l, ufo);
 
       setCommands(_commands);
       setOptions(_options);
@@ -289,23 +271,21 @@ function Console() {
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
           break;
         case '/models':
-          var list = [...content];
-          routerService.getEngines().then(data => {
-            const startItem = [...content, consoleService.getMessageWithTimestamp(message, 'event')];
-            list.push(startItem);
-            for (let i = 0; i < data.data.length; i++) {
-              const engine = data.data[i];
-              const formattedEngine = engine.id + " - " + engine.owner;
-              var item = consoleService.getMessageWithTimestamp(formattedEngine, 'event')
+          var list = [...content]
+          var models = providerService.getModels();
+          if(models){
+          
+            for (var i = 0; i < models.length; i++) {
+              var engine = models[i];
+              const formattedEngine = engine.model + " - " + engine.modelType + " - " + engine.provider;
+              var item = consoleService.getMessageWithTimestamp(formattedEngine, 'model')
               list.push(item);
             }
-            setContent(list);
+          }
+          setContent(list);
 
-            console.log(data);
-          }).catch(err => {
-            console.error(err);
-          });
-
+          console.log(models);
+        
           break;
         case '/model':
           setModel(_command.verb);
@@ -317,6 +297,7 @@ function Console() {
             setSearch('');
           } else {
             setSearch('🔎');
+            setModel('search')
           }
 
           message = 'Search mode active';
@@ -748,18 +729,12 @@ function Console() {
           <label htmlFor="yamlConfig">Config:</label>
           <textarea
             id="yamlConfig"
+            rows="30"
             className="input-field"
             value={yamlConfig}
             onChange={(e) => handleYamlConfigKeyChange(e.target.value)}
           />
-          <label htmlFor="openAIKey">Open AI Key:</label>
-          <input
-            type="text"
-            id="openAIKey"
-            className="input-field"
-            value={openAIKey}
-            onChange={(e) => handleOpenAIKeyChange(e.target.value)}
-          />
+
           <label htmlFor="rapidAPIKey">Rapid API Key:</label>
           <input
             type="text"
