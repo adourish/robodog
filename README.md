@@ -12,8 +12,8 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 - [npm install robodogcli](https://www.npmjs.com/package/robodogcli)
 - [npm install robodog](https://www.npmjs.com/package/robodog)
 
-# Configure API Key
-- Type "/key <api key>" then click "🤖" 
+# Configure providers and models
+- Click ⚙️ to configure
 
 ![Screenshot](screenshot-quick.png)
 
@@ -65,6 +65,11 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 ## Version 1.7.2
 - CLI and RobodogLib npm package. 
   npm install - 
+
+## Version 2.0.0
+- Support for multiple providers llamaAI and openAI
+- Yaml configuration
+
 
 ## Roadmap 
 - OCR support for Android
