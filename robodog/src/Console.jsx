@@ -77,7 +77,7 @@ function Console() {
         setModel(_model)
       }
       var list = [consoleService.getMessageWithTimestamp('I want to believe.', 'title')];
-      var _l = consoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+      var _l = consoleService.getSettings(build, _model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = consoleService.getStashList();
 
       if (_stashList) {
