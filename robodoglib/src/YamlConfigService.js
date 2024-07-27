@@ -15,8 +15,8 @@ configs:
     - provider: lamaAI
       baseUrl: "https://api.llama-api.com"
       apiKey: ""
-    - provider: rapidAPI
-      baseUrl: "https://myapi.rapidapi.com"
+    - provider: searchAPI
+      baseUrl: "https://google-search74.p.rapidapi.com"
       apiKey: ""
       
   specialists:
@@ -60,7 +60,7 @@ configs:
       model: dall-e-3
       stream: false
       specialist: gi
-    - provider: rapidAPI
+    - provider: searchAPI
       model: search
       stream: false
       specialist: search

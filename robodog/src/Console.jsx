@@ -277,7 +277,7 @@ function Console() {
           
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
-              const formattedEngine = engine.model + " - " + engine.modelType + " - " + engine.provider;
+              const formattedEngine = engine.model;
               var item = consoleService.getMessageWithTimestamp(formattedEngine, 'model')
               list.push(item);
             }
@@ -694,6 +694,12 @@ function Console() {
             return (
               <div key="{index}">{`${item.command}`}<a href={item.url} rel="noreferrer" target="_blank" alt={item.role}>🔗</a></div>
             );
+          } else if (item.role === 'model') {
+            return (
+              <pre class='console-text' key={index} focus={item.focus} onClick={() => setModel(item.command)}>
+              <code>{`${item.command}`}</code>
+              </pre>
+            );
           } else if (item.role === 'setting' || item.role === 'help') {
             return (
               <pre class='setting-text' key="{index}" focus="{item.focus}" alt="{item.datetime}{item.roleEmoji}">
@@ -732,15 +738,6 @@ function Console() {
             className="input-field"
             value={yamlConfig}
             onChange={(e) => handleYamlConfigKeyChange(e.target.value)}
-          />
-
-          <label htmlFor="rapidAPIKey">Rapid API Key:</label>
-          <input
-            type="text"
-            id="rapidAPIKey"
-            className="input-field"
-            value={rapidAPIKey}
-            onChange={(e) => handleRapidAPIKeyChange(e.target.value)}
           />
         </div>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
