@@ -72,7 +72,10 @@ function Console() {
       var _fc = consoleService.getFormattedCommands();
       var _yamlConfig = providerService.getYaml();
       setYamlConfig(_yamlConfig);
-      
+      var _model = providerService.getCurrentModel();
+      if (_model && _model !== '') {
+        setModel(_model)
+      }
       var list = [consoleService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = consoleService.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = consoleService.getStashList();
@@ -197,6 +200,12 @@ function Console() {
     setThinking('🦥');
   };
 
+  const handleSetModel = (event) => {
+    var message = 'Model is set to ' + event;
+    providerService.setCurrentModel(event)
+    setModel(event)
+    setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+  }
 
   const handleSaveClick = (event) => {
     event.preventDefault();
@@ -273,8 +282,8 @@ function Console() {
         case '/models':
           var list = [...content]
           var models = providerService.getModels();
-          if(models){
-          
+          if (models) {
+
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
               const formattedEngine = engine.model;
@@ -285,12 +294,10 @@ function Console() {
           setContent(list);
 
           console.log(models);
-        
+
           break;
         case '/model':
-          setModel(_command.verb);
-          message = 'Model is set to ' + _command.verb;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+          handleSetModel(_command.verb)
           break;
         case '/search':
           if (search !== '') {
@@ -696,8 +703,8 @@ function Console() {
             );
           } else if (item.role === 'model') {
             return (
-              <pre class='console-text' key={index} focus={item.focus} onClick={() => setModel(item.command)}>
-              <code>{`${item.command}`}</code>
+              <pre class='console-text' key={index} focus={item.focus} onClick={() => handleSetModel(item.command)}>
+                <code>{`/model ${item.command}`}</code>
               </pre>
             );
           } else if (item.role === 'setting' || item.role === 'help') {

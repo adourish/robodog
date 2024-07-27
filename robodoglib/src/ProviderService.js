@@ -26,6 +26,15 @@ class ProviderService {
     }
   }
 
+  getCurrentModel() {
+    const modelName = localStorage.getItem('model');
+    console.debug('model', modelName)
+    return modelName;
+  }
+  setCurrentModel(modelName) {
+    console.debug('Set model', modelName)
+    localStorage.setItem('model', modelName);
+  }
   getSpecialist(specialistName){
     var model = null;
     var config = this.getJson();

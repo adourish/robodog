@@ -143,23 +143,31 @@ class RouterService {
       _p2.max_tokens = max_tokens;
     }
     console.debug(_p2);
-    const openai = this.getLlamaAI(model);
-    const response = await openai.chat.completions.create(_p2);
-    if (response) {
-      var _content = response.choices[0]?.message?.content;
-      var _finish_reason = response.choices[0]?.finish_reason;
-      _r.content = _content
-      _r.finish_reason = _finish_reason;
-      setMessage(_finish_reason);
-      var _cc = [
-        ...content,
-        FormatService.getMessageWithTimestamp(text, 'user'),
-        FormatService.getMessageWithTimestamp(_content, 'assistant')
-      ];
-      setContent(_cc);
-      consoleService.stash(currentKey, context, knowledge, text, _cc);
-      return _cc;
-    }
+    const _llamaAI = this.getLlamaAI(model);
+    _llamaAI
+      .run(_p2)
+      .then((response) => {
+        if (response) {
+          var _content = response.choices[0]?.message?.content;
+          var _finish_reason = response.choices[0]?.finish_reason;
+          _r.content = _content
+          _r.finish_reason = _finish_reason;
+          setMessage(_finish_reason);
+          var _cc = [
+            ...content,
+            FormatService.getMessageWithTimestamp(text, 'user'),
+            FormatService.getMessageWithTimestamp(_content, 'assistant')
+          ];
+          setContent(_cc);
+          consoleService.stash(currentKey, context, knowledge, text, _cc);
+          return _cc;
+        }
+      })
+      .catch((error) => {
+        console.log(error)
+      });
+
+
   }
 
   // handle open ai stream completions
