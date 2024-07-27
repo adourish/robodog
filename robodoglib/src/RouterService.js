@@ -51,6 +51,7 @@ class RouterService {
     var _provider = providerService.getProvider(_model.provider)
     var _apiKey = _provider.apiKey;
     var _baseUrl = _provider.baseURL;
+    console.log(_model, _provider)
     var _c = {
       apiKey: _apiKey,
       dangerouslyAllowBrowser: true,
