@@ -46,7 +46,23 @@ class RouterService {
     return response.data; // return the list of available engines
   }
 
+  getLlamaAI(model) {
+    var _model = providerService.getModel(model);
+    var _provider = providerService.getProvider(_model.provider)
+    var _apiKey = _provider.apiKey;
+    var _baseUrl = _provider.baseUrl;
+    console.log(_model, _provider)
+    var _c = {
+      apiKey: _apiKey,
+      dangerouslyAllowBrowser: true
+    }
 
+    const llamaAI = new LlamaAI(_apiKey, _baseUrl);
+    console.log(llamaAI)
+    return llamaAI;
+
+
+  }
   getOpenAI(model) {
     var _model = providerService.getModel(model);
     var _provider = providerService.getProvider(_model.provider)
@@ -57,16 +73,9 @@ class RouterService {
       apiKey: _apiKey,
       dangerouslyAllowBrowser: true
     }
-    if (_provider.provider === 'openAI') {
-      const openai = new OpenAI(_c);
-      console.log(openai);
-      return openai;
-    } else {
-      const llamaAI = new LlamaAI(_apiKey, _baseUrl);
-      console.log(llamaAI)
-      return llamaAI;
-    }
-
+    const openai = new OpenAI(_c);
+    console.log(openai);
+    return openai;
   }
 
   getAPIKey() {
@@ -98,6 +107,43 @@ class RouterService {
     }
     console.debug(_p2);
     const openai = this.getOpenAI(model);
+    const response = await openai.chat.completions.create(_p2);
+    if (response) {
+      var _content = response.choices[0]?.message?.content;
+      var _finish_reason = response.choices[0]?.finish_reason;
+      _r.content = _content
+      _r.finish_reason = _finish_reason;
+      setMessage(_finish_reason);
+      var _cc = [
+        ...content,
+        FormatService.getMessageWithTimestamp(text, 'user'),
+        FormatService.getMessageWithTimestamp(_content, 'assistant')
+      ];
+      setContent(_cc);
+      consoleService.stash(currentKey, context, knowledge, text, _cc);
+      return _cc;
+    }
+  }
+
+  async handleLlamaRestCompletion(model,
+    messages,
+    temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
+    setThinking, setContent, setMessage, content, text, currentKey, context, knowledge
+  ) {
+    var _p2 = {
+      model: model,
+      messages: messages,
+      temperature: temperature,
+      top_p: top_p,
+      frequency_penalty: frequency_penalty,
+      presence_penalty: presence_penalty
+    };
+    var _r = { "content": null, "finish_reason": null, "text": null }
+    if (max_tokens > 0) {
+      _p2.max_tokens = max_tokens;
+    }
+    console.debug(_p2);
+    const openai = this.getLlamaAI(model);
     const response = await openai.chat.completions.create(_p2);
     if (response) {
       var _content = response.choices[0]?.message?.content;
@@ -257,11 +303,11 @@ class RouterService {
             setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
         } else if (_model.provider === 'llamaAI' && _model.stream === false) {
           console.log('rounter openAI handleRestCompletion')
-          _cc = await this.handleRestCompletion(model,
+          _cc = await this.handleLlamaRestCompletion(model,
             messages,
             temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
             setThinking, setContent, setMessage, content, text, currentKey, context, knowledge);
-        }else{
+        } else {
           console.log('no matching model condigtions');
         }
 
