@@ -50,12 +50,11 @@ class RouterService {
     var _model = providerService.getModel(model);
     var _provider = providerService.getProvider(_model.provider)
     var _apiKey = _provider.apiKey;
-    var _baseUrl = _provider.baseURL;
+    var _baseUrl = _provider.baseUrl;
     console.log(_model, _provider)
     var _c = {
       apiKey: _apiKey,
-      dangerouslyAllowBrowser: true,
-      baseURL: _baseUrl
+      dangerouslyAllowBrowser: true
     }
     const openai = new OpenAI(_c);
     return openai;
