@@ -259,4 +259,114 @@ Optical Character Recognition (OCR) is the process that converts an image of tex
 
 # Download
 
+# RobodogLib
+
+1. Importing the necessary libraries:
+```javascript
+import { FileService } from 'RobodogLib';
+import { SearchService } from 'RobodogLib';
+import { ProviderService } from 'RobodogLib';
+import { RouterModel } from 'RobodogLib';
+import { PerformanceCalculator } from 'RobodogLib';
+import { FormatService } from 'RobodogLib';
+import { ConsoleService } from 'RobodogLib';
+import { YamlConfigService } from 'RobodogLib';
+```
+
+2. Extracting text content from various file formats:
+```javascript
+const fileService = new FileService();
+const arrayBuffer = // ArrayBuffer containing the file data
+const pdfText = await fileService.extractPDFContent(arrayBuffer);
+const imageText = await fileService.extractImageContent(arrayBuffer);
+const plainText = await fileService.extractTextContent(arrayBuffer);
+```
+
+3. Searching for information using the SearchService:
+```javascript
+const searchService = new SearchService();
+const text = "How to use RobodogLib?";
+const setContent = (content) => {
+  // Update the content with the search results
+};
+
+searchService.search(text, setContent);
+```
+
+4. Managing configuration using the ProviderService and YamlConfigService:
+```javascript
+const providerService = new ProviderService();
+const yamlConfigService = new YamlConfigService();
+const defaultYaml = yamlConfigService.getDefaults();
+const customYaml = `
+configs:
+  providers:
+    - provider: openAI
+      baseUrl: "https://api.openai.com"
+      apiKey: ""
+    - provider: llamaAI
+      baseUrl: "https://api.llama-api.com"
+      apiKey: ""
+    - provider: searchAPI
+      baseUrl: "https://google-search74.p.rapidapi.com"
+      apiKey: ""
+      
+  specialists:
+    - specialist: nlp
+      resume: natural language processing, chatbots, content generation, language translation
+    - specialist: gi
+      resume: generates images from textual descriptions. understanding and interpreting textual descriptions 
+    - specialist: search
+      resume: generate simple search results
+
+  models:
+    - provider: openAI
+      model: gpt-4
+      stream: true
+      specialist: nlp
+`;
+
+providerService.setYaml(customYaml);
+const currentYaml = providerService.getYaml();
+```
+
+5. Handling performance calculations using the PerformanceCalculator:
+```javascript
+const performanceCalculator = new PerformanceCalculator();
+performanceCalculator.start();
+performanceCalculator.end();
+const duration = performanceCalculator.calculateDuration();
+```
+
+6. Formatting messages using the FormatService:
+```javascript
+const formatService = new FormatService();
+const message = formatService.getMessageWithTimestamp('Hello RobodogLib!', 'user');
+const messageWithUrl = formatService.getMessageWithTimestamp('Here is the documentation:', 'assistant', 'https://robodoglib-docs.com');
+```
+
+7. Router Service example
+```javascript
+    const routerService = new RobodogLib.RouterService();
+    var routerModel = new RobodogLib.RouterModel(
+     "How tall is devils tower?", // Question (required)
+     "gpt-4", // Model (required)
+     "Where is devils tower", // History (optional)
+     "places to climb: devils tower, custer state park, red river gorge", // Knowledge (optional)
+     [], // Content (optional)
+     0.8, // Temperature (optional)
+     50, // Max tokens (optional)
+     "", // Current key (optional)
+     "1792x1024", // Size (optional)
+     {
+       setContent: setContent,
+       setMessage: setMessage,
+       setPerformance: setPerformance,
+       setThinking: setThinking
+     }
+   );
+   var response = await routerService.routeQuestion(routerModel);
+   console.debug(response);
+```
+
 -   [Download Robodog](https://github.com/adourish/robodog/tree/main/robodog/dist/robodog.zip)
