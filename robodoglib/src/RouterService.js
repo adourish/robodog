@@ -6,6 +6,7 @@ import { FormatService } from './FormatService';
 import { ConsoleService } from './ConsoleService';
 import { SearchService } from './SearchService';
 import { ProviderService } from './ProviderService';
+import { RouterModel } from './RouterModel';
 const formatService = new FormatService();
 const consoleService = new ConsoleService();
 const searchService = new SearchService();
@@ -87,7 +88,6 @@ class RouterService {
       return '';
     }
   }
-
   async handleRestCompletion(model,
     messages,
     temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
@@ -107,51 +107,13 @@ class RouterService {
     }
     console.debug(_p2);
     const openai = this.getOpenAI(model);
-    const response = await openai.chat.completions.create(_p2);
-    if (response) {
-      var _content = response.choices[0]?.message?.content;
-      var _finish_reason = response.choices[0]?.finish_reason;
-      _r.content = _content
-      _r.finish_reason = _finish_reason;
-      setMessage(_finish_reason);
-      var _cc = [
-        ...content,
-        FormatService.getMessageWithTimestamp(text, 'user'),
-        FormatService.getMessageWithTimestamp(_content, 'assistant')
-      ];
-      setContent(_cc);
-      consoleService.stash(currentKey, context, knowledge, text, _cc);
-      return _cc;
-    }
-  }
-
-  async handleLlamaRestCompletion(model,
-    messages,
-    temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
-    setThinking, setContent, setMessage, content, text, currentKey, context, knowledge
-  ) {
-    var _p2 = {
-      model: model,
-      messages: messages,
-      temperature: temperature,
-      top_p: top_p,
-      frequency_penalty: frequency_penalty,
-      presence_penalty: presence_penalty
-    };
-    var _r = { "content": null, "finish_reason": null, "text": null }
-    if (max_tokens > 0) {
-      _p2.max_tokens = max_tokens;
-    }
-    console.debug(_p2);
-    const _llamaAI = this.getLlamaAI(model);
-    _llamaAI
-      .run(_p2)
-      .then((response) => {
+    try {
+        const response = await openai.chat.completions.create(_p2);
         if (response) {
           var _content = response.choices[0]?.message?.content;
           var _finish_reason = response.choices[0]?.finish_reason;
-          _r.content = _content
-          _r.finish_reason = _finish_reason;
+          _r.content = _content || 'No content available';
+          _r.finish_reason = _finish_reason || 'No finish reason';
           setMessage(_finish_reason);
           var _cc = [
             ...content,
@@ -162,18 +124,58 @@ class RouterService {
           consoleService.stash(currentKey, context, knowledge, text, _cc);
           return _cc;
         }
-      })
-      .catch((error) => {
-        console.log(error)
-      });
+    } catch (error) {
+        console.error('Error:', error);
+        return { error: 'An error occurred while processing the request.' };
+    }
+    return null;
+  }
 
-
+  async handleLlamaRestCompletion(model,
+    messages,
+    temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
+    setThinking, setContent, setMessage, content, text, currentKey, context, knowledge
+  ) {
+    try {
+      var _p2 = {
+        model: model,
+        messages: messages,
+        temperature: temperature,
+        top_p: top_p,
+        frequency_penalty: frequency_penalty,
+        presence_penalty: presence_penalty
+      };
+      var _r = { "content": "Sorry, I am unable to process the request at the moment.", "finish_reason": null, "text": null }
+      if (max_tokens > 0) {
+        _p2.max_tokens = max_tokens;
+      }
+      console.debug(_p2);
+      const _llamaAI = this.getLlamaAI(model);
+      const response = await _llamaAI.run(_p2);
+      
+      if (response && response.choices[0]?.message?.content) {
+        var _content = response.choices[0]?.message?.content;
+        var _finish_reason = response.choices[0]?.finish_reason;
+        _r.content = _content
+        _r.finish_reason = _finish_reason;
+        setMessage(_finish_reason);
+      }
+      var _cc = [
+        ...content,
+        FormatService.getMessageWithTimestamp(text, 'user'),
+        FormatService.getMessageWithTimestamp(_r.content, 'assistant')
+      ];
+      setContent(_cc);
+      consoleService.stash(currentKey, context, knowledge, text, _cc);
+      return _cc;
+    } catch (error) {
+      console.error(error);
+      return content;
+    }
   }
 
   // handle open ai stream completions
-  async handleStreamCompletion(model,
-    messages,
-    temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
+  async handleStreamCompletion(model, messages, temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
     setThinking, setContent, setMessage, content, text, currentKey, context, knowledge) {
     var _p = {
       model: model,
@@ -187,88 +189,122 @@ class RouterService {
     var _c = '';
     var _r = { "content": null, "finish_reason": null, "text": null }
     console.debug(_p);
-    const openai = this.getOpenAI(model);
-    console.log(openai)
-    const stream = openai.beta.chat.completions.stream(_p);
-    if (stream) {
-      for await (const chunk of stream) {
-        setThinking(formatService.getRandomEmoji());
-        var _temp = chunk.choices[0]?.delta?.content || '';
-        _c = _c + _temp;
-        setContent([
+    try {
+      const openai = this.getOpenAI(model);
+      console.log(openai)
+      const stream = openai.beta.chat.completions.stream(_p);
+      if (stream) {
+        for await (const chunk of stream) {
+          setThinking(formatService.getRandomEmoji());
+          var _temp = chunk.choices[0]?.delta?.content || '';
+          _c = _c + _temp;
+          setContent([
+            ...content,
+            formatService.getMessageWithTimestamp(text, 'user'),
+            formatService.getMessageWithTimestamp(_c, 'assistant')
+          ]);
+        }
+  
+        const response = await stream.finalChatCompletion();
+        var _content = response.choices[0]?.message?.content;
+        var _finish_reason = response.choices[0]?.finish_reason;
+        _r.content = _content
+        _r.finish_reason = _finish_reason;
+        setMessage(_finish_reason);
+        var _cc = [
           ...content,
           formatService.getMessageWithTimestamp(text, 'user'),
-          formatService.getMessageWithTimestamp(_c, 'assistant')
-        ]);
+          formatService.getMessageWithTimestamp(_content, 'assistant')
+        ];
+        setContent(_cc);
+  
+        consoleService.stash(currentKey, context, knowledge, text, _cc);
+  
       }
-
-      const response = await stream.finalChatCompletion();
-      var _content = response.choices[0]?.message?.content;
-      var _finish_reason = response.choices[0]?.finish_reason;
-      _r.content = _content
-      _r.finish_reason = _finish_reason;
-      setMessage(_finish_reason);
-      var _cc = [
-        ...content,
-        formatService.getMessageWithTimestamp(text, 'user'),
-        formatService.getMessageWithTimestamp(_content, 'assistant')
-      ];
-      setContent(_cc);
-
-      consoleService.stash(currentKey, context, knowledge, text, _cc);
-
+      return _cc || content; // ensure a return value is always returned
+    } catch (error) {
+      console.error(error);
+      return content; // return existing content in case of error
     }
-    return _cc;
   }
-
   // hanlde open ai dall-e-3 completions
   async handleDalliRestCompletion(model,
     messages,
     temperature, top_p, frequency_penalty, presence_penalty, max_tokens,
     setThinking, setContent, setMessage, content, text, currentKey, context, knowledge, size) {
-    const _daliprompt = "chat history:" + context + "knowledge:" + knowledge + "question:" + text;
-    var p3 = {
-      model: "dall-e-3",
-      prompt: _daliprompt,
-      size: size,
-      quality: "standard",
-      n: 1
-    };
-    const openai = this.getOpenAI(model);
-    const response3 = await openai.images.generate(p3);
-    console.debug('handleDalliRestCompletion', p3);
-    if (response3) {
-      var image_url = response3.data[0].url;
-      var _content = image_url
-      setMessage("image");
-      var _c = [
-        ...content,
-        formatService.getMessageWithTimestamp(text, 'user'),
-        formatService.getMessageWithTimestamp(_content, 'image')
-      ];
-      setContent(_c);
-      consoleService.stash(currentKey, context, knowledge, text, _c);
-
+    let _c = [];
+    try {
+        const _daliprompt = "chat history:" + context + "knowledge:" + knowledge + "question:" + text;
+        var p3 = {
+          model: "dall-e-3",
+          prompt: _daliprompt,
+          size: size,
+          quality: "standard",
+          n: 1
+        };
+        const openai = this.getOpenAI(model);
+        const response3 = await openai.images.generate(p3);
+        console.debug('handleDalliRestCompletion', p3);
+        if (response3) {
+          var image_url = response3.data[0].url;
+          var _content = image_url
+          setMessage("image");
+          _c = [
+            ...content,
+            formatService.getMessageWithTimestamp(text, 'user'),
+            formatService.getMessageWithTimestamp(_content, 'image')
+          ];
+          setContent(_c);
+          consoleService.stash(currentKey, context, knowledge, text, _c);
+        }
+    } catch (err) {
+        console.error('Error in handleDalliRestCompletion:', err);
+        _c = [
+          ...content,
+          formatService.getMessageWithTimestamp("Sorry, something went wrong.", 'bot')
+        ];
+        setContent(_c);
     }
     return _c;
-  }
+}
 
+  async routeQuestion(routerModel){
+    var _cc = this.askQuestion(routerModel.question, 
+      routerModel.model,
+      routerModel.context,
+      routerModel.knowledge,
+      routerModel.callbacks.setContent,
+      routerModel.callbacks.setMessage,
+      routerModel.content,
+      routerModel.temperature,
+      routerModel.max_tokens,
+      routerModel.top_p,
+      routerModel.frequency_penalty,
+      routerModel.presence_penalty,
+      routerModel.callbacks.setPerformance,
+      routerModel.callbacks.setThinking,
+      routerModel.currentKey,
+      routerModel.size
+
+    )
+    return _cc;
+  }
   async askQuestion(text,
     model,
-    search,
     context,
     knowledge,
-    completionType,
     setContent,
-    setContext,
     setMessage,
     content,
     temperature,
-    filter,
     max_tokens,
     top_p,
     frequency_penalty,
-    presence_penalty, scrollToBottom, performance, setPerformance, setThinking, currentKey, setSize, size) {
+    presence_penalty, 
+    setPerformance, 
+    setThinking, 
+    currentKey, 
+    size) {
 
 
     console.log(config)
@@ -330,7 +366,7 @@ class RouterService {
       calculator.end();
       var duration = calculator.calculateDuration();
       setPerformance(duration);
-      scrollToBottom();
+
     }
     return _cc;
   }

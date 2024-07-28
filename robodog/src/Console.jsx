@@ -6,8 +6,8 @@ console.log(RobodogLib)
 const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
-const searchService = new RobodogLib.SearchService();
 const providerService = new RobodogLib.ProviderService();
+
 if (consoleService) {
   console.log('index bundle', consoleService)
 }
@@ -37,9 +37,7 @@ function Console() {
   const [model, setModel] = useState('gpt-3.5-turbo');
   const [tooBig, setTooBig] = useState('🐁');
   const [showSettings, setShowSettings] = useState(false);
-  const [openAIKey, setOpenAIKey] = useState('')
   const [yamlConfig, setYamlConfig] = useState('')
-  const [rapidAPIKey, setRapidAPIKey] = useState('')
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('🔎');
   const [temperature, setTemperature] = useState(0.7);
@@ -58,10 +56,8 @@ function Console() {
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
   const [stashList, setStashList] = useState([]);
-  const [formattedCommands, setFormattedCommands] = useState([]);
   const contentRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [selectedOption, setSelectedOption] = useState("");
 
   useEffect(() => {
     console.log('Component has mounted!');
@@ -92,7 +88,7 @@ function Console() {
       setContent(list);
       setCurrentKey('autosave');
       setCommands(_commands);
-      setFormattedCommands(_fc);
+
     }
     return () => {
       console.log('Cleaning up...');
@@ -119,11 +115,7 @@ function Console() {
     console.debug('handleSettingsToggle', showSettings)
     setShowSettings(!showSettings);
   };
-  const handleOpenAIKeyChange = (key) => {
-    console.debug('handleOpenAIKeyChange', key);
-    routerService.setYaml(key);
-    setOpenAIKey(key);
-  };
+
 
   //handleYamlConfigKeyChange
   const handleYamlConfigKeyChange = (key) => {
@@ -131,11 +123,7 @@ function Console() {
     providerService.setYaml(key);
     setYamlConfig(key);
   };
-  const handleRapidAPIKeyChange = (key) => {
-    console.debug('handleRapidAPIKeyChange', key);
-    searchService.setAPIKey(key);
-    setRapidAPIKey(key);
-  };
+
   const handleModelChange = (model) => {
     console.debug('handleModelChange', model);
     setModel(model)
@@ -611,37 +599,47 @@ function Console() {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
         setContext(updatedContext);
-        var response = await routerService.askQuestion(command,
+        var routerModel = new RobodogLib.RouterModel(
+          question,
           model,
-          search,
           context,
           knowledge,
-          completionType,
-          setContent,
-          setContext,
-          setMessage,
           content,
           temperature,
-          filter,
           max_tokens,
-          top_p,
-          frequency_penalty,
-          presence_penalty,
-          scrollToBottom,
-          performance,
-          setPerformance,
-          setThinking,
           currentKey,
-          setSize,
-          size);
-        if (search !== '') {
-          //var cc2 = await searchService.search(command, setThinking, setMessage, setContent, content);
-          //if(cc2){
+          size,
+          {
+            setContent: setContent,
+            setMessage: setMessage,
+            setPerformance: setPerformance,
+            setThinking: setThinking
+          }
+        );
+        var response = await routerService.routeQuestion(routerModel)
+        // var response = await routerService.ask(command,
+        //   model,
+        //   search,
+        //   context,
+        //   knowledge,
+        //   completionType,
+        //   setContent,
+        //   setContext,
+        //   setMessage,
+        //   content,
+        //   temperature,
+        //   filter,
+        //   max_tokens,
+        //   top_p,
+        //   frequency_penalty,
+        //   presence_penalty,
+        //   performance,
+        //   setPerformance,
+        //   setThinking,
+        //   currentKey,
+        //   setSize,
+        //   size);
 
-          //setContent(cc2)
-          //console.log(cc2)
-          //}
-        }
         console.debug(response);
       }
     } catch (ex) {

@@ -5,6 +5,7 @@ import { PerformanceCalculator } from './PerformanceCalculator';
 import { RouterService } from './RouterService';
 import { SearchService} from './SearchService';
 import { ProviderService} from './ProviderService';
+import { RouterModel } from './RouterModel';
 const RobodogLib = {
     ConsoleService,
     FileService,
@@ -12,7 +13,8 @@ const RobodogLib = {
     PerformanceCalculator,
     RouterService,
     SearchService,
-    ProviderService
+    ProviderService,
+    RouterModel
   };
   
   export default RobodogLib;
