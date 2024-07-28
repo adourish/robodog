@@ -6,6 +6,7 @@ import { RouterService } from './RouterService';
 import { SearchService} from './SearchService';
 import { ProviderService} from './ProviderService';
 import { RouterModel } from './RouterModel';
+import { StorageService } from './StorageService';
 const RobodogLib = {
     ConsoleService,
     FileService,
@@ -14,7 +15,8 @@ const RobodogLib = {
     RouterService,
     SearchService,
     ProviderService,
-    RouterModel
+    RouterModel,
+    StorageService
   };
   
   export default RobodogLib;

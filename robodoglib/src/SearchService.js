@@ -10,34 +10,7 @@ class SearchService {
   constructor() {
     console.debug('SearchService init')
   }
-  setAPIKey(key) {
-    console.debug('Set rapidapiAPIKey', key)
-    localStorage.setItem('rapidapiAPIKey', key);
-  }
-  async getAPIKeyAsync() {
-    const storedAPIKey = await localStorage.getItem('rapidapiAPIKey');
-    console.debug('Get rapidapiAPIKey', storedAPIKey)
-    if (storedAPIKey) {
-      return storedAPIKey;
-    } else {
-      return '';
-    }
-  }
 
-  getAPIKey() {
-    const storedAPIKey = localStorage.getItem('rapidapiAPIKey');
-    console.debug('Get rapidapiAPIKey', storedAPIKey)
-    if (storedAPIKey) {
-      return storedAPIKey;
-    } else {
-      return '';
-    }
-  }
-
-  async setAPIKeyAsync(key) {
-    console.debug('Set rapidapiAPIKey', key)
-    await localStorage.setItem('rapidapiAPIKey', key);
-  }
 
   search(text, setThinking, setMessage, setContent, content) {
     try {

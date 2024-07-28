@@ -487,8 +487,9 @@ function Console() {
           setMessage('no verbs');
           console.log('No verbs.');
       }
-      consoleService.scrollToBottom();
+
     }
+    consoleService.scrollToBottom();
   }
   function handleDropdownChange(event) {
     const selectedValue = event.target.value;

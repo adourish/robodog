@@ -17,35 +17,6 @@ class RouterService {
   }
 
 
-  setAPIKey(key) {
-    console.debug('Set openaiAPIKey', key)
-    localStorage.setItem('openaiAPIKey', key);
-  }
-  async getAPIKeyAsync() {
-    const storedAPIKey = await localStorage.getItem('openaiAPIKey');
-    console.debug('Get openaiAPIKey', storedAPIKey)
-    if (storedAPIKey) {
-      return storedAPIKey;
-    } else {
-      return '';
-    }
-  }
-
-  async setAPIKeyAsync(key) {
-    console.debug('Set openaiAPIKey', key)
-    await localStorage.setItem('openaiAPIKey', key);
-  }
-  async getEngines() {
-    const apiKey = await this.getAPIKeyAsync();
-
-    const response = await axios.get('https://api.openai.com/v1/engines', {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
-    });
-
-    return response.data; // return the list of available engines
-  }
 
   getLlamaAI(model) {
     var _model = providerService.getModel(model);
@@ -79,15 +50,6 @@ class RouterService {
     return openai;
   }
 
-  getAPIKey() {
-    const storedAPIKey = localStorage.getItem('openaiAPIKey');
-    console.debug('getAPIKey', storedAPIKey)
-    if (storedAPIKey) {
-      return storedAPIKey;
-    } else {
-      return '';
-    }
-  }
   async handleRestCompletion(model,
     messages,
     temperature, top_p, frequency_penalty, presence_penalty, max_tokens,

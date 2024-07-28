@@ -233,17 +233,20 @@ Optical Character Recognition (OCR) is the process that converts an image of tex
 -   /gpt-3.5-turbo-1106 - switch to gpt-3.5-turbo-1106 model (16,385 tokens).
 -   /gpt-4 - switch to gpt-4 model (8,192 tokens).
 -   /gpt-4-1106-preview - switch to gpt-4-1106-preview model (128,000 tokens).
+-   /search
 -   /model <name> - set to a specific model.
 -   /model dall-e-3
 -   /help - get help.
 -   /import - import files into knowledge (.md, .txt, .pdf, .js, .cs, .java, .py, json, .yaml, .php, .csv, .xsql, .json, .xml).
 -   /export <filename> - export knowledge to a file.
 -   /clear - clear 💬📝💭.
+-   /reset - reset all settings
 -   /rest - use rest completions.
 -   /toggle - toggle context and knowledge text areas
 -   /stream - use stream completions (default).
 -   /reset - Reset your API key.
 -   /stash <name> - stash 💬📝💭.
+-   /stash clear
 -   /pop <name> - pop 💬📝💭.
 -   /list - list of stashed 💬📝💭.
 -   /temperature 0.7 - If your use case allows for high variability or personalization (such as product recommendations) from user to user, we recommend a temperature of 0.7 or higher. For more static responses, such as answers to FAQs on return policies or shipping rates, adjust it to 0.4. We’ve also found that with a higher temperature metric, the model tends to add 10 to 15 words on top of your word/token limit, so keep that in mind when setting your parameters.
@@ -261,6 +264,11 @@ Optical Character Recognition (OCR) is the process that converts an image of tex
 
 # RobodogLib
 
+0. Install
+```
+npm install RobodogLib
+```
+
 1. Importing the necessary libraries:
 ```javascript
 import { FileService } from 'RobodogLib';
@@ -274,6 +282,55 @@ import { YamlConfigService } from 'RobodogLib';
 ```
 
 2. Extracting text content from various file formats:
+
+```javascript
+// Import the FileService module
+import { FileService } from './FileService';
+
+// Create an instance of the FileService
+const fileService = new FileService();
+
+// Example 1: Extracting text from a PDF file
+const pdfFile = new File(['<pdf file content>'], 'example.pdf', { type: 'application/pdf' });
+fileService.getTextFromArrayBuffer(pdfFile.arrayBuffer, pdfFile.type, pdfFile.name)
+  .then((result) => {
+    console.log('PDF File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from PDF file:', error);
+  });
+
+// Example 2: Extracting text from an image file
+const imageFile = new File(['<image file content>'], 'example.jpg', { type: 'image/jpeg' });
+fileService.getTextFromArrayBuffer(imageFile.arrayBuffer, imageFile.type, imageFile.name)
+  .then((result) => {
+    console.log('Image File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from image file:', error);
+  });
+
+// Example 3: Extracting text from a plain text file
+const textFile = new File(['<text file content>'], 'example.txt', { type: 'text/plain' });
+fileService.getTextFromArrayBuffer(textFile.arrayBuffer, textFile.type, textFile.name)
+  .then((result) => {
+    console.log('Text File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from text file:', error);
+  });
+
+// Example 4: Handling unsupported file formats
+const unsupportedFile = new File(['<unsupported file content>'], 'example.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+fileService.getTextFromArrayBuffer(unsupportedFile.arrayBuffer, unsupportedFile.type, unsupportedFile.name)
+  .then((result) => {
+    console.log('Unsupported File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from unsupported file:', error);
+  });
+```
+
 ```javascript
 const fileService = new FileService();
 const arrayBuffer = // ArrayBuffer containing the file data

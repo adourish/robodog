@@ -282,6 +282,55 @@ import { YamlConfigService } from 'RobodogLib';
 ```
 
 2. Extracting text content from various file formats:
+
+```javascript
+// Import the FileService module
+import { FileService } from './FileService';
+
+// Create an instance of the FileService
+const fileService = new FileService();
+
+// Example 1: Extracting text from a PDF file
+const pdfFile = new File(['<pdf file content>'], 'example.pdf', { type: 'application/pdf' });
+fileService.getTextFromArrayBuffer(pdfFile.arrayBuffer, pdfFile.type, pdfFile.name)
+  .then((result) => {
+    console.log('PDF File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from PDF file:', error);
+  });
+
+// Example 2: Extracting text from an image file
+const imageFile = new File(['<image file content>'], 'example.jpg', { type: 'image/jpeg' });
+fileService.getTextFromArrayBuffer(imageFile.arrayBuffer, imageFile.type, imageFile.name)
+  .then((result) => {
+    console.log('Image File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from image file:', error);
+  });
+
+// Example 3: Extracting text from a plain text file
+const textFile = new File(['<text file content>'], 'example.txt', { type: 'text/plain' });
+fileService.getTextFromArrayBuffer(textFile.arrayBuffer, textFile.type, textFile.name)
+  .then((result) => {
+    console.log('Text File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from text file:', error);
+  });
+
+// Example 4: Handling unsupported file formats
+const unsupportedFile = new File(['<unsupported file content>'], 'example.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+fileService.getTextFromArrayBuffer(unsupportedFile.arrayBuffer, unsupportedFile.type, unsupportedFile.name)
+  .then((result) => {
+    console.log('Unsupported File Text:', result);
+  })
+  .catch((error) => {
+    console.error('Error extracting text from unsupported file:', error);
+  });
+```
+
 ```javascript
 const fileService = new FileService();
 const arrayBuffer = // ArrayBuffer containing the file data

@@ -1,7 +1,11 @@
 import yaml from 'js-yaml';
 
 import { YamlConfigService } from './YamlConfigService'
+import { StorageService } from './StorageService'
+
 const yamConfigService = new YamlConfigService();
+const storageService = new StorageService();
+
 class ProviderService {
   constructor() {
     console.debug('ProviderService init')
@@ -13,11 +17,11 @@ class ProviderService {
 
   setYaml(yaml) {
     console.debug('Set yaml', yaml)
-    localStorage.setItem('yaml', yaml);
+    storageService.setItem('yaml', yaml);
   }
 
   getYaml() {
-    const yamlstring = localStorage.getItem('yaml');
+    const yamlstring = storageService.getItem('yaml');
     console.debug('yaml', yaml)
     if (yamlstring) {
       return yamlstring;
@@ -27,13 +31,13 @@ class ProviderService {
   }
 
   getCurrentModel() {
-    const modelName = localStorage.getItem('model');
+    const modelName = storageService.getItem('model');
     console.debug('model', modelName)
     return modelName;
   }
   setCurrentModel(modelName) {
     console.debug('Set model', modelName)
-    localStorage.setItem('model', modelName);
+    storageService.setItem('model', modelName);
   }
   getSpecialist(specialistName){
     var model = null;
@@ -66,9 +70,9 @@ class ProviderService {
   }
 
   reset(){
-    localStorage.removeItem('openaiAPIKey');
-    localStorage.removeItem('yaml');
-    localStorage.removeItem('rapidapiAPIKey');
+    storageService.removeItem('openaiAPIKey');
+    storageService.removeItem('yaml');
+    storageService.removeItem('rapidapiAPIKey');
   }
   getModels(){
     var config = this.getJson();
