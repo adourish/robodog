@@ -108,25 +108,25 @@ class RouterService {
     console.debug(_p2);
     const openai = this.getOpenAI(model);
     try {
-        const response = await openai.chat.completions.create(_p2);
-        if (response) {
-          var _content = response.choices[0]?.message?.content;
-          var _finish_reason = response.choices[0]?.finish_reason;
-          _r.content = _content || 'No content available';
-          _r.finish_reason = _finish_reason || 'No finish reason';
-          setMessage(_finish_reason);
-          var _cc = [
-            ...content,
-            FormatService.getMessageWithTimestamp(text, 'user'),
-            FormatService.getMessageWithTimestamp(_content, 'assistant')
-          ];
-          setContent(_cc);
-          consoleService.stash(currentKey, context, knowledge, text, _cc);
-          return _cc;
-        }
+      const response = await openai.chat.completions.create(_p2);
+      if (response) {
+        var _content = response.choices[0]?.message?.content;
+        var _finish_reason = response.choices[0]?.finish_reason;
+        _r.content = _content || 'No content available';
+        _r.finish_reason = _finish_reason || 'No finish reason';
+        setMessage(_finish_reason);
+        var _cc = [
+          ...content,
+          FormatService.getMessageWithTimestamp(text, 'user'),
+          FormatService.getMessageWithTimestamp(_content, 'assistant')
+        ];
+        setContent(_cc);
+        consoleService.stash(currentKey, context, knowledge, text, _cc);
+        return _cc;
+      }
     } catch (error) {
-        console.error('Error:', error);
-        return { error: 'An error occurred while processing the request.' };
+      console.error('Error:', error);
+      return { error: 'An error occurred while processing the request.' };
     }
     return null;
   }
@@ -152,7 +152,7 @@ class RouterService {
       console.debug(_p2);
       const _llamaAI = this.getLlamaAI(model);
       const response = await _llamaAI.run(_p2);
-      
+
       if (response && response.choices[0]?.message?.content) {
         var _content = response.choices[0]?.message?.content;
         var _finish_reason = response.choices[0]?.finish_reason;
@@ -204,7 +204,7 @@ class RouterService {
             formatService.getMessageWithTimestamp(_c, 'assistant')
           ]);
         }
-  
+
         const response = await stream.finalChatCompletion();
         var _content = response.choices[0]?.message?.content;
         var _finish_reason = response.choices[0]?.finish_reason;
@@ -217,9 +217,9 @@ class RouterService {
           formatService.getMessageWithTimestamp(_content, 'assistant')
         ];
         setContent(_cc);
-  
+
         consoleService.stash(currentKey, context, knowledge, text, _cc);
-  
+
       }
       return _cc || content; // ensure a return value is always returned
     } catch (error) {
@@ -234,42 +234,42 @@ class RouterService {
     setThinking, setContent, setMessage, content, text, currentKey, context, knowledge, size) {
     let _c = [];
     try {
-        const _daliprompt = "chat history:" + context + "knowledge:" + knowledge + "question:" + text;
-        var p3 = {
-          model: "dall-e-3",
-          prompt: _daliprompt,
-          size: size,
-          quality: "standard",
-          n: 1
-        };
-        const openai = this.getOpenAI(model);
-        const response3 = await openai.images.generate(p3);
-        console.debug('handleDalliRestCompletion', p3);
-        if (response3) {
-          var image_url = response3.data[0].url;
-          var _content = image_url
-          setMessage("image");
-          _c = [
-            ...content,
-            formatService.getMessageWithTimestamp(text, 'user'),
-            formatService.getMessageWithTimestamp(_content, 'image')
-          ];
-          setContent(_c);
-          consoleService.stash(currentKey, context, knowledge, text, _c);
-        }
-    } catch (err) {
-        console.error('Error in handleDalliRestCompletion:', err);
+      const _daliprompt = "chat history:" + context + "knowledge:" + knowledge + "question:" + text;
+      var p3 = {
+        model: "dall-e-3",
+        prompt: _daliprompt,
+        size: size,
+        quality: "standard",
+        n: 1
+      };
+      const openai = this.getOpenAI(model);
+      const response3 = await openai.images.generate(p3);
+      console.debug('handleDalliRestCompletion', p3);
+      if (response3) {
+        var image_url = response3.data[0].url;
+        var _content = image_url
+        setMessage("image");
         _c = [
           ...content,
-          formatService.getMessageWithTimestamp("Sorry, something went wrong.", 'bot')
+          formatService.getMessageWithTimestamp(text, 'user'),
+          formatService.getMessageWithTimestamp(_content, 'image')
         ];
         setContent(_c);
+        consoleService.stash(currentKey, context, knowledge, text, _c);
+      }
+    } catch (err) {
+      console.error('Error in handleDalliRestCompletion:', err);
+      _c = [
+        ...content,
+        formatService.getMessageWithTimestamp("Sorry, something went wrong.", 'bot')
+      ];
+      setContent(_c);
     }
     return _c;
-}
+  }
 
-  async routeQuestion(routerModel){
-    var _cc = this.askQuestion(routerModel.question, 
+  async routeQuestion(routerModel) {
+    var _cc = this.askQuestion(routerModel.question,
       routerModel.model,
       routerModel.context,
       routerModel.knowledge,
@@ -300,18 +300,25 @@ class RouterService {
     max_tokens,
     top_p,
     frequency_penalty,
-    presence_penalty, 
-    setPerformance, 
-    setThinking, 
-    currentKey, 
+    presence_penalty,
+    setPerformance,
+    setThinking,
+    currentKey,
     size) {
 
 
-    console.log(config)
+    console.log(config);
+    var _prompt = '';
+    if (context !== '') {
+      _prompt += ' use user chat history to understand your context.'
+    }
+    if (knowledge !== '') {
+      _prompt += ' use user knowledge. it can include documents, code, data to answer the question.'
+    }
     const messages = [
       { role: "user", content: "chat history:" + context },
       { role: "user", content: "knowledge:" + knowledge },
-      { role: "user", content: "question:" + text + "If available. Use the content in knowledge and chat history to answer the question." }
+      { role: "user", content: "question:" + text + _prompt }
     ];
     setThinking(formatService.getRandomEmoji());
     var calculator = new PerformanceCalculator();
@@ -360,7 +367,7 @@ class RouterService {
       }
 
     } catch (error) {
-      console.error("Error sending message to OpenAI: ", error);
+      console.error("Error sending message to provider: ", error);
       throw error;
     } finally {
       calculator.end();

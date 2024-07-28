@@ -451,34 +451,29 @@ function Console() {
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-3.5-turbo-16k':
-          setModel('gpt-3.5-turbo-16k');
+          handleSetModel('gpt-3.5-turbo-16k')
           setMaxChars(16385);
           message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         //gpt-4o
         case '/gpt-4o':
-          setModel('gpt-4o');
+          handleSetModel('gpt-4o')
           setMaxChars(16385);
           message = `Switching to GPT-4o: gpt-4o`;
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-3.5-turbo':
-          setModel('gpt-3.5-turbo')
+          handleSetModel('gpt-3.5-turbo')
           setMaxChars(4096);
           message = `Switching to GPT-3.5: gpt-3.5-turbo`;
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-4':
           setModel('gpt-4');
+          handleSetModel('gpt-4')
           setMaxChars(8192);
           message = `Switching to GPT-4: gpt-4`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
-          break;
-        case '/gpt-4-1106-preview':
-          setModel('/gpt-4-1106-preview');
-          setMaxChars(128000);
-          message = `Switching to GPT-4: gpt-4-1106-preview`;
           setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/help':
