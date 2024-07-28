@@ -346,34 +346,6 @@ function Console() {
             setContent([...content, consoleService.getMessageWithTimestamp("Presence Penalty: " + _command.verb, 'experiment')]);
           }
           break;
-        case '/get':
-          const updatedContext = context ? `${context}\n${_command.verb}` : "";
-          setContext(updatedContext);
-          consoleService.getTextContent(_command.verb, model, knowledge, setKnowledge).then((content) => {
-            setContent([...content, consoleService.getMessageWithTimestamp("/get " + _command.verb, 'user'), consoleService.getMessageWithTimestamp(content, 'event')]);
-          });
-          break;
-        case '/key':
-          routerService.setAPIKey(_command.verb);
-
-          _key = routerService.getAPIKey();
-          message = 'Set API key ' + _key;
-          setContext('');
-          setKnowledge('');
-          setQuestion('');
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
-          //window.location.reload();
-          break;
-        case '/getkey':
-          _key = routerService.getAPIKey();
-          message = 'Your API key is ' + _key;
-          setContext('');
-          setKnowledge('');
-          setQuestion('');
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
-
-          break;
-
 
         case '/stash':
           if (_command.verb === 'clear') {
@@ -429,16 +401,6 @@ function Console() {
             }
           }
           break;
-        case '/files':
-          consoleService.getUploadedFiles()
-            .then(files => {
-              console.log('Uploaded Files:', files);
-            })
-            .catch(error => {
-              console.error('Error:', error);
-            });
-          break;
-
         case '/dall-e-3':
           setModel('dall-e-3');
           setMaxChars(16385);
