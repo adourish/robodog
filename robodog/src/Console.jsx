@@ -173,13 +173,7 @@ function Console() {
     handleCharsChange(event);
   };
 
-  const scrollToBottom = () => {
-    if (contentRef && contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
-    } else {
-      console.debug('no scroll');
-    }
-  }
+
 
   const handleFileUpload = (event) => {
     event.preventDefault();
@@ -341,14 +335,15 @@ function Console() {
           if (_command.verb) {
             _t = Number(_command.verb);
             setFrequency_penalty(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("Frequency Penalty: " + verb, 'experiment')]);
+            setContent([...content, consoleService.getMessageWithTimestamp("Frequency Penalty: " + _command.verb, 'experiment')]);
           }
           break;
         case '/presence_penalty':
           if (_command.verb) {
             _t = Number(_command.verb);
             setPresence_penalty(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("Presence Penalty: " + verb, 'experiment')]);
+            setContent([...content, consoleService.getMessageWithTimestamp("/get " + _command.verb, 'user'), consoleService.getMessageWithTimestamp(content, 'event')]);
+            setContent([...content, consoleService.getMessageWithTimestamp("Presence Penalty: " + _command.verb, 'experiment')]);
           }
           break;
         case '/get':
@@ -497,7 +492,6 @@ function Console() {
   function handleDropdownChange(event) {
     const selectedValue = event.target.value;
     const selectedOption = options.find((option) => option.command === selectedValue);
-    setSelectedOption(selectedOption);
 
     if (selectedOption && selectedOption.command) {
       var _c = selectedOption.command;
@@ -612,29 +606,6 @@ function Console() {
           }
         );
         var response = await routerService.routeQuestion(routerModel)
-        // var response = await routerService.ask(command,
-        //   model,
-        //   search,
-        //   context,
-        //   knowledge,
-        //   completionType,
-        //   setContent,
-        //   setContext,
-        //   setMessage,
-        //   content,
-        //   temperature,
-        //   filter,
-        //   max_tokens,
-        //   top_p,
-        //   frequency_penalty,
-        //   presence_penalty,
-        //   performance,
-        //   setPerformance,
-        //   setThinking,
-        //   currentKey,
-        //   setSize,
-        //   size);
-
         console.debug(response);
       }
     } catch (ex) {
@@ -647,7 +618,7 @@ function Console() {
     } finally {
       setThinking('🦥');
       setQuestion('');
-      scrollToBottom();
+      consoleService.scrollToBottom();
     }
   };
 
@@ -678,7 +649,7 @@ function Console() {
       </div>
 
 
-      <div className="console-content">
+      <div id="consoleContent" className="console-content">
         {content.map((item, index) => {
           if (item.role === 'image') {
             return (

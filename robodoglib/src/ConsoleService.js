@@ -163,6 +163,18 @@ class ConsoleService {
     document.body.removeChild(element);
   }
 
+  scrollToBottom() {
+    if (document) {
+      let consoleContent = document.getElementById('consoleContent');
+
+      if (consoleContent) {
+        console.log('scrollToBottom', consoleContent.scrollHeight, consoleContent.scrollTop)
+        consoleContent.scrollTop = consoleContent.scrollHeight;
+      } else {
+        console.debug('no scroll');
+      }
+    }
+  }
 
   handleImport(setKnowledge, knowledge, setContent, content) {
     console.debug("handleUpload")

@@ -203,6 +203,7 @@ class RouterService {
             formatService.getMessageWithTimestamp(text, 'user'),
             formatService.getMessageWithTimestamp(_c, 'assistant')
           ]);
+          consoleService.scrollToBottom();
         }
 
         const response = await stream.finalChatCompletion();
@@ -287,7 +288,8 @@ class RouterService {
       routerModel.size
 
     )
-    return _cc;
+    routerModel.content = _cc;
+    return routerModel;
   }
   async askQuestion(text,
     model,
@@ -304,7 +306,8 @@ class RouterService {
     setPerformance,
     setThinking,
     currentKey,
-    size) {
+    size,
+    scrollToBottom) {
 
 
     console.log(config);
@@ -373,7 +376,7 @@ class RouterService {
       calculator.end();
       var duration = calculator.calculateDuration();
       setPerformance(duration);
-
+      consoleService.scrollToBottom();
     }
     return _cc;
   }
