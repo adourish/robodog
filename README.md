@@ -1,134 +1,136 @@
 # Robodog AI
 
-# About
+## About
 
-Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall-e-3, and gpt-3.5-turbo-16k. A highly portal GPT UI with support for upload files, save points, and temperature configurations. 
+Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall-e-3, and gpt-3.5-turbo-16k. It provides a highly portal GPT UI with support for uploading files, saving points, and temperature configurations.
 
-# Try robodog
+## Try Robodog
 
 - [Robodog web](https://adourish.github.io/robodog/robodog/dist/)
 - [Robodog Android](https://play.google.com/store/apps/details?id=com.unclebulgaria.robodog)
-- [npm install robodoglib](https://www.npmjs.com/package/robodoglib)
-- [npm install robodogcli](https://www.npmjs.com/package/robodogcli)
-- [npm install robodog](https://www.npmjs.com/package/robodog)
+- npm packages:
+  - [robodoglib](https://www.npmjs.com/package/robodoglib)
+  - [robodogcli](https://www.npmjs.com/package/robodogcli)
+  - [robodog](https://www.npmjs.com/package/robodog)
 
-# Configure providers and models
+## Configuring Providers and Models
+
 - Click ⚙️ to configure
 
 ![Screenshot](screenshot-quick.png)
 
-# History
+## History
 
-## Version 1.0.0
-- Support for /models <model>. Most text based models are supported
+### Version 1.0.0
+- Support for /models <model>. Most text-based models are supported
 - Support for /gpt-3.5-turbo and /gpt-4 quick
 - Support for rest completions
 
-## Version 1.1.0
+### Version 1.1.0
 - Support for stream completions
 
-## Version 1.2.0
+### Version 1.2.0
 - Support for /stash /pop /list save points
 - Support for /clear and /reset
-- Support for /tempurature and /frequency_penelty
+- Support for /temperature and /frequency_penalty
 
-## Version 1.3.0
+### Version 1.3.0
 - Support for /import (.md, .txt, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)
-- Support for drop down commands selection
+- Support for drop-down commands selection
 - Auto save point
 
-## Version 1.4.0
+### Version 1.4.0
 - Section 508 support
 - Mobile support (some issues)
 - Support for CTRL+SHIFT+UP cycle through save points
 - Support for CTRL+S to save content to a file
 
-## Version 1.5.0
+### Version 1.5.0
 - Support for /model dall-e-3
 
-## Version 1.6.0
-- Medium refactor to to support other AI providers. I don't have any AI keys to try them, if I do, I will add support. I am unlikely to provide support for any Google/Alphabet models. I am in the process og a google-ectomy and would prefer not to support any of the google products. It all started last year when I wanted to use google APIs to get access to my tasks and notes. A long story short, it was very frustrating.
-
-## Version 1.6.1
+### Version 1.6.0
+- Medium refactor to support other AI providers. (Note: No support for Google products)
 - Minor UX changes
 
-## Version 1.7.0
+### Version 1.7.0
 - Added image to text processing
   - Optical Character Recognition (OCR) support using the Tesseract library
 - Added PDF to text processing
-  - PDF processing using PDF LIb and PDF JS
+  - PDF processing using PDF Lib and PDF JS
 - Android closed testing
 
-## Version 1.7.1
-- Bug fixes and UX
+### Version 1.7.1
+- Bug fixes and UX improvements
 
-## Version 1.7.2
-- CLI and RobodogLib npm package. 
-  npm install - 
+### Version 1.7.2
+- CLI and RobodogLib npm package
 
-## Version 2.0.0
-- Support for multiple providers llamaAI and openAI
-- Yaml configuration
-
+### Version 2.0.0
+- Support for multiple providers: llamaAI and openAI
+- YAML configuration
 
 ## Roadmap 
 - OCR support for Android
 - VSCode extension
 
-# Features
+## Features
 
-Robodog AI Assistant provides a flexible runtime, allowing installation on a laptop, Github pages, or a personal static file server without the need to install npm or run a node server. The webpack build generates two files, compiling them into a single HTML file named `robodog.html` and a JavaScript bundle called `robotdog.bundle.js`. Additionally, the tool does not require npm installation as it simply prompts for the API key, which is stored in local storage.
+Robodog AI Assistant provides a flexible runtime, allowing installation on a laptop, GitHub pages, or a personal static file server without the need to install npm or run a node server. The webpack build generates two files, compiling them into a single HTML file named `robodog.html` and a JavaScript bundle called `robotdog.bundle.js`. Additionally, the tool does not require npm installation as it simply prompts for the API key, which is stored in local storage.
 
 All chat history is conveniently accumulated in the 'chat context' text box, ensuring seamless continuation of conversations with the GPT AI. The feature allows users to add or remove chat contexts as needed. Users can also incorporate their knowledge, code, or documents for AI assistance and pose questions for optimized interactions.
 
 Furthermore, users can effortlessly switch between GPT3.5 and GPT4 models without losing their chat context, enabling them to validate their questions and answers on a different model. Additionally, the system allows flexibility in choosing between cost-effective and higher-priced models, ensuring diverse options for tailored AI interactions.
 
-
 ![Screenshot](screenshot.png)
 
-# Architecture
+## Architecture
 
 ![Screenshot](screenshot-architecture.png)
 
 ![Screenshot](screenshot-architecture2.png)
 
-# Create an API Key
+![Screenshot](screenshot-architecture3.png)
 
-Create an Open AI account and generate [new secret key](https://platform.openai.com/api-keys)
+![Screenshot](screenshot-architecture4.png)
 
-# Responsive
+## Create an API Key
+
+Create an Open AI account and generate a new secret key [here](https://platform.openai.com/api-keys).
+
+## Responsive
 
 The UI is responsive and will work on a phone. You can use the GitHub pages link [Robodog](https://adourish.github.io/robodog/robodog/dist/)
 
 ![Mobile](mobile.png)
 
-# Dall-e-
+## Dall-e-
 
 Dall-e-3 is supported
 
 ![Mobile](screenshot3dalle3.png)
 
-# Accessibility
+## Accessibility
 
-The UX was developed with section [508](https://www.section508.gov/) and [web accessibility](https://www.w3.org/WAI/fundamentals/accessibility-intro/) in mind. All of the actions (e.g., /clear, /gpt-4, /rest /help) can be executed from the chat window without navigating a menu. I have validated the UI using the [Wave tool](https://wave.webaim.org/.), but I have not tested the UX with a screen reader like [Jaws](https://www.freedomscientific.com/products/software/jaws/). I am confident that the UX should work for the /rest mode; the/stream mode will not work. If one single person messages me and has a need for an accessible GPT client, I will play around with the Aria tags and make /stream mode accessible.
+The UX was developed with section [508](https://www.section508.gov/) and [web accessibility](https://www.w3.org/WAI/fundamentals/accessibility-intro/) in mind. All of the actions (e.g., /clear, /gpt-4, /rest, /help) can be executed from the chat window without navigating a menu. The UI has been validated using the [Wave tool](https://wave.webaim.org/), but has not been tested with a screen reader like [Jaws](https://www.freedomscientific.com/products/software/jaws/). However, it should work for the /rest mode; the /stream mode may not be fully accessible. If there is a need for an accessible GPT client, I am willing to explore the use of Aria tags and make the /stream mode accessible.
 
-# How it works
+## How it works
 
-The chat/question is linked to the chat history and knowledge text areas.  
-```
+The chat/question is linked to the chat history and knowledge text areas:
+```javascript
  const _messages = [
     { role: "user", content: "chat history:" + context },
     { role: "user", content: "knowledge:" + knowledge  },
     { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question." }
   ];
 ```
-# Import
 
-Use the /import command to open a file picker. You can select one or more files and they will be imported into the knowledge text area. You can use the /export feature to dump the content of your knowledge into a file.
- 
+## Import
+
+Use the /import command to open a file picker. You can select one or more files, and they will be imported into the knowledge text area. You can use the /export feature to dump the content of your knowledge into a file.
+
 ![Features](import.png)
 
-# Indicators
+## Indicators
 
 Use the char, rest, stream, status sloth/ape indicators to streamline your experience. 
 
@@ -136,7 +138,7 @@ Use the char, rest, stream, status sloth/ape indicators to streamline your exper
 
 - [3432/9000] - estimated remaining context + knowledge + chat
 - [gpt-3.5-turbo] - GPT model
-- [0.7] - tempurature - larger numbers promote more creativity and are more prone to hallucination
+- [0.7] - temperature - larger numbers promote more creativity and are more prone to hallucination
 - [rest] - rest completion mode
 - [stream] - stream completion mode
 - [🦥] - ready
@@ -147,7 +149,7 @@ Use the char, rest, stream, status sloth/ape indicators to streamline your exper
 - [🐘] - 💬📝💭 is large.
 - [🐁] - 💬📝💭 is acceptable.
 
-# Emoji
+## Emoji
 
 Role Emojis:
 - 👾 - User
@@ -183,9 +185,7 @@ Other Emojis:
 - 📝 - Knowledge Content
 - 💬 - Chat Text
 
-
 ![Features](screenshot2.png)
-
 
 ## Stash, pop, and list
 
@@ -199,7 +199,7 @@ Switch chat contexts using the stash, pop, and list commands.
 
 ## Menu
 
-Use the drop down menu to select options.
+Use the drop-down menu to select options.
 
 ![Features](menu.png)
 
@@ -212,7 +212,7 @@ Optical Character Recognition (OCR) is the process that converts an image of tex
 
 ![Features](screenshot-ocr.png)
 
-# Build
+## Build
 
 -   cd robodog
 -   npm install
@@ -222,11 +222,11 @@ Optical Character Recognition (OCR) is the process that converts an image of tex
 -   npm install axios
 -   npm run build
 
-# Run
+## Run
 
--   Open in a `.\dist\robodog.html` in a browser.
+-   Open `.\dist\robodog.html` in a browser.
 
-# Commands
+## Commands
 
 -   /gpt-3.5-turbo - switch to gpt-3.5-turbo-1106 model (4,096 tokens)(default).
 -   /gpt-3.5-turbo-16k - switch to gpt-3.5-turbo-16k model (16,385 tokens).
@@ -252,17 +252,22 @@ Optical Character Recognition (OCR) is the process that converts an image of tex
 -   /temperature 0.7 - If your use case allows for high variability or personalization (such as product recommendations) from user to user, we recommend a temperature of 0.7 or higher. For more static responses, such as answers to FAQs on return policies or shipping rates, adjust it to 0.4. We’ve also found that with a higher temperature metric, the model tends to add 10 to 15 words on top of your word/token limit, so keep that in mind when setting your parameters.
 -   /max_tokens 500 - for short, concise responses (which in our experience is always best), choose a value between 30 and 50, depending on the main use cases of your chatbot.
 -   /top_p 1 - recommend keeping this at 1, adjusting your temperature instead for the best results.
--   /frequency_penalty 0 - determine how often the same words appear in the chatbot’s response.Keep at 0.
+-   /frequency_penalty 0 - determine how often the same words appear in the chatbot’s response. Keep at 0.
 -   /presence_penalty 0 - determine how often the same words appear in the chatbot’s response. Keep at 0.
 -   SHIFT+UP - cycle through stash list.
--   CTRL + S - saSave a snapshot to storage
-# Try
+-   CTRL + S - save a snapshot to storage.
+
+## Try
 
 -   [Robodog](https://adourish.github.io/robodog/robodog/dist/)
 
-# Download
+## Download
 
-# RobodogLib
+-   [Download Robodog](https://github.com/adourish/robodog/tree/main/robodog/dist/robodog.zip)
+
+## RobodogLib
+
+To use RobodogLib in your project, follow these steps:
 
 0. Install
 ```
@@ -284,10 +289,6 @@ import { YamlConfigService } from 'RobodogLib';
 2. Extracting text content from various file formats:
 
 ```javascript
-// Import the FileService module
-import { FileService } from './FileService';
-
-// Create an instance of the FileService
 const fileService = new FileService();
 
 // Example 1: Extracting text from a PDF file
@@ -329,14 +330,6 @@ fileService.getTextFromArrayBuffer(unsupportedFile.arrayBuffer, unsupportedFile.
   .catch((error) => {
     console.error('Error extracting text from unsupported file:', error);
   });
-```
-
-```javascript
-const fileService = new FileService();
-const arrayBuffer = // ArrayBuffer containing the file data
-const pdfText = await fileService.extractPDFContent(arrayBuffer);
-const imageText = await fileService.extractImageContent(arrayBuffer);
-const plainText = await fileService.extractTextContent(arrayBuffer);
 ```
 
 3. Searching for information using the SearchService:
@@ -404,26 +397,24 @@ const messageWithUrl = formatService.getMessageWithTimestamp('Here is the docume
 
 7. Router Service example
 ```javascript
-    const routerService = new RobodogLib.RouterService();
-    var routerModel = new RobodogLib.RouterModel(
-     "How tall is devils tower?", // Question (required)
-     "gpt-4", // Model (required)
-     "Where is devils tower", // History (optional)
-     "places to climb: devils tower, custer state park, red river gorge", // Knowledge (optional)
-     [], // Content (optional)
-     0.8, // Temperature (optional)
-     50, // Max tokens (optional)
-     "", // Current key (optional)
-     "1792x1024", // Size (optional)
-     {
-       setContent: setContent,
-       setMessage: setMessage,
-       setPerformance: setPerformance,
-       setThinking: setThinking
-     }
-   );
-   var response = await routerService.routeQuestion(routerModel);
-   console.debug(response);
+const routerService = new RobodogLib.RouterService();
+const routerModel = new RobodogLib.RouterModel(
+  "How tall is devils tower?", // Question (required)
+  "gpt-4", // Model (required)
+  "Where is devils tower", // History (optional)
+  "places to climb: devils tower, custer state park, red river gorge", // Knowledge (optional)
+  [], // Content (optional)
+  0.8, // Temperature (optional)
+  50, // Max tokens (optional)
+  "", // Current key (optional)
+  "1792x1024", // Size (optional)
+  {
+    setContent: setContent,
+    setMessage: setMessage,
+    setPerformance: setPerformance,
+    setThinking: setThinking
+  }
+);
+const response = await routerService.routeQuestion(routerModel);
+console.debug(response);
 ```
-
--   [Download Robodog](https://github.com/adourish/robodog/tree/main/robodog/dist/robodog.zip)

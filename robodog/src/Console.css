@@ -318,8 +318,8 @@ div.char-count {
   }
 
   .question-textarea {
-    font-size: 14px;
-    min-height: 70px;
+    font-size: 12px;
+    min-height: 80px;
   }
 
   .context-textarea,
@@ -339,10 +339,10 @@ div.char-count {
   }
 
   .char-count {
-    font-size: 12px;
+    font-size: 10px;
   }
 
   .top-menu select {
-    font-size: 20px;
+    font-size: 14px;
   }
 }
