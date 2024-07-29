@@ -273,17 +273,12 @@ class RouterService {
 
 
     console.log(config);
-    var _prompt = '';
-    if (context !== '') {
-      _prompt += ' use user chat history to understand your context.'
-    }
-    if (knowledge !== '') {
-      _prompt += ' use user knowledge. it can include documents, code, data to answer the question.'
-    }
+
     const messages = [
-      { role: "user", content: "chat history:" + context },
+      { role: "user", content: "chat history context:" + context },
       { role: "user", content: "knowledge:" + knowledge },
-      { role: "user", content: "question:" + text + _prompt }
+      { role: "user", content: "question:" + text },
+      { role: "user", content: "if knowledge or chat history exist, use them to make sense of the question." }
     ];
     setThinking(formatService.getRandomEmoji());
     var calculator = new PerformanceCalculator();
