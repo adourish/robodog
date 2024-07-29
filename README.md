@@ -81,17 +81,17 @@ All chat history is conveniently accumulated in the 'chat context' text box, ens
 
 Furthermore, users can effortlessly switch between GPT3.5 and GPT4 models without losing their chat context, enabling them to validate their questions and answers on a different model. Additionally, the system allows flexibility in choosing between cost-effective and higher-priced models, ensuring diverse options for tailored AI interactions.
 
-![Screenshot](https://github.com/adourish/robodog/screenshot.png)
+![Screenshot](screenshot.png)
 
 ## Architecture
 
-![Screenshot](https://github.com/adourish/robodog/screenshot-architecture.png)
+![Screenshot](screenshot-architecture.png)
 
-![Screenshot](https://github.com/adourish/robodog/screenshot-architecture2.png)
+![Screenshot](screenshot-architecture2.png)
 
-![Screenshot](https://github.com/adourish/robodog/screenshot-architecture3.png)
+![Screenshot](screenshot-architecture3.png)
 
-![Screenshot](https://github.com/adourish/robodog/screenshot-architecture4.png)
+![Screenshot](screenshot-architecture4.png)
 
 ## Create an API Key
 
@@ -101,13 +101,13 @@ Create an Open AI account and generate a new secret key [here](https://platform.
 
 The UI is responsive and will work on a phone. You can use the GitHub pages link [Robodog](https://adourish.github.io/robodog/robodog/dist/)
 
-![Mobile](https://github.com/adourish/robodog/mobile.png)
+![Mobile](mobile.png)
 
 ## Dall-e-
 
 Dall-e-3 is supported
 
-![Mobile](https://github.com/adourish/robodog/screenshot3dalle3.png)
+![Mobile](screenshot3dalle3.png)
 
 ## Accessibility
 
@@ -128,7 +128,7 @@ The chat/question is linked to the chat history and knowledge text areas:
 
 Use the /import command to open a file picker. You can select one or more files, and they will be imported into the knowledge text area. You can use the /export feature to dump the content of your knowledge into a file.
 
-![Features](https://github.com/adourish/robodog/import.png)
+![Features](import.png)
 
 ## Indicators
 
@@ -210,7 +210,7 @@ Optical Character Recognition (OCR) is the process that converts an image of tex
 - image-to-text using Tesseract
 - text-to-image using dall-e-3
 
-![Features](https://github.com/adourish/robodog/screenshot-ocr.png)
+![Features](screenshot-ocr.png)
 
 ## Build
 
@@ -418,3 +418,4 @@ const routerModel = new RobodogLib.RouterModel(
 const response = await routerService.routeQuestion(routerModel);
 console.debug(response);
 ```
+
