@@ -651,21 +651,7 @@ function Console() {
         })}
       </div>
       <form onSubmit={handleSubmit} className="input-form">
-        <span className="char-count">
-          <label htmlFor="totalChars">[{totalChars}/{maxChars}]</label>
-          <label htmlFor="model">[{model}]</label>
-          <label htmlFor="temperature" className="status-hidden">[{temperature}]</label>
-          <label htmlFor="thinking">[{thinking}]</label>
-          <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
-          <label htmlFor="performance" className="status-hidden">[{performance}]</label>
-          <label htmlFor="message" className="status-hidden">[{message}]</label>
-          <label htmlFor="copy" className="status-hidden">[{copySuccess}]</label>
-          <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
-          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader " title="Upload File">📤</button>
-          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader " title="Download">📥</button>
-          <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
-        </span>
-        <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
+      <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
           <label htmlFor="yamlConfig">Config:</label>
           <textarea
             id="yamlConfig"
@@ -684,8 +670,22 @@ function Console() {
             value={model}
             onChange={(e) => handleModelChange(e.target.value)}
           />
-
         </div>
+        <span className="char-count">
+          <label htmlFor="totalChars">[{totalChars}/{maxChars}]</label>
+          <label htmlFor="model">[{model}]</label>
+          <label htmlFor="temperature" className="status-hidden">[{temperature}]</label>
+          <label htmlFor="thinking">[{thinking}]</label>
+          <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
+          <label htmlFor="performance" className="status-hidden">[{performance}]</label>
+          <label htmlFor="message" className="status-hidden">[{message}]</label>
+          <label htmlFor="copy" className="status-hidden">[{copySuccess}]</label>
+          <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
+          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader " title="Upload File">📤</button>
+          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader " title="Download">📥</button>
+          <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
+        </span>
+
         <div className="input-area">
           <textarea
             value={context}
