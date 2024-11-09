@@ -187,6 +187,12 @@ class RouterService {
       return _cc || content; // ensure a return value is always returned
     } catch (error) {
       console.error(error);
+      var err = error;
+      var _ee = [
+        ...content,
+        formatService.getMessageWithTimestamp(err, 'error')
+      ];
+      setContent(_ee);
       return content; // return existing content in case of error
     }
   }
