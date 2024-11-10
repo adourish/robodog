@@ -341,7 +341,7 @@ class ConsoleService {
     });
     return commands;
   }
-  
+
 
   async getTextContent(url, model, knowledge, setKnowledge) {
     var _content;
@@ -388,15 +388,23 @@ class ConsoleService {
       console.log(stashItem);
       if (stashItem.context) {
         setContext(stashItem.context);
+      } else {
+        setContext("");
       }
       if (stashItem.knowledge) {
         setKnowledge(stashItem.knowledge);
+      } else {
+        setKnowledge("");
       }
       if (stashItem.question) {
         setQuestion(stashItem.question);
+      } else {
+        setQuestion("");
       }
       if (stashItem.content) {
         setContent(stashItem.content);
+      } else {
+        setContent("");
       }
       if (stashItem.temperature) {
         setTemperature(stashItem.temperature);
@@ -485,6 +493,7 @@ class ConsoleService {
     }
   }
   // Function to save content in local storage
+  //  consoleService.stash(verb, context, knowledge, question, content, temperature, showTextarea);
   stash(key, context, knowledge, question, content, temperature, showTextarea) {
     const stashKey = "stash-" + key;
     const _c = {

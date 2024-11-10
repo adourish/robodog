@@ -116,6 +116,24 @@ function Console() {
     setShowSettings(!showSettings);
   };
 
+  const handleStash = () => {
+    try {
+      var q = question + ' ' + content
+      var verb = q.length < 15 ? q : q.substring(0, 20);
+      console.log(verb);
+      console.debug('handleStash', "verb")
+      consoleService.stash(verb, context, knowledge, question, content, temperature, showTextarea);
+      var _stashList = consoleService.getStashList();
+
+      if (_stashList) {
+        var stashList = _stashList.split(',');
+        setStashList(stashList);
+      }
+    } catch (ex) {
+      console.log("test")
+    }
+  };
+
 
   //handleYamlConfigKeyChange
   const handleYamlConfigKeyChange = (key) => {
@@ -660,9 +678,10 @@ function Console() {
           <label htmlFor="message" className="status-hidden">[{message}]</label>
           <label htmlFor="copy" className="status-hidden">[{copySuccess}]</label>
           <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
-          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader " title="Upload File">📤</button>
-          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader " title="Download">📥</button>
+          <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader" title="Upload File">📤</button>
+          <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
+          <button type="button" onClick={handleStash} aria-label="history" className="button-uploader " title="Stash">📍</button>
         </span>
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
           <label htmlFor="yamlConfig">Config:</label>
