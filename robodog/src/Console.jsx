@@ -1,4 +1,5 @@
 import './Console.css';
+import { v4 as uuidv4 } from 'uuid';
 
 import React, { useRef, useEffect, useState } from 'react';
 import RobodogLib from '../../robodoglib/dist/robodoglib.bundle.js';
@@ -26,6 +27,7 @@ function Console() {
   const [maxChars, setMaxChars] = useState(4096);
   const [totalChars, setTotalChars] = useState(0);
   const [question, setQuestion] = useState('');
+
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
   const [contextButton, setcontextButton] = useState('⬜');
@@ -56,8 +58,8 @@ function Console() {
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
   const [stashList, setStashList] = useState([]);
-  const contentRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
 
   useEffect(() => {
     console.log('Component has mounted!');
@@ -65,7 +67,6 @@ function Console() {
       var ufo = consoleService.getUFO();
       var _commands = consoleService.getCommands();
       var _options = consoleService.getOptions();
-      var _fc = consoleService.getFormattedCommands();
       var _yamlConfig = providerService.getYaml();
       setYamlConfig(_yamlConfig);
       var _model = providerService.getCurrentModel();
@@ -93,7 +94,7 @@ function Console() {
     return () => {
       console.log('Cleaning up...');
     };
-  }, [isLoaded, setIsLoaded, size, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList, setSize, knowledgeTextarea, setknowledgeTextarea, contextTextarea, setcontextTextarea]);
+  }, [isLoaded, setIsLoaded, size, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList, setSize, knowledgeTextarea, setknowledgeTextarea, contextTextarea, setcontextTextarea]);
 
   const setFocusOnLastItem = () => {
     setContent(prevContent => {
@@ -183,7 +184,7 @@ function Console() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', handleCtrlS);
     };
-  }, [currentIndex, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, question]);
+  }, [currentIndex, setContext, setKnowledge, setQuestion, handleCtrlS, handleKeyDown, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, question]);
 
   const handleInputChange = (event) => {
     const value = event.target.value;

@@ -6,7 +6,6 @@ body {
   overflow-x: hidden;
 }
 
-
 .console {
   color: white;
   padding: 0px;
@@ -244,7 +243,7 @@ div.char-count {
   .knowledge-big-textarea
  {
     font-size: 14px;
-    min-height: 320px;
+    min-height: 520px;
   }
 
   .knowledge-small-textarea
