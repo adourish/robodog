@@ -1,3 +1,13 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.25"><title>🤖</title><link rel="manifest" href="manifest.json"><script id="versionScript">var version = "2.1.0";
-    var buildNumber = "1731876402";
-    var buildInfo = "Sun Nov 17 2024 3:46:42 PM";</script><script defer="defer" src="robodog.bundle.js"></script></head><body><div id="root"></div></body></html>
+    var buildNumber = "1732768613";
+    var buildInfo = "Wed Nov 27 2024 11:36:53 PM";
+    console.log('build',buildInfo);
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('robodog.service.js').then(function (registration) {
+          console.log('ServiceWorker registration successful with scope: ', registration.scope, buildInfo);
+        }, function (err) {
+          console.log('ServiceWorker registration failed: ', err), buildInfo;
+        });
+      });
+    }</script><script defer="defer" src="robodog.bundle.js"></script></head><body><div id="root"></div></body></html>
