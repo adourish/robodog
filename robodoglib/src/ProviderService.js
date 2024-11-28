@@ -10,23 +10,27 @@ class ProviderService {
   constructor() {
     console.debug('ProviderService init')
   }
-  getDefaults(){
+  getDefaults() {
     var yamlstring = yamConfigService.getDefaults();
     return yamlstring;
   }
 
   setYaml(yaml, yamlkey = 'yaml') {
-    console.debug('setYaml',yamlkey, yaml)
+    console.debug('setYaml', yamlkey, yaml)
     storageService.setItem(yamlkey, yaml);
   }
 
-  getYaml(yamlkey = 'yaml') {
+  getYaml(yamlkey = 'yaml', defaultYaml = '') {
     const yamlstring = storageService.getItem(yamlkey);
     console.debug('getYaml', yamlkey, yaml)
     if (yamlstring) {
       return yamlstring;
     } else {
-      return this.getDefaults();
+      if (defaultYaml) {
+        return defaultYaml;
+      } else {
+        return this.getDefaults();
+      }
     }
   }
 
@@ -39,10 +43,10 @@ class ProviderService {
     console.debug('Set model', modelName)
     storageService.setItem('model', modelName);
   }
-  getSpecialist(specialistName){
+  getSpecialist(specialistName) {
     var model = null;
     var config = this.getJson();
-    if(config.configs && config.configs.specialists){
+    if (config.configs && config.configs.specialists) {
       var specialists = config.configs.specialists;
       for (var i = 0; i < specialists.length; i++) {
         if (specialists[i].model === specialistName) {
@@ -54,10 +58,10 @@ class ProviderService {
     return specialists;
   }
 
-  getModel(modelName){
+  getModel(modelName) {
     var model = null;
     var config = this.getJson();
-    if(config.configs && config.configs.models){
+    if (config.configs && config.configs.models) {
       var models = config.configs.models;
       for (var i = 0; i < models.length; i++) {
         if (models[i].model === modelName) {
@@ -69,21 +73,21 @@ class ProviderService {
     return model;
   }
 
-  reset(yamlkey = 'yaml'){
+  reset(yamlkey = 'yaml') {
     storageService.removeItem('openaiAPIKey');
     storageService.removeItem(yamlkey);
     storageService.removeItem('rapidapiAPIKey');
   }
-  getModels(){
+  getModels() {
     var config = this.getJson();
-    if(config.configs && config.configs.models){
+    if (config.configs && config.configs.models) {
       return config.configs.models;
     }
   }
-  getProvider(providerName){
+  getProvider(providerName) {
     var provider = null;
     var config = this.getJson();
-    if(config.configs && config.configs.providers){
+    if (config.configs && config.configs.providers) {
       var providers = config.configs.providers;
       for (var i = 0; i < providers.length; i++) {
         if (providers[i].provider === providerName) {
@@ -108,6 +112,19 @@ class ProviderService {
     }
   }
 
+  getJson(yamlkey = 'yaml', defaultYaml = '') {
+    const yamlContent = this.getYaml(yamlkey, defaultYaml);
+    console.log('yamlContent', yamlContent);
+    try {
+      // Convert YAML content to JSON using a library like js-yaml
+      const jsonContent = yaml.load(yamlContent);
+      return jsonContent;
+    } catch (error) {
+      console.error('Error converting YAML to JSON:', error);
+      return null;
+    }
+  }
+
 }
 
-export  { ProviderService };
+export { ProviderService };
