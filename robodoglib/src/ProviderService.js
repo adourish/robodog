@@ -99,18 +99,6 @@ class ProviderService {
     return provider;
   }
 
-  getJson() {
-    const yamlContent = this.getYaml();
-    console.log('yamlContent', yamlContent);
-    try {
-      // Convert YAML content to JSON using a library like js-yaml
-      const jsonContent = yaml.load(yamlContent);
-      return jsonContent;
-    } catch (error) {
-      console.error('Error converting YAML to JSON:', error);
-      return null;
-    }
-  }
 
   getJson(yamlkey = 'yaml', defaultYaml = '') {
     const yamlContent = this.getYaml(yamlkey, defaultYaml);
