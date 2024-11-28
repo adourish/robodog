@@ -34,7 +34,7 @@
       "sizes": "24x24"
     }
   ],
-  "start_url": ".",
+  "start_url": "https://adourish.github.io/robodog/robodog/dist/",
   "display": "standalone",
   "theme_color": "#000000",
   "background_color": "#ffffff"
