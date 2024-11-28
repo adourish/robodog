@@ -15,14 +15,14 @@ class ProviderService {
     return yamlstring;
   }
 
-  setYaml(yaml) {
-    console.debug('Set yaml', yaml)
-    storageService.setItem('yaml', yaml);
+  setYaml(yaml, yamlkey = 'yaml') {
+    console.debug('setYaml',yamlkey, yaml)
+    storageService.setItem(yamlkey, yaml);
   }
 
-  getYaml() {
-    const yamlstring = storageService.getItem('yaml');
-    console.debug('yaml', yaml)
+  getYaml(yamlkey = 'yaml') {
+    const yamlstring = storageService.getItem(yamlkey);
+    console.debug('getYaml', yamlkey, yaml)
     if (yamlstring) {
       return yamlstring;
     } else {
@@ -69,9 +69,9 @@ class ProviderService {
     return model;
   }
 
-  reset(){
+  reset(yamlkey = 'yaml'){
     storageService.removeItem('openaiAPIKey');
-    storageService.removeItem('yaml');
+    storageService.removeItem(yamlkey);
     storageService.removeItem('rapidapiAPIKey');
   }
   getModels(){

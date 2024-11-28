@@ -73,6 +73,9 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 - Removed the token limit [count/limit] from the status bar [0][gpt-4][0.7][🦥][🐁][][][][autosave]📤📥⚙️
 - Enhanced error handling
 
+### Version 2.2.0
+- Installable web app using manifest.json
+
 ## Roadmap 
 - OCR support for Android
 - VSCode extension
