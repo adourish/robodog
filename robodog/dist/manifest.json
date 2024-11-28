@@ -8,11 +8,6 @@
       "type": "image/x-icon"
     },
     {
-      "src": "robot-192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
       "src": "robot-512.png",
       "type": "image/png",
       "sizes": "512x512"
@@ -32,6 +27,11 @@
       "src": "robot-24.png",
       "type": "image/png",
       "sizes": "24x24"
+    },
+    {
+      "src": "robot-16.png",
+      "type": "image/png",
+      "sizes": "16x16"
     }
   ],
   "start_url": ".",
