@@ -9,6 +9,17 @@
     var version = "<%= version %>";
     var buildNumber = "<%= buildNumber %>";
     var buildInfo = "<%= buildInfo %>";
+    console.log('build',buildInfo);
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('robodog.service.js').then(function (registration) {
+          console.log('ServiceWorker registration successful with scope: ', registration.scope, buildInfo);
+        }, function (err) {
+          console.log('ServiceWorker registration failed: ', err), buildInfo;
+        });
+      });
+    }
+  </script>
   </script>
 </head>
 <body>
