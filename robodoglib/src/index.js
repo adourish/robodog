@@ -9,6 +9,7 @@ import { RouterModel } from './RouterModel';
 import { StorageService } from './StorageService';
 import { ControlService } from './ControlService';
 import { ConsoleContentComponent } from './ConsoleContentComponent';
+import { SettingsComponent } from './SettingsComponent';
 const RobodogLib = {
     ConsoleService,
     FileService,
@@ -20,7 +21,8 @@ const RobodogLib = {
     RouterModel,
     StorageService,
     ControlService,
-    ConsoleContentComponent
+    ConsoleContentComponent,
+    SettingsComponent
   };
   
   export default RobodogLib;

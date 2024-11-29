@@ -8,6 +8,8 @@ const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
 const providerService = new RobodogLib.ProviderService();
+const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
+const SettingsComponent = RobodogLib.SettingsComponent;
 
 if (consoleService) {
   console.log('index bundle', consoleService)
@@ -526,6 +528,10 @@ function Console() {
       });
   }
 
+  function handleLaunch(name, url) {
+    console.debug('handleLaunch', name, url)
+
+  }
 
   const handleKnowledgeSizeEvent = async (event) => {
     event.preventDefault();
@@ -629,49 +635,12 @@ function Console() {
           ))}
         </select>
       </div>
-      <div id="consoleContent" className="console-content">
-        {content.map((item, index) => {
-          if (item.role === 'image') {
-            return (
-              <div key="{index}"><img src={item.command} alt={item.role} className='image-size-50' /></div>
-            );
-          } else if (item.role === 'ufo') {
-            return (
-              <pre class='ufo-text' key={index} focus={item.focus} alt="{item.datetime}{item.roleEmoji}">
-                <code>{item.command}</code>
-              </pre>
-            );
-          } else if (item.role === 'search') {
-            return (
-              <div key="{index}">{`${item.command}`}<a href={item.url} rel="noreferrer" target="_blank" alt={item.role}>🔗</a></div>
-            );
-          } else if (item.role === 'popup') {
-            return (
-              <pre class='console-text' key={index} focus={item.focus} onClick={() => handleLaunch(item.command, item.url)}>
-                <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
-              </pre>
-            );
-          } else if (item.role === 'model') {
-            return (
-              <pre class='console-text' key={index} focus={item.focus} onClick={() => handleSetModel(item.command)}>
-                <code>{`/model ${item.command}`}</code>
-              </pre>
-            );
-          } else if (item.role === 'setting' || item.role === 'help') {
-            return (
-              <pre class='setting-text' key="{index}" focus="{item.focus}" alt="{item.datetime}{item.roleEmoji}">
-                <code>{item.command}</code>
-              </pre>
-            );
-          } else {
-            return (
-              <pre class='console-text' key={index} focus={item.focus} onClick={() => copyToClipboard(item.command)}>
-                <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
-              </pre>
-            );
-          }
-        })}
-      </div>
+      <ConsoleContentComponent
+        content={content}
+        handleCopyToClipboard={copyToClipboard}
+        handleSetModel={handleSetModel}
+        handleLaunch={handleLaunch}
+      />
       <form onSubmit={handleSubmit} className="input-form">
         <span className="char-count">
           <label htmlFor="totalChars">[{totalChars}]</label>
@@ -688,16 +657,11 @@ function Console() {
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
           <button type="button" onClick={handleStash} aria-label="history" className="button-uploader " title="Stash">📍</button>
         </span>
-        <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
-          <label htmlFor="yamlConfig">Config:</label>
-          <textarea
-            id="yamlConfig"
-            rows="30"
-            className="input-field"
-            value={yamlConfig}
-            onChange={(e) => handleYamlConfigKeyChange(e.target.value)}
-          />
-        </div>
+        <SettingsComponent
+          showSettings={showSettings}
+          yamlConfig={yamlConfig}
+          handleYamlConfigKeyChange={handleYamlConfigKeyChange}
+        />
         <div className={`settings-content ${showSettings ? 'visible' : 'hidden'}`}>
           <label htmlFor="model">Model:</label>
           <input

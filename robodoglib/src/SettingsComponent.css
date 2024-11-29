@@ -1,0 +1,13 @@
+.settings-content {
+    display: none;
+  }
+  
+  .settings-content.visible {
+    display: block;
+  }
+  
+  .input-field {
+    width: 100%; /* Set the width to 100% of the container */
+    padding: 10px; /* Add padding for better readability */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  }
