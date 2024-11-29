@@ -647,6 +647,12 @@ function Console() {
             return (
               <div key="{index}">{`${item.command}`}<a href={item.url} rel="noreferrer" target="_blank" alt={item.role}>🔗</a></div>
             );
+          } else if (item.role === 'popup') {
+            return (
+              <pre class='console-text' key={index} focus={item.focus} onClick={() => handleLaunch(item.command, item.url)}>
+                <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
+              </pre>
+            );
           } else if (item.role === 'model') {
             return (
               <pre class='console-text' key={index} focus={item.focus} onClick={() => handleSetModel(item.command)}>

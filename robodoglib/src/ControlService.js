@@ -9,6 +9,7 @@ class ControlService {
       if (existingWindow) {
         console.debug('createWindow existing', existingWindow, url, name, width, height, left, focused)
         existingWindow.location.href = url;
+        existingWindow.document.title = name;
         this.setFullScreen(name, fullscreen);
         existingWindow.focus();
       } else {
@@ -20,6 +21,7 @@ class ControlService {
         }
         this.windows.set(name, newWindow);
         newWindow.location.href = url;
+        newWindow.document.title = name;
         this.setFullScreen(name, fullscreen);
         if (focused) {
           newWindow.focus();
@@ -30,6 +32,20 @@ class ControlService {
     }
   }
 
+  focus(name = 'Popup') {
+    try {
+      const existingWindow = this.windows.get(name);
+      console.debug('focus', existingWindow, name)
+      if (existingWindow) {
+        existingWindow.focus(name);
+      } else {
+
+      }
+    } catch (error) {
+      console.error('Failed to resize the window', error);
+    }
+  }
+  
   resizeWindow(name = 'Popup', width, height) {
     try {
       const existingWindow = this.windows.get(name);
