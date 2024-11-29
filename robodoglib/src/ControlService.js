@@ -1,8 +1,27 @@
 class ControlService {
 
   constructor() {
-    this.windows = new Map();
+    this.windows = this.getWindowsFromLocalStorage();
   }
+
+  getWindowsFromLocalStorage() {
+    try {
+      const windows = localStorage.getItem('windows');
+      return windows ? new Map(JSON.parse(windows)) : new Map();
+    } catch (error) {
+      console.error('Failed to get windows from local storage', error);
+      return new Map();
+    }
+  }
+
+  saveWindowsToLocalStorage() {
+    try {
+      localStorage.setItem('windows', JSON.stringify(Array.from(this.windows.entries())));
+    } catch (error) {
+      console.error('Failed to save windows to local storage', error);
+    }
+  }
+
   createWindow(url = '', width, height, left, top, name = 'Popup', focused=true, fullscreen=false) {
     try {
       const existingWindow = this.windows.get(name);
@@ -45,7 +64,7 @@ class ControlService {
       console.error('Failed to resize the window', error);
     }
   }
-  
+
   resizeWindow(name = 'Popup', width, height) {
     try {
       const existingWindow = this.windows.get(name);
