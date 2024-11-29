@@ -629,8 +629,6 @@ function Console() {
           ))}
         </select>
       </div>
-
-
       <div id="consoleContent" className="console-content">
         {content.map((item, index) => {
           if (item.role === 'image') {

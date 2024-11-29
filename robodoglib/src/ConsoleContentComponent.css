@@ -1,0 +1,20 @@
+.console-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 17px;
+  }
+  
+  .console-content::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .console-content::-webkit-scrollbar-thumb {
+    background-color: #333;
+    border-radius: 4px;
+  }
+  
+  @media screen and (min-width: 940px) {
+    .console-content {
+      padding-right: 10px;
+    }
+  }
