@@ -1,12 +1,13 @@
 class ControlService {
 
-  constructor() {
-    this.windows = this.getWindowsFromLocalStorage();
+  constructor(key = 'windows') {
+    this.windows = this.getWindowsFromLocalStorage(key);
   }
 
-  getWindowsFromLocalStorage() {
+  getWindowsFromLocalStorage(key = 'windows') {
+
     try {
-      const windows = localStorage.getItem('windows');
+      const windows = localStorage.getItem(key);
       return windows ? new Map(JSON.parse(windows)) : new Map();
     } catch (error) {
       console.error('Failed to get windows from local storage', error);
@@ -14,15 +15,15 @@ class ControlService {
     }
   }
 
-  saveWindowsToLocalStorage() {
+  saveWindowsToLocalStorage(key = 'windows') {
     try {
-      localStorage.setItem('windows', JSON.stringify(Array.from(this.windows.entries())));
+      localStorage.setItem(key, JSON.stringify(Array.from(this.windows.entries())));
     } catch (error) {
       console.error('Failed to save windows to local storage', error);
     }
   }
 
-  createWindow(url = '', width, height, left, top, name = 'Popup', focused=true, fullscreen=false) {
+  createWindow(url = '', width, height, left, top, name = 'Popup', focused = true, fullscreen = false, key = 'windows') {
     try {
       const existingWindow = this.windows.get(name);
       if (existingWindow) {
@@ -48,6 +49,8 @@ class ControlService {
       }
     } catch (error) {
       console.error('Failed to create or focus on the window', error);
+    } finally {
+      this.saveWindowsToLocalStorage(key);
     }
   }
 
@@ -75,8 +78,8 @@ class ControlService {
       console.error('Failed to resize the window', error);
     }
   }
-  
-  setFullScreen(name = 'Popup', fullscreen=false) {
+
+  setFullScreen(name = 'Popup', fullscreen = false) {
     try {
       const existingWindow = this.windows.get(name);
       if (existingWindow && fullscreen) {
