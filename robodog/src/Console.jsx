@@ -125,6 +125,12 @@ function Console() {
   
       const reader = new FileReader();
   
+      // Set up event listener for changes to file here
+      reader.addEventListener('change', () => {
+        // The file has changed - load the new content
+        reader.readAsText(file);
+      });
+  
       reader.onload = (event) => {
         const fileContent = event.target.result;
         if (!fileContent) {
@@ -132,6 +138,7 @@ function Console() {
           return;
         }
   
+        // Set the new content in the state
         setKnowledge(fileContent);
       };
   
@@ -139,6 +146,7 @@ function Console() {
         console.debug('Error reading file', error);
       };
   
+      // Initial read of the file
       reader.readAsText(file);
     } catch (error) {
       console.error('Error in handleChange', error);
@@ -147,6 +155,7 @@ function Console() {
 
   useEffect(() => {
     try {
+
       if (window.matchMedia('(display-mode: standalone)').matches) {
         setIsPWA(true);
       } else {
