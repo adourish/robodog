@@ -1,23 +1,23 @@
 class ControlService {
 
   constructor(key = 'windows') {
-    this.windows = this.getWindowsFromLocalStorage(key);
+    this.windows = this.getWindowInfoFromLocalStorage(key);
   }
 
-  getWindowsFromLocalStorage(key = 'windows') {
-
+  getWindowInfoFromLocalStorage(key = 'windows') {
     try {
-      const windows = localStorage.getItem(key);
-      return windows ? new Map(JSON.parse(windows)) : new Map();
+      const windowInfo = localStorage.getItem(key);
+      return windowInfo ? new Map(JSON.parse(windowInfo)) : new Map();
     } catch (error) {
       console.error('Failed to get windows from local storage', error);
       return new Map();
     }
   }
 
-  saveWindowsToLocalStorage(key = 'windows') {
+  saveWindowInfoToLocalStorage(key = 'windows') {
     try {
-      localStorage.setItem(key, JSON.stringify(Array.from(this.windows.entries())));
+      const windowInfoArray = Array.from(this.windows.entries()).map(([name, {url}]) => [name, {url}]);
+      localStorage.setItem(key, JSON.stringify(windowInfoArray));
     } catch (error) {
       console.error('Failed to save windows to local storage', error);
     }
@@ -25,35 +25,33 @@ class ControlService {
 
   createWindow(url = '', width, height, left, top, name = 'Popup', focused = true, fullscreen = false, key = 'windows') {
     try {
-      const existingWindow = this.windows.get(name);
-      if (existingWindow) {
-        console.debug('createWindow existing', existingWindow, url, name, width, height, left, focused)
-        existingWindow.location.href = url;
-        existingWindow.document.title = name;
-        this.setFullScreen(name, fullscreen);
-        existingWindow.focus();
-      } else {
-        console.debug('createWindow existing', url, name, width, height, left, focused)
+      const existingWindowInfo = this.windows.get(name);
+      if (!existingWindowInfo) {
+        console.debug('Creating new window', url, name, width, height, left, focused)
         const features = `width=${width},height=${height},left=${left},top=${top}`;
         const newWindow = window.open(url, name, features);
         if (newWindow === null) {
           throw new Error('Failed to create a new window');
         }
-        this.windows.set(name, newWindow);
+        // Save window information, not the window object itself
+        this.windows.set(name, {url});
         newWindow.location.href = url;
         newWindow.document.title = name;
-        this.setFullScreen(name, fullscreen);
+        this.setFullScreen(newWindow, fullscreen);
         if (focused) {
           newWindow.focus();
         }
+        this.saveWindowInfoToLocalStorage(key);
+      } else {
+        console.debug('Window already exists', existingWindowInfo, url, name, width, height, left, focused)
+        // Refresh the existing window instead of opening a new one
+        const existingWindow = window.open(existingWindowInfo.url, name);
+        existingWindow.focus();
       }
     } catch (error) {
       console.error('Failed to create or focus on the window', error);
-    } finally {
-      this.saveWindowsToLocalStorage(key);
     }
   }
-
   focus(name = 'Popup') {
     try {
       const existingWindow = this.windows.get(name);
