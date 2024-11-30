@@ -119,7 +119,7 @@ function Console() {
     try {
       const file = event.target.files[0];
       if (!file) {
-        console.debug('No file selected');
+        console.debug('handleChange No file selected');
         return;
       }
   
@@ -129,6 +129,8 @@ function Console() {
       reader.addEventListener('change', () => {
         // The file has changed - load the new content
         reader.readAsText(file);
+        console.debug('handleChange File is empty', file);
+        setKnowledge(file);
       });
   
       reader.onload = (event) => {
@@ -137,7 +139,7 @@ function Console() {
           console.debug('File is empty');
           return;
         }
-  
+        console.debug('handleChange set knowledge', fileContent.length);
         // Set the new content in the state
         setKnowledge(fileContent);
       };
@@ -145,9 +147,10 @@ function Console() {
       reader.onerror = (error) => {
         console.debug('Error reading file', error);
       };
-  
+      console.debug('handleChange set knowledge', file);
       // Initial read of the file
       reader.readAsText(file);
+      
     } catch (error) {
       console.error('Error in handleChange', error);
     }
@@ -710,7 +713,7 @@ function Console() {
           <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
           <button type="button" onClick={handleStash} aria-label="history" className="button-uploader " title="Stash">📍</button>
-          {isPWA && <input type="file" onChange={handleChange} />}
+          {isPWA && <input type="file" onChange={handleChange} title="👀" />}
         </span>
         <SettingsComponent
           showSettings={showSettings}
