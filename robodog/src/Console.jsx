@@ -61,7 +61,7 @@ function Console() {
   const [options, setOptions] = useState([]);
   const [stashList, setStashList] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
-
+  const [isPWA, setIsPWA] = useState(false);
 
   useEffect(() => {
     console.log('Component has mounted!');
@@ -113,6 +113,51 @@ function Console() {
     // Call the function to set focus on the last item when content changes
     setFocusOnLastItem();
   }, [content]);
+
+  
+  const handleChange = (event) => {
+    try {
+      const file = event.target.files[0];
+      if (!file) {
+        console.debug('No file selected');
+        return;
+      }
+  
+      const reader = new FileReader();
+  
+      reader.onload = (event) => {
+        const fileContent = event.target.result;
+        if (!fileContent) {
+          console.debug('File is empty');
+          return;
+        }
+  
+        setKnowledge(fileContent);
+      };
+  
+      reader.onerror = (error) => {
+        console.debug('Error reading file', error);
+      };
+  
+      reader.readAsText(file);
+    } catch (error) {
+      console.error('Error in handleChange', error);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        setIsPWA(true);
+      } else {
+        window.addEventListener('appinstalled', () => {
+          setIsPWA(true);
+        });
+      }
+    } catch (error) {
+      console.error('Error in detecting PWA', error);
+    }
+  }, []);
 
   const handleSettingsToggle = () => {
     console.debug('handleSettingsToggle', showSettings)
@@ -656,6 +701,7 @@ function Console() {
           <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
           <button type="button" onClick={handleStash} aria-label="history" className="button-uploader " title="Stash">📍</button>
+          {isPWA && <input type="file" onChange={handleChange} />}
         </span>
         <SettingsComponent
           showSettings={showSettings}
