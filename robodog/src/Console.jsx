@@ -92,11 +92,41 @@ function Console() {
       setCurrentKey('autosave');
       setCommands(_commands);
 
+      // Read the local file content from cache when the app starts
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(function (sw) {
+          console.debug('console message', sw)
+          sw.active.postMessage({
+            command: 'fetch',
+            url: 'console.knowledge'
+          });
+        });
+      }
+
+      // Listen for messages from service worker
+      navigator.serviceWorker.addEventListener('message', function (event) {
+        console.debug('console message', event)
+        if (event.data.command === 'fetch') {
+          setKnowledge(event.data.data);
+        }
+      });
+
     }
     return () => {
       console.log('Cleaning up...');
     };
-  }, [isLoaded, setIsLoaded, size, commands, selectedCommand, setSelectedCommand, setContext, setKnowledge, setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, setCurrentKey, setStashList, setSize, knowledgeTextarea, setknowledgeTextarea, contextTextarea, setcontextTextarea]);
+  }, [isLoaded,
+    setIsLoaded,
+    size,
+    commands,
+    selectedCommand,
+    setSelectedCommand,
+    setContext,
+    setKnowledge,
+    setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea,
+    model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty,
+    setCurrentKey, setStashList, setSize,
+    knowledgeTextarea, setknowledgeTextarea, contextTextarea, setcontextTextarea]);
 
   const setFocusOnLastItem = () => {
     setContent(prevContent => {
@@ -114,7 +144,7 @@ function Console() {
     setFocusOnLastItem();
   }, [content]);
 
-  
+
   const handleChange = (event) => {
     try {
       const file = event.target.files[0];
@@ -122,9 +152,9 @@ function Console() {
         console.debug('handleChange No file selected');
         return;
       }
-  
+
       const reader = new FileReader();
-  
+
       // Set up event listener for changes to file here
       reader.addEventListener('change', () => {
         // The file has changed - load the new content
@@ -132,7 +162,7 @@ function Console() {
         console.debug('handleChange File is empty', file);
         setKnowledge(file);
       });
-  
+
       reader.onload = (event) => {
         const fileContent = event.target.result;
         if (!fileContent) {
@@ -143,14 +173,14 @@ function Console() {
         // Set the new content in the state
         setKnowledge(fileContent);
       };
-  
+
       reader.onerror = (error) => {
         console.debug('Error reading file', error);
       };
       console.debug('handleChange set knowledge', file);
       // Initial read of the file
       reader.readAsText(file);
-      
+
     } catch (error) {
       console.error('Error in handleChange', error);
     }
@@ -285,6 +315,13 @@ function Console() {
     const value = event.target.value;
     setKnowledge(value);
     handleCharsChange(event);
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        command: 'update',
+        url: 'console.knowledge',
+        data: value
+      });
+    }
   };
 
   const handleCharsChange = (event) => {

@@ -16,13 +16,27 @@ self.addEventListener('install', function(event) {
 });
 
 self.addEventListener('fetch', function(event) {
- console.log('[PWA Builder] The service worker is serving the asset.');
+  console.debug('robodog.service fetch listen', event)
+  if (event.request.url.includes('console.knowledge')) {
+    event.respondWith(
+      caches.open('your_cache_name').then(function(cache) {
+        return cache.match(event.request).then(function(response) {
+          var fetchPromise = fetch(event.request).then(function(networkResponse) {
+            cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+          });
+          return response || fetchPromise;
+        })
+      })
+    );
+  }
+});
 
- event.respondWith(
-   caches.open(CACHE).then(function(cache) {
-     return cache.match(event.request).then(function(response) {
-       return response || fetch(event.request);
-     })
-   })
- );
+self.addEventListener('message', function(event) {
+  console.debug('console.service message', event)
+  if (event.data.command === 'update') {
+    caches.open('your_cache_name').then(function(cache) {
+      cache.put(event.data.url, new Response(event.data.data));
+    });
+  }
 });
