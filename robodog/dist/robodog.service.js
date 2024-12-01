@@ -8,7 +8,7 @@ self.addEventListener('install', function(event) {
 
  event.waitUntil(
    caches.open(serviceworkerCACHE).then(function(cache) {
-     console.log('[PWA Builder] Cached offline page during install');
+     console.log('robodog.service Cached offline page during install');
      
      return cache.addAll(precacheFiles);
    })

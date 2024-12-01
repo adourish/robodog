@@ -155,14 +155,6 @@ function Console() {
 
       const reader = new FileReader();
 
-      // Set up event listener for changes to file here
-      reader.addEventListener('change', () => {
-        // The file has changed - load the new content
-        reader.readAsText(file);
-        console.debug('handleChange File is empty', file);
-        setKnowledge(file);
-      });
-
       reader.onload = (event) => {
         const fileContent = event.target.result;
         if (!fileContent) {
