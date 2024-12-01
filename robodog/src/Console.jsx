@@ -95,7 +95,7 @@ function Console() {
       // Read the local file content from cache when the app starts
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(function (sw) {
-          console.debug('console message', sw)
+          console.debug('console serviceWorker message', sw)
           sw.active.postMessage({
             command: 'fetch',
             url: 'console.knowledge'

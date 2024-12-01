@@ -22,6 +22,7 @@ self.addEventListener('fetch', function(event) {
       caches.open(serviceworkerCACHE).then(function(cache) {
         return cache.match(event.request).then(function(response) {
           var fetchPromise = fetch(event.request).then(function(networkResponse) {
+            console.debug('robodog.service put cache', event)
             cache.put(event.request, networkResponse.clone());
             return networkResponse;
           });
