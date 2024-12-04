@@ -93,25 +93,7 @@ function Console() {
       setCurrentKey('autosave');
       setCommands(_commands);
 
-      // Initiate a DataChannel
-      const dataChannel = rtcService.createDataChannel("robodog-knowledge-channel");
-      console.debug('dataChannel', dataChannel);
-      dataChannel.onopen = () => {
-        console.log("Data channel is open");
-      };
 
-      dataChannel.onmessage = (event) => {
-        console.debug('DataChannel Received message', event.data);
-        setKnowledge(event.data);
-      };
-
-      dataChannel.onerror = (error) => {
-        console.error("Data Channel Error:", error);
-      };
-
-      dataChannel.onclose = () => {
-        console.log("The Data Channel is Closed");
-      };
     }
     return () => {
       console.log('Cleaning up...');
@@ -264,6 +246,7 @@ function Console() {
   };
 
 
+
   const handleContextChange = (event) => {
     const value = event.target.value;
     setContext(value);
@@ -271,13 +254,41 @@ function Console() {
   };
 
   const handleKnowledgeChange = (event) => {
+    console.debug('handleKnowledgeChange', event)
     const value = event.target.value;
     setKnowledge(value);
     handleCharsChange(event);
-
-    rtcService.send(value);
+    /**
+        if (!this.dataChannel && 1===2) {
+         this.dataChannel = getDataChannel();
+         rtcService.send(value);
+        } else {
+         rtcService.send(value);
+        } */
   };
 
+  function getDataChannel() {
+    // Initiate a DataChannel
+    const dataChannel = rtcService.createDataChannel("robodog-knowledge-channel");
+    console.debug('dataChannel', dataChannel);
+    dataChannel.onopen = () => {
+      console.log("Data channel is open");
+    };
+
+    dataChannel.onmessage = (event) => {
+      console.debug('DataChannel Received message', event.data);
+      setKnowledge(event.data);
+    };
+
+    dataChannel.onerror = (error) => {
+      console.error("Data Channel Error:", error);
+    };
+
+    dataChannel.onclose = () => {
+      console.log("The Data Channel is Closed");
+    };
+    return dataChannel;
+  }
   const handleCharsChange = (event) => {
     try {
       var c = consoleService.calculateTokens(context);

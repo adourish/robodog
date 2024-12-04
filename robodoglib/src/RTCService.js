@@ -24,10 +24,12 @@ class RTCService {
             console.debug('RTCService new onicecandidate', candidate);
             if (candidate) {
                 try {
-                    if (this.peerConnection && this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type) {
+                    // Check if remoteDescription is set and candidates haven't been exchanged yet
+                    if (this.peerConnection && this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type && !this.candidatesExchanged) {
                         await this.peerConnection.addIceCandidate(candidate);
+                        this.candidatesExchanged = true; // Set a flag indicating that candidates have been exchanged
                     } else {
-                        // Queue up the candidate if remoteDescription is not set.
+                        // Queue up the candidate if remoteDescription is not set or candidates have been exchanged
                         this.queuedCandidates = this.queuedCandidates || [];
                         this.queuedCandidates.push(candidate);
                     }
@@ -55,7 +57,7 @@ class RTCService {
     }
     async isOpen() {
         try {
-            if(this.dataChannel.readyState !== 'open'){
+            if(this.dataChannel.readyState !== 'new'){
                 await this.createOffer();
             }
             return this.dataChannel.readyState === 'open';
