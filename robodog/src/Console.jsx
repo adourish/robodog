@@ -93,7 +93,7 @@ function Console() {
       setCurrentKey('autosave');
       setCommands(_commands);
 
-
+      //this.getMessage();
     }
     return () => {
       console.log('Cleaning up...');
@@ -258,36 +258,24 @@ function Console() {
     const value = event.target.value;
     setKnowledge(value);
     handleCharsChange(event);
-    /**
-        if (!this.dataChannel && 1===2) {
-         this.dataChannel = getDataChannel();
-         rtcService.send(value);
-        } else {
-         rtcService.send(value);
-        } */
+
+    // Send message when knowledge changes
+    rtcService.sendMessage(value)
+      .then(() => console.debug('Message sent successfully'))
+      .catch(error => console.error('Error sending message', error));
+
   };
 
-  function getDataChannel() {
-    // Initiate a DataChannel
-    const dataChannel = rtcService.createDataChannel("robodog-knowledge-channel");
-    console.debug('dataChannel', dataChannel);
-    dataChannel.onopen = () => {
-      console.log("Data channel is open");
-    };
+  const getMessage = (event) => {
 
-    dataChannel.onmessage = (event) => {
-      console.debug('DataChannel Received message', event.data);
-      setKnowledge(event.data);
-    };
-
-    dataChannel.onerror = (error) => {
-      console.error("Data Channel Error:", error);
-    };
-
-    dataChannel.onclose = () => {
-      console.log("The Data Channel is Closed");
-    };
-    return dataChannel;
+        /* Use RTCService to get an initial message
+        rtcService.getMessage()
+        .then(message => {
+          console.log('Received message:', message);
+          // Use the received message here
+        })
+        .catch(error => console.error('Error receiving message:', error));
+        **/
   }
   const handleCharsChange = (event) => {
     try {
