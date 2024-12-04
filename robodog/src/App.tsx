@@ -5,7 +5,7 @@ import Console from './Console';
 function App() {
   return (
     <div className="App">
-      <Console /> {}
+      <Console /> 
     </div>
   );
 }

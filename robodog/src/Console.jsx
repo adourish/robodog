@@ -8,6 +8,7 @@ const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
 const providerService = new RobodogLib.ProviderService();
+const rtcService = new RobodogLib.RTCService();
 const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
 const SettingsComponent = RobodogLib.SettingsComponent;
 
@@ -92,25 +93,7 @@ function Console() {
       setCurrentKey('autosave');
       setCommands(_commands);
 
-      // Read the local file content from cache when the app starts
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(function (sw) {
-          console.debug('console serviceWorker message', sw)
-          sw.active.postMessage({
-            command: 'fetch',
-            url: 'console.knowledge'
-          });
-        });
-      }
-
-      // Listen for messages from service worker
-      navigator.serviceWorker.addEventListener('message', function (event) {
-        console.debug('console message', event)
-        if (event.data.command === 'fetch') {
-          setKnowledge(event.data.data);
-        }
-      });
-
+      //this.getMessage();
     }
     return () => {
       console.log('Cleaning up...');
@@ -143,40 +126,6 @@ function Console() {
     // Call the function to set focus on the last item when content changes
     setFocusOnLastItem();
   }, [content]);
-
-
-  const handleChange = (event) => {
-    try {
-      const file = event.target.files[0];
-      if (!file) {
-        console.debug('handleChange No file selected');
-        return;
-      }
-
-      const reader = new FileReader();
-
-      reader.onload = (event) => {
-        const fileContent = event.target.result;
-        if (!fileContent) {
-          console.debug('File is empty');
-          return;
-        }
-        console.debug('handleChange set knowledge', fileContent.length);
-        // Set the new content in the state
-        setKnowledge(fileContent);
-      };
-
-      reader.onerror = (error) => {
-        console.debug('Error reading file', error);
-      };
-      console.debug('handleChange set knowledge', file);
-      // Initial read of the file
-      reader.readAsText(file);
-
-    } catch (error) {
-      console.error('Error in handleChange', error);
-    }
-  };
 
   useEffect(() => {
     try {
@@ -228,51 +177,51 @@ function Console() {
     console.debug('handleModelChange', model);
     setModel(model)
   };
-  const handleKeyDown = (event) => {
-    if (event.ctrlKey && event.shiftKey && event.keyCode === 38) {
-      console.log(currentIndex);
-      var total = consoleService.setStashIndex(currentIndex,
-        setContext,
-        setKnowledge,
-        setQuestion,
-        setContent,
-        setCurrentIndex,
-        setCurrentKey,
-        setTemperature,
-        setShowTextarea);
-      if (currentIndex >= total - 1) {
-        setCurrentIndex(0);
-      } else {
-        var _i = currentIndex + 1;
-        console.log(_i);
-        setCurrentIndex(_i);
-      }
-    }
-  };
 
-  const handleCtrlS = (event) => {
-    if (event.ctrlKey && event.keyCode === 83) {
-      // Save logic here
-      event.preventDefault();
-      var key = consoleService.save(context, knowledge, question, content, temperature, showTextarea);
-    }
-  };
 
   useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.ctrlKey && event.shiftKey && event.keyCode === 38) {
+        console.log(currentIndex);
+        var total = consoleService.setStashIndex(currentIndex,
+          setContext,
+          setKnowledge,
+          setQuestion,
+          setContent,
+          setCurrentIndex,
+          setCurrentKey,
+          setTemperature,
+          setShowTextarea);
+        if (currentIndex >= total - 1) {
+          setCurrentIndex(0);
+        } else {
+          var _i = currentIndex + 1;
+          console.log(_i);
+          setCurrentIndex(_i);
+        }
+      }
+    };
+
+    const handleCtrlS = (event) => {
+      if (event.ctrlKey && event.keyCode === 83) {
+        // Save logic here
+        event.preventDefault();
+        var key = consoleService.save(context, knowledge, question, content, temperature, showTextarea);
+      }
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keydown', handleCtrlS);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', handleCtrlS);
     };
-  }, [currentIndex, setContext, setKnowledge, setQuestion, handleCtrlS, handleKeyDown, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, question]);
+  }, [currentIndex, setContext, setKnowledge, setQuestion, showTextarea, temperature, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, question]);
 
   const handleInputChange = (event) => {
     const value = event.target.value;
     setQuestion(value);
     handleCharsChange(event);
   };
-
 
 
   const handleFileUpload = (event) => {
@@ -297,6 +246,7 @@ function Console() {
   };
 
 
+
   const handleContextChange = (event) => {
     const value = event.target.value;
     setContext(value);
@@ -304,18 +254,29 @@ function Console() {
   };
 
   const handleKnowledgeChange = (event) => {
+    console.debug('handleKnowledgeChange', event)
     const value = event.target.value;
     setKnowledge(value);
     handleCharsChange(event);
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        command: 'update',
-        url: 'console.knowledge',
-        data: value
-      });
-    }
+
+    // Send message when knowledge changes
+    rtcService.sendMessage(value)
+      .then(() => console.debug('Message sent successfully'))
+      .catch(error => console.error('Error sending message', error));
+
   };
 
+  const getMessage = (event) => {
+
+        /* Use RTCService to get an initial message
+        rtcService.getMessage()
+        .then(message => {
+          console.log('Received message:', message);
+          // Use the received message here
+        })
+        .catch(error => console.error('Error receiving message:', error));
+        **/
+  }
   const handleCharsChange = (event) => {
     try {
       var c = consoleService.calculateTokens(context);
@@ -742,7 +703,7 @@ function Console() {
           <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>
           <button type="button" onClick={handleStash} aria-label="history" className="button-uploader " title="Stash">📍</button>
-          {isPWA && <input type="file" onChange={handleChange} title="👀" />}
+
         </span>
         <SettingsComponent
           showSettings={showSettings}
