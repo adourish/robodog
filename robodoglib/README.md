@@ -208,6 +208,10 @@ Switch chat contexts using the stash, pop, and list commands.
 
 ![Mobile](stash.png)
 
+## File watcher
+
+python robodogw.py -s 'localhost' -p 3000 -f 'messages.txt'
+
 ## Menu
 
 Use the drop-down menu to select options.

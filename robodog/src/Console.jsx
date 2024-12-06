@@ -9,6 +9,7 @@ const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
 const providerService = new RobodogLib.ProviderService();
 const rtcService = new RobodogLib.RTCService();
+const hostService = new RobodogLib.HostService()
 const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
 const SettingsComponent = RobodogLib.SettingsComponent;
 
@@ -63,6 +64,7 @@ function Console() {
   const [stashList, setStashList] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
+  const [intervalId, setIntervalId] = useState(0);
 
   useEffect(() => {
     console.log('Component has mounted!');
@@ -92,13 +94,27 @@ function Console() {
       setContent(list);
       setCurrentKey('autosave');
       setCommands(_commands);
-
-      //this.getMessage();
+      hostService.init('localhost', 2500);
+      const _intervalId = setInterval(() => {
+        hostService.getMessage().then((message) => {
+          if (message && message.message && message.message !=='' && message.message.length !== 0) {
+            setKnowledge(message.message)
+          }else{
+            console.debug('getMessage no data', message)
+          }
+          console.log('getMessage message:', message);
+        })
+          .catch((error) => {
+            console.warn('Error in getMessage:', error);
+          });
+      }, 5000); // This will call getMessage every 5 seconds
+      setInterval(_intervalId)
     }
     return () => {
+      clearInterval(intervalId);
       console.log('Cleaning up...');
     };
-  }, [isLoaded,
+  }, [intervalId, setIntervalId, isLoaded,
     setIsLoaded,
     size,
     commands,
@@ -121,6 +137,7 @@ function Console() {
       });
     });
   };
+
 
   useEffect(() => {
     // Call the function to set focus on the last item when content changes
@@ -259,24 +276,16 @@ function Console() {
     setKnowledge(value);
     handleCharsChange(event);
 
-    // Send message when knowledge changes
-    rtcService.sendMessage(value)
-      .then(() => console.debug('Message sent successfully'))
-      .catch(error => console.error('Error sending message', error));
+    hostService.sendMessage(value)
+      .then(() =>
+        console.debug('Message sent successfully', value)
+      )
+      .catch(error =>
+        console.error('Error sending message', error));
 
   };
 
-  const getMessage = (event) => {
 
-        /* Use RTCService to get an initial message
-        rtcService.getMessage()
-        .then(message => {
-          console.log('Received message:', message);
-          // Use the received message here
-        })
-        .catch(error => console.error('Error receiving message:', error));
-        **/
-  }
   const handleCharsChange = (event) => {
     try {
       var c = consoleService.calculateTokens(context);
