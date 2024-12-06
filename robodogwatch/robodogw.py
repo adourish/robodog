@@ -47,11 +47,19 @@ class GetMessage(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
     def get(self):
         try:
-            with open(args.file, 'r') as file:
+            if not os.path.exists(args.file):
+                logging.error('File does not exist')
+                return {'error': 'File does not exist'}, 404
+
+            file_size = os.stat(args.file).st_size
+            logging.info('File size: %s bytes name: %s ', file_size, args.file)
+
+            with open(args.file, 'r', encoding='utf-8') as file:
                 data = file.readlines()
+                
             response = make_response(jsonify({'message': data}))
             response.headers.add("Access-Control-Allow-Origin", "*")
-            logging.error('response message: %s', str(response))
+            logging.info('Response message: %s', str(response))
             return response
         except Exception as e:
             logging.error('Failed to get message: %s', str(e))
