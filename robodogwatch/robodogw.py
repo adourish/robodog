@@ -6,11 +6,11 @@ from flask_restful import Resource, Api
 import argparse
 import os
 import yaml
-
+# pip install Flask flask_cors Flask-RESTful argparse pyyaml
 parser = argparse.ArgumentParser()
 parser.add_argument('-s', '--server', default='localhost')
 parser.add_argument('-p', '--port', type=int, default=2500)
-parser.add_argument('-f', '--file', default='k.txt')
+parser.add_argument('-f', '--file', default='k2.txt')
 parser.add_argument('-g', '--group', default=None)
 args = parser.parse_args()
 
@@ -52,6 +52,7 @@ def after_request(response):
     return response
 
 class SendMessage(Resource):
+    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
     def post(self):
         try:
             message = request.get_json()
@@ -62,6 +63,36 @@ class SendMessage(Resource):
             return {'message': 'Message written to file successfully'}, 200
         except Exception as e:
             logging.error('Failed to post message: %s', str(e))
+            return {'error': str(e)}, 500
+
+class SetActiveGroup(Resource):
+    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
+    def post(self):
+        try:
+            data = request.get_json()
+            if 'group' in data:
+                args.group = data['group']
+                return {'message': f'Active group set to {args.group}'}, 200
+            else:
+                return {'error': 'Group data not provided in request'}, 400
+        except Exception as e:
+            logging.error('Failed to set active group: %s', str(e))
+            return {'error': str(e)}, 500
+
+class GetGroups(Resource):
+    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
+    def get(self):
+        try:
+            if 'groups' in config:
+                groups = [group['name'] for group in config['groups']]
+                return {'groups': groups}, 200
+            else:
+                return {'error': 'No groups found in config'}, 404
+        except KeyError as ke:
+            logging.error('KeyError: %s', str(ke))
+            return {'error': 'KeyError occurred'}, 500
+        except Exception as e:
+            logging.error('Failed to get groups: %s', str(e))
             return {'error': str(e)}, 500
 
 class GetMessage(Resource):
@@ -86,9 +117,29 @@ class GetMessage(Resource):
             logging.error('Failed to get message: %s', str(e))
             return {'error': str(e)}, 500
 
+class SetActiveFile(Resource):
+    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
+    def post(self):
+        try:
+            data = request.get_json()
+            if 'file' in data:
+                if os.path.isfile(data['file']):
+                    args.file = data['file']
+                    return {'message': f'Active file set to {args.file}'}, 200
+                else:
+                    return {'error': 'File does not exist'}, 404
+            else:
+                return {'error': 'File data not provided in request'}, 400
+        except Exception as e:
+            logging.error('Failed to set active file: %s', str(e))
+            return {'error': str(e)}, 500
+
 api = Api(app)
 api.add_resource(SendMessage, '/api/sendMessage')
 api.add_resource(GetMessage, '/api/getMessage')
+api.add_resource(GetGroups, '/api/getGroups')
+api.add_resource(SetActiveGroup, '/api/activateGroup')
+api.add_resource(SetActiveFile, '/api/activateFile')
 
 if __name__ == '__main__':
     app.run(host=args.server, port=args.port)
