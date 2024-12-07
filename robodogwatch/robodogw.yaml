@@ -1,0 +1,13 @@
+server: 'localhost'
+port: 2500
+groups:
+  - name: g1
+    files:
+      - 'k1.txt'
+  - name: g2
+    files:
+      - 'k1.txt'
+      - 'k2.txt'
+  - name: g3
+    files:
+      - 'k*.txt'

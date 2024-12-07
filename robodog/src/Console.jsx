@@ -65,6 +65,7 @@ function Console() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const [intervalId, setIntervalId] = useState(0);
+  const [watch, setWatch] = useState('💻');
 
   useEffect(() => {
     console.log('Component has mounted!');
