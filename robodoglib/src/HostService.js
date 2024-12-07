@@ -29,6 +29,7 @@ class HostService {
     }
 
 
+    
     sendMessage(message) {
         if (!message) {
             throw new Error('HostService.sendMessage Message cannot be empty');

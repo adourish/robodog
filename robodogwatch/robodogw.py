@@ -38,7 +38,7 @@ if args.file:
 app = Flask(__name__)
 cors = CORS(app, resources={r"/*": {"origins": ["localhost", "file:///", "your_client_origin"]}}, send_wildcard=True)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logging.info('start')
 
 @app.after_request
@@ -60,24 +60,15 @@ class SendMessage(Resource):
                 return {'error': 'Message cannot be empty'}, 400
             with open(args.file, 'a') as file:
                 file.write(str(message) + '\n')
-            return {'message': 'Message written to file successfully'}, 200
+            
+            response = make_response({'message': 'Message written to file successfully'})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response, 200
         except Exception as e:
             logging.error('Failed to post message: %s', str(e))
             return {'error': str(e)}, 500
 
-class SetActiveGroup(Resource):
-    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
-    def post(self):
-        try:
-            data = request.get_json()
-            if 'group' in data:
-                args.group = data['group']
-                return {'message': f'Active group set to {args.group}'}, 200
-            else:
-                return {'error': 'Group data not provided in request'}, 400
-        except Exception as e:
-            logging.error('Failed to set active group: %s', str(e))
-            return {'error': str(e)}, 500
+
 
 class GetGroups(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
@@ -85,7 +76,9 @@ class GetGroups(Resource):
         try:
             if 'groups' in config:
                 groups = [group['name'] for group in config['groups']]
-                return {'groups': groups}, 200
+                response = make_response(jsonify({'groups': groups}))
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response, 200
             else:
                 return {'error': 'No groups found in config'}, 404
         except KeyError as ke:
@@ -94,7 +87,7 @@ class GetGroups(Resource):
         except Exception as e:
             logging.error('Failed to get groups: %s', str(e))
             return {'error': str(e)}, 500
-
+        
 class GetMessage(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
     def get(self):
@@ -117,15 +110,33 @@ class GetMessage(Resource):
             logging.error('Failed to get message: %s', str(e))
             return {'error': str(e)}, 500
 
+class SetActiveGroup(Resource):
+    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type', 'Authorization'])
+    def post(self):
+        try:
+            data = request.get_json()
+            if 'group' in data:
+                args.group = data['group']
+                response = make_response({'message': f'Active group set to {args.group}'}, 200)
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response
+            else:
+                return {'error': 'Group data not provided in request'}, 400
+        except Exception as e:
+            logging.error('Failed to set active group: %s', str(e))
+            return {'error': str(e)}, 500
+
 class SetActiveFile(Resource):
-    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
+    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type', 'Authorization'])
     def post(self):
         try:
             data = request.get_json()
             if 'file' in data:
                 if os.path.isfile(data['file']):
                     args.file = data['file']
-                    return {'message': f'Active file set to {args.file}'}, 200
+                    response = make_response({'message': f'Active file set to {args.file}'}, 200)
+                    response.headers.add("Access-Control-Allow-Origin", "*")
+                    return response
                 else:
                     return {'error': 'File does not exist'}, 404
             else:
