@@ -66,28 +66,10 @@ class SendMessage(Resource):
             return response, 200
         except Exception as e:
             logging.error('Failed to post message: %s', str(e))
-            return {'error': str(e)}, 500
+            response = make_response({'error': str(e)})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response, 500
 
-
-
-class GetGroups(Resource):
-    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
-    def get(self):
-        try:
-            if 'groups' in config:
-                groups = [group['name'] for group in config['groups']]
-                response = make_response(jsonify({'groups': groups}))
-                response.headers.add("Access-Control-Allow-Origin", "*")
-                return response, 200
-            else:
-                return {'error': 'No groups found in config'}, 404
-        except KeyError as ke:
-            logging.error('KeyError: %s', str(ke))
-            return {'error': 'KeyError occurred'}, 500
-        except Exception as e:
-            logging.error('Failed to get groups: %s', str(e))
-            return {'error': str(e)}, 500
-        
 class GetMessage(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
     def get(self):
@@ -108,7 +90,33 @@ class GetMessage(Resource):
             return response
         except Exception as e:
             logging.error('Failed to get message: %s', str(e))
-            return {'error': str(e)}, 500
+            response = make_response({'error': str(e)})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response, 500
+
+class GetGroups(Resource):
+    @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
+    def get(self):
+        try:
+            if 'groups' in config:
+                groups = [group['name'] for group in config['groups']]
+                response = make_response(jsonify({'groups': groups}))
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response, 200
+            else:
+                response = make_response({'error': 'No groups found in config'})
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response, 404
+        except KeyError as ke:
+            logging.error('KeyError: %s', str(ke))
+            response = make_response({'error': 'KeyError occurred'})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response, 500
+        except Exception as e:
+            logging.error('Failed to get groups: %s', str(e))
+            response = make_response({'error': str(e)})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response, 500
 
 class SetActiveGroup(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type', 'Authorization'])
@@ -116,15 +124,25 @@ class SetActiveGroup(Resource):
         try:
             data = request.get_json()
             if 'group' in data:
-                args.group = data['group']
-                response = make_response({'message': f'Active group set to {args.group}'}, 200)
-                response.headers.add("Access-Control-Allow-Origin", "*")
-                return response
+                if data['group'] in [group['name'] for group in config['groups']]:
+                    args.group = data['group']
+                    response = make_response({'message': f'Active group set to {args.group}'}, 200)
+                    response.headers.add("Access-Control-Allow-Origin", "*")
+                    return response
+                else:
+                    response = make_response({'error': 'Group not found in config'})
+                    response.headers.add("Access-Control-Allow-Origin", "*")
+                    return response, 404
             else:
-                return {'error': 'Group data not provided in request'}, 400
+                response = make_response({'error': 'Group data not provided in request'})
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response, 400
         except Exception as e:
             logging.error('Failed to set active group: %s', str(e))
-            return {'error': str(e)}, 500
+            response = make_response({'error': str(e)})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response, 500
+
 
 class SetActiveFile(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type', 'Authorization'])
@@ -135,16 +153,22 @@ class SetActiveFile(Resource):
                 if os.path.isfile(data['file']):
                     args.file = data['file']
                     response = make_response({'message': f'Active file set to {args.file}'}, 200)
-                    response.headers.add("Access-Control-Allow-Origin", "*")
+                    response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
                     return response
                 else:
-                    return {'error': 'File does not exist'}, 404
+                    response = make_response({'error': 'File does not exist'})
+                    response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
+                    return response, 404
             else:
-                return {'error': 'File data not provided in request'}, 400
+                response = make_response({'error': 'File data not provided in request'})
+                response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
+                return response, 400
         except Exception as e:
             logging.error('Failed to set active file: %s', str(e))
-            return {'error': str(e)}, 500
-
+            response = make_response({'error': str(e)})
+            response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
+            return response, 500
+        
 api = Api(app)
 api.add_resource(SendMessage, '/api/sendMessage')
 api.add_resource(GetMessage, '/api/getMessage')

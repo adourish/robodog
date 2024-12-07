@@ -277,8 +277,12 @@ function Console() {
     var message = 'Fetching groups';
     hostService.getGroups()
       .then(groups => {
-        const groupNames = groups.map(group => group.name).join(', ');
-        setContent([...content, consoleService.getMessageWithTimestamp(`Groups: ${groupNames}`, 'experiment')]);
+        if (groups && groups.groups && Array.isArray(groups.groups)) {
+          const groupNames = groups.map(group => group.name).join(', ');
+          setContent([...content, consoleService.getMessageWithTimestamp(`Groups: ${groupNames}`, 'experiment')]);
+        } else {
+          console.error('Error: groups is not an array');
+        }
       })
       .catch(error => {
         console.error('Error getting groups:', error);
