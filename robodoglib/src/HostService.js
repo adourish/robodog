@@ -90,7 +90,8 @@ class HostService {
     }
     
     setActiveGroup(group) {
-        return axios.post(`http://${this.hostname}:${this.port}/api/activateGroup`, { group })
+        const encodedGroup = encodeURIComponent(group);
+        return axios.get(`http://${this.hostname}:${this.port}/api/activateGroup/${encodedGroup}`)
             .then(response => {
                 console.debug('HostService.setActiveGroup Group set:', response.data);
                 return response.data;
@@ -102,7 +103,8 @@ class HostService {
     }
     
     setActiveFile(file) {
-        return axios.post(`http://${this.hostname}:${this.port}/api/activateFile`, { file })
+        const encodedFile = decodeURIComponent(file);
+        return axios.get(`http://${this.hostname}:${this.port}/api/activateFile/${encodedFile}`)
             .then(response => {
                 console.debug('HostService.setActiveFile File set:', response.data);
                 return response.data;

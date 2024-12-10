@@ -6,12 +6,15 @@ from flask_restful import Resource, Api
 import argparse
 import os
 import yaml
-# pip install Flask flask_cors Flask-RESTful argparse pyyaml
+from urllib.parse import unquote
+
+# pip install Flask flask_cors Flask-RESTful argparse pyyaml urllib
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-s', '--server', default='localhost')
 parser.add_argument('-p', '--port', type=int, default=2500)
 parser.add_argument('-f', '--file', default='k2.txt')
-parser.add_argument('-g', '--group', default=None)
+parser.add_argument('-g', '--group', default='')
 args = parser.parse_args()
 
 try:
@@ -21,25 +24,32 @@ except FileNotFoundError:
     print("Config file not found. Please make sure the 'robodogw.yaml' file exists.")
     exit()
 
-# Create list of files based on command line arguments
-listof_files = []
-if args.group:
-    for group in config['groups']:
-        if group['name'] == args.group:
-            listof_files.extend(group['files'])
 
-if args.file:
-    if os.path.isfile(args.file):
-        listof_files.append(args.file)
-    else:
-        print(f"File {args.file} does not exist. Please check the file name and try again.")
-        exit()
 
 app = Flask(__name__)
 cors = CORS(app, resources={r"/*": {"origins": ["localhost", "file:///", "your_client_origin"]}}, send_wildcard=True)
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logging.info('start')
+
+def update_listof_files():
+    # Create list of files based on command line arguments
+    listof_files = []
+    if args.group:
+        for group in config['groups']:
+            if group['name'] == args.group:
+                listof_files.extend(group['files'])
+            else:
+                 print(f"File {args.group} does not exist. Please check the group name and try again.")
+
+    if args.file:
+        if os.path.isfile(args.file):
+            listof_files.append(args.file)
+        else:
+            print(f"File {args.file} does not exist. Please check the file name and try again.")
+            exit()
+    return listof_files
+
 
 @app.after_request
 def after_request(response):
@@ -74,7 +84,9 @@ class GetMessage(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type','Authorization'])
     def get(self):
         try:
+            
             result = ""
+            listof_files = update_listof_files()
             for file_name in listof_files:
                 if os.path.exists(file_name):
                     with open(file_name, 'r', encoding='utf-8') as file:
@@ -82,14 +94,14 @@ class GetMessage(Resource):
 
                     result += f"group:{args.group}\n{file_name}:\n{file_content}\n"
                 else:
-                    logging.error(f'File {file_name} does not exist')
+                    logging.error(f'GetMessage File {file_name} does not exist')
 
             response = make_response(jsonify({'message': result}))
             response.headers.add("Access-Control-Allow-Origin", "*")
-            logging.debug('Response message: %s', str(response))
+            logging.debug('GetMessage message: %s', str(response))
             return response
         except Exception as e:
-            logging.error('Failed to get message: %s', str(e))
+            logging.error('GetMessage Failed to get message: %s', str(e))
             response = make_response({'error': str(e)})
             response.headers.add("Access-Control-Allow-Origin", "*")
             return response, 500
@@ -104,11 +116,12 @@ class GetGroups(Resource):
                 response.headers.add("Access-Control-Allow-Origin", "*")
                 return response, 200
             else:
+                logging.error('GetGroups no group')
                 response = make_response({'error': 'No groups found in config'})
                 response.headers.add("Access-Control-Allow-Origin", "*")
                 return response, 404
         except KeyError as ke:
-            logging.error('KeyError: %s', str(ke))
+            logging.error('GetGroups KeyError: %s', str(ke))
             response = make_response({'error': 'KeyError occurred'})
             response.headers.add("Access-Control-Allow-Origin", "*")
             return response, 500
@@ -120,61 +133,56 @@ class GetGroups(Resource):
 
 class SetActiveGroup(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type', 'Authorization'])
-    def post(self):
+    def get(self, group):
+        logging.info('SetActiveGroup group: %s', str(group))
         try:
-            data = request.get_json()
-            if 'group' in data:
-                if data['group'] in [group['name'] for group in config['groups']]:
-                    args.group = data['group']
-                    response = make_response({'message': f'Active group set to {args.group}'}, 200)
-                    response.headers.add("Access-Control-Allow-Origin", "*")
-                    return response
-                else:
-                    response = make_response({'error': 'Group not found in config'})
-                    response.headers.add("Access-Control-Allow-Origin", "*")
-                    return response, 404
-            else:
-                response = make_response({'error': 'Group data not provided in request'})
+            group = unquote(group)
+            args.group = group
+            if group in [group['name'] for group in config['groups']]:
+                logging.debug('SetActiveGroup success' + group)
+                args.group = group
+                response = make_response({'group': group, 'message':'success'}, 200)
                 response.headers.add("Access-Control-Allow-Origin", "*")
-                return response, 400
+                return response
+            else:
+                response = make_response({'file': group, 'message':'nogroup'})
+                logging.debug('SetActiveGroup no group' + group)
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response, 404
         except Exception as e:
-            logging.error('Failed to set active group: %s', str(e))
-            response = make_response({'error': str(e)})
+            logging.error({'group': group, 'message':'error', 'error': str(e)})
+            response = make_response({'file': group, 'message':'error', 'error': str(e)})
             response.headers.add("Access-Control-Allow-Origin", "*")
             return response, 500
 
-
 class SetActiveFile(Resource):
     @cross_origin(origins=["localhost", "file:///"], allow_headers=['Content-Type', 'Authorization'])
-    def post(self):
+    def get(self, file):
         try:
-            data = request.get_json()
-            if 'file' in data:
-                if os.path.isfile(data['file']):
-                    args.file = data['file']
-                    response = make_response({'message': f'Active file set to {args.file}'}, 200)
-                    response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
-                    return response
-                else:
-                    response = make_response({'error': 'File does not exist'})
-                    response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
-                    return response, 404
+            file = unquote(file)
+            if os.path.isfile(file):
+                args.file = file
+                response = make_response({'file': file, 'message':'success'}, 200)
+                logging.debug('SetActiveFile success ' + file)
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response
             else:
-                response = make_response({'error': 'File data not provided in request'})
-                response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
-                return response, 400
+                response = make_response({'file': file, 'message':'nofile'})
+                logging.debug('SetActiveFile no file' + file)
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response, 404
         except Exception as e:
-            logging.error('Failed to set active file: %s', str(e))
-            response = make_response({'error': str(e)})
-            response.headers.add("Access-Control-Allow-Origin", "*")  # Add CORS header here
+            logging.error({'file': file, 'message':'error', 'error': str(e)})
+            response = make_response({'file': file, 'message':'error', 'error': str(e)})
+            response.headers.add("Access-Control-Allow-Origin", "*")
             return response, 500
         
 api = Api(app)
 api.add_resource(SendMessage, '/api/sendMessage')
 api.add_resource(GetMessage, '/api/getMessage')
 api.add_resource(GetGroups, '/api/getGroups')
-api.add_resource(SetActiveGroup, '/api/activateGroup')
-api.add_resource(SetActiveFile, '/api/activateFile')
+api.add_resource(SetActiveGroup, '/api/activateGroup/<string:group>')
+api.add_resource(SetActiveFile, '/api/activateFile/<string:file>')
 
 if __name__ == '__main__':
     app.run(host=args.server, port=args.port)

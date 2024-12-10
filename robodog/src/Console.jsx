@@ -65,7 +65,7 @@ function Console() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const [intervalId, setIntervalId] = useState(0);
-  const [watch, setWatch] = useState('💻');
+  const [watch, setWatch] = useState('');
   const [file, setFile] = useState('');
   const [group, setGroup] = useState('');
 
@@ -697,6 +697,10 @@ function Console() {
       var _command = consoleService.getVerb(command);
       if (_command.isCommand) {
         executeCommands(_command);
+        setContent([
+          ...content,
+          consoleService.getMessageWithTimestamp(_command, 'experiment')
+        ]);
       } else {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;

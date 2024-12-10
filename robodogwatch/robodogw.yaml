@@ -1,5 +1,9 @@
 server: 'localhost'
 port: 2500
+deny: '*'
+allow:
+  - 'C:\projects'
+  - 'C:\temp'
 groups:
   - name: g1
     files:
