@@ -7,6 +7,7 @@ import argparse
 import os
 import yaml
 from urllib.parse import unquote
+import fnmatch
 
 # pip install Flask flask_cors Flask-RESTful argparse pyyaml urllib
 
@@ -14,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-s', '--server', default='localhost')
 parser.add_argument('-p', '--port', type=int, default=2500)
 parser.add_argument('-f', '--file', default='k2.txt')
-parser.add_argument('-g', '--group', default='')
+parser.add_argument('-g', '--group', default='g1')
 args = parser.parse_args()
 
 try:
@@ -38,18 +39,22 @@ def update_listof_files():
     if args.group:
         for group in config['groups']:
             if group['name'] == args.group:
-                listof_files.extend(group['files'])
+                logging.info(f"update_listof_files group key found{group['name']}")
+                for file in group['files']:
+                    # Adding the logic to allow or deny file based on the lists
+                    file_path = os.path.join(os.getcwd(), file)
+                    # Convert file_path and patterns to lowercase for case-insensitive comparison
+                    file_path_lower = file_path.lower()
+                    # Check if file_path matches any pattern in the allow list and does not match any pattern in the deny list
+                    if any(fnmatch.fnmatch(file_path_lower, pattern.lower()) for pattern in config['allow']) and not any(fnmatch.fnmatch(file_path_lower, pattern.lower()) for pattern in config['deny']):
+                        listof_files.append(file)
+                        logging.info(f"update_listof_files group not found:{file} path file_path:{file_path}")
+                    else:
+                        print(f"update_listof_files File {file} is not allowed or is denied. Please check the file path and try again.")
+                        logging.info(f"found but not allowed not allowed file:{file}  file_path:{file_path}")
             else:
-                 print(f"File {args.group} does not exist. Please check the group name and try again.")
-
-    if args.file:
-        if os.path.isfile(args.file):
-            listof_files.append(args.file)
-        else:
-            print(f"File {args.file} does not exist. Please check the file name and try again.")
-            exit()
+                logging.debug(f"update_listof_files group not found:{args.group}  file_path:{file_path}")
     return listof_files
-
 
 @app.after_request
 def after_request(response):

@@ -1,17 +1,18 @@
 server: 'localhost'
 port: 2500
-deny: '*'
+deny: 'Y:\*'
 allow:
   - 'C:\projects'
   - 'C:\temp'
+  - '.\'
 groups:
-  - name: g1
+  - name: 'g1'
     files:
-      - 'k1.txt'
-  - name: g2
+      - 'C:\Projects\robodog\robodogwatch\k1.txt'
+  - name: 'g2'
     files:
-      - 'k1.txt'
-      - 'k2.txt'
-  - name: g3
+      - 'C:\Projects\robodog\robodogwatch\k1.txt'
+      - 'C:\Projects\robodog\robodogwatch\k2.txt'
+  - name: 'g3'
     files:
-      - 'k*.txt'
+      - 'C:\Projects\robodog\robodogwatch\k 3.txt'
