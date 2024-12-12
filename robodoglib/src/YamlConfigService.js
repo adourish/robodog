@@ -34,6 +34,10 @@ configs:
       specialist: nlp
       about: best for performance 
     - provider: openAI
+      model: gpt-4-turbo
+      stream: true
+      specialist: nlp
+    - provider: openAI
       model: gpt-3.5-turbo
       stream: true
       specialist: nlp
