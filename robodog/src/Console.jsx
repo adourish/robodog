@@ -65,6 +65,9 @@ function Console() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const [intervalId, setIntervalId] = useState(0);
+  const [watch, setWatch] = useState('');
+  const [file, setFile] = useState('');
+  const [group, setGroup] = useState('');
 
   useEffect(() => {
     console.log('Component has mounted!');
@@ -96,16 +99,18 @@ function Console() {
       setCommands(_commands);
       hostService.init('localhost', 2500);
       const _intervalId = setInterval(() => {
-        hostService.getMessage().then((message) => {
-          if (message && message.message && message.message !=='' && message.message.length !== 0) {
-            setKnowledge(message.message)
-          }else{
-            console.debug('getMessage no data', message)
-          }
-          console.log('getMessage message:', message);
-        })
+        hostService.getMessage()
+          .then((message) => {
+            if (message && message.message && message.message !== '' && message.message.length !== 0) {
+              setKnowledge(message.message);
+            } else {
+              console.debug('getMessage no data', message);
+            }
+            console.log('getMessage message:', message);
+          })
           .catch((error) => {
             console.warn('Error in getMessage:', error);
+            // Handle the error (e.g., log, display error message, retry, etc.)
           });
       }, 5000); // This will call getMessage every 5 seconds
       setInterval(_intervalId)
@@ -255,6 +260,55 @@ function Console() {
     setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
   }
 
+
+  const handleSetGroup = (event) => {
+    var message = 'Group is set to ' + event;
+    hostService.setActiveGroup(event)
+      .then(() => {
+        setGroup(event);
+        setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+      })
+      .catch(error => {
+        console.error('Error setting active group:', error);
+      });
+  }
+
+  const handleGetGroups = () => {
+    var message = 'Fetching groups';
+    hostService.getGroups()
+      .then(groups => {
+        if (groups && groups.groups && Array.isArray(groups.groups)) {
+          const groupNames = groups.map(group => group.name).join(', ');
+          setContent([...content, consoleService.getMessageWithTimestamp(`Groups: ${groupNames}`, 'experiment')]);
+        } else {
+          console.error('Error: groups is not an array');
+        }
+      })
+      .catch(error => {
+        console.error('Error getting groups:', error);
+      });
+  }
+
+  const handleSetFile = (event) => {
+    var message = 'File is set to ' + event;
+    hostService.setActiveFile(event)
+      .then(() => {
+        setFile(event);
+        setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+      })
+      .catch(error => {
+        console.error('Error setting active file:', error);
+      });
+  }
+
+  const handleSetWatch = () => {
+    const newWatchState = watch ? '' : '💻';
+    hostService.toggleCircuitBreaker(!watch);
+    var message = 'Watch is set to ' + newWatchState;
+
+    setWatch(newWatchState);
+    setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+  }
   const handleSaveClick = (event) => {
     event.preventDefault();
     setThinking('🦧');
@@ -356,6 +410,21 @@ function Console() {
           break;
         case '/model':
           handleSetModel(_command.verb)
+          break;
+        case '/watch':
+          handleSetWatch(_command.verb)
+          break;
+        case '/file':
+          handleSetFile(_command.verb)
+          break;
+        case '/group':
+          handleSetGroup(_command.verb)
+          break;
+        case '/group':
+          handleSetGroup(_command.verb)
+          break;
+        case '/groups':
+          handleGetGroups(_command.verb)
           break;
         case '/search':
           if (search !== '') {
@@ -628,6 +697,10 @@ function Console() {
       var _command = consoleService.getVerb(command);
       if (_command.isCommand) {
         executeCommands(_command);
+        setContent([
+          ...content,
+          consoleService.getMessageWithTimestamp(_command, 'experiment')
+        ]);
       } else {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
@@ -708,6 +781,10 @@ function Console() {
           <label htmlFor="message" className="status-hidden">[{message}]</label>
           <label htmlFor="copy" className="status-hidden">[{copySuccess}]</label>
           <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
+          <label htmlFor="watch" className="">[{watch}]</label>
+          <label htmlFor="group" className="">[{group}]</label>
+          <label htmlFor="file" className="">[{file}]</label>
+
           <button type="button" onClick={handleFileUpload} aria-label="history" className="button-uploader" title="Upload File">📤</button>
           <button type="button" onClick={handleSaveClick} aria-label="history" className="button-uploader" title="Download">📥</button>
           <button type="button" onClick={handleSettingsToggle} aria-label="settings" className="button-uploader" title="Settings">⚙️</button>

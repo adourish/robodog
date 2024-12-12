@@ -454,22 +454,26 @@ class ConsoleService {
   // Function to generate a message with a timestamp
 
   getVerb(command) {
-    var model = { "cmd": "", "verb": "", isCommand: false };
-    const commandParts = command.split(' ');
-    const cmd = commandParts[0];
-    var verb = '';
+    let model = { "cmd": "", "verb": "", isCommand: false };
+    
+    // Regular Expression to handle strings with spaces within quotes
+    let regexp = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
+    let commandParts = command.match(regexp);
+    let cmd = commandParts[0];
+    let verb = '';
+    
     if (commandParts.length > 1) {
-      verb = commandParts[1];
-    } else {
-
+      verb = commandParts.slice(1).join(' ').replace(/"/g, '');
     }
+    
     if (command.startsWith('/')) {
       model.isCommand = true;
     }
+    
     model.cmd = cmd;
     model.verb = verb;
     return model;
-  }
+}
 
   formatJSONToString(jsonObject) {
     let formattedString = '';
