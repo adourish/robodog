@@ -45,15 +45,29 @@ def update_listof_files():
                     file_path = os.path.join(os.getcwd(), file)
                     # Convert file_path and patterns to lowercase for case-insensitive comparison
                     file_path_lower = file_path.lower()
+                    logging.info(f"update_listof_files file {group['name']} {file_path_lower} {file}")
                     # Check if file_path matches any pattern in the allow list and does not match any pattern in the deny list
-                    if any(fnmatch.fnmatch(file_path_lower, pattern.lower()) for pattern in config['allow']) and not any(fnmatch.fnmatch(file_path_lower, pattern.lower()) for pattern in config['deny']):
+                    allowed = False
+                    for pattern in config['allow']:
+                        logging.info(f"update_listof_files file pattern {group['name']} {file} / {file_path_lower}  / {pattern.lower()}")
+                        if fnmatch.fnmatch(file_path_lower, pattern.lower()):
+                            logging.info(f"update_listof_files file pattern allowed {group['name']} {file_path_lower} {file} {pattern.lower()}")
+                            allowed = True
+                            break
+                    if not allowed:
+                        continue
+                    for pattern in config['deny']:
+                        if fnmatch.fnmatch(file_path_lower, pattern.lower()):
+                            allowed = False
+                            break
+                    if allowed:
                         listof_files.append(file)
-                        logging.info(f"update_listof_files group not found:{file} path file_path:{file_path}")
+                        logging.info(f"update_listof_files allowed append:{file} ")
                     else:
-                        print(f"update_listof_files File {file} is not allowed or is denied. Please check the file path and try again.")
-                        logging.info(f"found but not allowed not allowed file:{file}  file_path:{file_path}")
+                        print(f"update_listof_files not allowed {file} is not allowed or is denied. Please check the file path and try again.")
+                        logging.info(f"found but not allowed not allowed file:{file} ")
             else:
-                logging.debug(f"update_listof_files group not found:{args.group}  file_path:{file_path}")
+                logging.debug(f"update_listof_files group not found:{args.group} ")
     return listof_files
 
 @app.after_request
@@ -93,7 +107,9 @@ class GetMessage(Resource):
             result = ""
             listof_files = update_listof_files()
             for file_name in listof_files:
+                logging.error(f'GetMessage File {file_name} ')
                 if os.path.exists(file_name):
+                    logging.error(f'GetMessage File exists {file_name} ')
                     with open(file_name, 'r', encoding='utf-8') as file:
                         file_content = file.read()
 

@@ -1,9 +1,9 @@
 server: 'localhost'
 port: 2500
-deny: 'Y:\*'
+deny: 'C:\Program'
 allow:
-  - 'C:\projects'
-  - 'C:\temp'
+  - 'C:\projects\*'
+  - 'C:\temp\*'
   - '.\'
 groups:
   - name: 'g1'

@@ -102,11 +102,16 @@ function Console() {
         hostService.getMessage()
           .then((message) => {
             if (message && message.message && message.message !== '' && message.message.length !== 0) {
-              setKnowledge(message.message);
+              if (watch === '💻') {
+                setKnowledge(message.message);
+                console.debug('getMessage setKnowledge:', message); 
+              }else{
+                console.debug('getMessage disabled:', message);
+              }
             } else {
               console.debug('getMessage no data', message);
             }
-            console.log('getMessage message:', message);
+          
           })
           .catch((error) => {
             console.warn('Error in getMessage:', error);
@@ -330,13 +335,6 @@ function Console() {
     setKnowledge(value);
     handleCharsChange(event);
 
-    hostService.sendMessage(value)
-      .then(() =>
-        console.debug('Message sent successfully', value)
-      )
-      .catch(error =>
-        console.error('Error sending message', error));
-
   };
 
 
@@ -375,7 +373,7 @@ function Console() {
           setContext('');
           setKnowledge('');
           setQuestion('');
-          setContent([consoleService.getMessageWithTimestamp(message, 'warning')]);
+          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/rest':
           setCompletionType('rest');
@@ -416,9 +414,6 @@ function Console() {
           break;
         case '/file':
           handleSetFile(_command.verb)
-          break;
-        case '/group':
-          handleSetGroup(_command.verb)
           break;
         case '/group':
           handleSetGroup(_command.verb)
@@ -473,7 +468,7 @@ function Console() {
           if (_command.verb) {
             var _t = Number(_command.verb);
             setTop_p(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("Top P: " + verb, 'experiment')]);
+            setContent([...content, consoleService.getMessageWithTimestamp("Top P: " + _command.verb, 'experiment')]);
           }
           break;
         case '/frequency_penalty':
