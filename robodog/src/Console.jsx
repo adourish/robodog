@@ -366,28 +366,28 @@ function Console() {
             setFilter(true);
             message = `Set filter false`;
           }
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/clear':
           message = 'Content cleared.';
           setContext('');
           setKnowledge('');
           setQuestion('');
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/rest':
           setCompletionType('rest');
           message = `Switching to rest completions`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/stream':
           setCompletionType('stream');
           message = `Switching to stream completions`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/list':
           message = 'Stashed items: ' + consoleService.getStashList();
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
+          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/models':
           var list = [...content]
