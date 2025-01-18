@@ -124,7 +124,8 @@ class ConsoleService {
 
 
   getMessageWithTimestamp(command, role) {
-    var s = formatService.getMessageWithTimestamp(command, role);
+    var s = formatService.getMessageWithTimestamp(command, role, '');
+
     return s;
   }
   save(context, knowledge, question, content, temperature, showTextarea) {

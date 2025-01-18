@@ -373,7 +373,9 @@ function Console() {
           setContext('');
           setKnowledge('');
           setQuestion('');
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
+          let _m = consoleService.getMessageWithTimestamp(message, 'setting');
+          console.trace(_m)
+          setContent([...content, _m]);
           break;
         case '/rest':
           setCompletionType('rest');
