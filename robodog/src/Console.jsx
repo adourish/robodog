@@ -97,28 +97,7 @@ function Console() {
       setContent(list);
       setCurrentKey('autosave');
       setCommands(_commands);
-      hostService.init('localhost', 2500);
-      const _intervalId = setInterval(() => {
-        hostService.getMessage()
-          .then((message) => {
-            if (message && message.message && message.message !== '' && message.message.length !== 0) {
-              if (watch === '💻') {
-                setKnowledge(message.message);
-                console.debug('getMessage setKnowledge:', message); 
-              }else{
-                console.debug('getMessage disabled:', message);
-              }
-            } else {
-              console.debug('getMessage no data', message);
-            }
-          
-          })
-          .catch((error) => {
-            console.warn('Error in getMessage:', error);
-            // Handle the error (e.g., log, display error message, retry, etc.)
-          });
-      }, 5000); // This will call getMessage every 5 seconds
-      setInterval(_intervalId)
+
     }
     return () => {
       clearInterval(intervalId);
