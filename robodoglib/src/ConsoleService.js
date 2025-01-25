@@ -123,11 +123,7 @@ class ConsoleService {
   }
 
 
-  getMessageWithTimestamp(command, role) {
-    var s = formatService.getMessageWithTimestamp(command, role, '');
 
-    return s;
-  }
   save(context, knowledge, question, content, temperature, showTextarea) {
     const currentDate = new Date();
     const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
@@ -300,11 +296,11 @@ class ConsoleService {
 
   }
   getHelp(message, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty) {
-    var list = [this.getMessageWithTimestamp(message, 'info')];
+    var list = [formatService.getMessageWithTimestamp(message, 'info', '')];
     var settings = this.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
     var commands = this.getCommands();
     var indicators = this.getIndicators();
-    this.getMessageWithTimestamp(message, 'info');
+    formatService.getMessageWithTimestamp(message, 'info');
     var _list = list.concat(settings, commands, indicators);
     return _list;
   }

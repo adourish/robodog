@@ -81,7 +81,7 @@ function Console() {
       if (_model && _model !== '') {
         setModel(_model)
       }
-      var list = [consoleService.getMessageWithTimestamp('I want to believe.', 'title')];
+      var list = [formatService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = consoleService.getSettings(build, _model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = consoleService.getStashList();
 
@@ -262,7 +262,7 @@ function Console() {
     var message = 'Model is set to ' + event;
     providerService.setCurrentModel(event)
     setModel(event)
-    setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+    setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
   }
 
 
@@ -271,7 +271,7 @@ function Console() {
     hostService.setActiveGroup(event)
       .then(() => {
         setGroup(event);
-        setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+        setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
       })
       .catch(error => {
         console.error('Error setting active group:', error);
@@ -284,7 +284,7 @@ function Console() {
       .then(groups => {
         if (groups && groups.groups && Array.isArray(groups.groups)) {
           const groupNames = groups.map(group => group.name).join(', ');
-          setContent([...content, consoleService.getMessageWithTimestamp(`Groups: ${groupNames}`, 'experiment')]);
+          setContent([...content, formatService.getMessageWithTimestamp(`Groups: ${groupNames}`, 'experiment')]);
         } else {
           console.error('Error: groups is not an array');
         }
@@ -299,7 +299,7 @@ function Console() {
     hostService.setActiveFile(event)
       .then(() => {
         setFile(event);
-        setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+        setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
       })
       .catch(error => {
         console.error('Error setting active file:', error);
@@ -312,7 +312,7 @@ function Console() {
     var message = 'Watch is set to ' + newWatchState;
 
     setWatch(newWatchState);
-    setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+    setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
   }
   const handleSaveClick = (event) => {
     event.preventDefault();
@@ -366,30 +366,30 @@ function Console() {
             setFilter(true);
             message = `Set filter false`;
           }
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/clear':
           message = 'Content cleared.';
           setContext('');
           setKnowledge('');
           setQuestion('');
-          let _m = consoleService.getMessageWithTimestamp(message, 'setting');
+          let _m = formatService.getMessageWithTimestamp(message, 'setting');
           console.trace(_m)
           setContent([...content, _m]);
           break;
         case '/rest':
           setCompletionType('rest');
           message = `Switching to rest completions`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/stream':
           setCompletionType('stream');
           message = `Switching to stream completions`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/list':
           message = 'Stashed items: ' + consoleService.getStashList();
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'setting')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
           break;
         case '/models':
           var list = [...content]
@@ -399,7 +399,7 @@ function Console() {
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
               const formattedEngine = engine.model;
-              var item = consoleService.getMessageWithTimestamp(formattedEngine, 'model')
+              var item = formatService.getMessageWithTimestamp(formattedEngine, 'model')
               list.push(item);
             }
           }
@@ -432,13 +432,13 @@ function Console() {
           }
 
           message = 'Search mode active';
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'experiment')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
           break;
         case '/temperature':
           if (_command.verb) {
             var _t = Number(_command.verb);
             setTemperature(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("Temperature: " + _command.verb, 'experiment')]);
+            setContent([...content, formatService.getMessageWithTimestamp("Temperature: " + _command.verb, 'experiment')]);
           }
           break;
         case '/toggle':
@@ -463,29 +463,29 @@ function Console() {
           if (_command.verb) {
             var _t = Number(_command.verb);
             setMax_tokens(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("Max tokens: " + _command.verb, 'experiment')]);
+            setContent([...content, formatService.getMessageWithTimestamp("Max tokens: " + _command.verb, 'experiment')]);
           }
           break;
         case '/top_p':
           if (_command.verb) {
             var _t = Number(_command.verb);
             setTop_p(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("Top P: " + _command.verb, 'experiment')]);
+            setContent([...content, formatService.getMessageWithTimestamp("Top P: " + _command.verb, 'experiment')]);
           }
           break;
         case '/frequency_penalty':
           if (_command.verb) {
             _t = Number(_command.verb);
             setFrequency_penalty(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("Frequency Penalty: " + _command.verb, 'experiment')]);
+            setContent([...content, formatService.getMessageWithTimestamp("Frequency Penalty: " + _command.verb, 'experiment')]);
           }
           break;
         case '/presence_penalty':
           if (_command.verb) {
             _t = Number(_command.verb);
             setPresence_penalty(_t);
-            setContent([...content, consoleService.getMessageWithTimestamp("/get " + _command.verb, 'user'), consoleService.getMessageWithTimestamp(content, 'event')]);
-            setContent([...content, consoleService.getMessageWithTimestamp("Presence Penalty: " + _command.verb, 'experiment')]);
+            setContent([...content, formatService.getMessageWithTimestamp("/get " + _command.verb, 'user'), formatService.getMessageWithTimestamp(content, 'event')]);
+            setContent([...content, formatService.getMessageWithTimestamp("Presence Penalty: " + _command.verb, 'experiment')]);
           }
           break;
 
@@ -505,7 +505,7 @@ function Console() {
             setContext('');
             setKnowledge('');
             setQuestion('');
-            setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
+            setContent([...content, formatService.getMessageWithTimestamp(message, 'event')]);
             var _stashList2 = consoleService.getStashList();
 
             if (_stashList2) {
@@ -536,10 +536,10 @@ function Console() {
             if (_pop.content) {
               var _pc = Array.isArray(_pop.content) ? _pop.content : [_pop.content];
               message = 'Popped 💬📝💭 for ' + _command.verb;
-              setContent([..._pc, consoleService.getMessageWithTimestamp(message, 'event')]);
+              setContent([..._pc, formatService.getMessageWithTimestamp(message, 'event')]);
             } else {
               message = 'Popped 💬📝💭 for ' + _command.verb;
-              setContent([...content, consoleService.getMessageWithTimestamp(message, 'event')]);
+              setContent([...content, formatService.getMessageWithTimestamp(message, 'event')]);
             }
           }
           break;
@@ -547,33 +547,33 @@ function Console() {
           setModel('dall-e-3');
           setMaxChars(16385);
           message = `Switching to dall-e-3: dall-e-3 1024x1024, 1024x1792 or 1792x1024`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-3.5-turbo-16k':
           handleSetModel('gpt-3.5-turbo-16k')
           setMaxChars(16385);
           message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
           break;
         //gpt-4o
         case '/gpt-4o':
           handleSetModel('gpt-4o')
           setMaxChars(16385);
           message = `Switching to GPT-4o: gpt-4o`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-3.5-turbo':
           handleSetModel('gpt-3.5-turbo')
           setMaxChars(4096);
           message = `Switching to GPT-3.5: gpt-3.5-turbo`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/gpt-4':
           setModel('gpt-4');
           handleSetModel('gpt-4')
           setMaxChars(8192);
           message = `Switching to GPT-4: gpt-4`;
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
           break;
         case '/help':
           var _l = consoleService.getHelp('', build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
@@ -583,11 +583,11 @@ function Console() {
           providerService.reset();
           console.log('/reset')
           //window.location.reload();
-          setContent([...content, consoleService.getMessageWithTimestamp('reset', 'system')]);
+          setContent([...content, formatService.getMessageWithTimestamp('reset', 'system')]);
           break;
         default:
           message = '🍄';
-          setContent([...content, consoleService.getMessageWithTimestamp(message, 'system')]);
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
           setMessage('no verbs');
           console.log('No verbs.');
       }
@@ -696,7 +696,7 @@ function Console() {
         executeCommands(_command);
         setContent([
           ...content,
-          consoleService.getMessageWithTimestamp(_command, 'experiment')
+          formatService.getMessageWithTimestamp(_command, 'experiment')
         ]);
       } else {
         console.log('content:', command);
@@ -727,7 +727,7 @@ function Console() {
       setMessage('error');
       setContent([
         ...content,
-        consoleService.getMessageWithTimestamp(ex, 'error')
+        formatService.getMessageWithTimestamp(ex, 'error')
       ]);
     } finally {
       setThinking('🦥');
