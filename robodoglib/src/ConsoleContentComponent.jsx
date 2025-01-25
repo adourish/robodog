@@ -32,7 +32,7 @@ function ConsoleContentComponent({ content, handleCopyToClipboard, handleSetMode
                     );
                 } else if (item.role === 'setting' || item.role === 'help') {
                     return (
-                        <pre class='setting-text' key="{index}" focus="{item.focus}" alt="{item.datetime}{item.roleEmoji}">
+                        <pre class='console-text' key={index} focus={item.focus} onClick={() => handleCopyToClipboard(item.command)}>
                             <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
                         </pre>
                     );
