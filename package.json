@@ -2,6 +2,7 @@
   "dependencies": {
     "generator-code": "^1.11.0",
     "llamaai": "^1.0.4",
+    "react": "^19.0.0",
     "search-engine-client": "^1.2.6",
     "uuid": "^11.0.3",
     "yo": "^5.0.0"

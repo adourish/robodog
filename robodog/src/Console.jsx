@@ -241,7 +241,7 @@ function Console() {
     var message = 'Model is set to ' + event;
     providerService.setCurrentModel(event)
     setModel(event)
-    setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
+    setContent([...content, formatService.getMessageWithTimestamp(message, 'model')]);
   }
 
 
@@ -354,7 +354,7 @@ function Console() {
           setQuestion('');
           let _m = formatService.getMessageWithTimestamp(message, 'setting');
           console.trace(_m)
-          setContent([...content, _m]);
+          setContent([_m]);
           break;
         case '/rest':
           setCompletionType('rest');
@@ -673,10 +673,7 @@ function Console() {
       var _command = consoleService.getVerb(command);
       if (_command.isCommand) {
         executeCommands(_command);
-        setContent([
-          ...content,
-          formatService.getMessageWithTimestamp(_command, 'experiment')
-        ]);
+
       } else {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;

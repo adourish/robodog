@@ -5,12 +5,13 @@ var currentDateTime = new Date();
 const { version } = require('./package.json');
 const buildNumber = Math.floor(Date.now() / 1000);
 const buildInfo = currentDateTime.toDateString() + ' ' + currentDateTime.toLocaleTimeString();
+const filename = 'robodog.bundle.js?' + currentDateTime.toDateString() + '-' + currentDateTime.toLocaleTimeString() + buildNumber;
 module.exports = {
   entry: './src/index.tsx',
   mode: 'development',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'robodog.bundle.js',
+    filename: filename,
   },
   module: {
     rules: [

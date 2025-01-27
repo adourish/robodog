@@ -300,7 +300,7 @@ class ConsoleService {
     var settings = this.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
     var commands = this.getCommands();
     var indicators = this.getIndicators();
-    this.getMessageWithTimestamp(message, 'info');
+
     var _list = list.concat(settings, commands, indicators);
     return _list;
   }
