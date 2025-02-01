@@ -38,6 +38,16 @@ configs:
       stream: true
       specialist: nlp
     - provider: openAI
+      model: o1
+      stream: true
+      specialist: nlp
+      about: biggest model with 200k context window and world view. Best for critical thinking.
+    - provider: openAI
+      model: o1-mini
+      stream: true
+      specialist: nlp
+      about: big model with 128k context window and small world view. Good for critical thinking.
+    - provider: openAI
       model: gpt-3.5-turbo
       stream: true
       specialist: nlp
