@@ -46,7 +46,7 @@ function Console() {
   const [yamlConfig, setYamlConfig] = useState('')
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('🔎');
-  const [temperature, setTemperature] = useState(0.7);
+  const [temperature, setTemperature] = useState(1);
   const [filter, setFilter] = useState(false);
   const [max_tokens, setMax_tokens] = useState(0);
   const [top_p, setTop_p] = useState(1);
