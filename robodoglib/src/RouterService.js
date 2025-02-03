@@ -281,10 +281,10 @@ class RouterService {
     console.log(config);
 
     const messages = [
-      { role: "user", content: "chat history context:" + context },
-      { role: "user", content: "knowledge:" + knowledge },
-      { role: "user", content: "question:" + text },
-      { role: "user", content: "if knowledge or chat history exist, use them to make sense of the question." }
+      { role: "user", content: "Chat History:" + context },
+      { role: "user", content: "knowledge Base:" + knowledge },
+      { role: "user", content: "Question:" + text },
+      { role: "system", content: "Instructions: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context. Ensure the response is in plain text without any markdown formatting." }
     ];
     setThinking(formatService.getRandomEmoji());
     var calculator = new PerformanceCalculator();
