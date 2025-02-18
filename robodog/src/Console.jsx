@@ -493,6 +493,33 @@ function Console() {
             }
           }
           break;
+          case '/replace':
+            try {
+              // Split the verb into 'from' and 'to' texts
+              const args = _command.verb.match(/'([^']+)'/g);
+              if (!args || args.length < 2) {
+                throw new Error("Invalid syntax. Use /replace 'from text' 'to text'");
+              }
+              const fromText = args[0].replace(/'/g, '');
+              const toText = args[1].replace(/'/g, '');
+    
+              // Perform the replacement in all content items
+              const updatedContent = content.map(item => {
+                if (typeof item.text === 'string') {
+                  return { ...item, text: item.text.split(fromText).join(toText) };
+                }
+                return item;
+              });
+    
+              setContent(updatedContent);
+              message = `Replaced all instances of '${fromText}' with '${toText}'`;
+              setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
+            } catch (error) {
+              message = error.message;
+              setContent([...content, formatService.getMessageWithTimestamp(message, 'error')]);
+            }
+            break;
+    
         case '/pop':
           var _pop = consoleService.pop(_command.verb);
           setCurrentKey(_command.verb);
