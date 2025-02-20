@@ -352,7 +352,7 @@ class RouterService {
       {
         role: systemRole,
         content:
-          "Instructions: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context. Ensure the response is in plain text without any markdown formatting. remove all markdown instances of from message text.  remove all instances of markdown. respond in plane text. e.g., ;**bolded**' to 'bolded' from all lines.",
+          "Instructions: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context. Ensure the response is in plain text without any markdown formatting. remove all markdown instances of from message text.  remove all instances of markdown. respond in plane text. e.g., ;**bolded**' to 'bolded' from all lines. The reader of the content has ADHD, get to the point and keep it short.",
       },
     ];
 
