@@ -805,7 +805,6 @@ function Console() {
             value={model}
             onChange={(e) => handleModelChange(e.target.value)}
           />
-
         </div>
         <div className="input-area">
           <textarea
