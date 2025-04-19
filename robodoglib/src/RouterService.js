@@ -353,16 +353,6 @@ class RouterService {
         role: systemRole,
         content:
           "Instruction 1: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context.",
-      },
-      {
-        role: systemRole,
-        content:
-          "Instruction 2: Remove all instances of markdown from the response. respond in plane text. e.g., ;**bolded**' to 'bolded' from all lines.",
-      },
-      {
-        role: systemRole,
-        content:
-          "Instruction 3: The reader of the content has ADHD, get to the point and keep the response short.",
       }
     ];
 
