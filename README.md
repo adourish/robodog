@@ -208,6 +208,13 @@ Switch chat contexts using the stash, pop, and list commands.
 
 ![Mobile](stash.png)
 
+## Batch execute
+
+![Features](batch.png)
+
+python rb.py <batchfile> <group> <token>
+python rb.py batch g1 <token>
+
 ## File watcher
 
 python robodogw.py -s 'localhost' -p 3000 -f 'messages.txt'
