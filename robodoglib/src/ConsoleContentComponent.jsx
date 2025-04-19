@@ -34,7 +34,7 @@ function ConsoleContentComponent({ content, handleCopyToClipboard, handleSetMode
         if (Array.isArray(item.command)) {
             item.command = String(item.command.join('\n'));
         }
-        item.command = stripMarkdown(String(item.command));
+        //item.command = stripMarkdown(String(item.command));
 
         if (item.role === 'image') {
             contentItems.push(
