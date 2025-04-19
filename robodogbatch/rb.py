@@ -3,18 +3,31 @@ import pandas as pd
 import openpyxl
 import openai
 import logging
+import os
 
 logging.basicConfig(filename='output.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Model:
-    def __init__(self, title, group, knowledge, question, output, m):
+    def __init__(self, title, group, knowledge, question, outputfile, m):
         self.title = title
         self.group = group
         self.question = question
         self.m = m
         self.knowledge = knowledge
-        self.output = output
+        self.outputfile = outputfile
+        self.output = ""
+
+def writeoutput(model, outputdir='dataout'):
+    try:
+        os.makedirs(outputdir, existok=True)
+        filename = model.output if model.outputfile else f"{model.title}.txt"
+        filepath = os.path.join(outputdir, filename)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(model.output)
+        logging.info(f"Output written to {filepath}")
+    except Exception as e:
+        logging.error(f"Error writing output for {model.title}: {e}")
 
 def processmodelswith_openai(models, token):
     openai.api_key = token
@@ -33,6 +46,7 @@ def processmodelswith_openai(models, token):
             )
             model.output = response.choices[0].message.content.strip()
             logging.info(f"{model.title}: {model.output}")
+            writeoutput(model)
         except Exception as e:
             logging.error(f"OpenAI API error for {model.title}: {e}")
 
@@ -47,11 +61,11 @@ def readexcel(filepath, group_filter):
             question = row.get('question')
             m = row.get('model')
             knowledge = row.get('knowledge')
-            output = row.get('output')
+            outputfile = row.get('outputfile')
             if title and group and knowledge and pd.notna(group) and group == group_filter:
-                model = Model(title, group, knowledge, question, output, m)
+                model = Model(title, group, knowledge, question, outputfile, m)
                 models.append(model)
-                logging.info(f"Model: {m} Title: {title}, Group: {group}, Knowledge: {knowledge}, Question: {question}, Output: {output}")
+                logging.info(f"Model: {m} Title: {title}, Group: {group}, Question: {question}, Output: {outputfile}")
             else:
                 logging.debug("Missing or unmatched data in row: " + str(row))
         return models
