@@ -208,12 +208,14 @@ Switch chat contexts using the stash, pop, and list commands.
 
 ![Mobile](stash.png)
 
-## Batch execute
+## Batch Execute
 
-![Features](batch.png)
+![Features](screenshot-batch.png)
 
+```
 python rb.py <batchfile> <group> <token>
 python rb.py batch g1 <token>
+```
 
 ## File watcher
 
