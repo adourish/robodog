@@ -3,12 +3,13 @@ import pandas as pd
 import openpyxl
 import logging
 
+# python rb.py batch.xlsx g1
 # pip install openpyxl logging pandas
 logging.basicConfig(filename='output.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Model:
-    def init(self, title, group, knowledge):
+    def __init__(self, title, group, knowledge):
         self.title = title
         self.group = group
         self.knowledge = knowledge
