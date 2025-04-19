@@ -20,12 +20,10 @@ class Model:
 
 def writeoutput(model, outputdir='dataout'):
     try:
-        os.makedirs(outputdir, existok=True)
-        filename = model.output if model.outputfile else f"{model.title}.txt"
-        filepath = os.path.join(outputdir, filename)
-        with open(filepath, 'w', encoding='utf-8') as f:
+
+        with open(model.outputfile, 'w', encoding='utf-8') as f:
             f.write(model.output)
-        logging.info(f"Output written to {filepath}")
+        logging.debug(f"Output written to {model.output}")
     except Exception as e:
         logging.error(f"Error writing output for {model.title}: {e}")
 
@@ -33,7 +31,7 @@ def processmodelswith_openai(models, token):
     openai.api_key = token
     for model in models:
         try:
-            logging.info(f"{model.title}: {model.output}")
+            logging.info(f"{model.title}: {model.outputfile}")
             client = openai.OpenAI(
                 api_key=token,
             )
@@ -45,14 +43,14 @@ def processmodelswith_openai(models, token):
                 ]
             )
             model.output = response.choices[0].message.content.strip()
-            logging.info(f"{model.title}: {model.output}")
+            logging.info(f"{model.title}: {model.outputfile}")
             writeoutput(model)
         except Exception as e:
             logging.error(f"OpenAI API error for {model.title}: {e}")
 
 def readexcel(filepath, group_filter):
     try:
-        logging.info("Reading file " + filepath + " with group " + group_filter)
+        logging.debug("Reading file " + filepath + " with group " + group_filter)
         df = pd.read_excel(filepath)
         models = []
         for _, row in df.iterrows():
@@ -65,7 +63,7 @@ def readexcel(filepath, group_filter):
             if title and group and knowledge and pd.notna(group) and group == group_filter:
                 model = Model(title, group, knowledge, question, outputfile, m)
                 models.append(model)
-                logging.info(f"Model: {m} Title: {title}, Group: {group}, Question: {question}, Output: {outputfile}")
+                logging.debug(f"Model: {m} Title: {title}, Group: {group}, Question: {question}, Output: {outputfile}")
             else:
                 logging.debug("Missing or unmatched data in row: " + str(row))
         return models
