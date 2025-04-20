@@ -31,6 +31,7 @@ def processmodelswith_openai(models, token):
     openai.api_key = token
     for model in models:
         try:
+            model.output = read_output(model.outputfile) or ""
             logging.info(f"{model.title}: {model.outputfile}")
             client = openai.OpenAI(
                 api_key=token,
@@ -38,8 +39,11 @@ def processmodelswith_openai(models, token):
             response = client.chat.completions.create(
                 model=model.m,
                 messages=[
-                    {"role": "user", "content": model.knowledge},
-                    {"role": "user", "content": model.question}
+                    {"role": "user", "content": "knowledge:" + model.knowledge},
+                    {"role": "user", "content": "output:" + model.output},
+                    {"role": "user", "content": "question:" + model.question},
+                    {"role": "user", "content": "instructions:" + "Analyze the provided 'output:' and 'knowledge:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context."},
+ 
                 ]
             )
             model.output = response.choices[0].message.content.strip()
@@ -47,6 +51,12 @@ def processmodelswith_openai(models, token):
             writeoutput(model)
         except Exception as e:
             logging.error(f"OpenAI API error for {model.title}: {e}")
+
+def read_output(outputfile):
+    if os.path.exists(outputfile):
+        with open(outputfile, 'r', encoding='utf-8') as f:
+            return f.read()
+    return None
 
 def readexcel(filepath, group_filter):
     try:
