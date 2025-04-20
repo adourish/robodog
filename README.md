@@ -209,6 +209,7 @@ Switch chat contexts using the stash, pop, and list commands.
 ![Mobile](stash.png)
 
 ## Batch Execute
+Use the robodog batch feature to execute batches of generative AI commands. The knowledge, question, model columns will be used to execute chat completions. The output is saved to the outputfile location. With each run, the script will check to see if there is content in the outputfile and read it. This content will be passed into the prompt so that you can refine your changes. 
 
 ![Features](screenshot-batch.png)
 
