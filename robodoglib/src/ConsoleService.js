@@ -495,7 +495,7 @@ class ConsoleService {
   }
   // Function to save content in local storage
   //  consoleService.stash(verb, context, knowledge, question, content, temperature, showTextarea);
-  stash(key, context, knowledge, question, content, temperature, showTextarea) {
+  function stash(key, context, knowledge, question, content, temperature, showTextarea) {
     const stashKey = "stash-" + key;
     const _c = {
       context: context,
@@ -507,8 +507,13 @@ class ConsoleService {
       showTextarea: showTextarea,
       timestamp: new Date().toISOString()
     };
-
-    localStorage.setItem(stashKey, JSON.stringify(_c));
+  
+    try {
+      localStorage.setItem(stashKey, JSON.stringify(_c));
+    } catch (error) {
+      console.error("Failed to save data in localStorage:", error);
+      
+    }
   }
 
   // Function to get the content from local storage
