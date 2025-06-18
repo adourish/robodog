@@ -3,30 +3,6 @@ import React from 'react';
 
 function ConsoleContentComponent({ content, handleCopyToClipboard, handleSetModel, handleLaunch }) {
 
-    function stripMarkdown(text) {
-        try {
-            if (typeof text !== 'string') {
-                console.warn('stripMarkdown received non-string input:', text);
-                return '';
-            }
-            return text
-            .replace(/\\(.?)\\*/g, '$1')
-            .replace(/^[\-*\+]\s+/gm, '')
-            .replace(/\(.?)\*/g, '$1')
-            .replace(/(.*?)/g, '$1')
-            .replace(/(.*?)/g, '$1')
-            .replace(/(.*?)/g, '$1')
-            .replace(/(.*?)/g, '$1')
-            .replace(/!\[(.?)\]\((.?)\)/g, '$1')
-            .replace(/\[(.?)\]\((.?)\)/g, '$1')
-            .replace(/+\s(.)/g, '$1')
-            .trim();
-        } catch (error) {
-            console.error('Error stripping markdown:', error, 'Input text:', text);
-            return text;
-        }
-    }
-
     const contentItems = [];
 
     for(let index = 0; index < content.length; index++) {
@@ -34,8 +10,6 @@ function ConsoleContentComponent({ content, handleCopyToClipboard, handleSetMode
         if (Array.isArray(item.command)) {
             item.command = String(item.command.join('\n'));
         }
-        //item.command = stripMarkdown(String(item.command));
-
         if (item.role === 'image') {
             contentItems.push(
                 <div key={index}><img src={item.command} alt={item.role} className='image-size-50' /></div>
@@ -43,7 +17,7 @@ function ConsoleContentComponent({ content, handleCopyToClipboard, handleSetMode
         } else if (item.role === 'ufo') {
             contentItems.push(
                 <pre className='ufo-text' key={index} focus={item.focus} alt={`${item.datetime}${item.roleEmoji}`}>
-                    <code>{item.command}</code>
+                    {item.command}
                 </pre>
             );
         } else if (item.role === 'search') {
@@ -53,25 +27,33 @@ function ConsoleContentComponent({ content, handleCopyToClipboard, handleSetMode
         } else if (item.role === 'popup') {
             contentItems.push(
                 <pre className='console-text' key={index} focus={item.focus} onClick={() => handleLaunch(item.command, item.url)}>
-                    <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
+                    {`${item.datetime} ${item.roleEmoji}:${item.command}`}
                 </pre>
             );
-        } else if (item.role === 'model') {
+        } else if (item.role === 'user') {
             contentItems.push(
-                <pre className='console-text' key={index} focus={item.focus} onClick={() => handleSetModel(item.command)}>
-                    <code>{`/model ${item.command}`}</code>
+                <pre className='console-text' key={index} focus={item.focus} onClick={() => handleCopyToClipboard(item.command)}>
+{`${item.datetime} ${item.roleEmoji}:${item.command}`}
+                </pre>
+            );
+        } else if (item.role === 'assistant') {
+            contentItems.push(
+                <pre className='console-text' key={index} focus={item.focus} onClick={() => handleCopyToClipboard(item.command)}>
+{`${item.datetime} ${item.roleEmoji}:
+${item.command}`}
                 </pre>
             );
         } else if (item.role === 'setting' || item.role === 'help') {
             contentItems.push(
                 <pre className='console-text' key={index} focus={item.focus} onClick={() => handleCopyToClipboard(item.command)}>
-                    <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
+                    {`${item.datetime} ${item.roleEmoji}:${item.command}`}
                 </pre>
             );
         } else {
             contentItems.push(
                 <pre className='console-text' key={index} focus={item.focus} onClick={() => handleCopyToClipboard(item.command)}>
-                    <code>{`${item.datetime} ${item.roleEmoji}:${item.command}`}</code>
+{`${item.datetime} ${item.roleEmoji}:
+${item.command}`}
                 </pre>
             );
         }
