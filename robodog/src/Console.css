@@ -4,12 +4,12 @@ body {
   margin: 0;
   background-color: black;
   overflow-x: hidden;
+  font-family: "Consolas", "Courier New", monospace;
 }
 
 .console {
   color: white;
   padding: 0px;
-  font-family: monospace;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -19,6 +19,7 @@ body {
 
 
 .console-content {
+  font-family: "Consolas", "Courier New", monospace;
   flex: 1;
   overflow-y: auto;
   padding-right: 17px;
