@@ -700,7 +700,7 @@ function Console() {
       var _command = consoleService.getVerb(command);
       if (_command.isCommand) {
         executeCommands(_command);
-
+        setThinking('🦥');
       } else {
         console.log('content:', command);
         const updatedContext = context ? `${context}\n${command}` : command;
@@ -715,17 +715,18 @@ function Console() {
           max_tokens,
           currentKey,
           size,
-          {
-            setContent: setContent,
-            setMessage: setMessage,
-            setPerformance: setPerformance,
-            setThinking: setThinking
-          }
+          setContent,
+          setMessage,
+          setPerformance,
+          setThinking          
         );
         var response = await routerService.routeQuestion(routerModel)
         console.debug(response);
       }
+      setThinking('🦥');
     } catch (ex) {
+      
+      setThinking('🐛');
       console.error('handleSubmit', ex);
       setMessage('error');
       setContent([
@@ -733,7 +734,7 @@ function Console() {
         formatService.getMessageWithTimestamp(ex, 'error')
       ]);
     } finally {
-      setThinking('🦥');
+      
       setQuestion('');
       consoleService.scrollToBottom();
     }
@@ -778,7 +779,7 @@ function Console() {
           <label htmlFor="thinking">[{thinking}]</label>
           <label htmlFor="tooBig" className="status-hidden">[{tooBig}]</label>
           <label htmlFor="performance" className="status-hidden">[{performance}]</label>
-          <label htmlFor="message" className="status-hidden">[{message}]</label>
+          <label htmlFor="message" className="">[{message}]</label>
           <label htmlFor="copy" className="status-hidden">[{copySuccess}]</label>
           <label htmlFor="currentKey" className="status-hidden">[{currentKey}]</label>
           <label htmlFor="watch" className="">[{watch}]</label>

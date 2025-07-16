@@ -304,16 +304,16 @@ class RouterService {
       routerModel.model,
       routerModel.context,
       routerModel.knowledge,
-      routerModel.callbacks.setContent,
-      routerModel.callbacks.setMessage,
+      routerModel.setContent,
+      routerModel.setMessage,
       routerModel.content,
       routerModel.temperature,
       routerModel.max_tokens,
       routerModel.top_p,
       routerModel.frequency_penalty,
       routerModel.presence_penalty,
-      routerModel.callbacks.setPerformance,
-      routerModel.callbacks.setThinking,
+      routerModel.setPerformance,
+      routerModel.setThinking,
       routerModel.currentKey,
       routerModel.size
     );
@@ -458,8 +458,11 @@ class RouterService {
       } else {
         console.log("no matching provider or model");
       }
+      setThinking('🦥');
     } catch (error) {
+      setThinking('🐛');
       console.error("Error sending message to provider: ", error);
+      setMessage("Error sending message to provider: " + error);
       throw error;
     } finally {
       calculator.end();

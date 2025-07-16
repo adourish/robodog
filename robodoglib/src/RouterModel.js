@@ -1,12 +1,3 @@
-class Callbacks {
-    constructor() {
-        this.setContent = () => { };
-        this.setContext = () => { };
-        this.setMessage = () => { };
-        this.setThinking = () => { };
-        this.setPerformance = () => { };
-    }
-}
 
 class RouterModel {
     constructor(
@@ -19,7 +10,11 @@ class RouterModel {
         max_tokens = 0,
         currentKey = "",
         size = "1792x1024",
-        callbacks = new Callbacks()
+        setContent =null,
+        setContext = null,
+        setMessage = null,
+        setThinking = null,
+        setPerformance = null
     ) {
         this.question = question;
         this.model = model;
@@ -30,7 +25,11 @@ class RouterModel {
         this.max_tokens = max_tokens;
         this.currentKey = currentKey;
         this.size = size;
-        this.callbacks = callbacks;
+        this.setContent = setContent;
+        this.setContext = setContext;
+        this.setMessage = setMessage;
+        this.setThinking = setThinking;
+        this.setPerformance = setPerformance; 
     }
 }
 
