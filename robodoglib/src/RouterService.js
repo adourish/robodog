@@ -32,16 +32,19 @@ class RouterService {
     return llamaAI;
   }
   getOpenAI(model) {
-    var _model = providerService.getModel(model);
-    var _provider = providerService.getProvider(_model.provider);
-    var _apiKey = _provider.apiKey;
-    var _baseUrl = _provider.baseUrl;
+    const _model    = providerService.getModel(model);
+    const _provider = providerService.getProvider(_model.provider);
+    const _apiKey   = _provider.apiKey;
+    const _baseUrl  = _provider.baseUrl; // e.g. “https://openrouter.ai”
+  
     console.log(_model, _provider);
-    var _c = {
+    const clientConfig = {
       apiKey: _apiKey,
+      baseURL: _baseUrl,
       dangerouslyAllowBrowser: true,
     };
-    const openai = new OpenAI(_c);
+  
+    const openai = new OpenAI(clientConfig);
     console.log(openai);
     return openai;
   }
@@ -397,6 +400,25 @@ class RouterService {
           );
         } else if (_model.provider === "openAI" && _model.stream === true) {
           console.log("rounter openAI handleStreamCompletion");
+          _cc = await this.handleStreamCompletion(
+            model,
+            messages,
+            temperature,
+            top_p,
+            frequency_penalty,
+            presence_penalty,
+            max_tokens,
+            setThinking,
+            setContent,
+            setMessage,
+            content,
+            text,
+            currentKey,
+            context,
+            knowledge
+          );
+        } else if (_model.provider === "openRouter" && _model.stream === true) {
+          console.log("rounter openRouter handleStreamCompletion");
           _cc = await this.handleStreamCompletion(
             model,
             messages,

@@ -1,0 +1,72 @@
+2025-04-20 14:52:15,845 - INFO - Batch processing started
+2025-04-20 14:52:15,845 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 14:52:15,871 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:52:16,445 - ERROR - OpenAI API error for g1 total sales sum measure: Error code: 400 - {'error': {'message': "Invalid value for 'content': expected a string, got null.", 'type': 'invalid_request_error', 'param': 'messages.[0].content', 'code': None}}
+2025-04-20 14:52:16,445 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 14:52:16,972 - ERROR - OpenAI API error for g1 total sales avg measure: Error code: 400 - {'error': {'message': "Invalid value for 'content': expected a string, got null.", 'type': 'invalid_request_error', 'param': 'messages.[0].content', 'code': None}}
+2025-04-20 14:54:49,845 - INFO - Batch processing started
+2025-04-20 14:54:49,846 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 14:54:49,867 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:54:50,169 - ERROR - OpenAI API error for g1 total sales sum measure: can only concatenate str (not "NoneType") to str
+2025-04-20 14:54:50,169 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 14:54:50,463 - ERROR - OpenAI API error for g1 total sales avg measure: can only concatenate str (not "NoneType") to str
+2025-04-20 14:58:02,287 - INFO - Batch processing started
+2025-04-20 14:58:02,287 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 14:58:02,309 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:58:07,511 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:58:07,513 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 14:58:14,730 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 14:59:04,286 - INFO - Batch processing started
+2025-04-20 14:59:04,287 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 14:59:04,308 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:59:13,502 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:59:13,513 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 14:59:24,058 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 14:59:42,906 - INFO - Batch processing started
+2025-04-20 14:59:42,907 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 14:59:42,932 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:59:47,705 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 14:59:47,706 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 14:59:52,470 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:29:16,595 - INFO - Batch processing started
+2025-04-20 15:29:16,595 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 15:29:16,623 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:29:29,274 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:29:29,275 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:29:34,328 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:31:07,506 - INFO - Batch processing started
+2025-04-20 15:31:07,506 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 15:31:07,530 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:31:13,301 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:31:13,302 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:31:19,903 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:32:17,326 - INFO - Batch processing started
+2025-04-20 15:32:17,326 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 15:32:17,349 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:32:24,056 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:32:24,056 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:32:29,156 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:33:22,289 - INFO - Batch processing started
+2025-04-20 15:33:22,289 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 15:33:22,311 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:33:34,000 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:33:34,001 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:33:40,811 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:35:38,761 - INFO - Batch processing started
+2025-04-20 15:35:38,761 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 15:35:38,786 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:35:50,871 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:35:50,872 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:35:57,217 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:37:39,650 - INFO - Batch processing started
+2025-04-20 15:37:39,650 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 15:37:39,684 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:37:48,713 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:37:48,714 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:37:53,911 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:42:24,852 - INFO - Batch processing started
+2025-04-20 15:42:24,852 - INFO - Processing file: batch.xlsx for group: g1
+2025-04-20 15:42:24,878 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:42:35,032 - INFO - g1 total sales sum measure: g1-g1 total sales sum measure.sql
+2025-04-20 15:42:35,033 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
+2025-04-20 15:42:42,860 - INFO - g1 total sales avg measure: g1-g1 total sales avg measure.sql
