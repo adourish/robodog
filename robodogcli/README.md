@@ -80,6 +80,10 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 - Icons
 - Bug fixes
 
+### Version 2.4.0
+- Support for open router and any stream completion that uses open ai library
+- Bug fixes
+
 ## Roadmap 
 - OCR support for Android
 - VSCode extension
@@ -374,17 +378,18 @@ const providerService = new ProviderService();
 const yamlConfigService = new YamlConfigService();
 const defaultYaml = yamlConfigService.getDefaults();
 const customYaml = `
+  
 configs:
   providers:
     - provider: openAI
       baseUrl: "https://api.openai.com"
-      apiKey: ""
-    - provider: llamaAI
-      baseUrl: "https://api.llama-api.com"
-      apiKey: ""
+      apiKey: "<api key"
+    - provider: openRouter
+      baseUrl: "https://openrouter.ai"
+      apiKey: "<api key"
     - provider: searchAPI
       baseUrl: "https://google-search74.p.rapidapi.com"
-      apiKey: ""
+      apiKey: "<api key>"
       
   specialists:
     - specialist: nlp
@@ -399,6 +404,52 @@ configs:
       model: gpt-4
       stream: true
       specialist: nlp
+      about: best for performance 
+    - provider: openRouter
+      model: GPT-4o-mini
+      stream: true
+      specialist: nlp
+      about: best for most questions
+    - provider: openAI
+      model: o4-mini
+      stream: true
+      specialist: nlp
+      about: biggest model with 200k context window and world view. Best for critical thinking.
+    - provider: openAI
+      model: o1
+      stream: true
+      specialist: nlp
+      about: big model with 128k context window and small world view. Good for critical thinking.
+    - provider: llamaAI
+      model: llama3-70b
+      stream: false
+      specialist: nlp
+      about: best for big content
+    - provider: openAI
+      model: gpt-4o
+      stream: true
+      specialist: nlp
+      about: best for summerizing
+    - provider: openAI
+      model: gpt-4-turbo
+      stream: true
+      specialist: nlp
+      about: best for speed
+    - provider: openAI
+      model: gpt-3.5-turbo-16k
+      stream: true
+      specialist: nlp
+      about: best for large docs when speed is not an issue
+    - provider: openAI
+      model: dall-e-3
+      stream: false
+      specialist: gi
+      about: best for creating images
+    - provider: searchAPI
+      model: search
+      stream: false
+      specialist: search
+      about: best for searching
 `;
 
 providerService.setYaml(customYaml);

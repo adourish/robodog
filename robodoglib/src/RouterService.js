@@ -36,12 +36,15 @@ class RouterService {
     const _provider = providerService.getProvider(_model.provider);
     const _apiKey   = _provider.apiKey;
     const _baseUrl  = _provider.baseUrl; // e.g. “https://openrouter.ai”
-  
+    const _httpReferer = _provider.httpReferer;
     console.log(_model, _provider);
     const clientConfig = {
       apiKey: _apiKey,
       baseURL: _baseUrl,
       dangerouslyAllowBrowser: true,
+      extraHeaders: {
+        "HTTP-Referer": _httpReferer, 
+    },
     };
   
     const openai = new OpenAI(clientConfig);
@@ -455,9 +458,10 @@ class RouterService {
             context,
             knowledge
           );
-        } else if (_model.provider === "llamaAI" && _model.stream === false) {
+        } else if (_model.stream === true) {
           console.log("rounter openAI handleRestCompletion");
-          _cc = await this.handleLlamaRestCompletion(
+          console.log("rounter fall through " +_model.provider + " handleStreamCompletion");
+          _cc = await this.handleStreamCompletion(
             model,
             messages,
             temperature,

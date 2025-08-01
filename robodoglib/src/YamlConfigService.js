@@ -7,17 +7,21 @@ class YamlConfigService {
     }
     getDefaults(){
       var yamlstring = `  
+  
 configs:
   providers:
     - provider: openAI
       baseUrl: "https://api.openai.com"
-      apiKey: ""
-    - provider: llamaAI
-      baseUrl: "https://api.llama-api.com"
-      apiKey: ""
+      apiKey: "key"
+	  http-Referer: "https://adourish.github.io"
+    - provider: openRouter
+      baseUrl: "https://openrouter.ai/api/v1"
+      apiKey: "key"
+	  http-Referer: "https://adourish.github.io"
     - provider: searchAPI
       baseUrl: "https://google-search74.p.rapidapi.com"
-      apiKey: ""
+      apiKey: "key"
+	  http-Referer: "https://adourish.github.io"
       
   specialists:
     - specialist: nlp
@@ -33,25 +37,21 @@ configs:
       stream: true
       specialist: nlp
       about: best for performance 
-    - provider: openAI
-      model: gpt-4-turbo
+    - provider: openRouter
+      model: GPT-4o-mini
       stream: true
       specialist: nlp
+      about: best for most questions
     - provider: openAI
-      model: o1
+      model: o4-mini
       stream: true
       specialist: nlp
       about: biggest model with 200k context window and world view. Best for critical thinking.
     - provider: openAI
-      model: o1-mini
+      model: o1
       stream: true
       specialist: nlp
       about: big model with 128k context window and small world view. Good for critical thinking.
-    - provider: openAI
-      model: gpt-3.5-turbo
-      stream: true
-      specialist: nlp
-      about: best for most questions
     - provider: llamaAI
       model: llama3-70b
       stream: false
