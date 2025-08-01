@@ -82,6 +82,7 @@ Robodog is a GPT client with support for gpt-3.5-turbo, gpt-4, gpt-4-turbo, dall
 
 ### Version 2.4.0
 - Support for open router and any stream completion that uses open ai library
+- Support for HTTP-referer header
 - Bug fixes
 
 ## Roadmap 
@@ -383,13 +384,16 @@ configs:
   providers:
     - provider: openAI
       baseUrl: "https://api.openai.com"
-      apiKey: "<api key"
+      apiKey: "<key>"
+      httpReferer: "https://adourish.github.io"
     - provider: openRouter
-      baseUrl: "https://openrouter.ai"
-      apiKey: "<api key"
+      baseUrl: "https://openrouter.ai/api/v1"
+      apiKey: "<key>"
+      httpReferer: "https://adourish.github.io"
     - provider: searchAPI
       baseUrl: "https://google-search74.p.rapidapi.com"
-      apiKey: "<api key>"
+      apiKey: "<key>"
+      httpReferer: "https://adourish.github.io"
       
   specialists:
     - specialist: nlp

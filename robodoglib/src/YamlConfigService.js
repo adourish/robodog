@@ -8,20 +8,21 @@ class YamlConfigService {
     getDefaults(){
       var yamlstring = `  
   
+  
 configs:
   providers:
     - provider: openAI
       baseUrl: "https://api.openai.com"
-      apiKey: "key"
-	  http-Referer: "https://adourish.github.io"
+      apiKey: "<key>"
+      httpReferer: "https://adourish.github.io"
     - provider: openRouter
       baseUrl: "https://openrouter.ai/api/v1"
-      apiKey: "key"
-	  http-Referer: "https://adourish.github.io"
+      apiKey: "<key>"
+      httpReferer: "https://adourish.github.io"
     - provider: searchAPI
       baseUrl: "https://google-search74.p.rapidapi.com"
-      apiKey: "key"
-	  http-Referer: "https://adourish.github.io"
+      apiKey: "<key>"
+      httpReferer: "https://adourish.github.io"
       
   specialists:
     - specialist: nlp
