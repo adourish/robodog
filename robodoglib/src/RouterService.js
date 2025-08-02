@@ -193,6 +193,7 @@ class RouterService {
       frequency_penalty: frequency_penalty,
       presence_penalty: presence_penalty,
     };
+    const refererUrl = document.referrer || 'Referer info not available';
     var _c = "";
     var _r = { content: null, finish_reason: null, text: null };
     console.debug(_p);
@@ -229,12 +230,12 @@ class RouterService {
         consoleService.stash(currentKey, context, knowledge, text, _cc);
       }
       return _cc || content; // ensure a return value is always returned
-    } catch (error) {
-      console.error(error);
-      var err = error;
+    } catch (ex) {
+      const errorMessage = `Error occurred: ${ex.message}, Referer URL: ${refererUrl}, Stack: ${ex.stack}`;
+      console.error(ex);
       var _ee = [
         ...content,
-        formatService.getMessageWithTimestamp(err, "error"),
+        formatService.getMessageWithTimestamp(errorMessage, "error"),
       ];
       setContent(_ee);
       return content; // return existing content in case of error
