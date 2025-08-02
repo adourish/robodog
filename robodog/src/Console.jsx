@@ -690,56 +690,61 @@ function Console() {
     }
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    var command = question.trim();
-    console.log('submit:', command);
-    setThinking('🦧');
-    setMessage('');
-    try {
-      var _command = consoleService.getVerb(command);
-      if (_command.isCommand) {
-        executeCommands(_command);
-        setThinking('🦥');
-      } else {
-        console.log('content:', command);
-        const updatedContext = context ? `${context}\n${command}` : command;
-        setContext(updatedContext);
-        var routerModel = new RobodogLib.RouterModel(
-          question,
-          model,
-          context,
-          knowledge,
-          content,
-          temperature,
-          max_tokens,
-          currentKey,
-          size,
-          setContent,
-          setMessage,
-          setPerformance,
-          setThinking          
-        );
-        var response = await routerService.routeQuestion(routerModel)
-        console.debug(response);
-      }
+const handleSubmit = async (event) => {
+  event.preventDefault();
+  var command = question.trim();
+  console.log('submit:', command);
+  setThinking('🦧');
+  setMessage('');
+  
+  // Get the referer URL
+  const refererUrl = document.referrer || 'Referer info not available';
+  
+  try {
+    var _command = consoleService.getVerb(command);
+    if (_command.isCommand) {
+      executeCommands(_command);
       setThinking('🦥');
-    } catch (ex) {
-      
-      setThinking('🐛');
-      console.error('handleSubmit', ex);
-      setMessage('error');
-      setContent([
-        ...content,
-        formatService.getMessageWithTimestamp(ex, 'error')
-      ]);
-    } finally {
-      
-      setQuestion('');
-      consoleService.scrollToBottom();
+    } else {
+      console.log('content:', command);
+      const updatedContext = context ? `${context}\n${command}` : command;
+      setContext(updatedContext);
+      var routerModel = new RobodogLib.RouterModel(
+        question,
+        model,
+        context,
+        knowledge,
+        content,
+        temperature,
+        max_tokens,
+        currentKey,
+        size,
+        setContent,
+        setMessage,
+        setPerformance,
+        setThinking          
+      );
+      var response = await routerService.routeQuestion(routerModel);
+      console.debug(response);
     }
-  };
-
+    setThinking('🦥');
+  } catch (ex) {
+    setThinking('🐛');
+    
+    // Include referer URL and additional debug information in the error message
+    console.error('handleSubmit', ex);
+    const errorMessage = `Error occurred: ${ex.message}, Referer URL: ${refererUrl}, Stack: ${ex.stack}`;
+    setMessage(errorMessage);
+    
+    setContent([
+      ...content,
+      formatService.getMessageWithTimestamp(errorMessage, 'error')
+    ]);
+  } finally {
+    setQuestion('');
+    consoleService.scrollToBottom();
+  }
+};
   return (
 
     <div className="console">

@@ -2,13 +2,16 @@
 
 ## About
 
+
 Robodog is a powerful and versatile generative AI client that provides comprehensive support for a diverse range of advanced models, including the cutting-edge `o4-mini` with enhanced reasoning capabilities, along with renowned options like `gpt-4`, `gpt-4-turbo`, and `dall-e-3`. The platform also integrates groundbreaking models from prominent AI providers, such as LlamaAI, DeepSeek, Anthropic's Claude, and Sarvam AI, making it the ideal solution for varied applications, including programming, healthcare, and creative tasks.
 
-Robodog features an intuitive command-line interface, enabling seamless execution of commands like switching models, adjusting parameters, and managing chat contexts effortlessly. Users can utilize commands such as `/stash`, `/pop`, and `/list` to navigate, manage, and manipulate conversation histories easily, including adding or removing specific entries as needed. The platform boasts support for exceptionally large context buffers, accommodating up to 200k tokens, ensuring that extensive dialogue or input history is retained and accessible for meaningful interactions.
+Robodog features an intuitive command-line interface, enabling seamless execution of commands like switching models, adjusting parameters, and managing chat contexts effortlessly. Users can utilize commands such as `/stash`, `/pop`, `/clear`, and `/list` to navigate, manage, and manipulate conversation histories easily, including adding or removing specific entries as needed. The platform boasts support for exceptionally large context buffers, accommodating up to 200k tokens, ensuring that extensive dialogue or input history is retained and accessible for meaningful interactions.
 
-Moreover, Robodog allows users to create save points in their conversation history, enabling them to revert to previous states as necessary. The `/import` functionality lets users bring in files across multiple formats—such as markdown, plaintext, JSON, and programming languages—greatly enhancing the knowledge base and context available for interaction.
+Moreover, Robodog allows users to create save points in their conversation history, enabling them to revert to previous states as necessary. The `/import` functionality lets users bring in files across multiple formats—such as markdown, plaintext, JSON, and programming languages—greatly enhancing the knowledge base and context available for interaction. Additionally, users can save their configurations in a YAML format, allowing for easy retrieval and management of settings.
 
-The platform excels in providing rich responses through its chat history management system, ensuring that every conversation is contextual and relevant. With built-in support for Optical Character Recognition (OCR), users can convert images to text and vice versa, empowering diverse content creation and analysis.
+Designed as a lightweight client, Robodog requires no installation, ensuring quick and hassle-free access. The platform excels in providing rich responses through its chat history management system, ensuring that every conversation is contextual and relevant. With built-in support for Optical Character Recognition (OCR), users can convert images to text and vice versa, empowering diverse content creation and analysis.
+
+Whether you need sophisticated responses or creative outputs, Robodog empowers you to engage with AI efficiently and effectively, offering a comprehensive toolkit that meets the demands of any user scenario. Experience the future of AI interaction with Robodog, designed to adapt to your needs while delivering unparalleled performance.
 
 Whether you need sophisticated responses or creative outputs, Robodog empowers you to engage with AI efficiently and effectively, offering a comprehensive toolkit that meets the demands of any user scenario. Experience the future of AI interaction with Robodog, designed to adapt to your needs while delivering unparalleled performance.
 
@@ -34,6 +37,7 @@ To configure the models and providers, click the ⚙️ icon.
 Here's a sample of YAML configuration:
 
 ```yaml
+  
 configs:
   providers:
     - provider: openAI
@@ -49,12 +53,60 @@ configs:
       apiKey: "<key>"
       httpReferer: "https://adourish.github.io"
       
-models:
-  - provider: openAI
-    model: gpt-4
-    stream: true
-    specialist: nlp
-    about: best for performance 
+  specialists:
+    - specialist: nlp
+      resume: natural language processing, chatbots, content generation, language translation
+    - specialist: gi
+      resume: generates images from textual descriptions. understanding and interpreting textual descriptions 
+    - specialist: search
+      resume: generate simple search results
+
+  models:
+    - provider: openAI
+      model: gpt-4
+      stream: true
+      specialist: nlp
+      about: best for performance 
+    - provider: openRouter
+      model: GPT-4o-mini
+      stream: true
+      specialist: nlp
+      about: best for most questions
+    - provider: openAI
+      model: o4-mini
+      stream: true
+      specialist: nlp
+      about: biggest model with 200k context window and world view. Best for critical thinking.
+    - provider: openAI
+      model: o1
+      stream: true
+      specialist: nlp
+      about: big model with 128k context window and small world view. Good for critical thinking.
+    - provider: llamaAI
+      model: llama3-70b
+      stream: false
+      specialist: nlp
+      about: best for big content
+    - provider: openAI
+      model: gpt-4o
+      stream: true
+      specialist: nlp
+      about: best for summerizing
+    - provider: openAI
+      model: gpt-4-turbo
+      stream: true
+      specialist: nlp
+      about: best for speed
+    - provider: openAI
+      model: dall-e-3
+      stream: false
+      specialist: gi
+      about: best for creating images
+    - provider: searchAPI
+      model: search
+      stream: false
+      specialist: search
+      about: best for searching
 ```
 
 ## Supported Models
