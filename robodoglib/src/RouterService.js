@@ -16,41 +16,37 @@ class RouterService {
     console.debug("RouterService init");
   }
 
-  getLlamaAI(model) {
-    var _model = providerService.getModel(model);
-    var _provider = providerService.getProvider(_model.provider);
-    var _apiKey = _provider.apiKey;
-    var _baseUrl = _provider.baseUrl;
-    console.log(_model, _provider);
-    var _c = {
-      apiKey: _apiKey,
-      dangerouslyAllowBrowser: true,
-    };
 
-    const llamaAI = new LlamaAI(_apiKey, _baseUrl);
-    console.log(llamaAI);
-    return llamaAI;
-  }
   getOpenAI(model) {
-    const _model    = providerService.getModel(model);
+    const _model = providerService.getModel(model);
     const _provider = providerService.getProvider(_model.provider);
-    const _apiKey   = _provider.apiKey;
-    const _baseUrl  = _provider.baseUrl; // e.g. “https://openrouter.ai”
-    const _httpReferer = _provider.httpReferer;
+    const _apiKey = _provider.apiKey;
+    const _baseUrl = _provider.baseUrl; // e.g. “https://adourish.github.io
+
+    let _httpReferer = _provider.httpReferer;
+    if (!_httpReferer || _httpReferer.trim() === '') {
+        _httpReferer = this.getRefererUrl(); // Use the referer from getRefererUrl if _httpReferer is empty or null
+    }
+
     console.log(_model, _provider);
     const clientConfig = {
-      apiKey: _apiKey,
-      baseURL: _baseUrl,
-      dangerouslyAllowBrowser: true,
-      extraHeaders: {
-        "HTTP-Referer": _httpReferer, 
-    },
+        apiKey: _apiKey,
+        baseURL: _baseUrl,
+        dangerouslyAllowBrowser: true,
+        extraHeaders: {
+            "HTTP-Referer": _httpReferer, 
+        },
     };
-  
+
     const openai = new OpenAI(clientConfig);
     console.log(openai);
     return openai;
-  }
+}
+
+  getRefererUrl() {
+    // If this is running on Android webview, you might pass this from the Android side.
+    return document.referrer || 'https://adourish.github.io';  // Use a default if none
+}
 
   async handleRestCompletion(
     model,
@@ -107,64 +103,6 @@ class RouterService {
     return null;
   }
 
-  async handleLlamaRestCompletion(
-    model,
-    messages,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    max_tokens,
-    setThinking,
-    setContent,
-    setMessage,
-    content,
-    text,
-    currentKey,
-    context,
-    knowledge
-  ) {
-    try {
-      var _p2 = {
-        model: model,
-        messages: messages,
-        temperature: temperature,
-        top_p: top_p,
-        frequency_penalty: frequency_penalty,
-        presence_penalty: presence_penalty,
-      };
-      var _r = {
-        content: "Sorry, I am unable to process the request at the moment.",
-        finish_reason: null,
-        text: null,
-      };
-      if (max_tokens > 0) {
-        _p2.max_tokens = max_tokens;
-      }
-      console.debug(_p2);
-      const _llamaAI = this.getLlamaAI(model);
-      const response = await _llamaAI.run(_p2);
-
-      if (response && response.choices[0]?.message?.content) {
-        var _content = response.choices[0]?.message?.content;
-        var _finish_reason = response.choices[0]?.finish_reason;
-        _r.content = _content;
-        _r.finish_reason = _finish_reason;
-        setMessage(_finish_reason);
-      }
-      var _cc = [
-        ...content,
-        FormatService.getMessageWithTimestamp(text, "user"),
-        FormatService.getMessageWithTimestamp(_r.content, "assistant"),
-      ];
-      setContent(_cc);
-      consoleService.stash(currentKey, context, knowledge, text, _cc);
-      return _cc;
-    } catch (error) {
-      console.error(error);
-      return content;
-    }
-  }
 
   // handle open ai stream completions
   async handleStreamCompletion(
@@ -193,7 +131,7 @@ class RouterService {
       frequency_penalty: frequency_penalty,
       presence_penalty: presence_penalty,
     };
-    const refererUrl = document.referrer || 'Referer info not available';
+    const refererUrl = this.getRefererUrl();
     var _c = "";
     var _r = { content: null, finish_reason: null, text: null };
     console.debug(_p);
@@ -327,6 +265,7 @@ class RouterService {
     routerModel.content = _cc;
     return routerModel;
   }
+
   async askQuestion(
     text,
     model,
