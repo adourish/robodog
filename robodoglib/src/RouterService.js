@@ -26,7 +26,7 @@ class RouterService {
     }
   }
 
-  getOpenAI(model) {
+  getOpenAI(model, useDefault) {
     const _model = providerService.getModel(model);
     const _provider = providerService.getProvider(_model.provider);
     const _apiKey = _provider.apiKey;
@@ -36,7 +36,7 @@ class RouterService {
 
     const isAndroidApp = this.isAndroid();
 
-    if (isAndroidApp) {
+    if (isAndroidApp || useDefault) {
       // Do not include Referer for Android app calls
       console.log('Calling from Android app, skipping Referer header.');
       _httpReferer = null; // This will prevent setting it in the clientConfig
@@ -46,13 +46,19 @@ class RouterService {
 
     console.log(_model, _provider);
 
-    const clientConfig = {
+    let clientConfig = {
       apiKey: _apiKey,
       baseURL: _baseUrl,
       dangerouslyAllowBrowser: true,
       extraHeaders: {}
     };
-
+    if (useDefault) {
+      clientConfig = {
+        apiKey: _apiKey,
+        dangerouslyAllowBrowser: true,
+        extraHeaders: {}
+      };
+    }
     // Only add the HTTP-Referer header if it's not null
     if (_httpReferer) {
       clientConfig.extraHeaders["HTTP-Referer"] = _httpReferer;
@@ -83,7 +89,8 @@ class RouterService {
     text,
     currentKey,
     context,
-    knowledge
+    knowledge,
+    useDefault
   ) {
     var _p2 = {
       model: model,
@@ -98,7 +105,7 @@ class RouterService {
       _p2.max_tokens = max_tokens;
     }
     console.debug(_p2);
-    const openai = this.getOpenAI(model);
+    const openai = this.getOpenAI(model, useDefault);
     try {
       const response = await openai.chat.completions.create(_p2);
       if (response) {
@@ -140,7 +147,8 @@ class RouterService {
     text,
     currentKey,
     context,
-    knowledge
+    knowledge,
+    useDefault
   ) {
     var _p = {
       model: model,
@@ -156,7 +164,7 @@ class RouterService {
     var _r = { content: null, finish_reason: null, text: null };
     console.debug(_p);
     try {
-      const openai = this.getOpenAI(model);
+      const openai = this.getOpenAI(model, useDefault);
       console.log(openai);
       const stream = openai.beta.chat.completions.stream(_p);
       if (stream) {
@@ -216,7 +224,8 @@ class RouterService {
     currentKey,
     context,
     knowledge,
-    size
+    size,
+    useDefault
   ) {
     let _c = [];
     try {
@@ -234,7 +243,7 @@ class RouterService {
         quality: "standard",
         n: 1,
       };
-      const openai = this.getOpenAI(model);
+      const openai = this.getOpenAI(model, useDefault);
       const response3 = await openai.images.generate(p3);
       console.debug("handleDalliRestCompletion", p3);
       if (response3) {
@@ -350,7 +359,8 @@ class RouterService {
             currentKey,
             context,
             knowledge,
-            size
+            size,
+            true
           );
         } else if (model === "search") {
           console.log("rounter search");
@@ -378,7 +388,8 @@ class RouterService {
             text,
             currentKey,
             context,
-            knowledge
+            knowledge,
+            true
           );
         } else if (_model.provider === "openRouter" && _model.stream === true) {
           console.log("rounter openRouter handleStreamCompletion");
@@ -397,7 +408,8 @@ class RouterService {
             text,
             currentKey,
             context,
-            knowledge
+            knowledge,
+            false
           );
         } else if (_model.provider === "openAI" && _model.stream === false) {
           console.log("rounter openAI handleRestCompletion");
@@ -416,7 +428,8 @@ class RouterService {
             text,
             currentKey,
             context,
-            knowledge
+            knowledge,
+            true
           );
         } else if (_model.stream === true) {
           console.log("rounter openAI handleRestCompletion");
@@ -436,7 +449,8 @@ class RouterService {
             text,
             currentKey,
             context,
-            knowledge
+            knowledge,
+            true
           );
         } else {
           console.log("no matching model condigtions");
