@@ -16,37 +16,57 @@ class RouterService {
     console.debug("RouterService init");
   }
 
+  isAndroid() {
+    try {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      return /Android/i.test(userAgent);
+    } catch (error) {
+      console.error("Error determining if the device is Android:", error);
+      return false; // Default value in case of an error
+    }
+  }
 
   getOpenAI(model) {
     const _model = providerService.getModel(model);
     const _provider = providerService.getProvider(_model.provider);
     const _apiKey = _provider.apiKey;
-    const _baseUrl = _provider.baseUrl; // e.g. “https://adourish.github.io
+    const _baseUrl = _provider.baseUrl; // e.g. “https://adourish.github.io”
 
     let _httpReferer = _provider.httpReferer;
-    if (!_httpReferer || _httpReferer.trim() === '') {
-        _httpReferer = this.getRefererUrl(); // Use the referer from getRefererUrl if _httpReferer is empty or null
+
+    const isAndroidApp = this.isAndroid();
+
+    if (isAndroidApp) {
+      // Do not include Referer for Android app calls
+      console.log('Calling from Android app, skipping Referer header.');
+      _httpReferer = null; // This will prevent setting it in the clientConfig
+    } else if (!_httpReferer || _httpReferer.trim() === '') {
+      _httpReferer = this.getRefererUrl(); // Use the referer from getRefererUrl if _httpReferer is empty or null
     }
 
     console.log(_model, _provider);
+
     const clientConfig = {
-        apiKey: _apiKey,
-        baseURL: _baseUrl,
-        dangerouslyAllowBrowser: true,
-        extraHeaders: {
-            "HTTP-Referer": _httpReferer, 
-        },
+      apiKey: _apiKey,
+      baseURL: _baseUrl,
+      dangerouslyAllowBrowser: true,
+      extraHeaders: {}
     };
+
+    // Only add the HTTP-Referer header if it's not null
+    if (_httpReferer) {
+      clientConfig.extraHeaders["HTTP-Referer"] = _httpReferer;
+    }
 
     const openai = new OpenAI(clientConfig);
     console.log(openai);
     return openai;
-}
+  }
 
   getRefererUrl() {
     // If this is running on Android webview, you might pass this from the Android side.
     return document.referrer || 'https://adourish.github.io';  // Use a default if none
-}
+  }
 
   async handleRestCompletion(
     model,
@@ -400,7 +420,7 @@ class RouterService {
           );
         } else if (_model.stream === true) {
           console.log("rounter openAI handleRestCompletion");
-          console.log("rounter fall through " +_model.provider + " handleStreamCompletion");
+          console.log("rounter fall through " + _model.provider + " handleStreamCompletion");
           _cc = await this.handleStreamCompletion(
             model,
             messages,
