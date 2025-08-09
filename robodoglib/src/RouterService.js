@@ -113,7 +113,6 @@ class RouterService {
         var _finish_reason = response.choices[0]?.finish_reason;
         _r.content = _content || "No content available";
         _r.finish_reason = _finish_reason || "No finish reason";
-        setMessage(_finish_reason);
         var _cc = [
           ...content,
           FormatService.getMessageWithTimestamp(text, "user"),
@@ -124,8 +123,12 @@ class RouterService {
         return _cc;
       }
     } catch (error) {
-      console.error("Error:", error);
-      return { error: "An error occurred while processing the request." };
+      const errorMessage = this.formatErrorMessage(error);
+      console.error(errorMessage);
+    setMessage("Error");
+      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setContent(_c);
+      throw error;
     }
     return null;
   }
@@ -185,7 +188,7 @@ class RouterService {
         var _finish_reason = response.choices[0]?.finish_reason;
         _r.content = _content;
         _r.finish_reason = _finish_reason;
-        setMessage(_finish_reason);
+
         var _cc = [
           ...content,
           formatService.getMessageWithTimestamp(text, "user"),
@@ -196,14 +199,13 @@ class RouterService {
         consoleService.stash(currentKey, context, knowledge, text, _cc);
       }
       return _cc || content; // ensure a return value is always returned
-    } catch (ex) {
-      const errorMessage = `Error occurred: ${ex.message}, Referer URL: ${refererUrl}, Stack: ${ex.stack}`;
-      console.error(ex);
-      var _ee = [
-        ...content,
-        formatService.getMessageWithTimestamp(errorMessage, "error"),
-      ];
-      setContent(_ee);
+    } catch (error) {
+      const errorMessage = this.formatErrorMessage(error);
+      console.error(errorMessage);
+            setMessage("Error");
+      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setContent(_c);
+      throw error;
       return content; // return existing content in case of error
     }
   }
@@ -258,18 +260,40 @@ class RouterService {
         setContent(_c);
         consoleService.stash(currentKey, context, knowledge, text, _c);
       }
-    } catch (err) {
-      console.error("Error in handleDalliRestCompletion:", err);
-      _c = [
-        ...content,
-        formatService.getMessageWithTimestamp(
-          "Sorry, something went wrong.",
-          "bot"
-        ),
-      ];
+    } catch (error) {
+      const errorMessage = this.formatErrorMessage(error);
+      console.error(errorMessage);
+            setMessage("Error");
+      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
       setContent(_c);
+      throw error;
     }
     return _c;
+  }
+
+  formatErrorMessage(error) {
+    let message = `Error occurred: ${error.message || 'Unknown error'}`;
+
+    // Add information from deep objects
+    if (error.response) {
+      message += `, Response: ${JSON.stringify(error.response.data || 'No data')}`;
+    }
+    if (error.stack) {
+      message += `, Stack: ${error.stack}`;
+    }
+    if (error.metadata) {
+      message += `, Metadata: ${JSON.stringify(error.metadata || 'No data')}`;
+    }
+    if (error.error) {
+      message += this.formatErrorMessage(error.error);
+    }
+    if (error.code) {
+      message += `, Code: ${JSON.stringify(error.code || 'No data')}`;
+    }
+    if (error.message) {
+      message += `, Message: ${JSON.stringify(error.message || 'No data')}`;
+    }
+    return message;
   }
 
   async routeQuestion(routerModel) {
@@ -461,8 +485,9 @@ class RouterService {
       setThinking('🦥');
     } catch (error) {
       setThinking('🐛');
-      console.error("Error sending message to provider: ", error);
-      setMessage("Error sending message to provider: " + error);
+      const errorMessage = this.formatErrorMessage(error);
+      console.error(errorMessage);
+      setMessage("Error");
       throw error;
     } finally {
       calculator.end();
