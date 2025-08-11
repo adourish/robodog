@@ -63,8 +63,8 @@ class RouterService {
     }
     // Only add the HTTP-Referer header if it's not null
     if (_httpReferer) {
-      clientConfig.headers["HTTP-Referer"] = _httpReferer;
-      clientConfig.headers["X-HTTP-Referer"] = _httpReferer;
+      clientConfig.extraHeaders["HTTP-Referer"] = _httpReferer;
+      clientConfig.extraHeaders["X-HTTP-Referer"] = _httpReferer;
       clientConfig.headers["HTTP-Referer"] = _httpReferer;
       clientConfig.headers["X-HTTP-Referer"] = _httpReferer;
     }
