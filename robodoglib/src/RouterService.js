@@ -38,9 +38,9 @@ class RouterService {
 
     if (isAndroidApp || useDefault) {
       // Do not include Referer for Android app calls
-      console.log('Calling from Android app, skipping Referer header.');
+      console.log("Calling from Android app, skipping Referer header.");
       _httpReferer = null; // This will prevent setting it in the clientConfig
-    } else if (!_httpReferer || _httpReferer.trim() === '') {
+    } else if (!_httpReferer || _httpReferer.trim() === "") {
       _httpReferer = this.getRefererUrl(); // Use the referer from getRefererUrl if _httpReferer is empty or null
     }
 
@@ -50,18 +50,23 @@ class RouterService {
       apiKey: _apiKey,
       baseURL: _baseUrl,
       dangerouslyAllowBrowser: true,
-      extraHeaders: {}
+      extraHeaders: {},
+      headers: {},
     };
     if (useDefault) {
       clientConfig = {
         apiKey: _apiKey,
         dangerouslyAllowBrowser: true,
-        extraHeaders: {}
+        extraHeaders: {},
+        headers: {},
       };
     }
     // Only add the HTTP-Referer header if it's not null
     if (_httpReferer) {
-      clientConfig.extraHeaders["HTTP-Referer"] = _httpReferer;
+      clientConfig.headers["HTTP-Referer"] = _httpReferer;
+      clientConfig.headers["X-HTTP-Referer"] = _httpReferer;
+      clientConfig.headers["HTTP-Referer"] = _httpReferer;
+      clientConfig.headers["X-HTTP-Referer"] = _httpReferer;
     }
 
     const openai = new OpenAI(clientConfig);
@@ -71,7 +76,7 @@ class RouterService {
 
   getRefererUrl() {
     // If this is running on Android webview, you might pass this from the Android side.
-    return document.referrer || 'https://adourish.github.io';  // Use a default if none
+    return document.referrer || "https://adourish.github.io"; // Use a default if none
   }
 
   async handleRestCompletion(
@@ -125,14 +130,16 @@ class RouterService {
     } catch (error) {
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
-    setMessage("Error");
-      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setMessage("Error");
+      _c = [
+        ...content,
+        formatService.getMessageWithTimestamp(errorMessage, "error"),
+      ];
       setContent(_c);
       throw error;
     }
     return null;
   }
-
 
   // handle open ai stream completions
   async handleStreamCompletion(
@@ -202,8 +209,11 @@ class RouterService {
     } catch (error) {
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
-            setMessage("Error");
-      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setMessage("Error");
+      _c = [
+        ...content,
+        formatService.getMessageWithTimestamp(errorMessage, "error"),
+      ];
       setContent(_c);
       throw error;
       return content; // return existing content in case of error
@@ -263,8 +273,11 @@ class RouterService {
     } catch (error) {
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
-            setMessage("Error");
-      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setMessage("Error");
+      _c = [
+        ...content,
+        formatService.getMessageWithTimestamp(errorMessage, "error"),
+      ];
       setContent(_c);
       throw error;
     }
@@ -272,26 +285,28 @@ class RouterService {
   }
 
   formatErrorMessage(error) {
-    let message = `Error occurred: ${error.message || 'Unknown error'}`;
+    let message = `Error occurred: ${error.message || "Unknown error"}`;
 
     // Add information from deep objects
     if (error.response) {
-      message += `, Response: ${JSON.stringify(error.response.data || 'No data')}`;
+      message += `, Response: ${JSON.stringify(
+        error.response.data || "No data"
+      )}`;
     }
     if (error.stack) {
       message += `, Stack: ${error.stack}`;
     }
     if (error.metadata) {
-      message += `, Metadata: ${JSON.stringify(error.metadata || 'No data')}`;
+      message += `, Metadata: ${JSON.stringify(error.metadata || "No data")}`;
     }
     if (error.error) {
       message += this.formatErrorMessage(error.error);
     }
     if (error.code) {
-      message += `, Code: ${JSON.stringify(error.code || 'No data')}`;
+      message += `, Code: ${JSON.stringify(error.code || "No data")}`;
     }
     if (error.message) {
-      message += `, Message: ${JSON.stringify(error.message || 'No data')}`;
+      message += `, Message: ${JSON.stringify(error.message || "No data")}`;
     }
     return message;
   }
@@ -352,7 +367,7 @@ class RouterService {
         role: systemRole,
         content:
           "Instruction 1: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context.",
-      }
+      },
     ];
 
     setThinking(formatService.getRandomEmoji());
@@ -457,7 +472,11 @@ class RouterService {
           );
         } else if (_model.stream === true) {
           console.log("rounter openAI handleRestCompletion");
-          console.log("rounter fall through " + _model.provider + " handleStreamCompletion");
+          console.log(
+            "rounter fall through " +
+              _model.provider +
+              " handleStreamCompletion"
+          );
           _cc = await this.handleStreamCompletion(
             model,
             messages,
@@ -482,9 +501,9 @@ class RouterService {
       } else {
         console.log("no matching provider or model");
       }
-      setThinking('🦥');
+      setThinking("🦥");
     } catch (error) {
-      setThinking('🐛');
+      setThinking("🐛");
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
       setMessage("Error");
