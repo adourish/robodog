@@ -18,7 +18,7 @@
     "axios": "^1.7.2",
     "babel-preset-es2015": "^6.24.1",
     "express": "^4.21.1",
-    "openai": "^4.18.0",
+    "openai": "^5.12.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^2.5.207",
     "react": "^18.2.0",
