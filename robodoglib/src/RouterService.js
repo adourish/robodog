@@ -64,9 +64,8 @@ class RouterService {
     // Only add the HTTP-Referer header if it's not null
     if (_httpReferer) {
       clientConfig.extraHeaders["HTTP-Referer"] = _httpReferer;
-      clientConfig.extraHeaders["X-HTTP-Referer"] = _httpReferer;
       clientConfig.headers["HTTP-Referer"] = _httpReferer;
-      clientConfig.headers["X-HTTP-Referer"] = _httpReferer;
+
     }
 
     const openai = new OpenAI(clientConfig);
@@ -78,15 +77,12 @@ class RouterService {
     // grab the provider entry for this model
     const _model = providerService.getModel(model)
     const _provider = providerService.getProvider(_model.provider)
-
-    // start with whatever referer they configured
     let referer = _provider.httpReferer
 
-    // if on Android or forcing default, strip out the referer
     if (this.isAndroid() || useDefault) {
       referer = null
     }
-    // otherwise if config was empty, fallback to document.referrer or your default URL
+
     else if (!referer || referer.trim() === "") {
       referer = this.getRefererUrl()
     }
@@ -95,14 +91,13 @@ class RouterService {
     const headers = {}
     if (referer) {
       headers["HTTP-Referer"]   = referer
-      headers["X-HTTP-Referer"] = referer
     }
 
     return { headers }
   }
 
   getRefererUrl() {
-    // If this is running on Android webview, you might pass this from the Android side.
+
     return document.referrer || "https://adourish.github.io"; // Use a default if none
   }
 
