@@ -38,9 +38,9 @@ class RouterService {
 
     if (isAndroidApp || useDefault) {
       // Do not include Referer for Android app calls
-      console.log('Calling from Android app, skipping Referer header.');
+      console.log("Calling from Android app, skipping Referer header.");
       _httpReferer = null; // This will prevent setting it in the clientConfig
-    } else if (!_httpReferer || _httpReferer.trim() === '') {
+    } else if (!_httpReferer || _httpReferer.trim() === "") {
       _httpReferer = this.getRefererUrl(); // Use the referer from getRefererUrl if _httpReferer is empty or null
     }
 
@@ -50,18 +50,22 @@ class RouterService {
       apiKey: _apiKey,
       baseURL: _baseUrl,
       dangerouslyAllowBrowser: true,
-      extraHeaders: {}
+      extraHeaders: {},
+      headers: {},
     };
     if (useDefault) {
       clientConfig = {
         apiKey: _apiKey,
         dangerouslyAllowBrowser: true,
-        extraHeaders: {}
+        extraHeaders: {},
+        headers: {},
       };
     }
     // Only add the HTTP-Referer header if it's not null
     if (_httpReferer) {
       clientConfig.extraHeaders["HTTP-Referer"] = _httpReferer;
+      clientConfig.headers["HTTP-Referer"] = _httpReferer;
+
     }
 
     const openai = new OpenAI(clientConfig);
@@ -69,9 +73,32 @@ class RouterService {
     return openai;
   }
 
+  getRequestOptions(model, useDefault) {
+    // grab the provider entry for this model
+    const _model = providerService.getModel(model)
+    const _provider = providerService.getProvider(_model.provider)
+    let referer = _provider.httpReferer
+
+    if (this.isAndroid() || useDefault) {
+      referer = null
+    }
+
+    else if (!referer || referer.trim() === "") {
+      referer = this.getRefererUrl()
+    }
+
+    // build the outgoing headers object
+    const headers = {}
+    if (referer) {
+      headers["HTTP-Referer"]   = referer
+    }
+
+    return { headers }
+  }
+
   getRefererUrl() {
-    // If this is running on Android webview, you might pass this from the Android side.
-    return document.referrer || 'https://adourish.github.io';  // Use a default if none
+
+    return document.referrer || "https://adourish.github.io"; // Use a default if none
   }
 
   async handleRestCompletion(
@@ -125,17 +152,84 @@ class RouterService {
     } catch (error) {
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
-    setMessage("Error");
-      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setMessage("Error");
+      _c = [
+        ...content,
+        formatService.getMessageWithTimestamp(errorMessage, "error"),
+      ];
       setContent(_c);
-      throw error;
     }
     return null;
   }
+  async handleStreamCompletion(
+    model,
+    messages,
+    temperature,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    max_tokens,
+    setThinking,
+    setContent,
+    setMessage,
+    content,    
+    text,       
+    currentKey,
+    context,
+    knowledge,
+    useDefault
+  ) {
 
+ 
+    try {
+      const openai = this.getOpenAI(model, useDefault);
+      const payload = { model, messages, temperature, top_p, frequency_penalty, presence_penalty, stream: true }
+      const requestOpts = this.getRequestOptions(model, useDefault)
+
+      const stream = await openai.chat.completions.create(payload, requestOpts);
+      let assistantText = "";
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) {
+          assistantText += delta;
+        }
+
+        setThinking("🤖"); 
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(text, "user"),
+          formatService.getMessageWithTimestamp(assistantText, "assistant"),
+        ]);
+        consoleService.scrollToBottom();
+      }
+  
+      // Finalize
+      const finalContent = assistantText;
+      const newHistory = [
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(finalContent, "assistant"),
+      ];
+  
+      setContent(newHistory);
+      consoleService.stash(currentKey, context, knowledge, text, newHistory);
+  
+      return newHistory;
+    }
+    catch (err) {
+      const msg = this.formatErrorMessage(err);
+      console.error(msg);
+      setMessage("Error");
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(msg, "error"),
+      ]);
+      return content;
+    }
+  }
 
   // handle open ai stream completions
-  async handleStreamCompletion(
+  async bakhandleStreamCompletion(
     model,
     messages,
     temperature,
@@ -202,10 +296,13 @@ class RouterService {
     } catch (error) {
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
-            setMessage("Error");
-      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setMessage("Error");
+      _c = [
+        ...content,
+        formatService.getMessageWithTimestamp(errorMessage, "error"),
+      ];
       setContent(_c);
-      throw error;
+
       return content; // return existing content in case of error
     }
   }
@@ -263,35 +360,39 @@ class RouterService {
     } catch (error) {
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
-            setMessage("Error");
-      _c = [...content, formatService.getMessageWithTimestamp(errorMessage, 'error')];
+      setMessage("Error");
+      _c = [
+        ...content,
+        formatService.getMessageWithTimestamp(errorMessage, "error"),
+      ];
       setContent(_c);
-      throw error;
     }
     return _c;
   }
 
   formatErrorMessage(error) {
-    let message = `Error occurred: ${error.message || 'Unknown error'}`;
+    let message = `Error occurred: ${error.message || "Unknown error"}`;
 
     // Add information from deep objects
     if (error.response) {
-      message += `, Response: ${JSON.stringify(error.response.data || 'No data')}`;
+      message += `, Response: ${JSON.stringify(
+        error.response.data || "No data"
+      )}`;
     }
     if (error.stack) {
       message += `, Stack: ${error.stack}`;
     }
     if (error.metadata) {
-      message += `, Metadata: ${JSON.stringify(error.metadata || 'No data')}`;
+      message += `, Metadata: ${JSON.stringify(error.metadata || "No data")}`;
     }
     if (error.error) {
       message += this.formatErrorMessage(error.error);
     }
     if (error.code) {
-      message += `, Code: ${JSON.stringify(error.code || 'No data')}`;
+      message += `, Code: ${JSON.stringify(error.code || "No data")}`;
     }
     if (error.message) {
-      message += `, Message: ${JSON.stringify(error.message || 'No data')}`;
+      message += `, Message: ${JSON.stringify(error.message || "No data")}`;
     }
     return message;
   }
@@ -352,12 +453,10 @@ class RouterService {
         role: systemRole,
         content:
           "Instruction 1: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context.",
-      }
+      },
     ];
 
     setThinking(formatService.getRandomEmoji());
-    var calculator = new PerformanceCalculator();
-    calculator.start();
     var _cc = [];
     try {
       var config = providerService.getJson();
@@ -457,7 +556,11 @@ class RouterService {
           );
         } else if (_model.stream === true) {
           console.log("rounter openAI handleRestCompletion");
-          console.log("rounter fall through " + _model.provider + " handleStreamCompletion");
+          console.log(
+            "rounter fall through " +
+              _model.provider +
+              " handleStreamCompletion"
+          );
           _cc = await this.handleStreamCompletion(
             model,
             messages,
@@ -482,17 +585,13 @@ class RouterService {
       } else {
         console.log("no matching provider or model");
       }
-      setThinking('🦥');
+      setThinking("🦥");
     } catch (error) {
-      setThinking('🐛');
+      setThinking("🐛");
       const errorMessage = this.formatErrorMessage(error);
       console.error(errorMessage);
       setMessage("Error");
-      throw error;
     } finally {
-      calculator.end();
-      var duration = calculator.calculateDuration();
-      setPerformance(duration);
       consoleService.scrollToBottom();
     }
     return _cc;
