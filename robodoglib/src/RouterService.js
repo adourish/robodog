@@ -387,7 +387,140 @@ class RouterService {
     }
   }
 
+  summarizeMcpResult(obj) {
+    try {
+      return Object.entries(obj)
+        .map(([k, v]) => {
+          if (Array.isArray(v)) return `${k}: [${v.length}]`;
+          else if (typeof v === 'string') return `${k}: "${v.substring(0, 30)}…" (${v.length} chars)`;
+          else if (typeof v === 'object') return `${k}: {…}`;
+          else return `${k}: ${v}`;
+        })
+        .join(', ');
+    } catch (e) {
+      return JSON.stringify(obj).substring(0, 100) + '…';
+    }
+  }
+
   async handleStreamCompletion(
+  model,
+  messages,
+  temperature,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
+  max_tokens,
+  setThinking,
+  setContent,
+  setMessage,
+  content,
+  userText,
+  currentKey,
+  context,
+  knowledge,
+  useDefault
+) {
+  const fileOpRegex = /\b(list files|read file|update file|create file|delete file)\b/i;
+
+  // 1) If no file‐op keyword, fallback to old streaming logic:
+  if (!fileOpRegex.test(userText)) {
+    return await this.handleStreamCompletionBak2(
+      model, messages, temperature, top_p, frequency_penalty,
+      presence_penalty, max_tokens,
+      setThinking, setContent, setMessage,
+      content, userText, currentKey, context, knowledge, useDefault
+    );
+  }
+
+  // 2) Ask the model to emit exactly one JSON object { op, args }:
+  const systemPrompt = {
+    role: 'system',
+    content: [
+      'If the user wants you to list/read/update/create/delete files,',
+      'output exactly one JSON object with fields "op" and "args", and nothing else.',
+      'E.g. { "op": "LIST_FILES", "args": {} }',
+      'Otherwise, answer normally.'
+    ].join(' ')
+  };
+  const userPrompt = { role: 'user', content: userText };
+
+  let jsonReply;
+  try {
+    const nonStreamResp = await this.getOpenAI(model, useDefault)
+      .chat.completions.create({
+        model,
+        messages: [ systemPrompt, userPrompt ],
+        temperature,
+        top_p,
+        frequency_penalty,
+        presence_penalty,
+        max_tokens: max_tokens > 0 ? max_tokens : undefined,
+        stream: false
+      });
+    jsonReply = nonStreamResp.choices[0]?.message?.content?.trim() || '';
+  } catch (err) {
+    console.warn('[RouterService] JSON-command LLM call failed, falling back:', err);
+    return await this.handleStreamCompletionBak2(
+      model, messages, temperature, top_p, frequency_penalty,
+      presence_penalty, max_tokens,
+      setThinking, setContent, setMessage,
+      content, userText, currentKey, context, knowledge, useDefault
+    );
+  }
+
+  // 3) Extract the JSON object:
+  let cmd;
+  try {
+    const m = jsonReply.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('No JSON found');
+    cmd = JSON.parse(m[0]);
+    if (typeof cmd.op !== 'string' || typeof cmd.args !== 'object') {
+      throw new Error('Invalid JSON shape');
+    }
+  } catch (err) {
+    console.warn('[RouterService] Failed to parse JSON command, fallback:', err, 'raw:', jsonReply);
+    return await this.handleStreamCompletionBak2(
+      model, messages, temperature, top_p, frequency_penalty,
+      presence_penalty, max_tokens,
+      setThinking, setContent, setMessage,
+      content, userText, currentKey, context, knowledge, useDefault
+    );
+  }
+
+  // 4) Call MCP:
+  let mcpResult;
+  try {
+    mcpResult = await this.callMCP(cmd.op, cmd.args);
+  } catch (err) {
+    console.warn('[RouterService] MCP server down or error, fallback:', err);
+    return await this.handleStreamCompletionBak2(
+      model, messages, temperature, top_p, frequency_penalty,
+      presence_penalty, max_tokens,
+      setThinking, setContent, setMessage,
+      content, userText, currentKey, context, knowledge, useDefault
+    );
+  }
+
+  // 5) Log a summary of what came back:
+  const summary = this.summarizeMcpResult(mcpResult);
+  console.info(`[RouterService] MCP ${cmd.op} args=${JSON.stringify(cmd.args)} → ${summary}`);
+
+  // 6) Stitch into history: first the JSON command, then the MCP JSON result
+  const history = [
+    ...content,
+    FormatService.getMessageWithTimestamp(jsonReply,  'assistant'),  // the raw JSON command
+    FormatService.getMessageWithTimestamp(JSON.stringify(mcpResult), 'assistant')
+  ];
+  setContent(history);
+  setThinking('🦥');
+  consoleService.stash(currentKey, context, knowledge, userText, history);
+
+  // (Optional second pass could be inserted here if you want a human-readable explanation.)
+
+  return history;
+}
+
+  async handleStreamCompletionBak3(
     model,
     messages,
     temperature,
