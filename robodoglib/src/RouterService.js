@@ -1,6 +1,5 @@
 import OpenAI from "openai";
-import LlamaAI from "llamaai";
-import axios from "axios";
+
 import { PerformanceCalculator } from "./PerformanceCalculator";
 import { FormatService } from "./FormatService";
 import { ConsoleService } from "./ConsoleService";
@@ -164,539 +163,177 @@ class RouterService {
 
   static MCP_SERVER_URL = "http://localhost:2500";
 
-  // 1) JSON‐schema for each MCP op
-  static MCP_FUNCTIONS = [
-    {
-      name: "LIST_FILES",
-      description: "List all files under the configured root folders",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: []
-      }
-    },
-    {
-      name: "READ_FILE",
-      description: "Read the contents of a file",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "Absolute path to the file"
-          }
-        },
-        required: ["path"]
-      }
-    },
-    {
-      name: "UPDATE_FILE",
-      description: "Overwrite a file with new content",
-      parameters: {
-        type: "object",
-        properties: {
-          path: { type: "string", description: "Absolute path to the file" },
-          content: { type: "string", description: "New file contents" }
-        },
-        required: ["path", "content"]
-      }
-    },
-    // … add other ops (CREATE_FILE, DELETE_FILE, etc.) as needed
-  ];
-
-  async callMCP(op, payload) {
-    const command = `${op} ${JSON.stringify(payload)}\n`;
+async callMCP(op, payload, timeoutMs = 5000) {
+    let netLib = null;
     try {
-      const res = await axios.post(
-        RouterService.MCP_SERVER_URL,
-        command,
-        {
-          headers: { "Content-Type": "text/plain" },
-          responseType: "text"
+      // only works in Node.js—will throw in a browser bundle
+      // (or you can test typeof process !== 'undefined' && process.versions.node)
+      netLib = require("net");
+    } catch (e) {
+      // net not available, immediately bail
+    }
+
+    if (!netLib || typeof netLib.Socket !== "function") {
+      // no net.Socket → force fallback in handleStreamCompletion
+      return Promise.reject(new Error("TCP unsupported or 'net' not found"));
+    }
+
+    const cmd = `${op} ${JSON.stringify(payload)}\n`;
+    return new Promise((resolve, reject) => {
+      const client = new netLib.Socket();
+      let buffer = "";
+
+      client.setTimeout(timeoutMs, () => {
+        client.destroy();
+        reject(new Error("MCP call timed out"));
+      });
+
+      client.connect(2500, "127.0.0.1", () => {
+        client.write(cmd);
+      });
+
+      client.on("data", (data) => {
+        buffer += data.toString("utf8");
+      });
+
+      client.on("end", () => {
+        const lines = buffer.trim().split("\n");
+        const last = lines[lines.length - 1];
+        try {
+          const json = JSON.parse(last);
+          resolve(json);
+        } catch (e) {
+          reject(new Error("Failed to parse MCP JSON: " + e.message));
         }
-      );
-      const lines = res.data.trim().split("\n");
-      return JSON.parse(lines[lines.length - 1]);
-    } catch (err) {
-      console.error(`MCP call ${op} failed:`, err);
-      throw err;
-    }
-  }
+      });
 
-  async handleStreamCompletion(
-    model,
-    messages,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    max_tokens,
-    setThinking,
-    setContent,
-    setMessage,
-    content,
-    userText,
-    currentKey,
-    context,
-    knowledge,
-    useDefault
-  ) {
-    // prepare our “functions” call:
-    const openai = this.getOpenAI(model, useDefault);
-    const requestOpts = this.getRequestOptions(model, useDefault);
-
-    const firstPayload = {
-      model,
-      messages: [
-        ...messages,
-        { role: "user", content: userText }
-      ],
-      temperature,
-      top_p,
-      frequency_penalty,
-      presence_penalty,
-      max_tokens: max_tokens > 0 ? max_tokens : undefined,
-      stream: true,
-      functions: RouterService.MCP_FUNCTIONS,
-      function_call: "auto"
-    };
-
-    // accumulate the function_call
-    let funcName = "";
-    let funcArgs = "";
-
-    // 1st pass: let the model choose and emit a function_call
-    try {
-      const stream1 = await openai.chat.completions.create(
-        firstPayload,
-        requestOpts
-      );
-
-      for await (const chunk of stream1) {
-        const delta = chunk.choices?.[0]?.delta;
-        // collect the function_call name & arguments
-        if (delta?.function_call) {
-          if (delta.function_call.name) {
-            funcName += delta.function_call.name;
-          }
-          if (delta.function_call.arguments) {
-            funcArgs += delta.function_call.arguments;
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Error during function_call phase:", err);
-      setMessage("Error");
-      setContent([
-        ...content,
-        formatService.getMessageWithTimestamp(
-          `Function‐calling failed: ${err.message}`,
-          "error"
-        )
-      ]);
-      return content;
-    }
-
-    // If the model did not pick any function, bail out
-    if (!funcName) {
-      setMessage("No function_call detected");
-      return content;
-    }
-
-    // parse arguments and invoke MCP
-    let mcpResult;
-    try {
-      const argsObj = JSON.parse(funcArgs);
-      mcpResult = await this.callMCP(funcName, argsObj);
-      console.debug(`MCP ${funcName} →`, mcpResult);
-    } catch (err) {
-      console.warn(`MCP ${funcName} invocation failed:`, err);
-      mcpResult = { error: err.message };
-    }
-
-    // append the function_call and its result into the history
-    const newMessages = [
-      ...messages,
-      { role: "user", content: userText },
-      {
-        role: "assistant",
-        content: null,
-        function_call: { name: funcName, arguments: funcArgs }
-      },
-      {
-        role: "function",
-        name: funcName,
-        content: JSON.stringify(mcpResult)
-      }
-    ];
-
-    // 2nd pass: ask the model to finish the answer based on the function result
-    let finalText = "";
-    try {
-      const stream2 = await openai.chat.completions.create(
-        {
-          model,
-          messages: newMessages,
-          temperature,
-          top_p,
-          frequency_penalty,
-          presence_penalty,
-          stream: true,
-          max_tokens: max_tokens > 0 ? max_tokens : undefined
-        },
-        requestOpts
-      );
-
-      for await (const chunk of stream2) {
-        const delta = chunk.choices?.[0]?.delta?.content;
-        if (delta) finalText += delta;
-
-        setThinking("🤖");
-        setContent([
-          ...content,
-          formatService.getMessageWithTimestamp(userText, "user"),
-          formatService.getMessageWithTimestamp(finalText, "assistant")
-        ]);
-        consoleService.scrollToBottom();
-      }
-
-      // stash and return the final history
-      const history = [
-        ...content,
-        formatService.getMessageWithTimestamp(userText, "user"),
-        formatService.getMessageWithTimestamp(finalText, "assistant")
-      ];
-      setContent(history);
-      setThinking("🦥");
-      consoleService.stash(
-        currentKey,
-        context,
-        knowledge,
-        userText,
-        history
-      );
-      return history;
-    } catch (err) {
-      console.error("Error during final assistant turn:", err);
-      setMessage("Error");
-      setContent([
-        ...content,
-        formatService.getMessageWithTimestamp(err.message, "error")
-      ]);
-      return content;
-    }
+      client.on("error", (err) => {
+        reject(err);
+      });
+    });
   }
 
   summarizeMcpResult(obj) {
     try {
       return Object.entries(obj)
         .map(([k, v]) => {
-          if (Array.isArray(v)) return `${k}: [${v.length}]`;
-          else if (typeof v === 'string') return `${k}: "${v.substring(0, 30)}…" (${v.length} chars)`;
-          else if (typeof v === 'object') return `${k}: {…}`;
-          else return `${k}: ${v}`;
+          if (Array.isArray(v)) return `${k}=[${v.length}]`;
+          if (typeof v === "string")
+            return `${k}="${v.slice(0, 30)}…"(${v.length})`;
+          if (typeof v === "object") return `${k}={…}`;
+          return `${k}=${v}`;
         })
-        .join(', ');
-    } catch (e) {
-      return JSON.stringify(obj).substring(0, 100) + '…';
+        .join(", ");
+    } catch {
+      return JSON.stringify(obj).slice(0, 100) + "…";
     }
   }
 
   async handleStreamCompletion(
-  model,
-  messages,
-  temperature,
-  top_p,
-  frequency_penalty,
-  presence_penalty,
-  max_tokens,
-  setThinking,
-  setContent,
-  setMessage,
-  content,
-  userText,
-  currentKey,
-  context,
-  knowledge,
-  useDefault
-) {
-  const fileOpRegex = /\b(list files|read file|update file|create file|delete file)\b/i;
-
-  // 1) If no file‐op keyword, fallback to old streaming logic:
-  if (!fileOpRegex.test(userText)) {
-    return await this.handleStreamCompletionBak2(
-      model, messages, temperature, top_p, frequency_penalty,
-      presence_penalty, max_tokens,
-      setThinking, setContent, setMessage,
-      content, userText, currentKey, context, knowledge, useDefault
-    );
-  }
-
-  // 2) Ask the model to emit exactly one JSON object { op, args }:
-  const systemPrompt = {
-    role: 'system',
-    content: [
-      'If the user wants you to list/read/update/create/delete files,',
-      'output exactly one JSON object with fields "op" and "args", and nothing else.',
-      'E.g. { "op": "LIST_FILES", "args": {} }',
-      'Otherwise, answer normally.'
-    ].join(' ')
-  };
-  const userPrompt = { role: 'user', content: userText };
-
-  let jsonReply;
-  try {
-    const nonStreamResp = await this.getOpenAI(model, useDefault)
-      .chat.completions.create({
-        model,
-        messages: [ systemPrompt, userPrompt ],
-        temperature,
-        top_p,
-        frequency_penalty,
-        presence_penalty,
-        max_tokens: max_tokens > 0 ? max_tokens : undefined,
-        stream: false
-      });
-    jsonReply = nonStreamResp.choices[0]?.message?.content?.trim() || '';
-  } catch (err) {
-    console.warn('[RouterService] JSON-command LLM call failed, falling back:', err);
-    return await this.handleStreamCompletionBak2(
-      model, messages, temperature, top_p, frequency_penalty,
-      presence_penalty, max_tokens,
-      setThinking, setContent, setMessage,
-      content, userText, currentKey, context, knowledge, useDefault
-    );
-  }
-
-  // 3) Extract the JSON object:
-  let cmd;
-  try {
-    const m = jsonReply.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('No JSON found');
-    cmd = JSON.parse(m[0]);
-    if (typeof cmd.op !== 'string' || typeof cmd.args !== 'object') {
-      throw new Error('Invalid JSON shape');
-    }
-  } catch (err) {
-    console.warn('[RouterService] Failed to parse JSON command, fallback:', err, 'raw:', jsonReply);
-    return await this.handleStreamCompletionBak2(
-      model, messages, temperature, top_p, frequency_penalty,
-      presence_penalty, max_tokens,
-      setThinking, setContent, setMessage,
-      content, userText, currentKey, context, knowledge, useDefault
-    );
-  }
-
-  // 4) Call MCP:
-  let mcpResult;
-  try {
-    mcpResult = await this.callMCP(cmd.op, cmd.args);
-  } catch (err) {
-    console.warn('[RouterService] MCP server down or error, fallback:', err);
-    return await this.handleStreamCompletionBak2(
-      model, messages, temperature, top_p, frequency_penalty,
-      presence_penalty, max_tokens,
-      setThinking, setContent, setMessage,
-      content, userText, currentKey, context, knowledge, useDefault
-    );
-  }
-
-  // 5) Log a summary of what came back:
-  const summary = this.summarizeMcpResult(mcpResult);
-  console.info(`[RouterService] MCP ${cmd.op} args=${JSON.stringify(cmd.args)} → ${summary}`);
-
-  // 6) Stitch into history: first the JSON command, then the MCP JSON result
-  const history = [
-    ...content,
-    FormatService.getMessageWithTimestamp(jsonReply,  'assistant'),  // the raw JSON command
-    FormatService.getMessageWithTimestamp(JSON.stringify(mcpResult), 'assistant')
-  ];
-  setContent(history);
-  setThinking('🦥');
-  consoleService.stash(currentKey, context, knowledge, userText, history);
-
-  // (Optional second pass could be inserted here if you want a human-readable explanation.)
-
-  return history;
-}
-
-  async handleStreamCompletionBak3(
-    model,
-    messages,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    max_tokens,
-    setThinking,
-    setContent,
-    setMessage,
-    content,
-    userText,
-    currentKey,
-    context,
-    knowledge,
-    useDefault
+    model, messages, temperature, top_p,
+    frequency_penalty, presence_penalty, max_tokens,
+    setThinking, setContent, setMessage,
+    content, userText, currentKey, context, knowledge, useDefault
   ) {
-    // 1) detect if user is asking for file operations
-    //    adjust this regex to taste (add UPDATE, DELETE, etc.)
-    const fileOpRegex = /\b(read file|list files|update file|create file|delete file)\b/i;
+    const fileOpRegex = /\b(list files|read file|update file|create file|delete file)\b/i;
+
+    // 1) No file‐op → fall back to normal streaming
     if (!fileOpRegex.test(userText)) {
-      // no file‐op requested → fallback to normal chat streaming
-      return await this.handleStreamCompletionBak2(
-        model,
-        messages,
-        temperature,
-        top_p,
-        frequency_penalty,
-        presence_penalty,
-        max_tokens,
-        setThinking,
-        setContent,
-        setMessage,
-        content,
-        userText,
-        currentKey,
-        context,
-        knowledge,
-        useDefault
+      return this.handleStreamCompletionBak2(
+        model, messages, temperature, top_p,
+        frequency_penalty, presence_penalty, max_tokens,
+        setThinking, setContent, setMessage,
+        content, userText, currentKey, context, knowledge, useDefault
       );
     }
 
-    // 2) file-ops path: use OpenAI function-calling + MCP
-    const openai = this.getOpenAI(model, useDefault);
-    const requestOpts = this.getRequestOptions(model, useDefault);
-    const firstPayload = {
-      model,
-      messages: [
-        ...messages,
-        { role: "user", content: userText }
-      ],
-      temperature,
-      top_p,
-      frequency_penalty,
-      presence_penalty,
-      max_tokens: max_tokens > 0 ? max_tokens : undefined,
-      stream: true,
-      functions: RouterService.MCP_FUNCTIONS,
-      function_call: "auto"
+    // 2) Ask LLM to emit exactly one JSON {op,args}
+    const systemPrompt = {
+      role: 'system',
+      content:
+        'If the user wants you to list/read/update/create/delete files, ' +
+        'output exactly one JSON object with fields "op" and "args", and nothing else. ' +
+        'E.g. { "op": "LIST_FILES", "args": {} } Otherwise, answer normally.'
     };
+    const userPrompt = { role: 'user', content: userText };
 
-    // accumulate function_call
-    let funcName = "";
-    let funcArgs = "";
-
-    // 2a) first pass: let the model pick a function
+    let jsonReply;
     try {
-      const stream1 = await openai.chat.completions.create(
-        firstPayload,
-        requestOpts
-      );
-      for await (const chunk of stream1) {
-        const delta = chunk.choices?.[0]?.delta;
-        if (delta?.function_call) {
-          if (delta.function_call.name) {
-            funcName += delta.function_call.name;
-          }
-          if (delta.function_call.arguments) {
-            funcArgs += delta.function_call.arguments;
-          }
-        }
-      }
+      const resp = await this.getOpenAI(model, useDefault)
+        .chat.completions.create({
+          model,
+          messages: [systemPrompt, userPrompt],
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens: max_tokens > 0 ? max_tokens : undefined,
+          stream: false
+        });
+      jsonReply = resp.choices[0]?.message?.content.trim() || "";
     } catch (err) {
-      console.error("Error during function_call phase:", err);
-      setMessage("Error");
-      setContent([
-        ...content,
-        formatService.getMessageWithTimestamp(
-          `Function‐calling failed: ${err.message}`,
-          "error"
-        )
-      ]);
-      return content;
+      console.warn("[RouterService] JSON‐command LLM failed, fallback:", err);
+      return this.handleStreamCompletionBak2(
+        model, messages, temperature, top_p,
+        frequency_penalty, presence_penalty, max_tokens,
+        setThinking, setContent, setMessage,
+        content, userText, currentKey, context, knowledge, useDefault
+      );
     }
 
-    if (!funcName) {
-      setMessage("No function_call detected");
-      return content;
+    // 3) Parse out JSON
+    let cmd;
+    try {
+      const m = jsonReply.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("no JSON");
+      cmd = JSON.parse(m[0]);
+      if (typeof cmd.op !== 'string' || typeof cmd.args !== 'object')
+        throw new Error("bad shape");
+    } catch (err) {
+      console.warn("[RouterService] parse JSON cmd failed, fallback:", err, "raw:", jsonReply);
+      return this.handleStreamCompletionBak2(
+        model, messages, temperature, top_p,
+        frequency_penalty, presence_penalty, max_tokens,
+        setThinking, setContent, setMessage,
+        content, userText, currentKey, context, knowledge, useDefault
+      );
     }
 
-    // 2b) invoke MCP
+    // 4) Invoke MCP over raw TCP
     let mcpResult;
     try {
-      const argsObj = JSON.parse(funcArgs);
-      mcpResult = await this.callMCP(funcName, argsObj);
-      console.debug(`MCP ${funcName} →`, mcpResult);
+      mcpResult = await this.callMCP(cmd.op, cmd.args);
     } catch (err) {
-      console.warn(`MCP ${funcName} invocation failed:`, err);
-      mcpResult = { error: err.message };
-    }
-
-    // 2c) stitch back into messages
-    const newMessages = [
-      ...messages,
-      { role: "user", content: userText },
-      {
-        role: "assistant",
-        content: null,
-        function_call: { name: funcName, arguments: funcArgs }
-      },
-      {
-        role: "function",
-        name: funcName,
-        content: JSON.stringify(mcpResult)
-      }
-    ];
-
-    // 2d) second pass: let the model finish the answer
-    let finalText = "";
-    try {
-      const stream2 = await openai.chat.completions.create(
-        {
-          model,
-          messages: newMessages,
-          temperature,
-          top_p,
-          frequency_penalty,
-          presence_penalty,
-          stream: true,
-          max_tokens: max_tokens > 0 ? max_tokens : undefined
-        },
-        requestOpts
+      console.warn(
+        `[RouterService] MCP TCP call failed, fallback to chat stream:`,
+        err
       );
-
-      for await (const chunk of stream2) {
-        const delta = chunk.choices?.[0]?.delta?.content;
-        if (delta) finalText += delta;
-
-        setThinking("🤖");
-        setContent([
-          ...content,
-          formatService.getMessageWithTimestamp(userText, "user"),
-          formatService.getMessageWithTimestamp(finalText, "assistant")
-        ]);
-        consoleService.scrollToBottom();
-      }
-
-      const history = [
-        ...content,
-        formatService.getMessageWithTimestamp(userText, "user"),
-        formatService.getMessageWithTimestamp(finalText, "assistant")
-      ];
-      setContent(history);
-      setThinking("🦥");
-      consoleService.stash(currentKey, context, knowledge, userText, history);
-      return history;
-    } catch (err) {
-      console.error("Error during final assistant turn:", err);
-      setMessage("Error");
-      setContent([
-        ...content,
-        formatService.getMessageWithTimestamp(err.message, "error")
-      ]);
-      return content;
+      return this.handleStreamCompletionBak2(
+        model, messages, temperature, top_p,
+        frequency_penalty, presence_penalty, max_tokens,
+        setThinking, setContent, setMessage,
+        content, userText, currentKey, context, knowledge, useDefault
+      );
     }
+
+    // 5) Log a one-line summary of exactly what came back
+    const summary = this.summarizeMcpResult(mcpResult);
+    console.info(
+      `[RouterService] MCP ${cmd.op} args=${JSON.stringify(cmd.args)} → ${summary}`
+    );
+
+    // 6) stitch JSON command + result into the UI history
+    const history = [
+      ...content,
+      FormatService.getMessageWithTimestamp(JSON.stringify({op: cmd.op, args: cmd.args}), "assistant"),
+      FormatService.getMessageWithTimestamp(JSON.stringify(mcpResult), "assistant"),
+    ];
+    setContent(history);
+    setThinking("🦥");
+    consoleService.stash(currentKey, context, knowledge, userText, history);
+
+    return history;
   }
+
+
+
 
   async handleStreamCompletionBak2(
     model,
@@ -765,84 +402,7 @@ class RouterService {
     }
   }
 
-  // handle open ai stream completions
-  async bakhandleStreamCompletion(
-    model,
-    messages,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    max_tokens,
-    setThinking,
-    setContent,
-    setMessage,
-    content,
-    text,
-    currentKey,
-    context,
-    knowledge,
-    useDefault
-  ) {
-    var _p = {
-      model: model,
-      messages: messages,
-      stream: true,
-      temperature: temperature,
-      top_p: top_p,
-      frequency_penalty: frequency_penalty,
-      presence_penalty: presence_penalty,
-    };
-    const refererUrl = this.getRefererUrl();
-    var _c = "";
-    var _r = { content: null, finish_reason: null, text: null };
-    console.debug(_p);
-    try {
-      const openai = this.getOpenAI(model, useDefault);
-      console.log(openai);
-      const stream = openai.beta.chat.completions.stream(_p);
-      if (stream) {
-        for await (const chunk of stream) {
-          setThinking(formatService.getRandomEmoji());
-          var _temp = chunk.choices[0]?.delta?.content || "";
-          _c = _c + _temp;
-          setContent([
-            ...content,
-            formatService.getMessageWithTimestamp(text, "user"),
-            formatService.getMessageWithTimestamp(_c, "assistant"),
-          ]);
-          consoleService.scrollToBottom();
-        }
 
-        const response = await stream.finalChatCompletion();
-        var _content = response.choices[0]?.message?.content;
-        var _finish_reason = response.choices[0]?.finish_reason;
-        _r.content = _content;
-        _r.finish_reason = _finish_reason;
-
-        var _cc = [
-          ...content,
-          formatService.getMessageWithTimestamp(text, "user"),
-          formatService.getMessageWithTimestamp(_content, "assistant"),
-        ];
-        setContent(_cc);
-
-        consoleService.stash(currentKey, context, knowledge, text, _cc);
-      }
-      return _cc || content; // ensure a return value is always returned
-    } catch (error) {
-      const errorMessage = this.formatErrorMessage(error);
-      console.error(errorMessage);
-      setMessage("Error");
-      _c = [
-        ...content,
-        formatService.getMessageWithTimestamp(errorMessage, "error"),
-      ];
-      setContent(_c);
-
-      return content; // return existing content in case of error
-    }
-  }
   // hanlde open ai dall-e-3 completions
   async handleDalliRestCompletion(
     model,
