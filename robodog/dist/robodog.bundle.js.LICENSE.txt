@@ -1,5 +1,3 @@
-/*! For license information please see robodoglib.bundle.js.LICENSE.txt */
-
 /**
  * @license React
  * react-dom.production.min.js

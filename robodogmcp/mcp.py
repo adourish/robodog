@@ -1,17 +1,13 @@
+#!/usr/bin/env python3
 import argparse
 import json
 import logging
 import os
 import shutil
 import socketserver
-import threading
 import fnmatch
 import hashlib
-import stat as statmod
-
 from pathlib import Path
-
-# python mcp.py --host 0.0.0.0 --port 2500 --folders c:\projects\robodog
 
 # —————————————————————————————————————————————————————————————————————————————
 #    Command-line parsing
@@ -39,7 +35,6 @@ for p in args.folders:
 logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s] %(levelname)s:%(message)s')
 
-
 # —————————————————————————————————————————————————————————————————————————————
 #    Security helper: ensure any target path lies within one of the roots
 # —————————————————————————————————————————————————————————————————————————————
@@ -52,7 +47,6 @@ def is_within_roots(path: str) -> bool:
             return True
     return False
 
-
 # —————————————————————————————————————————————————————————————————————————————
 #    MCP protocol handler
 # —————————————————————————————————————————————————————————————————————————————
@@ -62,30 +56,56 @@ class MCPHandler(socketserver.StreamRequestHandler):
         peer = self.client_address
         logging.info(f"Connection from {peer}")
         try:
+            # Initial welcome
             self.wfile.write(b"Welcome to the MCP file server. Type HELP\n")
         except Exception:
             return
 
         while True:
-            line = self.rfile.readline()
+            try:
+                line = self.rfile.readline()
+            except ConnectionAbortedError:
+                break
             if not line:
                 break
-            cmdline = line.decode('utf-8', errors='ignore').strip()
+
+            raw = line.decode('utf-8', errors='ignore')
+            cmdline = raw.strip()
+
+            # —————————————————————————————
+            # HTTP detection
+            # —————————————————————————————
+            if "HTTP/" in cmdline and cmdline.upper().startswith(("GET ", "POST ", "PUT ", "DELETE ", "HEAD ")):
+                method = cmdline.split()[0].upper()
+                if method == 'POST':
+                    # Skip POST headers and let the body be the MCP command
+                    logging.info(f"[{peer}] Detected HTTP POST, skipping headers...")
+                    while True:
+                        hdr = self.rfile.readline()
+                        if not hdr or hdr.strip() == b'':
+                            break
+                    # next loop iteration will read the body line
+                    continue
+                else:
+                    # Reject GET (and any other methods) with HTTP 400
+                    logging.info(f"[{peer}] Detected HTTP {method}, rejecting with 400")
+                    resp = (
+                        "HTTP/1.1 400 Bad Request\r\n"
+                        "Content-Type: text/plain; charset=utf-8\r\n"
+                        "Content-Length: 21\r\n"
+                        "\r\n"
+                        "MCP server only.\n"
+                    )
+                    try:
+                        self.wfile.write(resp.encode('utf-8'))
+                    except Exception:
+                        pass
+                    break
+
             if not cmdline:
                 continue
 
-            # reject accidental HTTP
-            if cmdline.upper().startswith("GET ") and "HTTP/" in cmdline:
-                resp = (
-                    "HTTP/1.1 400 Bad Request\r\n"
-                    "Content-Type: text/plain; charset=utf-8\r\n"
-                    "Content-Length: 21\r\n"
-                    "\r\n"
-                    "MCP server only.\n"
-                )
-                self.wfile.write(resp.encode('utf-8'))
-                break
-
+            # Parse MCP command
             parts = cmdline.split(' ', 1)
             op = parts[0].upper()
             arg = parts[1] if len(parts) > 1 else None
@@ -251,7 +271,6 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     shutil.copy2(src, dst)
                     self.send_json({"src": src, "dst": dst, "status": "ok"})
 
-               
                 elif op == 'SEARCH':
                     if not arg: raise ValueError("Missing JSON payload")
                     req = json.loads(arg)
@@ -279,10 +298,6 @@ class MCPHandler(socketserver.StreamRequestHandler):
                             h.update(chunk)
                     self.send_json({"path": path, "checksum": h.hexdigest(), "status": "ok"})
 
-                elif op == 'WATCH':
-                    # Advanced: not implemented
-                    self.send_json({"error": "WATCH not implemented", "status": "error"})
-
                 elif op in ('QUIT', 'EXIT'):
                     logging.info(f"[{peer}] Closing connection")
                     self.wfile.write(b"Goodbye!\n")
@@ -298,7 +313,11 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 self.send_json({"error": "Invalid JSON", "status": "error"})
             except Exception as e:
                 logging.error(f"[{peer}] {op} error: {e}")
-                self.send_json({"error": str(e), "status": "error"})
+                try:
+                    self.send_json({"error": str(e), "status": "error"})
+                except Exception:
+                    # Client probably hung up
+                    break
 
         logging.info(f"Connection closed {peer}")
 
