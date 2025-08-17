@@ -262,6 +262,19 @@ class RouterService {
           const f = await mcpService.callMCP('READ_FILE', { path: s.matches[0] });
           included.push({ path: f.path, content: f.content });
         }
+        else if (inc.type === 'pattern') {
+          // search everywhere (dir=='' → all roots)
+          const s = await mcpService.callMCP('SEARCH', {
+            root: inc.dir,           // '' means server will iterate all ROOTS
+            pattern: inc.pattern,
+            recursive: inc.recursive
+          });
+          if (!s.matches.length) throw new Error(`No files matching ${inc.pattern}`);
+          for (let p of s.matches) {
+            const f = await mcpService.callMCP('READ_FILE', { path: p });
+            included.push({ path: f.path, content: f.content });
+          }
+        }
         else if (inc.type === 'dir') {
           const s = await mcpService.callMCP('SEARCH', {
             root: inc.dir, pattern: inc.pattern, recursive: inc.recursive

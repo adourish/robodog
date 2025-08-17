@@ -166,6 +166,65 @@ const _messages = [
 ];
 ```
 
+### Syntax
+
+• `/include all`  
+• `/include file=*.txt` → glob search across all roots  
+• `/include pattern=*zilla*.txt` → shorthand for a full‐roots search  
+• `/include dir=temp pattern=*zilla*.txt recursive` → deep search under “temp/” folders,
+
+> Note: patterns use Unix-style globs (`*`, `?`), not full regex.
+
+### What Gets Injected
+
+1. A SYSTEM message containing the full contents of each file, tagged with  
+   ```  
+   --- file: /path/to/file.ext ---  
+   (file contents…)  
+   ```  
+2. A second SYSTEM message containing a brief summary of the included files:  
+   ```  
+   File: /path/to/file.ext (1234 bytes)  
+   File: /another/path/foo.js (  87 bytes)  
+   ```  
+3. Your original user prompt is augmented with that summary.
+
+### Examples
+
+1. Include every file under your served roots:  
+   ```
+   /include all
+   ```
+2. Include exactly one markdown file (README.md must exist somewhere in your roots):  
+   ```
+   /include file=README.md
+   ```
+3. Include every JavaScript file in a single directory (non-recursive):  
+   ```
+   /include dir=src pattern=*.js
+   ```
+4. Include all Python files under `lib/` and its subdirectories:  
+   ```
+   /include dir=lib pattern=*.py recursive
+   ```
+5. Combine `/include` with a follow-up question:  
+   ```
+   /include dir=docs pattern=*.md recursive
+   Please summarize the public API defined in these markdown files.
+   ```
+
+### Supported File Formats
+
+Thanks to MCP, you can include any text-based file. Common examples:
+
+• Markdown: `.md`, `.markdown`  
+• Plain text: `.txt`, `.text`  
+• JSON: `.json`  
+• Source code: `.js`, `.ts`, `.py`, `.java`, `.c`, `.cpp`, `.go`, `.rs`  
+• Configs & data: `.yaml`, `.yml`, `.xml`, `.csv`
+
+Just adjust the `pattern=` glob to match the extensions you need.
+
 ## Import/Export Commands
 
 Use the `/import` command to open a file picker and select files for import.

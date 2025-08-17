@@ -224,25 +224,28 @@ class MCPHandler(socketserver.StreamRequestHandler):
             return {"src": src, "dst": dst, "status": "ok"}
 
         elif op == 'SEARCH':
-            root = payload.get("root")
-            pattern = payload.get("pattern", "*")
+            pattern   = payload.get("pattern", "*")
             recursive = payload.get("recursive", True)
-            if not root:
-                raise ValueError("Missing 'root'")
-            if not is_within_roots(root):
-                raise PermissionError("Root not allowed")
+            root      = payload.get("root", "")   # default to empty
             matches = []
-            if recursive:
-                for dirpath, _, filenames in os.walk(root):
-                    for fn in filenames:
-                        if fnmatch.fnmatch(fn, pattern):
-                            matches.append(os.path.join(dirpath, fn))
-            else:
-                # only this directory, no recursion
-                for fn in os.listdir(root):
-                    fp = os.path.join(root, fn)
-                    if os.path.isfile(fp) and fnmatch.fnmatch(fn, pattern):
-                        matches.append(fp)
+
+            # if no specific root, search all ROOTS
+            roots = ROOTS if not root else [root]
+            for r in roots:
+                if not os.path.isdir(r):
+                    continue
+                if recursive:
+                    for dirpath, _, filenames in os.walk(r):
+                        for fn in filenames:
+                            if fnmatch.fnmatch(fn, pattern):
+                                matches.append(os.path.join(dirpath, fn))
+                else:
+                    # only top‐level of r
+                    for fn in os.listdir(r):
+                        fp = os.path.join(r, fn)
+                        if os.path.isfile(fp) and fnmatch.fnmatch(fn, pattern):
+                            matches.append(fp)
+
             return {"matches": matches, "status": "ok"}
 
         elif op == 'CHECKSUM':

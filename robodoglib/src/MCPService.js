@@ -13,7 +13,7 @@ export class MCPService {
     }
 
     // parse an /include directive
-    parseInclude(text) {
+    parseIncludeBak(text) {
         const parts = text.trim().split(/\s+/).slice(1);
         if (parts.length === 0) return null;
         const cmd = { type: null, file: null, dir: null, pattern: '*', recursive: false };
@@ -30,6 +30,55 @@ export class MCPService {
                 if (p === 'recursive') cmd.recursive = true;
             }
         }
+        return cmd;
+    }
+    parseInclude(text) {
+        const parts = text.trim().split(/\s+/).slice(1);
+        if (parts.length === 0) return null;
+        const cmd = { type: null, file: null, dir: null, pattern: '*', recursive: false };
+
+        const p0 = parts[0];
+
+        if (p0 === 'all') {
+            cmd.type = 'all';
+
+        } else if (p0.startsWith('file=')) {
+            const spec = p0.slice(5);
+            if (/[*?\[]/.test(spec)) {
+                // wildcard in file= → search all roots
+                cmd.type = 'pattern';
+                cmd.pattern = spec;
+                cmd.recursive = true;
+                cmd.dir = '';       // empty dir→all roots
+            } else {
+                cmd.type = 'file';
+                cmd.file = spec;
+            }
+
+        } else if (p0.startsWith('dir=')) {
+            cmd.type = 'dir';
+            cmd.dir = p0.slice(4);
+            for (let p of parts.slice(1)) {
+                if (p.startsWith('pattern=')) cmd.pattern = p.slice(8);
+                if (p === 'recursive') cmd.recursive = true;
+            }
+            // if the dir spec itself contains a glob
+            if (/[*?\[]/.test(cmd.dir)) {
+                cmd.type = 'pattern';
+                cmd.pattern = cmd.dir;
+                cmd.dir = '';
+                cmd.recursive = true;
+            }
+        }
+
+        // standalone "/include pattern=…"
+        else if (p0.startsWith('pattern=')) {
+            cmd.type = 'pattern';
+            cmd.pattern = p0.slice(8);
+            cmd.recursive = true;
+            cmd.dir = '';
+        }
+
         return cmd;
     }
 
@@ -69,7 +118,7 @@ export class MCPService {
         return new Promise((resolve, reject) => {
             const client = new netLib.Socket();
             let buffer = '';
-            client.setTimeout(timeoutMs, () => {    
+            client.setTimeout(timeoutMs, () => {
                 client.destroy();
                 reject(new Error('MCP call timed out'));
             });
