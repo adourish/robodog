@@ -5,13 +5,20 @@ import { ProviderService } from './ProviderService';
 const formatService = new FormatService();
 const consoleService = new ConsoleService();
 const providerService = new ProviderService();
-const MCP_SERVER_URL = 'http://localhost:2500';
+
 export class MCPService {
     constructor() {
         console.debug('MCPService init');
-        this.console = new ConsoleService();
-    }
 
+    }
+    token = '';
+    baseUrl = '';
+    getToken(){
+         console.debug('MCPService init token');
+        const m = providerService.getMCPConfig();
+        this.baseUrl = m.baseUrl;      // e.g. "http://localhost:2500"
+        this.token = m.apiKey;        // must match the Python --token
+    }
     // parse an /include directive
     parseIncludeBak(text) {
         const parts = text.trim().split(/\s+/).slice(1);
@@ -84,53 +91,45 @@ export class MCPService {
 
     // core callMCP: browser‐fetch or Node net.Socket
     async callMCP(op, payload, timeoutMs = 5000) {
+        this.getToken();
         const cmd = `${op} ${JSON.stringify(payload)}\n`;
         // browser path
         if (typeof window !== 'undefined' && typeof fetch === 'function') {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeoutMs);
-            let text;
+
+            let resText = ''
             try {
-                const res = await fetch(MCP_SERVER_URL, {
+                const res = await fetch(this.baseUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
+                    headers: {
+                        'Content-Type': 'text/plain',
+                        'Authorization': `Bearer ${this.token}`
+                    },
                     body: cmd,
                     signal: controller.signal
                 });
                 clearTimeout(id);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                text = await res.text();
-            } catch (err) {
+                if (res.status === 401) {
+                    throw new Error('MCP Authentication failed (401)');
+                }
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                resText = await res.text();
+            } catch (e) {
                 clearTimeout(id);
-                throw err;
+                console.error(e)
             }
-            const lines = text.trim().split('\n');
+            const lines = resText.trim().split('\n');
             try {
                 return JSON.parse(lines[lines.length - 1]);
             } catch (e) {
-                throw new Error('Failed to parse MCP JSON: ' + e.message);
+                console.error(e)
             }
         }
 
-        // Node.js path
-        let netLib;
-        try { netLib = require('net'); } catch (_) { throw new Error("TCP/net unsupported"); }
-        return new Promise((resolve, reject) => {
-            const client = new netLib.Socket();
-            let buffer = '';
-            client.setTimeout(timeoutMs, () => {
-                client.destroy();
-                reject(new Error('MCP call timed out'));
-            });
-            client.connect(2500, '127.0.0.1', () => client.write(cmd));
-            client.on('data', d => buffer += d.toString('utf8'));
-            client.on('end', () => {
-                const lines = buffer.trim().split('\n');
-                try { resolve(JSON.parse(lines[lines.length - 1])); }
-                catch (e) { reject(new Error('Failed to parse MCP JSON: ' + e.message)); }
-            });
-            client.on('error', reject);
-        });
+     
     }
 
     // one‐line summary for logging

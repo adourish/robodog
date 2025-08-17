@@ -239,6 +239,7 @@ class RouterService {
     setThinking, setContent, setMessage,
     content, userText, currentKey, context, knowledge, useDefault
   ) {
+
     // detect /include
     const scan = userText + ' ' + knowledge;
     const idx = scan.search(/\/include\b/i);

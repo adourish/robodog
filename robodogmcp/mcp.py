@@ -279,128 +279,110 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
     def handle(self):
         peer = self.client_address
-        self.authenticated = False   # per‐connection flag
+        self.authenticated = False   # for plain‐tcp mode
 
-        # Peek first line (HTTP or raw MCP?)
-        line = self.rfile.readline()
-        if not line:
+        # Pull the first line and detect HTTP vs raw MCP
+        raw_first = self.rfile.readline()
+        if not raw_first:
             return
-        first = line.decode('utf-8', errors='ignore').strip()
+        first = raw_first.decode('utf-8', errors='ignore').strip()
         is_http = first.upper().startswith(("GET ", "POST ", "OPTIONS ")) and "HTTP/" in first
+
         if is_http:
             logging.info(f"[{peer}] HTTP request: {first}")
-            method, path, version = first.split(None, 2)
-            headers = {}
-            # read headers
-            while True:
-                hdr = self.rfile.readline().decode('utf-8', errors='ignore')
-                if not hdr or hdr in ('\r\n','\n'):
-                    break
-                k,v = hdr.split(":",1)
-                headers[k.lower().strip()] = v.strip()
 
-            # CORS preflight
+            # Parse request‐line
+            try:
+                method, uri, version = first.split(None, 2)
+            except ValueError:
+                self.send_http_error(400, "Bad Request")
+                return
+            method = method.upper()
+
+            # Read headers
+            headers = {}
+            while True:
+                line = self.rfile.readline().decode('utf-8', errors='ignore')
+                if not line or line in ('\r\n', '\n'):
+                    break
+                name, val = line.split(":", 1)
+                headers[name.lower().strip()] = val.strip()
+
+            # Always allow CORS preflight
             if method == 'OPTIONS':
                 resp = [
                     "HTTP/1.1 204 No Content",
                     "Access-Control-Allow-Origin: *",
                     "Access-Control-Allow-Methods: POST, OPTIONS",
-                    "Access-Control-Allow-Headers: Content-Type",
-                    "Content-Length: 0",
+                    "Access-Control-Allow-Headers: Content-Type, Authorization",
+                    "Access-Control-Max-Age: 86400",
                     "Connection: close",
                     "", ""
                 ]
                 self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
                 return
 
+            # Only POST supported
             if method != 'POST':
-                resp = (
-                    "HTTP/1.1 405 Method Not Allowed\r\n"
-                    "Content-Type: text/plain; charset=utf-8\r\n"
-                    "Content-Length: 23\r\n"
-                    "Connection: close\r\n"
-                    "\r\n"
+                resp = [
+                    "HTTP/1.1 405 Method Not Allowed",
+                    "Access-Control-Allow-Origin: *",
+                    "Allow: POST, OPTIONS",
+                    "Content-Type: text/plain; charset=utf-8",
+                    "Content-Length: 23",
+                    "Connection: close",
+                    "", 
                     "Only POST is supported\n"
-                )
-                self.wfile.write(resp.encode('utf-8'))
+                ]
+                self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
                 return
 
-            length = int(headers.get('content-length','0'))
-            body = self.rfile.read(length).decode('utf-8',errors='ignore').strip()
-            logging.info(f"[{peer}] HTTP POST body: {body!r}")
+            # Check Bearer token
+            authz = headers.get('authorization', '')
+            if authz != f"Bearer {TOKEN}":
+                body = json.dumps({"status":"error","error":"Authentication required"})
+                resp = [
+                    "HTTP/1.1 401 Unauthorized",
+                    "Access-Control-Allow-Origin: *",
+                    "Content-Type: application/json; charset=utf-8",
+                    f"Content-Length: {len(body.encode('utf-8'))}",
+                    "Connection: close",
+                    "", 
+                    body
+                ]
+                self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
+                return
 
+            # Read JSON body
+            length = int(headers.get('content-length','0'))
+            raw_body = self.rfile.read(length).decode('utf-8', errors='ignore').strip()
+            logging.info(f"[{peer}] HTTP POST body: {raw_body!r}")
+
+            # Dispatch to MCP
             try:
-                parts = body.split(' ',1)
+                parts = raw_body.split(' ', 1)
                 op = parts[0].upper()
                 arg = parts[1] if len(parts)>1 else None
                 result = self.execute_command(op, arg)
             except Exception as e:
                 logging.error(f"[{peer}] HTTP command error: {e}")
-                result = {"error": str(e), "status": "error"}
+                result = {"status":"error","error": str(e)}
 
+            # Build JSON response
             json_body = json.dumps(result, ensure_ascii=False)
             resp = [
                 "HTTP/1.1 200 OK",
                 "Access-Control-Allow-Origin: *",
+                "Access-Control-Allow-Headers: Content-Type, Authorization",
                 "Content-Type: application/json; charset=utf-8",
                 f"Content-Length: {len(json_body.encode('utf-8'))}",
                 "Connection: close",
-                "", json_body
+                "", 
+                json_body
             ]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
             return
 
-        # —————— plain MCP/TCP mode ——————
-        logging.info(f"[{peer}] Plain MCP connection")
-        self.wfile.write(b"Welcome to the MCP file server. Type HELP\n")
-        while True:
-            line = self.rfile.readline()
-            if not line:
-                break
-            cmdline = line.decode('utf-8', errors='ignore').strip()
-            if not cmdline:
-                continue
-
-            parts = cmdline.split(' ',1)
-            op = parts[0].upper()
-            arg = parts[1] if len(parts)>1 else None
-            logging.info(f"[{peer}] Command: {op} {arg or ''}")
-
-            # Always allow HELP
-            if op == 'HELP':
-                # you can reuse your existing HELP payload
-                payload = {
-                    "commands": [
-                        "AUTH <token>",
-                        "LIST_FILES",
-                        "READ_FILE …",
-                        # …
-                        "QUIT / EXIT"
-                    ],
-                    "status": "ok"
-                }
-                self.send_json(payload)
-                continue
-
-            # If not yet authenticated, only AUTH is allowed
-            if not self.authenticated:
-                if op == 'AUTH' and arg == TOKEN:
-                    self.authenticated = True
-                    self.send_json({"status":"ok","message":"Authenticated"})
-                    continue
-                else:
-                    self.send_json({"status":"error","error":"Authentication required"})
-                    break
-
-            # from here on, client is authenticated; dispatch normally
-            try:
-                res = self.execute_command(op, arg)
-                self.send_json(res)
-                if op in ('QUIT','EXIT'):
-                    break
-            except Exception as e:
-                logging.error(f"[{peer}] {op} error: {e}")
-                self.send_json({"error": str(e), "status": "error"})
         logging.info(f"[{peer}] Connection closed")
 
 # —————————————————————————————————————————————————————————————————————————————

@@ -169,12 +169,9 @@ const _messages = [
 ### Syntax
 
 • `/include all`  
-   – fetch every file under all configured roots (`GET_ALL_CONTENTS`)  
-• `/include file=<filename>`  
-   – fetch a single file by name (exact match under any root)  
-• `/include dir=<directory> [pattern=<glob>] [recursive]`  
-   – fetch all files in a specific directory that match the glob  
-   – use `recursive` to traverse subdirectories  
+• `/include file=*.txt` → glob search across all roots  
+• `/include pattern=*zilla*.txt` → shorthand for a full‐roots search  
+• `/include dir=temp pattern=*zilla*.txt recursive` → deep search under “temp/” folders,
 
 > Note: patterns use Unix-style globs (`*`, `?`), not full regex.
 

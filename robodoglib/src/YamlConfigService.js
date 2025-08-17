@@ -32,6 +32,10 @@ configs:
     - specialist: search
       resume: generate simple search results
 
+  mcpServer:
+    baseUrl: "http://localhost:2500"  
+    apiKey:   "testtoken"  
+
   models:
     - provider: openAI
       model: gpt-4

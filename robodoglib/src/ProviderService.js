@@ -84,6 +84,12 @@ class ProviderService {
       return config.configs.models;
     }
   }
+
+  getMCPConfig() {
+    const cfg = this.getJson();           // assume getJson() returns the parsed YAML
+    return cfg.configs?.mcpServer || {};
+  }
+
   getProvider(providerName) {
     var provider = null;
     var config = this.getJson();
