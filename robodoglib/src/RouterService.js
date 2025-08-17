@@ -164,448 +164,6 @@ class RouterService {
   }
 
 
-  async callMCPbak(op, payload, timeoutMs = 5000) {
-    let netLib = null;
-    try {
-      // only works in Node.js—will throw in a browser bundle
-      // (or you can test typeof process !== 'undefined' && process.versions.node)
-      netLib = require("net");
-    } catch (e) {
-      // net not available, immediately bail
-    }
-
-    if (!netLib || typeof netLib.Socket !== "function") {
-      // no net.Socket → force fallback in handleStreamCompletion
-      return Promise.reject(new Error("TCP unsupported or 'net' not found"));
-    }
-
-    const cmd = `${op} ${JSON.stringify(payload)}\n`;
-    return new Promise((resolve, reject) => {
-      const client = new netLib.Socket();
-      let buffer = "";
-
-      client.setTimeout(timeoutMs, () => {
-        client.destroy();
-        reject(new Error("MCP call timed out"));
-      });
-
-      client.connect(2500, "127.0.0.1", () => {
-        client.write(cmd);
-      });
-
-      client.on("data", (data) => {
-        buffer += data.toString("utf8");
-      });
-
-      client.on("end", () => {
-        const lines = buffer.trim().split("\n");
-        const last = lines[lines.length - 1];
-        try {
-          const json = JSON.parse(last);
-          resolve(json);
-        } catch (e) {
-          reject(new Error("Failed to parse MCP JSON: " + e.message));
-        }
-      });
-
-      client.on("error", (err) => {
-        reject(err);
-      });
-    });
-  }
-  async callMCPBak2(op, payload, timeoutMs = 5000) {
-    const cmd = `${op} ${JSON.stringify(payload)}\n`;
-
-    // if we detect a browser, use fetch
-    if (typeof window !== 'undefined' && typeof fetch === 'function') {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeoutMs);
-      let text;
-      try {
-        const res = await fetch(RouterService.MCP_SERVER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: cmd,
-          signal: controller.signal
-        });
-        clearTimeout(id);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        text = await res.text();
-      } catch (err) {
-        clearTimeout(id);
-        throw err;
-      }
-      // MCP always ends its JSON response on the last line
-      const lines = text.trim().split('\n');
-      try {
-        return JSON.parse(lines[lines.length - 1]);
-      } catch (e) {
-        throw new Error("Failed to parse MCP JSON: " + e.message);
-      }
-    }
-
-    // otherwise, fall back to Node TCP socket
-    let netLib;
-    try { netLib = require("net"); } catch (_) { throw new Error("TCP/net unsupported"); }
-    return new Promise((resolve, reject) => {
-      const client = new netLib.Socket();
-      let buffer = "";
-      client.setTimeout(timeoutMs, () => {
-        client.destroy();
-        reject(new Error("MCP call timed out"));
-      });
-      client.connect(2500, "127.0.0.1", () => client.write(cmd));
-      client.on("data", d => buffer += d.toString("utf8"));
-      client.on("end", () => {
-        const lines = buffer.trim().split("\n");
-        try { resolve(JSON.parse(lines[lines.length - 1])); }
-        catch (e) { reject(new Error("Failed to parse MCP JSON: " + e.message)); }
-      });
-      client.on("error", reject);
-    });
-  }
-
-  summarizeMcpResultBak2(obj) {
-    try {
-      return Object.entries(obj)
-        .map(([k, v]) => {
-          if (Array.isArray(v)) return `${k}=[${v.length}]`;
-          if (typeof v === "string")
-            return `${k}="${v.slice(0, 30)}…"(${v.length})`;
-          if (typeof v === "object") return `${k}={…}`;
-          return `${k}=${v}`;
-        })
-        .join(", ");
-    } catch {
-      return JSON.stringify(obj).slice(0, 100) + "…";
-    }
-  }
-
-  // parse an /include directive
-  parseIncludeBak2(text) {
-    const parts = text.trim().split(/\s+/).slice(1);
-    if (parts.length === 0) return null;
-    const cmd = { type: null, file: null, dir: null, pattern: "*", recursive: false };
-    if (parts[0] === "all") {
-      cmd.type = "all";
-    } else if (parts[0].startsWith("file=")) {
-      cmd.type = "file";
-      cmd.file = parts[0].split("=")[1];
-    } else if (parts[0].startsWith("dir=")) {
-      cmd.type = "dir";
-      cmd.dir = parts[0].split("=")[1];
-      for (let p of parts.slice(1)) {
-        if (p.startsWith("pattern=")) cmd.pattern = p.split("=")[1];
-        if (p === "recursive") cmd.recursive = true;
-      }
-    }
-    return cmd;
-  }
-
-
-  async handleStreamCompletionBak5(
-    model, messages, temperature, top_p,
-    frequency_penalty, presence_penalty, max_tokens,
-    setThinking, setContent, setMessage,
-    content, userText, currentKey, context, knowledge, useDefault
-  ) {
-    const scanText = userText + ' ' + knowledge;
-    const includeRegex = /\/include\b/i;
-    const matchIndex = scanText.search(includeRegex);
-
-    if (matchIndex !== -1) {
-      // 1) Extract directive and main prompt
-      const includeCmd = scanText.substring(matchIndex).trim();
-      const mainTextPart = scanText.substring(0, matchIndex).trim();
-      let included = [];
-
-      try {
-        // 2) Parse the include command (your existing parseInclude)
-        const inc = this.parseInclude(includeCmd);
-
-        if (inc.type === "all") {
-          const res = await this.callMCP("GET_ALL_CONTENTS", {});
-          included = res.contents; // [{path,content}, …]
-        }
-        else if (inc.type === "file") {
-          const search = await this.callMCP("SEARCH", {
-            root: inc.file, pattern: inc.file, recursive: true
-          });
-          if (!search.matches.length) {
-            throw new Error(`No file found matching ${inc.file}`);
-          }
-          const path = search.matches[0];
-          const fileRes = await this.callMCP("READ_FILE", { path });
-          included = [{ path: fileRes.path, content: fileRes.content }];
-        }
-        else if (inc.type === "dir") {
-          const search = await this.callMCP("SEARCH", {
-            root: inc.dir,
-            pattern: inc.pattern,
-            recursive: inc.recursive
-          });
-          if (!search.matches.length) {
-            throw new Error(`No files in ${inc.dir} matching ${inc.pattern}`);
-          }
-          for (let p of search.matches) {
-            try {
-              const fr = await this.callMCP("READ_FILE", { path: p });
-              included.push({ path: fr.path, content: fr.content });
-            } catch {/* skip individual errors */ }
-          }
-        }
-
-        // 3) Stitch all file contents into one body
-        let body = "";
-        for (let item of included) {
-          body += `--- file: ${item.path} ---\n${item.content}\n\n`;
-        }
-
-        // 4) Inject as a SYSTEM message so the LLM now has that knowledge
-        const augmentedMessages = [
-          ...messages,
-          { role: "system", content: "Included files:\n" + body }
-        ];
-
-        // 5) Proceed with the normal streaming completion,
-        //    using mainTextPart as the actual prompt.
-        //    If mainTextPart is empty, we’ll fall back to original userText.
-        const promptText = mainTextPart || userText;
-
-        return this.handleStreamCompletionBak2(
-          model,
-          augmentedMessages,
-          temperature,
-          top_p,
-          frequency_penalty,
-          presence_penalty,
-          max_tokens,
-          setThinking,
-          setContent,
-          setMessage,
-          content,
-          userText,
-          currentKey,
-          context,
-          knowledge,
-          useDefault
-        );
-      }
-      catch (err) {
-        // If include failed, show error inline and bail out
-        const errMsg = `Include error: ${err.message}`;
-        const history = [
-          ...content,
-          formatService.getMessageWithTimestamp(userText, "user"),
-          formatService.getMessageWithTimestamp(errMsg, "error")
-        ];
-        setContent(history);
-        return history;
-      }
-    }
-
-    // — no /include found — normal path —
-    return this.handleStreamCompletionBak2(
-      model,
-      messages,
-      temperature,
-      top_p,
-      frequency_penalty,
-      presence_penalty,
-      max_tokens,
-      setThinking,
-      setContent,
-      setMessage,
-      content,
-      userText,
-      currentKey,
-      context,
-      knowledge,
-      useDefault
-    );
-  }
-  async handleStreamCompletionBak4(
-    model, messages, temperature, top_p,
-    frequency_penalty, presence_penalty, max_tokens,
-    setThinking, setContent, setMessage,
-    content, userText, currentKey, context, knowledge, useDefault
-  ) {
-
-
-    const textTrim = userText.trim();
-    if (textTrim.startsWith("/include")) {
-      const inc = this.parseInclude(textTrim);
-      let included = [];
-      try {
-        if (inc.type === "all") {
-          const res = await this.callMCP("GET_ALL_CONTENTS", {});
-          included = res.contents; // array of {path, content}
-        } else if (inc.type === "file") {
-          // find the file by name
-          const search = await this.callMCP("SEARCH", {
-            root: inc.file,
-            pattern: inc.file,
-            recursive: true,
-          });
-          if (search.matches.length === 0) {
-            throw new Error(`No file found matching ${inc.file}`);
-          }
-          const path = search.matches[0];
-          const fileRes = await this.callMCP("READ_FILE", { path });
-          included = [{ path: fileRes.path, content: fileRes.content }];
-        } else if (inc.type === "dir") {
-          const search = await this.callMCP("SEARCH", {
-            root: inc.dir,
-            pattern: inc.pattern,
-            recursive: inc.recursive,
-          });
-          if (search.matches.length === 0) {
-            throw new Error(
-              `No files in ${inc.dir} matching pattern ${inc.pattern}`
-            );
-          }
-          for (let p of search.matches) {
-            try {
-              const fr = await this.callMCP("READ_FILE", { path: p });
-              included.push({ path: fr.path, content: fr.content });
-            } catch { }
-          }
-        }
-        // build a single assistant response
-        let body = "";
-        for (let item of included) {
-          body += `--- file: ${item.path} ---\n${item.content}\n\n`;
-        }
-        const history = [
-          ...content,
-          formatService.getMessageWithTimestamp(userText, "user"),
-          formatService.getMessageWithTimestamp(body, "assistant"),
-        ];
-        setContent(history);
-        return history;
-      } catch (err) {
-        const errMsg = `Include error: ${err.message}`;
-        const history = [
-          ...content,
-          formatService.getMessageWithTimestamp(userText, "user"),
-          formatService.getMessageWithTimestamp(errMsg, "error"),
-        ];
-        setContent(history);
-        return history;
-      }
-    }
-
-    const fileOpRegex = /\b(list files|read file|update file|create file|delete file)\b/i;
-    if (!fileOpRegex.test(userText)) {
-      return this.handleStreamCompletionBak2(
-        model, messages, temperature, top_p,
-        frequency_penalty, presence_penalty, max_tokens,
-        setThinking, setContent, setMessage,
-        content, userText, currentKey, context, knowledge, useDefault
-      );
-    }
-
-    // 2) Ask LLM to emit exactly one JSON {op,args}
-    const systemPrompt = {
-      role: 'system',
-      content:
-        'If the user wants you to list/read/update/create/delete files, ' +
-        'output exactly one JSON object with fields "op" and "args", and nothing else. ' +
-        'E.g. { "op": "LIST_FILES", "args": {} } Otherwise, answer normally.'
-    };
-    const userPrompt = { role: 'user', content: userText };
-
-    let jsonReply;
-    try {
-      const resp = await this.getOpenAI(model, useDefault)
-        .chat.completions.create({
-          model,
-          messages: [systemPrompt, userPrompt],
-          temperature, top_p, frequency_penalty, presence_penalty,
-          max_tokens: max_tokens > 0 ? max_tokens : undefined,
-          stream: false
-        });
-      jsonReply = resp.choices[0]?.message?.content.trim() || "";
-    } catch (err) {
-      console.warn("[RouterService] JSON‐command LLM failed, fallback:", err);
-      return this.handleStreamCompletionBak2(
-        model, messages, temperature, top_p,
-        frequency_penalty, presence_penalty, max_tokens,
-        setThinking, setContent, setMessage,
-        content, userText, currentKey, context, knowledge, useDefault
-      );
-    }
-
-    // 3) Parse out JSON
-    let cmd;
-    try {
-      const m = jsonReply.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error("no JSON");
-      cmd = JSON.parse(m[0]);
-      if (typeof cmd.op !== 'string' || typeof cmd.args !== 'object')
-        throw new Error("bad shape");
-    } catch (err) {
-      console.warn("[RouterService] parse JSON cmd failed, fallback:", err, "raw:", jsonReply);
-      return this.handleStreamCompletionBak2(
-        model, messages, temperature, top_p,
-        frequency_penalty, presence_penalty, max_tokens,
-        setThinking, setContent, setMessage,
-        content, userText, currentKey, context, knowledge, useDefault
-      );
-    }
-
-    // 4) Invoke MCP over raw TCP
-    let mcpResult;
-    try {
-      mcpResult = await this.callMCP(cmd.op, cmd.args);
-    } catch (err) {
-      console.warn(
-        `[RouterService] MCP TCP call failed, fallback to chat stream:`,
-        err
-      );
-      return this.handleStreamCompletionBak2(
-        model, messages, temperature, top_p,
-        frequency_penalty, presence_penalty, max_tokens,
-        setThinking, setContent, setMessage,
-        content, userText, currentKey, context, knowledge, useDefault
-      );
-    }
-
-    // 5) Log a one-line summary of exactly what came back
-    const summary = this.summarizeMcpResult(mcpResult);
-    console.info(
-      `[RouterService] MCP ${cmd.op} args=${JSON.stringify(cmd.args)} → ${summary}`
-    );
-
-    // 6) stitch JSON command + result into the UI history
-    try {
-      const history = [
-        ...content,
-        formatService.getMessageWithTimestamp(
-          JSON.stringify({ op: cmd.op, args: cmd.args }),
-          "assistant"
-        ),
-        formatService.getMessageWithTimestamp(
-          JSON.stringify(mcpResult),
-          "assistant"
-        ),
-      ];
-      setContent(history);
-    } catch (exhist) {
-      console.error(exhist);
-    }
-
-
-    setThinking("🦥");
-    consoleService.stash(currentKey, context, knowledge, userText, history);
-
-    return history;
-  }
-
-
-
 
   async handleStreamCompletionBak2(
     model,
@@ -623,7 +181,8 @@ class RouterService {
     currentKey,
     context,
     knowledge,
-    useDefault
+    useDefault,
+    bodySummary
   ) {
 
 
@@ -685,7 +244,7 @@ class RouterService {
     const idx = scan.search(/\/include\b/i);
     if (idx !== -1) {
       const includeCmd = scan.substring(idx).trim();
-      const mainText  = scan.substring(0, idx).trim();
+      const mainText = scan.substring(0, idx).trim();
       try {
         const inc = mcpService.parseInclude(includeCmd);
         if (!inc) throw new Error('Bad include syntax');
@@ -712,7 +271,7 @@ class RouterService {
             try {
               const f = await mcpService.callMCP('READ_FILE', { path: p });
               included.push({ path: f.path, content: f.content });
-            } catch(e){ /* skip */ }
+            } catch (e) { /* skip */ }
           }
         }
 
@@ -721,20 +280,24 @@ class RouterService {
         included.forEach(i => {
           body += `--- file: ${i.path} ---\n${i.content}\n\n`;
         });
-
+        let bodySummary = '';
+        included.forEach(i => {
+          bodySummary += `File: ${i.path} (${i.content.length}) \n`;
+        });
         // inject as SYSTEM
         const aug = [
           ...messages,
-          { role: "system", content: "Included files:\n" + body }
+          { role: "system", content: "Included files:\n" + body },
+          { role: "system", content: "Do not repeat included files unless you have modified the content based on a prompt." }
         ];
-        const prompt = mainText || userText;
-
+        let prompt = mainText || userText;
+        prompt = bodySummary + prompt;
         // hand off to the normal streamer
         return this.handleStreamCompletionBak2(
           model, aug, temperature, top_p,
           frequency_penalty, presence_penalty, max_tokens,
           setThinking, setContent, setMessage,
-          content, prompt, currentKey, context, knowledge, useDefault
+          content, prompt, currentKey, context, knowledge, useDefault, bodySummary
         );
       } catch (err) {
         const errMsg = `Include error: ${err.message}`;
