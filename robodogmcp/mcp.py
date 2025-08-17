@@ -80,7 +80,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     "RENAME <json:{\"src\":\"...\",\"dst\":\"...\"}>",
                     "COPY_FILE <json:{\"src\":\"...\",\"dst\":\"...\"}>",
                     "STAT <json:{\"path\":\"...\"}>",
-                    "SEARCH <json:{\"root\":\"...\",\"pattern\":\"*.py\"}>",
+                    "SEARCH <json:{\"root\":\"...\",\"pattern\":\"*.py\",\"recursive\":true}>",
                     "CHECKSUM <json:{\"path\":\"...\"}>",
                     "QUIT / EXIT"
                 ],
@@ -226,15 +226,23 @@ class MCPHandler(socketserver.StreamRequestHandler):
         elif op == 'SEARCH':
             root = payload.get("root")
             pattern = payload.get("pattern", "*")
+            recursive = payload.get("recursive", True)
             if not root:
                 raise ValueError("Missing 'root'")
             if not is_within_roots(root):
                 raise PermissionError("Root not allowed")
             matches = []
-            for dirpath, _, filenames in os.walk(root):
-                for fn in filenames:
-                    if fnmatch.fnmatch(fn, pattern):
-                        matches.append(os.path.join(dirpath, fn))
+            if recursive:
+                for dirpath, _, filenames in os.walk(root):
+                    for fn in filenames:
+                        if fnmatch.fnmatch(fn, pattern):
+                            matches.append(os.path.join(dirpath, fn))
+            else:
+                # only this directory, no recursion
+                for fn in os.listdir(root):
+                    fp = os.path.join(root, fn)
+                    if os.path.isfile(fp) and fnmatch.fnmatch(fn, pattern):
+                        matches.append(fp)
             return {"matches": matches, "status": "ok"}
 
         elif op == 'CHECKSUM':
