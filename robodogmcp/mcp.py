@@ -21,9 +21,14 @@ parser.add_argument('--port', type=int, default=2500,
                     help="TCP port (default: 2500)")
 parser.add_argument('--folders', nargs='+', required=True,
                     help="One or more root folders to serve (recursive)")
+parser.add_argument('--token',       # ← new
+                    required=True,
+                    help="Authentication token clients must present")
 args = parser.parse_args()
 
+
 # Normalize and validate roots
+TOKEN = args.token
 ROOTS = []
 for p in args.folders:
     absp = os.path.abspath(p)
@@ -274,14 +279,14 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
     def handle(self):
         peer = self.client_address
+        self.authenticated = False   # per‐connection flag
+
         # Peek first line (HTTP or raw MCP?)
         line = self.rfile.readline()
         if not line:
             return
-
         first = line.decode('utf-8', errors='ignore').strip()
         is_http = first.upper().startswith(("GET ", "POST ", "OPTIONS ")) and "HTTP/" in first
-
         if is_http:
             logging.info(f"[{peer}] HTTP request: {first}")
             method, path, version = first.split(None, 2)
@@ -345,16 +350,14 @@ class MCPHandler(socketserver.StreamRequestHandler):
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
             return
 
-        # ————————————————————————————————————————————————————————————————
-        #    Fallback to plain‐MCP/TCP loop
-        # ————————————————————————————————————————————————————————————————
+        # —————— plain MCP/TCP mode ——————
         logging.info(f"[{peer}] Plain MCP connection")
         self.wfile.write(b"Welcome to the MCP file server. Type HELP\n")
         while True:
             line = self.rfile.readline()
             if not line:
                 break
-            cmdline = line.decode('utf-8',errors='ignore').strip()
+            cmdline = line.decode('utf-8', errors='ignore').strip()
             if not cmdline:
                 continue
 
@@ -363,6 +366,33 @@ class MCPHandler(socketserver.StreamRequestHandler):
             arg = parts[1] if len(parts)>1 else None
             logging.info(f"[{peer}] Command: {op} {arg or ''}")
 
+            # Always allow HELP
+            if op == 'HELP':
+                # you can reuse your existing HELP payload
+                payload = {
+                    "commands": [
+                        "AUTH <token>",
+                        "LIST_FILES",
+                        "READ_FILE …",
+                        # …
+                        "QUIT / EXIT"
+                    ],
+                    "status": "ok"
+                }
+                self.send_json(payload)
+                continue
+
+            # If not yet authenticated, only AUTH is allowed
+            if not self.authenticated:
+                if op == 'AUTH' and arg == TOKEN:
+                    self.authenticated = True
+                    self.send_json({"status":"ok","message":"Authenticated"})
+                    continue
+                else:
+                    self.send_json({"status":"error","error":"Authentication required"})
+                    break
+
+            # from here on, client is authenticated; dispatch normally
             try:
                 res = self.execute_command(op, arg)
                 self.send_json(res)
@@ -372,7 +402,6 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 logging.error(f"[{peer}] {op} error: {e}")
                 self.send_json({"error": str(e), "status": "error"})
         logging.info(f"[{peer}] Connection closed")
-
 
 # —————————————————————————————————————————————————————————————————————————————
 #    Launch threaded TCP server
