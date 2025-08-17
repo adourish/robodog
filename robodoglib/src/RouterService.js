@@ -163,7 +163,7 @@ class RouterService {
 
   static MCP_SERVER_URL = "http://localhost:2500";
 
-async callMCPbak(op, payload, timeoutMs = 5000) {
+  async callMCPbak(op, payload, timeoutMs = 5000) {
     let netLib = null;
     try {
       // only works in Node.js—will throw in a browser bundle
@@ -373,12 +373,24 @@ async callMCPbak(op, payload, timeoutMs = 5000) {
     );
 
     // 6) stitch JSON command + result into the UI history
-    const history = [
-      ...content,
-      FormatService.getMessageWithTimestamp(JSON.stringify({op: cmd.op, args: cmd.args}), "assistant"),
-      FormatService.getMessageWithTimestamp(JSON.stringify(mcpResult), "assistant"),
-    ];
-    setContent(history);
+    try {
+      const history = [
+        ...content,
+        formatService.getMessageWithTimestamp(
+          JSON.stringify({ op: cmd.op, args: cmd.args }),
+          "assistant"
+        ),
+        formatService.getMessageWithTimestamp(
+          JSON.stringify(mcpResult),
+          "assistant"
+        ),
+      ];
+      setContent(history);
+    } catch (exhist) {
+      console.error(exhist);
+    }
+
+
     setThinking("🦥");
     consoleService.stash(currentKey, context, knowledge, userText, history);
 
@@ -597,7 +609,7 @@ async callMCPbak(op, payload, timeoutMs = 5000) {
     }
     const messages = [
       { role: "user", content: "Chat History:" + context },
-      { role: "user", content: "knowledge Base:" + knowledge },
+      { role: "user", content: "Knowledge Base:" + knowledge },
       { role: "user", content: "Question:" + text },
       {
         role: systemRole,
