@@ -69,7 +69,7 @@ export class MCPService {
         return new Promise((resolve, reject) => {
             const client = new netLib.Socket();
             let buffer = '';
-            client.setTimeout(timeoutMs, () => {
+            client.setTimeout(timeoutMs, () => {    
                 client.destroy();
                 reject(new Error('MCP call timed out'));
             });

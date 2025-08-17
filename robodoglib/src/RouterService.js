@@ -865,7 +865,8 @@ class RouterService {
       routerModel.setPerformance,
       routerModel.setThinking,
       routerModel.currentKey,
-      routerModel.size
+      routerModel.size,
+      routerModel.setKnowledge
     );
     routerModel.content = _cc;
     return routerModel;
@@ -888,7 +889,8 @@ class RouterService {
     setThinking,
     currentKey,
     size,
-    scrollToBottom
+    scrollToBottom,
+    setKnowledge
   ) {
     console.log(config);
 

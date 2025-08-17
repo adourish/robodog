@@ -722,7 +722,8 @@ const handleSubmit = async (event) => {
         setContent,
         setMessage,
         setPerformance,
-        setThinking          
+        setThinking,
+        setKnowledge          
       );
       var response = await routerService.routeQuestion(routerModel);
       console.debug(response);
