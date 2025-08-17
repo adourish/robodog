@@ -290,11 +290,11 @@ class RouterService {
         }
 
         // stitch them
-        let body = '';
+        let body = 'MCP file content body:';
         included.forEach(i => {
           body += `--- file: ${i.path} ---\n${i.content}\n\n`;
         });
-        let bodySummary = '';
+        let bodySummary = 'MCP file content:\n';
         included.forEach(i => {
           bodySummary += `File: ${i.path} (${i.content.length}) \n`;
         });
