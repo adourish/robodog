@@ -12,6 +12,7 @@ import { ConsoleContentComponent } from './ConsoleContentComponent';
 import { SettingsComponent } from './SettingsComponent';
 import { RTCService } from './RTCService';
 import { HostService } from './HostService';
+import { MCPService } from './MCPService';
 const RobodogLib = {
     ConsoleService,
     FileService,
@@ -26,7 +27,8 @@ const RobodogLib = {
     ConsoleContentComponent,
     SettingsComponent,
     RTCService,
-    HostService
+    HostService,
+    MCPService
   };
   
   export default RobodogLib;

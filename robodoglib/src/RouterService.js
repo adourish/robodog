@@ -4,12 +4,14 @@ import { PerformanceCalculator } from "./PerformanceCalculator";
 import { FormatService } from "./FormatService";
 import { ConsoleService } from "./ConsoleService";
 import { SearchService } from "./SearchService";
+import { MCPService } from "./MCPService";
 import { ProviderService } from "./ProviderService";
 import { RouterModel } from "./RouterModel";
 const formatService = new FormatService();
 const consoleService = new ConsoleService();
 const searchService = new SearchService();
 const providerService = new ProviderService();
+const mcpService = new MCPService();
 class RouterService {
   constructor() {
     console.debug("RouterService init");
@@ -161,7 +163,6 @@ class RouterService {
     return null;
   }
 
-  static MCP_SERVER_URL = "http://localhost:2500";
 
   async callMCPbak(op, payload, timeoutMs = 5000) {
     let netLib = null;
@@ -212,7 +213,7 @@ class RouterService {
       });
     });
   }
-  async callMCP(op, payload, timeoutMs = 5000) {
+  async callMCPBak2(op, payload, timeoutMs = 5000) {
     const cmd = `${op} ${JSON.stringify(payload)}\n`;
 
     // if we detect a browser, use fetch
@@ -266,7 +267,7 @@ class RouterService {
     });
   }
 
-  summarizeMcpResult(obj) {
+  summarizeMcpResultBak2(obj) {
     try {
       return Object.entries(obj)
         .map(([k, v]) => {
@@ -283,7 +284,7 @@ class RouterService {
   }
 
   // parse an /include directive
-  parseInclude(text) {
+  parseIncludeBak2(text) {
     const parts = text.trim().split(/\s+/).slice(1);
     if (parts.length === 0) return null;
     const cmd = { type: null, file: null, dir: null, pattern: "*", recursive: false };
@@ -304,7 +305,7 @@ class RouterService {
   }
 
 
-  async handleStreamCompletion(
+  async handleStreamCompletionBak5(
     model, messages, temperature, top_p,
     frequency_penalty, presence_penalty, max_tokens,
     setThinking, setContent, setMessage,
@@ -312,7 +313,7 @@ class RouterService {
   ) {
     const scanText = userText + ' ' + knowledge;
     const includeRegex = /\/include\b/i;
-    const matchIndex = userText.search(includeRegex);
+    const matchIndex = scanText.search(includeRegex);
 
     if (matchIndex !== -1) {
       // 1) Extract directive and main prompt
@@ -425,7 +426,7 @@ class RouterService {
       useDefault
     );
   }
-  async handleStreamCompletionbak4(
+  async handleStreamCompletionBak4(
     model, messages, temperature, top_p,
     frequency_penalty, presence_penalty, max_tokens,
     setThinking, setContent, setMessage,
@@ -673,6 +674,88 @@ class RouterService {
     }
   }
 
+  async handleStreamCompletion(
+    model, messages, temperature, top_p,
+    frequency_penalty, presence_penalty, max_tokens,
+    setThinking, setContent, setMessage,
+    content, userText, currentKey, context, knowledge, useDefault
+  ) {
+    // detect /include
+    const scan = userText + ' ' + knowledge;
+    const idx = scan.search(/\/include\b/i);
+    if (idx !== -1) {
+      const includeCmd = scan.substring(idx).trim();
+      const mainText  = scan.substring(0, idx).trim();
+      try {
+        const inc = mcpService.parseInclude(includeCmd);
+        if (!inc) throw new Error('Bad include syntax');
+        let included = [];
+
+        if (inc.type === 'all') {
+          const res = await mcpService.callMCP('GET_ALL_CONTENTS', {});
+          included = res.contents;
+        }
+        else if (inc.type === 'file') {
+          const s = await mcpService.callMCP('SEARCH', {
+            root: inc.file, pattern: inc.file, recursive: true
+          });
+          if (!s.matches.length) throw new Error(`No file ${inc.file}`);
+          const f = await mcpService.callMCP('READ_FILE', { path: s.matches[0] });
+          included.push({ path: f.path, content: f.content });
+        }
+        else if (inc.type === 'dir') {
+          const s = await mcpService.callMCP('SEARCH', {
+            root: inc.dir, pattern: inc.pattern, recursive: inc.recursive
+          });
+          if (!s.matches.length) throw new Error(`No files in ${inc.dir}`);
+          for (let p of s.matches) {
+            try {
+              const f = await mcpService.callMCP('READ_FILE', { path: p });
+              included.push({ path: f.path, content: f.content });
+            } catch(e){ /* skip */ }
+          }
+        }
+
+        // stitch them
+        let body = '';
+        included.forEach(i => {
+          body += `--- file: ${i.path} ---\n${i.content}\n\n`;
+        });
+
+        // inject as SYSTEM
+        const aug = [
+          ...messages,
+          { role: "system", content: "Included files:\n" + body }
+        ];
+        const prompt = mainText || userText;
+
+        // hand off to the normal streamer
+        return this.handleStreamCompletionBak2(
+          model, aug, temperature, top_p,
+          frequency_penalty, presence_penalty, max_tokens,
+          setThinking, setContent, setMessage,
+          content, prompt, currentKey, context, knowledge, useDefault
+        );
+      } catch (err) {
+        const errMsg = `Include error: ${err.message}`;
+        const hist = [
+          ...content,
+          formatService.getMessageWithTimestamp(userText, "user"),
+          formatService.getMessageWithTimestamp(errMsg, "error")
+        ];
+        setContent(hist);
+        return hist;
+      }
+    }
+
+    // no include → normal path
+    return this.handleStreamCompletionBak2(
+      model, messages, temperature, top_p,
+      frequency_penalty, presence_penalty, max_tokens,
+      setThinking, setContent, setMessage,
+      content, userText, currentKey, context, knowledge, useDefault
+    );
+  }
 
   // hanlde open ai dall-e-3 completions
   async handleDalliRestCompletion(
