@@ -282,15 +282,221 @@ class RouterService {
     }
   }
 
+  // parse an /include directive
+  parseInclude(text) {
+    const parts = text.trim().split(/\s+/).slice(1);
+    if (parts.length === 0) return null;
+    const cmd = { type: null, file: null, dir: null, pattern: "*", recursive: false };
+    if (parts[0] === "all") {
+      cmd.type = "all";
+    } else if (parts[0].startsWith("file=")) {
+      cmd.type = "file";
+      cmd.file = parts[0].split("=")[1];
+    } else if (parts[0].startsWith("dir=")) {
+      cmd.type = "dir";
+      cmd.dir = parts[0].split("=")[1];
+      for (let p of parts.slice(1)) {
+        if (p.startsWith("pattern=")) cmd.pattern = p.split("=")[1];
+        if (p === "recursive") cmd.recursive = true;
+      }
+    }
+    return cmd;
+  }
+
+
   async handleStreamCompletion(
     model, messages, temperature, top_p,
     frequency_penalty, presence_penalty, max_tokens,
     setThinking, setContent, setMessage,
     content, userText, currentKey, context, knowledge, useDefault
   ) {
-    const fileOpRegex = /\b(list files|read file|update file|create file|delete file)\b/i;
+    const scanText = userText + ' ' + knowledge;
+    const includeRegex = /\/include\b/i;
+    const matchIndex = userText.search(includeRegex);
 
-    // 1) No file‐op → fall back to normal streaming
+    if (matchIndex !== -1) {
+      // 1) Extract directive and main prompt
+      const includeCmd = scanText.substring(matchIndex).trim();
+      const mainTextPart = scanText.substring(0, matchIndex).trim();
+      let included = [];
+
+      try {
+        // 2) Parse the include command (your existing parseInclude)
+        const inc = this.parseInclude(includeCmd);
+
+        if (inc.type === "all") {
+          const res = await this.callMCP("GET_ALL_CONTENTS", {});
+          included = res.contents; // [{path,content}, …]
+        }
+        else if (inc.type === "file") {
+          const search = await this.callMCP("SEARCH", {
+            root: inc.file, pattern: inc.file, recursive: true
+          });
+          if (!search.matches.length) {
+            throw new Error(`No file found matching ${inc.file}`);
+          }
+          const path = search.matches[0];
+          const fileRes = await this.callMCP("READ_FILE", { path });
+          included = [{ path: fileRes.path, content: fileRes.content }];
+        }
+        else if (inc.type === "dir") {
+          const search = await this.callMCP("SEARCH", {
+            root: inc.dir,
+            pattern: inc.pattern,
+            recursive: inc.recursive
+          });
+          if (!search.matches.length) {
+            throw new Error(`No files in ${inc.dir} matching ${inc.pattern}`);
+          }
+          for (let p of search.matches) {
+            try {
+              const fr = await this.callMCP("READ_FILE", { path: p });
+              included.push({ path: fr.path, content: fr.content });
+            } catch {/* skip individual errors */ }
+          }
+        }
+
+        // 3) Stitch all file contents into one body
+        let body = "";
+        for (let item of included) {
+          body += `--- file: ${item.path} ---\n${item.content}\n\n`;
+        }
+
+        // 4) Inject as a SYSTEM message so the LLM now has that knowledge
+        const augmentedMessages = [
+          ...messages,
+          { role: "system", content: "Included files:\n" + body }
+        ];
+
+        // 5) Proceed with the normal streaming completion,
+        //    using mainTextPart as the actual prompt.
+        //    If mainTextPart is empty, we’ll fall back to original userText.
+        const promptText = mainTextPart || userText;
+
+        return this.handleStreamCompletionBak2(
+          model,
+          augmentedMessages,
+          temperature,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          max_tokens,
+          setThinking,
+          setContent,
+          setMessage,
+          content,
+          userText,
+          currentKey,
+          context,
+          knowledge,
+          useDefault
+        );
+      }
+      catch (err) {
+        // If include failed, show error inline and bail out
+        const errMsg = `Include error: ${err.message}`;
+        const history = [
+          ...content,
+          formatService.getMessageWithTimestamp(userText, "user"),
+          formatService.getMessageWithTimestamp(errMsg, "error")
+        ];
+        setContent(history);
+        return history;
+      }
+    }
+
+    // — no /include found — normal path —
+    return this.handleStreamCompletionBak2(
+      model,
+      messages,
+      temperature,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
+      max_tokens,
+      setThinking,
+      setContent,
+      setMessage,
+      content,
+      userText,
+      currentKey,
+      context,
+      knowledge,
+      useDefault
+    );
+  }
+  async handleStreamCompletionbak4(
+    model, messages, temperature, top_p,
+    frequency_penalty, presence_penalty, max_tokens,
+    setThinking, setContent, setMessage,
+    content, userText, currentKey, context, knowledge, useDefault
+  ) {
+
+
+    const textTrim = userText.trim();
+    if (textTrim.startsWith("/include")) {
+      const inc = this.parseInclude(textTrim);
+      let included = [];
+      try {
+        if (inc.type === "all") {
+          const res = await this.callMCP("GET_ALL_CONTENTS", {});
+          included = res.contents; // array of {path, content}
+        } else if (inc.type === "file") {
+          // find the file by name
+          const search = await this.callMCP("SEARCH", {
+            root: inc.file,
+            pattern: inc.file,
+            recursive: true,
+          });
+          if (search.matches.length === 0) {
+            throw new Error(`No file found matching ${inc.file}`);
+          }
+          const path = search.matches[0];
+          const fileRes = await this.callMCP("READ_FILE", { path });
+          included = [{ path: fileRes.path, content: fileRes.content }];
+        } else if (inc.type === "dir") {
+          const search = await this.callMCP("SEARCH", {
+            root: inc.dir,
+            pattern: inc.pattern,
+            recursive: inc.recursive,
+          });
+          if (search.matches.length === 0) {
+            throw new Error(
+              `No files in ${inc.dir} matching pattern ${inc.pattern}`
+            );
+          }
+          for (let p of search.matches) {
+            try {
+              const fr = await this.callMCP("READ_FILE", { path: p });
+              included.push({ path: fr.path, content: fr.content });
+            } catch { }
+          }
+        }
+        // build a single assistant response
+        let body = "";
+        for (let item of included) {
+          body += `--- file: ${item.path} ---\n${item.content}\n\n`;
+        }
+        const history = [
+          ...content,
+          formatService.getMessageWithTimestamp(userText, "user"),
+          formatService.getMessageWithTimestamp(body, "assistant"),
+        ];
+        setContent(history);
+        return history;
+      } catch (err) {
+        const errMsg = `Include error: ${err.message}`;
+        const history = [
+          ...content,
+          formatService.getMessageWithTimestamp(userText, "user"),
+          formatService.getMessageWithTimestamp(errMsg, "error"),
+        ];
+        setContent(history);
+        return history;
+      }
+    }
+
+    const fileOpRegex = /\b(list files|read file|update file|create file|delete file)\b/i;
     if (!fileOpRegex.test(userText)) {
       return this.handleStreamCompletionBak2(
         model, messages, temperature, top_p,
