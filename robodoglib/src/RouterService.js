@@ -163,7 +163,7 @@ class RouterService {
 
   static MCP_SERVER_URL = "http://localhost:2500";
 
-async callMCP(op, payload, timeoutMs = 5000) {
+async callMCPbak(op, payload, timeoutMs = 5000) {
     let netLib = null;
     try {
       // only works in Node.js—will throw in a browser bundle
@@ -210,6 +210,59 @@ async callMCP(op, payload, timeoutMs = 5000) {
       client.on("error", (err) => {
         reject(err);
       });
+    });
+  }
+  async callMCP(op, payload, timeoutMs = 5000) {
+    const cmd = `${op} ${JSON.stringify(payload)}\n`;
+
+    // if we detect a browser, use fetch
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      let text;
+      try {
+        const res = await fetch(RouterService.MCP_SERVER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: cmd,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        text = await res.text();
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+      // MCP always ends its JSON response on the last line
+      const lines = text.trim().split('\n');
+      try {
+        return JSON.parse(lines[lines.length - 1]);
+      } catch (e) {
+        throw new Error("Failed to parse MCP JSON: " + e.message);
+      }
+    }
+
+    // otherwise, fall back to Node TCP socket
+    let netLib;
+    try { netLib = require("net"); } catch (_) { throw new Error("TCP/net unsupported"); }
+    return new Promise((resolve, reject) => {
+      const client = new netLib.Socket();
+      let buffer = "";
+      client.setTimeout(timeoutMs, () => {
+        client.destroy();
+        reject(new Error("MCP call timed out"));
+      });
+      client.connect(2500, "127.0.0.1", () => client.write(cmd));
+      client.on("data", d => buffer += d.toString("utf8"));
+      client.on("end", () => {
+        const lines = buffer.trim().split("\n");
+        try { resolve(JSON.parse(lines[lines.length - 1])); }
+        catch (e) { reject(new Error("Failed to parse MCP JSON: " + e.message)); }
+      });
+      client.on("error", reject);
     });
   }
 
