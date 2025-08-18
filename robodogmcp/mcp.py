@@ -229,7 +229,13 @@ class MCPHandler(socketserver.StreamRequestHandler):
             return {"src": src, "dst": dst, "status": "ok"}
         
         elif op == 'SEARCH':
-            pattern   = payload.get("pattern", "*")
+            raw_pattern = payload.get("pattern", "*")
+            # allow pipe-separated globs
+            if isinstance(raw_pattern, str):
+                patterns = raw_pattern.split('|')
+            else:
+                patterns = [raw_pattern]
+
             recursive = payload.get("recursive", True)
             root      = payload.get("root", "")   # default to empty
             matches = []
@@ -244,20 +250,23 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     for dirpath, _, filenames in os.walk(r):
                         for fn in filenames:
                             fp = os.path.join(dirpath, fn)
-                            # match against the filename or the full path
-                            if fnmatch.fnmatch(fn, pattern) or fnmatch.fnmatch(fp, pattern):
-                                matches.append(fp)
+                            # if any of the sub-patterns matches, include
+                            for pat in patterns:
+                                if fnmatch.fnmatch(fn, pat) or fnmatch.fnmatch(fp, pat):
+                                    matches.append(fp)
+                                    break
                 else:
-                    # only top‐level of r
+                    # only top-level of r
                     for fn in os.listdir(r):
                         fp = os.path.join(r, fn)
                         if not os.path.isfile(fp):
                             continue
-                        if fnmatch.fnmatch(fn, pattern) or fnmatch.fnmatch(fp, pattern):
-                            matches.append(fp)
+                        for pat in patterns:
+                            if fnmatch.fnmatch(fn, pat) or fnmatch.fnmatch(fp, pat):
+                                matches.append(fp)
+                                break
 
             return {"matches": matches, "status": "ok"}
-
         elif op == 'CHECKSUM':
             path = payload.get("path")
             if not path:
