@@ -227,7 +227,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 raise FileNotFoundError(f"Directory does not exist: {parent}")
             shutil.copy2(src, dst)
             return {"src": src, "dst": dst, "status": "ok"}
-
+        
         elif op == 'SEARCH':
             pattern   = payload.get("pattern", "*")
             recursive = payload.get("recursive", True)
@@ -239,16 +239,21 @@ class MCPHandler(socketserver.StreamRequestHandler):
             for r in roots:
                 if not os.path.isdir(r):
                     continue
+
                 if recursive:
                     for dirpath, _, filenames in os.walk(r):
                         for fn in filenames:
-                            if fnmatch.fnmatch(fn, pattern):
-                                matches.append(os.path.join(dirpath, fn))
+                            fp = os.path.join(dirpath, fn)
+                            # match against the filename or the full path
+                            if fnmatch.fnmatch(fn, pattern) or fnmatch.fnmatch(fp, pattern):
+                                matches.append(fp)
                 else:
                     # only top‐level of r
                     for fn in os.listdir(r):
                         fp = os.path.join(r, fn)
-                        if os.path.isfile(fp) and fnmatch.fnmatch(fn, pattern):
+                        if not os.path.isfile(fp):
+                            continue
+                        if fnmatch.fnmatch(fn, pattern) or fnmatch.fnmatch(fp, pattern):
                             matches.append(fp)
 
             return {"matches": matches, "status": "ok"}
