@@ -175,7 +175,6 @@ const _messages = [
 /include pattern=*.txt|*.js recursive`
 /include pattern=*monsters*.txt|*monsters*.js recursive`
 /include all
-/include all  
 /include file=*.txt` → glob search across all roots  
 /include pattern=*zilla*.txt` → shorthand for a full‐roots search  
 /include dir=temp pattern=*zilla*.txt recursive` → deep search under “temp/” folders,

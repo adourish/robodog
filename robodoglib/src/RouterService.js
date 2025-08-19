@@ -165,7 +165,7 @@ class RouterService {
 
 
 
-  async handleStreamCompletionBak2(
+  async getStreamCompletion(
     model,
     messages,
     temperature,
@@ -182,7 +182,9 @@ class RouterService {
     context,
     knowledge,
     useDefault,
-    bodySummary
+    bodySummary,
+    
+    setTotalChars
   ) {
 
 
@@ -190,7 +192,12 @@ class RouterService {
       const openai = this.getOpenAI(model, useDefault);
       const payload = { model, messages, temperature, top_p, frequency_penalty, presence_penalty, stream: true }
       const requestOpts = this.getRequestOptions(model, useDefault)
-
+      setThinking("🤖");
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+      ]);
+      consoleService.scrollToBottom();
       const stream = await openai.chat.completions.create(payload, requestOpts);
       let assistantText = "";
       for await (const chunk of stream) {
@@ -237,7 +244,7 @@ class RouterService {
     model, messages, temperature, top_p,
     frequency_penalty, presence_penalty, max_tokens,
     setThinking, setContent, setMessage,
-    content, userText, currentKey, context, knowledge, useDefault
+    content, userText, currentKey, context, knowledge, useDefault, setTotalChars
   ) {
 
     // detect /include
@@ -298,20 +305,31 @@ class RouterService {
         included.forEach(i => {
           bodySummary += `File: ${i.path} (${i.content.length}) \n`;
         });
+        let prompt = mainText || userText;
+        prompt = bodySummary + prompt;
+        setThinking("📤");
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(prompt, "user"),
+        ]);
+        consoleService.scrollToBottom();
         // inject as SYSTEM
         const aug = [
           ...messages,
           { role: "system", content: "Included files:\n" + body },
           { role: "system", content: "Do not repeat included files unless you have modified the content based on a prompt." }
         ];
-        let prompt = mainText || userText;
-        prompt = bodySummary + prompt;
+        var c = consoleService.calculateTokens(context);
+        var i = consoleService.calculateTokens(prompt);
+        var k = consoleService.calculateTokens(knowledge);
+        var _totalChars = c + i + k;
+        //setTotalChars(_totalChars);
         // hand off to the normal streamer
-        return this.handleStreamCompletionBak2(
+        return this.getStreamCompletion(
           model, aug, temperature, top_p,
           frequency_penalty, presence_penalty, max_tokens,
           setThinking, setContent, setMessage,
-          content, prompt, currentKey, context, knowledge, useDefault, bodySummary
+          content, prompt, currentKey, context, knowledge, useDefault, bodySummary, setTotalChars
         );
       } catch (err) {
         const errMsg = `Include error: ${err.message}`;
@@ -326,11 +344,11 @@ class RouterService {
     }
 
     // no include → normal path
-    return this.handleStreamCompletionBak2(
+    return this.getStreamCompletion(
       model, messages, temperature, top_p,
       frequency_penalty, presence_penalty, max_tokens,
       setThinking, setContent, setMessage,
-      content, userText, currentKey, context, knowledge, useDefault
+      content, userText, currentKey, context, knowledge, useDefault, null, setTotalChars
     );
   }
 
@@ -443,7 +461,9 @@ class RouterService {
       routerModel.setThinking,
       routerModel.currentKey,
       routerModel.size,
-      routerModel.setKnowledge
+      routerModel.scrollToBottom, 
+      routerModel.setKnowledge,
+      routerModel.setTotalChars
     );
     routerModel.content = _cc;
     return routerModel;
@@ -467,7 +487,8 @@ class RouterService {
     currentKey,
     size,
     scrollToBottom,
-    setKnowledge
+    setKnowledge,
+    setTotalChars
   ) {
     console.log(config);
 
@@ -542,7 +563,8 @@ class RouterService {
             currentKey,
             context,
             knowledge,
-            true
+            true,
+            setTotalChars
           );
         } else if (_model.provider === "openRouter" && _model.stream === true) {
           console.log("rounter openRouter handleStreamCompletion");
@@ -562,7 +584,8 @@ class RouterService {
             currentKey,
             context,
             knowledge,
-            false
+            false,
+            setTotalChars
           );
         } else if (_model.provider === "openAI" && _model.stream === false) {
           console.log("rounter openAI handleRestCompletion");
@@ -607,7 +630,8 @@ class RouterService {
             currentKey,
             context,
             knowledge,
-            true
+            true,
+            setTotalChars
           );
         } else {
           console.log("no matching model condigtions");

@@ -15,7 +15,8 @@ class RouterModel {
         setMessage = null,
         setThinking = null,
         setPerformance = null,
-        setKnowledge = null
+        setKnowledge = null,
+        setTotalChars = null
     ) {
         this.question = question;
         this.model = model;
@@ -32,6 +33,7 @@ class RouterModel {
         this.setThinking = setThinking;
         this.setPerformance = setPerformance; 
         this.setKnowledge = setKnowledge;
+        this.setTotalChars = setTotalChars;
     }
 }
 
