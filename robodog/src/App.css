@@ -1,0 +1,136 @@
+
+/* 1) Retro monospace font */
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000000;       /* pure black */
+  color: #33FF00;            /* pip-boy green */
+  font-family: 'Share Tech Mono', monospace;
+  overflow: hidden;
+}
+
+/* 2) Main console */
+.console {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #000000;
+  color: #33FF00;
+  text-shadow: 0 0 2px rgba(51,255,0,0.5);
+  overflow: hidden;
+}
+
+ .console::after {
+     content: "";
+     pointer-events: none;
+     position: absolute;
+     top: 0; left: 0; right: 0; bottom: 0;
+
+     opacity: 0.03;
+     /* disable flicker */
+     animation: none;
+     z-index: 2;
+   }
+
+/* 4) Subtle scanlines */
+.console::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 1px,
+    rgba(0, 0, 0, 0.1) 2px
+  );
+  z-index: 3;
+}
+
+/* 5) Top menu & buttons */
+.top-menu {
+  z-index: 4;
+  background: #000000;
+  border-bottom: 1px solid #33FF00;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+}
+.top-menu select,
+.top-menu button {
+  background: #000000;
+  color: #33FF00;
+  border: 1px solid #33FF00;
+  text-shadow: none;
+  font-family: 'Share Tech Mono', monospace;
+  margin-right: .5rem;
+}
+.top-menu button:hover,
+.top-menu select:hover {
+  background: rgba(51,255,0,0.1);
+}
+
+/* 6) Console content */
+.console-content {
+  position: relative;
+  z-index: 4;
+  flex: 1;
+  padding: 1rem;
+  font-size: 14px;
+  overflow-y: auto;
+}
+.console-content::-webkit-scrollbar {
+  width: 8px;
+}
+.console-content::-webkit-scrollbar-thumb {
+  background: rgba(51,255,0,0.4);
+  border-radius: 4px;
+}
+
+/* 7) Inputs & textareas */
+.input-form {
+  position: relative;
+  z-index: 4;
+  border-top: 1px solid #33FF00;
+  background: #000000;
+  padding: .5rem;
+}
+.input-textarea,
+.question-textarea,
+.knowledge-textarea {
+  width: 100%;
+  background: #000000;
+  color: #33FF00;
+  border: 1px solid #33FF00;
+  padding: .5rem;
+  font-family: 'Share Tech Mono', monospace;
+  resize: vertical;
+  caret-color: #33FF00;
+}
+.input-textarea::selection,
+.question-textarea::selection,
+.knowledge-textarea::selection {
+  background: rgba(51,255,0,0.3);
+}
+
+/* 8) Submit & icon buttons */
+.submit-button,
+.history-button,
+.knowledge-button,
+.button-uploader {
+  background: #000000;
+  color: #33FF00;
+  border: 1px solid #33FF00;
+  font-family: 'Share Tech Mono', monospace;
+  cursor: pointer;
+}
+.submit-button:hover,
+.history-button:hover,
+.knowledge-button:hover,
+.button-uploader:hover {
+  background: rgba(51,255,0,0.1);
+}
