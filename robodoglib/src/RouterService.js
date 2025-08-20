@@ -525,32 +525,8 @@ class RouterService {
             setTotalChars
           );
 
-          console.log("rounter openAI handleRestCompletion");
-          _cc = await this.handleRestCompletion(
-            model,
-            messages,
-            temperature,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            max_tokens,
-            setThinking,
-            setContent,
-            setMessage,
-            content,
-            text,
-            currentKey,
-            context,
-            knowledge,
-            true
-          );
         } else if (_model.stream === true) {
-          console.log("rounter openAI handleRestCompletion");
-          console.log(
-            "rounter fall through " +
-            _model.provider +
-            " handleStreamCompletion"
-          );
+          console.log("rounter fall through " + _model.provider + " handleStreamCompletion");
           _cc = await this.handleStreamCompletion(
             model,
             messages,
