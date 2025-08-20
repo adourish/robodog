@@ -483,7 +483,7 @@ class RouterService {
             content
           );
         } else if (_model.provider === "openAI" && _model.stream === true) {
-          console.log("rounter openAI handleStreamCompletion");
+
           _cc = await this.handleStreamCompletion(
             model,
             messages,
