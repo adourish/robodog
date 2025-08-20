@@ -369,15 +369,17 @@ function Console() {
         case '/models':
           var list = [...content]
           var models = providerService.getModels();
+          let modelsText = '';
           if (models) {
 
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
-              const formattedEngine = engine.model;
-              var item = formatService.getMessageWithTimestamp(formattedEngine, 'model')
-              list.push(item);
+              modelsText += engine.model;
+              
             }
           }
+          var item = formatService.getMessageWithTimestamp(modelsText, 'model')
+              list.push(item);
           setContent(list);
 
           console.log(models);
