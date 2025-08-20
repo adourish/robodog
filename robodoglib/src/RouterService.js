@@ -14,7 +14,7 @@ const providerService = new ProviderService();
 const mcpService = new MCPService();
 class RouterService {
   constructor() {
-    console.debug("RouterService init");
+
   }
 
   isAndroid() {
@@ -101,69 +101,6 @@ class RouterService {
 
     return document.referrer || "https://adourish.github.io"; // Use a default if none
   }
-
-  async handleRestCompletion(
-    model,
-    messages,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    max_tokens,
-    setThinking,
-    setContent,
-    setMessage,
-    content,
-    text,
-    currentKey,
-    context,
-    knowledge,
-    useDefault
-  ) {
-    var _p2 = {
-      model: model,
-      messages: messages,
-      temperature: temperature,
-      top_p: top_p,
-      frequency_penalty: frequency_penalty,
-      presence_penalty: presence_penalty,
-    };
-    var _r = { content: null, finish_reason: null, text: null };
-    if (max_tokens > 0) {
-      _p2.max_tokens = max_tokens;
-    }
-    console.debug(_p2);
-    const openai = this.getOpenAI(model, useDefault);
-    try {
-      const response = await openai.chat.completions.create(_p2);
-      if (response) {
-        var _content = response.choices[0]?.message?.content;
-        var _finish_reason = response.choices[0]?.finish_reason;
-        _r.content = _content || "No content available";
-        _r.finish_reason = _finish_reason || "No finish reason";
-        var _cc = [
-          ...content,
-          FormatService.getMessageWithTimestamp(text, "user"),
-          FormatService.getMessageWithTimestamp(_content, "assistant"),
-        ];
-        setContent(_cc);
-        consoleService.stash(currentKey, context, knowledge, text, _cc);
-        return _cc;
-      }
-    } catch (error) {
-      const errorMessage = this.formatErrorMessage(error);
-      console.error(errorMessage);
-      setMessage("Error");
-      _c = [
-        ...content,
-        formatService.getMessageWithTimestamp(errorMessage, "error"),
-      ];
-      setContent(_c);
-    }
-    return null;
-  }
-
-
 
   async getStreamCompletion(
     model,
@@ -490,7 +427,7 @@ class RouterService {
     setKnowledge,
     setTotalChars
   ) {
-    console.log(config);
+
 
     let systemRole = "system";
     if (model === "o1-mini" || model === "o1") {
@@ -587,7 +524,7 @@ class RouterService {
             false,
             setTotalChars
           );
-        } else if (_model.provider === "openAI" && _model.stream === false) {
+
           console.log("rounter openAI handleRestCompletion");
           _cc = await this.handleRestCompletion(
             model,

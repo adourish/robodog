@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 import React, { useRef, useEffect, useState } from 'react';
 import RobodogLib from '../../robodoglib/dist/robodoglib.bundle.js';
-console.log(RobodogLib)
 const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
@@ -13,9 +12,6 @@ const hostService = new RobodogLib.HostService()
 const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
 const SettingsComponent = RobodogLib.SettingsComponent;
 
-if (consoleService) {
-  console.log('index bundle', consoleService)
-}
 var build = '';
 if (window) {
   const version = window.version;

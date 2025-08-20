@@ -165,8 +165,7 @@ class ConsoleService {
       let consoleContent = document.getElementById('consoleContent');
 
       if (consoleContent) {
-        console.trace('scrollToBottom', consoleContent.scrollHeight, consoleContent.scrollTop)
-        consoleContent.scrollTop = consoleContent.scrollHeight;
+            consoleContent.scrollTop = consoleContent.scrollHeight;
       } else {
         console.debug('no scroll');
       }

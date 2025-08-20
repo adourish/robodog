@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ZipPlugin = require('zip-webpack-plugin');
+   const CopyWebpackPlugin = require('copy-webpack-plugin'); 
 var currentDateTime = new Date();
 const { version } = require('./package.json');
 const buildNumber = Math.floor(Date.now() / 1000);
@@ -62,6 +63,14 @@ module.exports = {
         buildInfo
       }
     }),
+    new CopyWebpackPlugin({                                    // ← added
+         patterns: [
+           {
+             from: path.resolve(__dirname, 'public/manifest.json'),
+             to: path.resolve(__dirname, 'dist/manifest.json')
+           }
+         ]
+       }),
     new ZipPlugin({
       filename: 'robodog.zip',
       path: path.resolve(__dirname, 'dist')

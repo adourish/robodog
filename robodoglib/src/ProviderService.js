@@ -108,7 +108,7 @@ class ProviderService {
 
   getJson(yamlkey = 'yaml', defaultYaml = '') {
     const yamlContent = this.getYaml(yamlkey, defaultYaml);
-    console.trace('yamlContent', yamlContent);
+
     try {
       // Convert YAML content to JSON using a library like js-yaml
       const jsonContent = yaml.load(yamlContent);
