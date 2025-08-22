@@ -128,6 +128,7 @@ configs:
 - **Performance & Size Indicators**: Emoji feedback for processing speed and token usage.  
 - **Extensive Command Palette**: `/help` lists all commands, indicators, and settings.  
 
+![Configuration Settings](screenshot-mobile.png)  
 ---
 
 ## Usage Examples  
