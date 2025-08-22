@@ -68,7 +68,7 @@ function Console() {
   useEffect(() => {
     console.log('Component has mounted!');
     if (!isLoaded) {
-      var ufo = consoleService.getUFO();
+
       var _commands = consoleService.getCommands();
       var _options = consoleService.getOptions();
       var _yamlConfig = providerService.getYaml();
@@ -77,7 +77,6 @@ function Console() {
       if (_model && _model !== '') {
         setModel(_model)
       }
-      var list = [formatService.getMessageWithTimestamp('I want to believe.', 'title')];
       var _l = consoleService.getSettings(build, _model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
       var _stashList = consoleService.getStashList();
 
@@ -85,12 +84,10 @@ function Console() {
         var stashList = _stashList.split(',');
         setStashList(stashList);
       }
-      list = list.concat(_l, ufo);
-
       setCommands(_commands);
       setOptions(_options);
       setIsLoaded(true);
-      setContent(list);
+      setContent(_l);
       setCurrentKey('autosave');
       setCommands(_commands);
 

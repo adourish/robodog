@@ -238,7 +238,7 @@ class RouterService {
         included.forEach(i => {
           body += `--- file: ${i.path} ---\n${i.content}\n\n`;
         });
-        let bodySummary = 'MCP file content:\n';
+        let bodySummary = `${includeCmd}:\n`;
         included.forEach(i => {
           bodySummary += `File: ${i.path} (${i.content.length}) \n`;
         });

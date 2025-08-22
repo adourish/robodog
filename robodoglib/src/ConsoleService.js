@@ -6,30 +6,10 @@ class ConsoleService {
   constructor() {
     this._options = [
       {
-        "command": "/gpt-3.5-turbo",
-        "description": "Use gpt-3.5-turbo-1106 model (4,096 tokens)"
+        "command": "/model o4-mini",
+        "description": ""
       },
-      {
-        "command": "/gpt-3.5-turbo-16k",
-        "description": "Use gpt-3.5-turbo-16k model (16,385 tokens)"
-      },
-      {
-        "command": "/gpt-3.5-turbo-1106",
-        "description": "Use gpt-3.5-turbo-1106 model (16,385 tokens)"
-      },
-      {
-        "command": "/gpt-4",
-        "description": "Use gpt-4 model (8,192 tokens)"
-      },
-      {
-        "command": "/gpt-4-1106-preview",
-        "description": "Use gpt-4-1106-preview model (128,000 tokens)"
-      },
-      {
-        "command": "/model <name>",
-        "description": "Use model <name>"
-      },
-      {
+       {
         "command": "/help",
         "description": "Get help."
       },
@@ -104,6 +84,18 @@ class ConsoleService {
       {
         "command": "CTRL+S",
         "description": "Save a snapshot to storage."
+      },
+      {
+        "command": "/include pattern=*robodog*.css|*robodog*.js|*robodog*.jsx recursive`",
+        "description": "include all robodog files"
+      },
+      {
+        "command": "/include file=*.txt`  ",
+        "description": "→ glob search across all roots ."
+      },
+      {
+        "command": "/include pattern=*.txt|*.js recursive`",
+        "description": "."
       }
     ];
   }
@@ -193,14 +185,10 @@ class ConsoleService {
       });
   }
   getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty) {
-    var settings = ['settings: ',
+    var settings = [
       "build: " + build,
-      "model: " + model,
-      "temperature: " + temperature,
-      "max_tokens:" + max_tokens,
-      "top_p: " + top_p,
-      "frequency_penalty: " + frequency_penalty,
-      "presence_penalty: " + presence_penalty];
+      "model: " + model
+    ];
     var commands = settings.map((line, index) => {
       return {
         "datetime": "",
@@ -304,39 +292,6 @@ class ConsoleService {
     return _list;
   }
 
-  getUFO() {
-    var ufo = [
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠶⣷⠲⠤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⠞⢉⠀⠀⠀⠿⠦⠤⢦⣍⠲⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⡤⣤⡞⢡⡶⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⢀⣤⠴⠒⣾⠿⢟⠛⠻⣿⡿⣭⠿⠁⢰⠰⠀⠀⠀⠄⣄⣀⡀⠀⠀⠘⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⢰⣿⣿⣦⡀⠙⠛⠋⠀⠀⠉⠻⠿⢷⣦⣿⣤⣤⣤⣤⣀⣈⠉⠛⠽⣆⡒⣿⣯⣷⣄⠀⠀⠀⠀⠀⠀',
-      '⠀⠻⣍⠻⠿⣿⣦⣄⡀⢠⣾⠑⡆⠀⠈⠉⠛⠛⢿⡿⠿⠿⢿⣿⣿⣿⣿⠟⠉⠉⢿⣟⢲⢦⣀⠀⠀',
-      '⠀⠀⠈⠙⠲⢤⣈⠉⠛⠷⢿⣏⣀⡀⠀⠀⠀⢰⣏⣳⠀⠀⠀⠀⠀⣸⣓⣦⠀⠀⠈⠛⠟⠃⣈⣷⡀',
-      '⠀⠀⠀⠀⠀⠈⢿⣙⡓⣶⣤⣤⣀⡀⠀⠀⠀⠈⠛⠁⠀⠀⠀⠀⠀⠹⣿⣯⣤⣶⣶⣶⣿⠘⡿⢸⡿',
-      '⠀⠀⠀⠀⠀⠀⠀⠙⠻⣿⡛⠻⢿⣯⣽⣷⣶⣶⣤⣤⣤⣤⣄⣀⣀⢀⣀⢀⣀⣈⣥⡤⠶⠗⠛⠋⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠓⠲⣬⣍⣉⡉⠙⠛⠛⠛⠉⠙⠉⠙⠉⣹⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡼⠃⠀⠀⠉⠉⠉⠻⡗⠒⠒⠚⠋⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⡴⠋⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⣠⠞⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⣠⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⠀⠀⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⢀⠔⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠔⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-      '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀'
-    ];
-    var commands = ufo.map((line, index) => {
-      return {
-        "datetime": "",
-        "role": "ufo",
-        "roleEmoji": "",
-        "command": line,
-        "url": ""
-      };
-    });
-    return commands;
-  }
 
 
   async getTextContent(url, model, knowledge, setKnowledge) {

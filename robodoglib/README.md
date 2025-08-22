@@ -1,268 +1,269 @@
-# Robodog AI Overview
+# Robodog AI  
 
-## About
+![Robodog MCP File Service](screenshot-mcp.png)  
 
+## Overview  
+Robodog is a lightweight, zero-install, command-line style generative AI client that integrates multiple providers (OpenAI, OpenRouter, LlamaAI, DeepSeek, Anthropic, Sarvam AI, Google Search API, and more) into a unified interface. Key capabilities include:
 
-Robodog is a powerful and versatile generative AI client that provides comprehensive support for a diverse range of advanced models, including the cutting-edge `o4-mini` with enhanced reasoning capabilities, along with renowned options like `gpt-4`, `gpt-4-turbo`, and `dall-e-3`. The platform also integrates groundbreaking models from prominent AI providers, such as LlamaAI, DeepSeek, Anthropic's Claude, and Sarvam AI, making it the ideal solution for varied applications, including programming, healthcare, and creative tasks.
+- Access to cutting-edge models: `o4-mini` (200k context), `gpt-4`, `gpt-4-turbo`, `dall-e-3`, Llama3-70b, Claude Opus/Sonnet, Mistral, Sarvam-M, Gemma 3n, etc.  
+- Massive context windows (up to 200k tokens) across different models.  
+- Seamless chat history & knowledge management with stashes and snapshots.  
+- File import/export (text, Markdown, code, PDF, images via OCR).  
+- In-chat file inclusion from a local MCP server.  
+- Built-in web search integration.  
+- Image generation & OCR pipelines.  
+- Accessible, retro “console” UI with customizable themes and responsive design.  
 
-Robodog features an intuitive command-line interface, enabling seamless execution of commands like switching models, adjusting parameters, and managing chat contexts effortlessly. Users can utilize commands such as `/stash`, `/pop`, `/clear`, and `/list` to navigate, manage, and manipulate conversation histories easily, including adding or removing specific entries as needed. The platform boasts support for exceptionally large context buffers, accommodating up to 200k tokens, ensuring that extensive dialogue or input history is retained and accessible for meaningful interactions.
+---
 
-Moreover, Robodog allows users to create save points in their conversation history, enabling them to revert to previous states as necessary. The `/import` functionality lets users bring in files across multiple formats—such as markdown, plaintext, JSON, and programming languages—greatly enhancing the knowledge base and context available for interaction. Additionally, users can save their configurations in a YAML format, allowing for easy retrieval and management of settings.
+## Try Robodog  
 
-Designed as a lightweight client, Robodog requires no installation, ensuring quick and hassle-free access. The platform excels in providing rich responses through its chat history management system, ensuring that every conversation is contextual and relevant. With built-in support for Optical Character Recognition (OCR), users can convert images to text and vice versa, empowering diverse content creation and analysis.
+- **Web**: https://adourish.github.io/robodog/robodog/dist/  
+- **Android**: https://play.google.com/store/apps/details?id=com.unclebulgaria.robodog  
+- **npm packages**:  
+  - `npm install robodoglib`  
+  - `npm install robodogcli`  
+  - `npm install robodog`  
 
-Whether you need sophisticated responses or creative outputs, Robodog empowers you to engage with AI efficiently and effectively, offering a comprehensive toolkit that meets the demands of any user scenario. Experience the future of AI interaction with Robodog, designed to adapt to your needs while delivering unparalleled performance.
+---
 
-Whether you need sophisticated responses or creative outputs, Robodog empowers you to engage with AI efficiently and effectively, offering a comprehensive toolkit that meets the demands of any user scenario. Experience the future of AI interaction with Robodog, designed to adapt to your needs while delivering unparalleled performance.
+## Configuration  
 
-## Try Robodog
+Click the ⚙️ icon in the top-menu to open settings:  
 
-- **Web**: [Robodog web](https://adourish.github.io/robodog/robodog/dist/)
-- **Android**: [Robodog Android](https://play.google.com/store/apps/details?id=com.unclebulgaria.robodog)
-- **npm packages**:
-  - [robodoglib](https://www.npmjs.com/package/robodoglib)
-  - [robodogcli](https://www.npmjs.com/package/robodogcli)
-  - [robodog](https://www.npmjs.com/package/robodog)
+![Configuration Settings](screenshot-quick.png)  
 
-## Configuration
-
-### Configuring Providers and Models
-
-To configure the models and providers, click the ⚙️ icon.
-
-![Configuration Settings](screenshot-quick.png)
-
-### YAML Configuration Example
-
-Here's a sample of YAML configuration:
+Edit your YAML to configure providers, models, specialists, and the MCP server:  
 
 ```yaml
-  
 configs:
   providers:
     - provider: openAI
       baseUrl: "https://api.openai.com"
-      apiKey: "<key>"
+      apiKey: "<YOUR_OPENAI_KEY>"
       httpReferer: "https://adourish.github.io"
     - provider: openRouter
       baseUrl: "https://openrouter.ai/api/v1"
-      apiKey: "<key>"
-      httpReferer: "https://adourish.github.io"
+      apiKey: "<YOUR_ROUTER_KEY>"
     - provider: searchAPI
       baseUrl: "https://google-search74.p.rapidapi.com"
-      apiKey: "<key>"
-      httpReferer: "https://adourish.github.io"
-      
+      apiKey: "<YOUR_RAPIDAPI_KEY>"
+
   specialists:
     - specialist: nlp
-      resume: natural language processing, chatbots, content generation, language translation
+      resume: natural language processing, content generation
     - specialist: gi
-      resume: generates images from textual descriptions. understanding and interpreting textual descriptions 
+      resume: image generation from text
     - specialist: search
-      resume: generate simple search results
+      resume: web search integration
+
+  mcpServer:
+    baseUrl: "http://localhost:2500"
+    apiKey: "testtoken"
 
   models:
     - provider: openAI
       model: gpt-4
       stream: true
       specialist: nlp
-      about: best for performance 
-    - provider: openRouter
-      model: GPT-4o-mini
-      stream: true
-      specialist: nlp
-      about: best for most questions
+      about: best for reasoning
     - provider: openAI
       model: o4-mini
       stream: true
       specialist: nlp
-      about: biggest model with 200k context window and world view. Best for critical thinking.
-    - provider: openAI
-      model: o1
-      stream: true
-      specialist: nlp
-      about: big model with 128k context window and small world view. Good for critical thinking.
-    - provider: llamaAI
-      model: llama3-70b
-      stream: false
-      specialist: nlp
-      about: best for big content
-    - provider: openAI
-      model: gpt-4o
-      stream: true
-      specialist: nlp
-      about: best for summerizing
-    - provider: openAI
-      model: gpt-4-turbo
-      stream: true
-      specialist: nlp
-      about: best for speed
+      about: 200k token context, advanced reasoning
     - provider: openAI
       model: dall-e-3
       stream: false
       specialist: gi
-      about: best for creating images
+      about: image creation
     - provider: searchAPI
       model: search
       stream: false
       specialist: search
-      about: best for searching
+      about: web search results
 ```
 
-## Supported Models
+---
 
-Robodog supports a wide range of models provided by various major AI providers, including:
+## Supported Models  
 
-### OpenAI
-- gpt-4
-- gpt-3.5-turbo
-- gpt-3.5-turbo-16k
-- dall-e-3
+### OpenAI  
+- gpt-4, gpt-4-turbo, gpt-3.5-turbo, gpt-3.5-turbo-16k, o4-mini, o1  
+- dall-e-3  
 
-### LlamaAI
-- llama3-70b
+### Others  
+- LlamaAI: llama3-70b  
+- Anthropic: Claude Opus 4, Claude Sonnet 4  
+- DeepSeek R1  
+- Mistral Medium 3, Devstral-Small  
+- Sarvam-M  
+- Google Gemma 3n E4B  
 
-### DeepSeek
-- DeepSeek R1
-- DeepSeek R1 (Free version)
+---
 
-### Anthropic
-- Claude Opus 4
-- Claude Sonnet 4
+## Key Features  
 
-### Mistral
-- Mistral Medium 3
-- Mistral Devstral-Small 2505
+- **Multi-Provider Support**: Switch between any configured provider or model on the fly.  
+- **Chat & Knowledge**: Separate panes for Chat History (💭) and Knowledge (📝)—both resizable.  
+- **Stash Management**:  
+  - `/stash <name>` — save current chat+knowledge  
+  - `/pop  <name>` — restore a stash  
+  - `/list`            — list all stashes  
+  - CTRL+SHIFT+UP     — cycle through stashes  
+- **File Import/Export**:  
+  - `/import` — pick files (.md, .txt, .js, .py, .json, .yaml, .csv, PDFs, images)  
+  - `/export <filename>` — download knowledge & chat snapshot  
+  - 📤 / 📥 buttons in toolbar  
+  ![Import Features](import.png)  
+- **MCP File Inclusion**:  
+  - `/include all`  
+  - `/include file=README.md`  
+  - `/include pattern=*.js|*.css recursive`  
+  - `/include dir=src pattern=*.py recursive`  
+  Hand off included files into prompts seamlessly.  
+- **Web Search**: Enter `/search` mode or click 🔎 to perform live web queries.  
+- **Image Generation & OCR**: Ask questions to `dall-e-3` or drop an image to extract text via OCR.  
+- **Interactive Console UI**: Retro “pip-boy green” theme, responsive on desktop/mobile, accessible.  
+- **Performance & Size Indicators**: Emoji feedback for processing speed and token usage.  
+- **Extensive Command Palette**: `/help` lists all commands, indicators, and settings.  
 
-### Sarvam AI
-- Sarvam-M
+---
 
-### Google Models
-- Gemma 3n E4B
+## Usage Examples  
 
-## Features
-
-### Key Features of Robodog
-- **Supports Multiple Providers:** Users can switch between different AI providers.
-- **File Import/Export:** Import files from various formats and export knowledge content.
-- **Image Processing:** Support for OCR using the Tesseract library and image-to-text using Dall-E-3.
-- **Chat History Management:** Utilize stash, pop, and list commands to manage chat contexts.
-- **Flexible Runtime:** Install and run without needing npm or a node server.
-
-### New Features
-- **Mobile Support:** Responsive UI that works on mobile devices.
-- **Batch Execution:** Execute batches of generative AI commands.
-- **Stash Management:** Improved stash management using stash, pop, and list commands.
-
-## How It Works
-
-Robodog integrates chat history and knowledge into the questions posed:
-
-```javascript
-const _messages = [
-    { role: "user", content: "chat history:" + context },
-    { role: "user", content: "knowledge:" + knowledge  },
-    { role: "user", content: "question:" + text + ". Use the content in knowledge and chat history to answer the question." }
-];
+### Switch Model  
 ```
-
-### MCP Syntax
+/model o4-mini
 ```
-/include all`  
-/include file=*.txt` → glob search across all roots  
-/include pattern=*zilla*.txt` → shorthand for a full‐roots search  
-/include dir=temp pattern=*zilla*.txt recursive` → deep search under “temp/” folders,
-/include pattern=*.txt|*.js recursive`
-/include pattern=*monsters*.txt|*monsters*.js recursive`
+→ “Model is set to o4-mini”  
+
+### Ask a Question  
+Simply type your query in the Chat💬 box and hit 🤖 or Enter.  
+
+### Import Files  
+Click 📤 or type:  
+```
+/import
+```  
+Select one or more files—content is appended to Knowledge📝.  
+
+### Export Snapshot  
+```
+/export my_conversation.txt
+```  
+Downloads a plain-text transcript of Chat History, Knowledge, and Content logs.  
+
+### Include Code from Your Project  
+```
+/include pattern=*robodog*.js recursive
+```  
+Includes all `*.js` files matching pattern under all configured project roots.  
+
+### Web Search  
+```
+/search What is Robodog AI?
+```  
+Returns top results with clickable links.  
+
+### Generate an Image  
+```
+/dall-e-3 Create a sci-fi console UI in 1024x1024
+```  
+→ Displays generated image inline.  
+
+---
+
+## MCP File Service Syntax  
+
+![Robodog MCP File Service](screenshot-mcp.png)  
+```txt
 /include all
-/include file=*.txt` → glob search across all roots  
-/include pattern=*zilla*.txt` → shorthand for a full‐roots search  
-/include dir=temp pattern=*zilla*.txt recursive` → deep search under “temp/” folders,
-/include pattern=*console*.jsx|*service*.js recursive
-/include file=README.md
-/include dir=src pattern=*.js
-/include dir=lib pattern=*.py recursive
-/include dir=docs pattern=*.md recursive
-> Note: patterns use Unix-style globs (`*`, `?`), not full regex.
+/include file=*.md
+/include pattern=*service*.js recursive
+/include dir=src pattern=*.py recursive
 ```
+*Globs: `*`, `?`, character classes. No full regex.*  
 
-### MCP Server Syntax
-python mcp.py --port 2500 --folders c:\temp C:\Projects\robodog\robodoglib\src --token testtoken
-python mcp.py --port 2500 --folders c:\temp C:\Projects\robodog\robodoglib\src C:\Projects\robodog\robodog\src --token testtoken
+---
 
-### Supported File Formats
-
-Thanks to MCP, you can include any text-based file. Common examples:
-
-• Markdown: `.md`, `.markdown`  
-• Plain text: `.txt`, `.text`  
-• JSON: `.json`  
-• Source code: `.js`, `.ts`, `.py`, `.java`, `.c`, `.cpp`, `.go`, `.rs`  
-• Configs & data: `.yaml`, `.yml`, `.xml`, `.csv`
-
-Just adjust the `pattern=` glob to match the extensions you need.
-
-## Import/Export Commands
-
-Use the `/import` command to open a file picker and select files for import.
-
-![Import Features](import.png)
-
-You can use the `/export <filename>` command to dump the content of your knowledge into a file.
-
-## Stash, Pop, and List Commands
-
-Manage chat contexts efficiently:
-- `/stash <name>` - Stash the current chat and knowledge.
-- `/pop <name>` - Retrieve a stashed chat and knowledge.
-- `/list` - List all stashed chats.
-
-## Indicators
-
-Use the following indicators for a streamlined experience:
-
-- `[0/9000]` - Estimated remaining context + knowledge + chat
-- `[gpt-3.5-turbo]` - Current model in use
-- `[0.7]` - Temperature setting
-
-## Emoji Indicators
-
-### Role Emojis
-- **User**: 👾
-- **Assistant**: 🤖
-- **System**: 💾
-- **Event**: 👹
-- **Error**: 💩
-
-### Status Emojis
-- **Ready**: 🦥
-- **Thinking**: 🦧
-- **Dangerous Size**: 🐋
-- **Very Large Size**: 🦕
-- **Large Size**: 🐘
-- **Acceptable Size**: 🐁
-
-### Performance Emojis
-- **Tortoise**: 🐢
-- **Kangaroo**: 🦘
-
-![Architecture](screenshot-architecture.png)
-
-## Accessibility
-
-Robodog AI was developed with accessibility in mind, addressing Section 508 standards and web accessibility principles.
-
-## Build and Run Instructions
-
-To build and run Robodog:
+## MCP Server Startup  
 
 ```bash
-cd robodog
-python build.py
+python mcp.py --port 2500 \
+  --folders c:\temp C:\Projects\robodog\robodoglib\src \
+  --token testtoken
+```  
+
+---
+
+## Supported File Formats  
+
+- Text & Markdown: `.txt`, `.md`, `.markdown`  
+- Code: `.js`, `.ts`, `.py`, `.java`, `.c`, `.cpp`, `.go`, `.rs`  
+- Config/Data: `.yaml`, `.yml`, `.json`, `.xml`, `.csv`  
+- PDF: `.pdf`  
+- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`, `.pbm`, `.pgm`, `.ppm`  
+
+---
+
+## Command Reference  
+
+Run `/help` in-app or see the list below:  
+
+```
+/help                    — show help  
+/model <name>            — switch model  
+/import                  — import files  
+/export <filename>       — export snapshot  
+/clear                   — clear chat & knowledge  
+/stash <name>            — stash chat+knowledge  
+/pop   <name>            — retrieve stash  
+/list                    — list stashes  
+/temperature <n>         — set temperature (0–2)  
+/max_tokens <n>          — set max tokens  
+/top_p <n>               — set nucleus sampling  
+/frequency_penalty <n>   — set frequency penalty  
+/presence_penalty <n>    — set presence penalty  
+/rest                    — use REST completions  
+/stream                  — use streaming completions  
+/include …               — include files via MCP  
 ```
 
-Open `./dist/robodog.html` in your browser to start using it.
+*Also supports keyboard shortcuts:*  
+- CTRL+SHIFT+UP to cycle stashes  
+- CTRL+S to save a snapshot  
 
-### Summary
+---
 
-Robodog AI is a robust API client that combines the capabilities of various AI models and providers for diverse applications. With its interactive features and support for multiple data formats, it offers a flexible and efficient platform for engaging with AI technologies.
+## Indicators & Emojis  
+
+- `[💭]` Chat History  
+- `[📝]` Knowledge Content  
+- `[💬]` Chat Text  
+- `[👾]` User  
+- `[🤖]` Assistant  
+- `[💾]` System  
+- `[🐋/🦕/🐘/🐁]` Token usage levels  
+- `[🐢/🦘/🐆/🦌/🐕]` Performance (response time)  
+
+---
+
+## Accessibility & PWA  
+
+- Meets Section 508 and WCAG principles.  
+- Detects standalone ≥Installable as a PWA on supported devices.  
+
+---
+
+## Build & Run  
+
+```bash
+# Clone or unzip robodog
+cd robodog
+python build.py
+# Open in browser
+open ./dist/robodog.html
+```  
+
+Experience the future of AI interaction—fast, contextual, and extensible. Enjoy Robodog AI!
