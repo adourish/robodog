@@ -599,7 +599,7 @@ class RoboDogCLI:
                     result = await page.evaluate("() => document.body.innerText")
 
                 print("----- /curl result -----")
-                print(result)
+   
                 await browser.close()
 
         try:
