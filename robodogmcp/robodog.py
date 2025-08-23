@@ -16,6 +16,7 @@ import fnmatch
 import hashlib
 from pathlib import Path
 from pprint import pprint
+from openai import OpenAI
 
 # ----------------------------------------
 # DEFAULT CONFIG for the CLI portion
@@ -307,12 +308,6 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 # ----------------------------------------
 # CLI portion
 # ----------------------------------------
-try:
-    from openai import OpenAI
-except ImportError:
-    print("Please install the OpenAI Python client: pip install openai", file=sys.stderr)
-    sys.exit(1)
-
 class RoboDogCLI:
     def __init__(self, config_path: str, api_key: str = None):
         if not os.path.exists(config_path):
@@ -626,6 +621,8 @@ if __name__ == '__main__':
                         help='port for MCP server (default 2500)')
     parser.add_argument('--token', required=True,
                         help='authentication token clients must present')
+    parser.add_argument('--model', '-m',
+                        help='startup model name (overrides default in config)')
     parser.add_argument('--log-file', default='robodog.log',
                         help='path to log file')
     args = parser.parse_args()
@@ -665,6 +662,10 @@ if __name__ == '__main__':
     cli = RoboDogCLI(args.config)
     cli.mcp['baseUrl'] = f"http://{args.host}:{args.port}"
     cli.mcp['apiKey']  = args.token
+
+    # if user specified startup model, apply it now
+    if args.model:
+        cli.set_model([args.model])
 
     try:
         cli.interact()
