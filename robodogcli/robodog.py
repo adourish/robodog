@@ -608,17 +608,9 @@ class RoboDogCLI:
             print("Error in /curl:", e)
 
     # ---------------------------------------------------
-    # /play command: natural-language testing via Playwright + LLM
+    # /play command: natural-language testing via Playwright + LLM,
+    # now with page-title logging and retry-on-failure logic.
     def do_play(self, tokens):
-        """
-        /play <natural-language test instructions>
-        1) Parse into discrete steps
-        2) Open a single browser/page
-        3) For each step:
-           a) Ask LLM for a tiny snippet that performs exactly that step, returning any data as `result`
-           b) Execute the snippet and print its result
-           c) Ask LLM what the next step should be (or 'done')
-        """
         if async_playwright is None:
             print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
             return
@@ -649,47 +641,96 @@ class RoboDogCLI:
             print("Error: Couldn't parse any steps. Aborting.")
             return
 
-        # 2) Prepare step functions
-        step_fns = []
-        for idx, step in enumerate(steps):
-            snippet_prompt = (
-                f"Write an async Playwright snippet in Python (only 'await page...' lines) to perform this step:\n{step}\n"
-                "Use Python Playwright API (no JavaScript syntax). "
-                "Assign any extracted data to a variable named 'result' and end with 'return result'."
-            )
-            snippet = self.ask2(snippet_prompt)
-            print(f"----- Snippet for step {idx+1} -----")
-            print(snippet)
-            # compile into async def
-            fn_name = f"step_fn_{idx+1}"
-            src = f"async def {fn_name}(page):\n"
-            for ln in snippet.splitlines():
-                src += f"    {ln}\n"
-            local = {}
-            try:
-                exec(src, globals(), local)
-                step_fns.append((steps[idx], local[fn_name]))
-            except Exception as e:
-                print(f"Error compiling snippet for step {idx+1}:", e)
-                return
+        # helper to strip markdown fences
+        def strip_code_blocks(snip: str) -> str:
+            lines = snip.splitlines()
+            if lines and lines[0].strip().startswith("```"):
+                end = None
+                for i, ln in enumerate(lines[1:], start=1):
+                    if ln.strip().startswith("```"):
+                        end = i
+                        break
+                if end is not None:
+                    return "\n".join(lines[1:end])
+            return snip
 
-        # 3) Run them in one browser/page session
+        # 2) Run them in one browser/page session, generating snippet per step
         async def runner():
             async with async_playwright() as pw:
                 browser = await pw.chromium.launch()
                 page = await browser.new_page()
-                for idx, (step_desc, fn) in enumerate(step_fns):
-                    print(f"\n--- Executing step {idx+1}: {step_desc} ---")
-                    try:
-                        res = await fn(page)
-                    except Exception as e:
-                        print(f"Error executing step {idx+1}:", e)
-                        break
-                    print(f"Result of step {idx+1}:", res)
-                    # Ask LLM what next
-                    if idx < len(step_fns)-1:
+
+                for idx, step in enumerate(steps):
+                    # We'll allow up to 2 attempts per step
+                    snippet = None
+                    for attempt in range(2):
+                        # Always report current page
+                        try:
+                            title = await page.title()
+                        except Exception:
+                            title = "<no title>"
+                        url = page.url
+                        print(f"\n--- Step {idx+1}, attempt {attempt+1} on page: {title} ({url}) ---")
+
+                        # Inspect current HTML
+                        html = await page.content()
+
+                        # Ask LLM for the exact snippet given HTML + instruction
+                        if attempt == 0:
+                            prompt_snip = (
+                                "You are given the HTML of the current page and an instruction. "
+                                "Write a snippet of Python Playwright code using only 'await page...' lines to perform the instruction. "
+                                "Assign any extracted data to a variable named 'result' and end with 'return result'.\n\n"
+                                f"HTML:\n{html[:2000]}...\n\nInstruction:\n{step}"
+                            )
+                        else:
+                            prompt_snip = (
+                                f"The previous snippet for instruction '{step}' failed on attempt 1. "
+                                "Given the HTML of the current page, write a corrected Python Playwright snippet using only 'await page...' lines. "
+                                "Assign any extracted data to a variable named 'result' and end with 'return result'.\n\n"
+                                f"HTML:\n{html[:2000]}...\n\nInstruction:\n{step}"
+                            )
+
+                        snippet = self.ask2(prompt_snip)
+                        print(f"----- Snippet for step {idx+1}, attempt {attempt+1} -----")
+                        print(snippet)
+                        snippet = strip_code_blocks(snippet).strip()
+
+                        # Build and compile the step function
+                        fn_name = f"step_fn_{idx+1}_a{attempt+1}"
+                        src = f"async def {fn_name}(page):\n"
+                        for ln in snippet.splitlines():
+                            src += f"    {ln.rstrip()}\n"
+                        local = {}
+                        try:
+                            exec(src, globals(), local)
+                            fn = local[fn_name]
+                        except Exception as e:
+                            print(f"Error compiling snippet for step {idx+1}, attempt {attempt+1}:", e)
+                            logging.error(f"Compilation error in /play step {idx+1}, attempt {attempt+1}: {e}")
+                            fn = None
+
+                        # Execute
+                        res = None
+                        if fn:
+                            try:
+                                res = await fn(page)
+                                print(f"Result of step {idx+1}:", res)
+                                break  # success, exit attempt loop
+                            except Exception as e:
+                                print(f"Error executing step {idx+1}, attempt {attempt+1}:", e)
+                                logging.error(f"Execution error in /play step {idx+1}, attempt {attempt+1}: {e}")
+
+                        # If we're here and it was the second attempt, give up
+                        if attempt == 1:
+                            print(f"Step {idx+1} failed after retry. Skipping.")
+                        else:
+                            print("Retrying with alternate snippet…")
+
+                    # If this wasn't the last step, ask LLM if we should continue
+                    if idx < len(steps)-1:
                         next_prompt = (
-                            f"I executed step '{step_desc}' and got result: {res!r}.\n"
+                            f"I executed step '{step}' and got result: {res!r}.\n"
                             f"The original instructions are: {instructions}\n"
                             "What should be the next step? If all done, respond 'done'."
                         )
@@ -698,12 +739,128 @@ class RoboDogCLI:
                         if suggestion.lower() == 'done':
                             print("LLM indicates completion. Stopping early.")
                             break
+
                 await browser.close()
 
         try:
             asyncio.run(runner())
         except Exception as e:
             print("Error in /play:", e)
+            logging.error(f"Unexpected error in /play: {e}")
+    # ---------------------------------------------------
+    # /play command: natural-language testing via Playwright + LLM, but now
+    # interleaving HTML inspection so each snippet adapts to real structure.
+    def do_play2(self, tokens):
+        if async_playwright is None:
+            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
+            return
+        if not tokens:
+            print("Usage: /play <test instructions>")
+            return
+
+        instructions = " ".join(tokens)
+        print("Instructions:", instructions)
+
+        # 1) Parse into numbered steps
+        parse_prompt = (
+            "Parse the following instructions into a numbered list of discrete steps:\n\n"
+            f"{instructions}\n\n"
+            "Respond ONLY as a numbered list (e.g. '1. ...')."
+        )
+        parsed = self.ask2(parse_prompt)
+        print("----- Parsed steps -----")
+        print(parsed)
+
+        # extract into Python list
+        steps = []
+        for line in parsed.splitlines():
+            m = re.match(r"\s*\d+\.\s*(.+)", line)
+            if m:
+                steps.append(m.group(1).strip())
+        if not steps:
+            print("Error: Couldn't parse any steps. Aborting.")
+            return
+
+        # helper to strip markdown fences
+        def strip_code_blocks(snip: str) -> str:
+            lines = snip.splitlines()
+            if lines and lines[0].strip().startswith("```"):
+                end = None
+                for i, ln in enumerate(lines[1:], start=1):
+                    if ln.strip().startswith("```"):
+                        end = i
+                        break
+                if end is not None:
+                    return "\n".join(lines[1:end])
+            return snip
+
+        # 2) Run them in one browser/page session, generating snippet per step
+        async def runner():
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch()
+                page = await browser.new_page()
+                for idx, step in enumerate(steps):
+                    print(f"\n--- Executing step {idx+1}: {step} ---")
+                    # Inspect current HTML
+                    html = await page.content()
+                    # Ask LLM for the exact snippet given HTML + instruction
+                    snippet_prompt = (
+                        "You are given the HTML of the current page and an instruction. "
+                        "Write a snippet of Python Playwright code using only 'await page...' lines to perform the instruction. "
+                        "Assign any extracted data to a variable named 'result' and end with 'return result'.\n\n"
+                        f"HTML:\n{html[:2000]}...\n\nInstruction:\n{step}"
+                    )
+                    snippet = self.ask2(snippet_prompt)
+                    print(f"----- Snippet for step {idx+1} -----")
+                    print(snippet)
+                    snippet = strip_code_blocks(snippet).strip()
+
+                    # Build and compile the step function
+                    fn_name = f"step_fn_{idx+1}"
+                    src = f"async def {fn_name}(page):\n"
+                    for ln in snippet.splitlines():
+                        src += f"    {ln.rstrip()}\n"
+                    local = {}
+                    try:
+                        exec(src, globals(), local)
+                        fn = local[fn_name]
+                    except Exception as e:
+                        print(f"Error compiling snippet for step {idx+1}:", e)
+                        logging.error(f"Compilation error in /play step {idx+1}: {e}")
+                        async def _dummy(page, idx=idx+1):
+                            print(f"(Dummy) Skipping step {idx} due to compile error.")
+                            return None
+                        fn = _dummy
+
+                    # Execute
+                    try:
+                        res = await fn(page)
+                        print(f"Result of step {idx+1}:", res)
+                    except Exception as e:
+                        print(f"Error executing step {idx+1}:", e)
+                        logging.error(f"Execution error in /play step {idx+1}: {e}")
+                        res = None
+
+                    # Ask LLM for next-step confirmation or early stop
+                    if idx < len(steps)-1:
+                        next_prompt = (
+                            f"I executed step '{step}' and got result: {res!r}.\n"
+                            f"The original instructions are: {instructions}\n"
+                            "What should be the next step? If all done, respond 'done'."
+                        )
+                        suggestion = self.ask2(next_prompt).strip()
+                        print("LLM next-step suggestion:", suggestion)
+                        if suggestion.lower() == 'done':
+                            print("LLM indicates completion. Stopping early.")
+                            break
+
+                await browser.close()
+
+        try:
+            asyncio.run(runner())
+        except Exception as e:
+            print("Error in /play:", e)
+            logging.error(f"Unexpected error in /play: {e}")
 
     # ---------------------------------------------------
     # stub other commands...
