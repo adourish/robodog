@@ -25,7 +25,7 @@ try:
 except ImportError:
     launch = None
 
-# Attempt to import Playwright for /curl
+# Attempt to import Playwright for /curl and /play
 try:
     from playwright.async_api import async_playwright
 except ImportError:
@@ -438,33 +438,11 @@ class RoboDogCLI:
     # ---------------------------------------------------
     # ask via MCP or OpenAI
     def ask2(self, prompt: str) -> str:
-        messages = [
-            {"role":"system","content":"You are Robodog, a helpful assistant."},
-            {"role":"system","content":"Chat History:\n"+self.context},
-            {"role":"system","content":"Knowledge Base:\n"+self.knowledge},
-            {"role":"user","content":prompt},
-        ]
-        if self.mcp.get("baseUrl"):
-            payload = {
-                "model": self.cur_model,
-                "messages": messages,
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "frequency_penalty": self.frequency_penalty,
-                "presence_penalty": self.presence_penalty,
-                "stream": self.stream
-            }
-            res = self.call_mcp("COMPLETE", payload, timeout=60.0)
-            if "choices" in res:
-                txt = res["choices"][0]["message"]["content"]
-            else:
-                txt = res.get("text","")
-            return txt.strip()
-        else:
-            return self.ask(prompt)
+        # Bypass MCP and always use direct OpenAI call to avoid unsupported 'COMPLETE' op
+        return self.ask(prompt)
 
     # ---------------------------------------------------
-    # include parsing
+    # /include command (unchanged)...
     def parse_include(self, text: str) -> dict:
         parts = text.strip().split()
         cmd = {"type":None,"file":None,"dir":None,"pattern":"*","recursive":False}
@@ -492,16 +470,12 @@ class RoboDogCLI:
             cmd["type"]="pattern"; cmd["pattern"]=p0.split("=",1)[1]; cmd["recursive"]=True
         return cmd
 
-    # ---------------------------------------------------
     def do_include(self, tokens):
-        """
-        /include all|file=<file>|dir=<dir> [pattern=<glob>] [recursive] [your prompt here]
-        """
+        # ... unchanged ...
         if not tokens:
             print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
             return
 
-        # 1) split tokens into “spec” vs “prompt”
         spec_tokens = []
         prompt_tokens = []
         for i, t in enumerate(tokens):
@@ -567,15 +541,9 @@ class RoboDogCLI:
             logging.error(f"Include error: {e}")
 
     # ---------------------------------------------------
-    # /curl command: drive a headless (or visible) browser via Playwright
+    # /curl command (unchanged)...
     def do_curl(self, tokens):
-        """
-        /curl [--no-headless] <url1> [url2] [js_script]
-        - visits url1 (then url2 if given)
-        - executes js_script in page context
-          or returns page's text content if none
-        """
-        # parse flags
+        # ... unchanged ...
         headless = True
         args = []
         for t in tokens:
@@ -588,7 +556,6 @@ class RoboDogCLI:
             print("Usage: /curl [--no-headless] <url1> [url2] [js_script]")
             return
 
-        # ensure protocol
         url1 = args[0]
         if not url1.startswith(("http://", "https://")):
             url1 = "http://" + url1
@@ -596,7 +563,6 @@ class RoboDogCLI:
         url2 = None
         script = None
 
-        # detect second URL vs script
         if len(args) >= 2 and args[1].startswith(("http://", "https://")):
             url2 = args[1]
             if not url2.startswith(("http://", "https://")):
@@ -630,7 +596,6 @@ class RoboDogCLI:
                         result = None
                 else:
                     print("Extracting page text content…")
-                    # this returns all visible text, without HTML or styles
                     result = await page.evaluate("() => document.body.innerText")
 
                 print("----- /curl result -----")
@@ -643,7 +608,105 @@ class RoboDogCLI:
             print("Error in /curl:", e)
 
     # ---------------------------------------------------
-    # stub other commands
+    # /play command: natural-language testing via Playwright + LLM
+    def do_play(self, tokens):
+        """
+        /play <natural-language test instructions>
+        1) Parse into discrete steps
+        2) Open a single browser/page
+        3) For each step:
+           a) Ask LLM for a tiny snippet that performs exactly that step, returning any data as `result`
+           b) Execute the snippet and print its result
+           c) Ask LLM what the next step should be (or 'done')
+        """
+        if async_playwright is None:
+            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
+            return
+        if not tokens:
+            print("Usage: /play <test instructions>")
+            return
+
+        instructions = " ".join(tokens)
+        print("Instructions:", instructions)
+
+        # 1) Parse into numbered steps
+        parse_prompt = (
+            "Parse the following instructions into a numbered list of discrete steps:\n\n"
+            f"{instructions}\n\n"
+            "Respond ONLY as a numbered list (e.g. '1. ...')."
+        )
+        parsed = self.ask2(parse_prompt)
+        print("----- Parsed steps -----")
+        print(parsed)
+
+        # extract into Python list
+        steps = []
+        for line in parsed.splitlines():
+            m = re.match(r"\s*\d+\.\s*(.+)", line)
+            if m:
+                steps.append(m.group(1).strip())
+        if not steps:
+            print("Error: Couldn't parse any steps. Aborting.")
+            return
+
+        # 2) Prepare step functions
+        step_fns = []
+        for idx, step in enumerate(steps):
+            snippet_prompt = (
+                f"Write an async Playwright snippet in Python (only 'await page...' lines) to perform this step:\n{step}\n"
+                "Use Python Playwright API (no JavaScript syntax). "
+                "Assign any extracted data to a variable named 'result' and end with 'return result'."
+            )
+            snippet = self.ask2(snippet_prompt)
+            print(f"----- Snippet for step {idx+1} -----")
+            print(snippet)
+            # compile into async def
+            fn_name = f"step_fn_{idx+1}"
+            src = f"async def {fn_name}(page):\n"
+            for ln in snippet.splitlines():
+                src += f"    {ln}\n"
+            local = {}
+            try:
+                exec(src, globals(), local)
+                step_fns.append((steps[idx], local[fn_name]))
+            except Exception as e:
+                print(f"Error compiling snippet for step {idx+1}:", e)
+                return
+
+        # 3) Run them in one browser/page session
+        async def runner():
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch()
+                page = await browser.new_page()
+                for idx, (step_desc, fn) in enumerate(step_fns):
+                    print(f"\n--- Executing step {idx+1}: {step_desc} ---")
+                    try:
+                        res = await fn(page)
+                    except Exception as e:
+                        print(f"Error executing step {idx+1}:", e)
+                        break
+                    print(f"Result of step {idx+1}:", res)
+                    # Ask LLM what next
+                    if idx < len(step_fns)-1:
+                        next_prompt = (
+                            f"I executed step '{step_desc}' and got result: {res!r}.\n"
+                            f"The original instructions are: {instructions}\n"
+                            "What should be the next step? If all done, respond 'done'."
+                        )
+                        suggestion = self.ask2(next_prompt).strip()
+                        print("LLM next-step suggestion:", suggestion)
+                        if suggestion.lower() == 'done':
+                            print("LLM indicates completion. Stopping early.")
+                            break
+                await browser.close()
+
+        try:
+            asyncio.run(runner())
+        except Exception as e:
+            print("Error in /play:", e)
+
+    # ---------------------------------------------------
+    # stub other commands...
     def set_key(self, tokens): pass
     def get_key(self, _): pass
     def clear(self, _): pass
@@ -711,7 +774,8 @@ class RoboDogCLI:
                     "stream": self.do_stream,
                     "rest":   self.do_rest,
                     "include": self.do_include,
-                    "curl":   self.do_curl
+                    "curl":   self.do_curl,
+                    "play":   self.do_play,
                 }.get(cmd)
                 if fn:
                     fn(args)
