@@ -175,6 +175,14 @@ Returns top results with clickable links.
 
 ---
 
+## Robodog CLI
+![Configuration Settings](screenshot-cli.png)  
+
+```bash
+python cli.py --config config.yaml 
+
+```  
+
 ## MCP File Service Syntax  
 
 ![Robodog MCP File Service](screenshot-mcp.png)  
