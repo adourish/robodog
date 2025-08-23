@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import sys
 
-directories = [r"robodoglib", r"robodogcli", r"robodog"]
+directories = [r"robodoglib", r"robodog"]
 base_dir = os.getcwd()
 print(f"Base directory: {base_dir}")
 

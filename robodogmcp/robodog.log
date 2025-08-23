@@ -1,0 +1,27 @@
+[2025-08-23 15:59:44,176] INFO:CLI session ended by user
+[2025-08-23 15:59:44,176] INFO:Shutting down MCP server
+[2025-08-23 15:59:47,198] INFO:Starting robodog
+[2025-08-23 15:59:47,199] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogmcp'] on 127.0.0.1:2500
+[2025-08-23 15:59:53,607] INFO:Model switched to o4-mini
+[2025-08-23 15:59:53,612] INFO:Persisted last_model = o4-mini to config.yaml
+[2025-08-23 16:00:07,426] INFO:CLI session ended by user
+[2025-08-23 16:00:07,426] INFO:Shutting down MCP server
+[2025-08-23 16:00:09,981] INFO:Starting robodog
+[2025-08-23 16:00:09,987] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogmcp'] on 127.0.0.1:2500
+[2025-08-23 16:02:30,302] INFO:CLI session ended by user
+[2025-08-23 16:02:30,302] INFO:Shutting down MCP server
+[2025-08-23 16:02:32,825] INFO:Starting robodog
+[2025-08-23 16:02:32,825] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogmcp'] on 127.0.0.1:2500
+[2025-08-23 16:03:20,074] INFO:CLI session ended by user
+[2025-08-23 16:03:20,074] INFO:Shutting down MCP server
+[2025-08-23 16:03:35,201] INFO:Starting robodog
+[2025-08-23 16:03:35,202] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogmcp'] on 127.0.0.1:2500
+[2025-08-23 16:05:30,622] INFO:CLI session ended by user
+[2025-08-23 16:05:30,622] INFO:Shutting down MCP server
+[2025-08-23 16:09:16,442] INFO:Starting robodog
+[2025-08-23 16:09:16,443] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogmcp'] on 127.0.0.1:2500
+[2025-08-23 16:10:58,242] INFO:CLI session ended by user
+[2025-08-23 16:10:58,242] INFO:Shutting down MCP server
+[2025-08-23 16:11:01,412] INFO:Starting robodog
+[2025-08-23 16:11:01,413] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogmcp'] on 127.0.0.1:2500
+[2025-08-23 16:11:06,492] INFO:[('127.0.0.1', 51851)] HTTP POST body: 'GET_ALL_CONTENTS {}'
