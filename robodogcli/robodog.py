@@ -14,9 +14,22 @@ import logging
 import socketserver
 import fnmatch
 import hashlib
+import asyncio
 from pathlib import Path
 from pprint import pprint
 from openai import OpenAI
+
+# Attempt to import pyppeteer for legacy /curl (no longer used)
+try:
+    from pyppeteer import launch
+except ImportError:
+    launch = None
+
+# Attempt to import Playwright for /curl
+try:
+    from playwright.async_api import async_playwright
+except ImportError:
+    async_playwright = None
 
 # ----------------------------------------
 # DEFAULT CONFIG for the CLI portion
@@ -479,6 +492,7 @@ class RoboDogCLI:
             cmd["type"]="pattern"; cmd["pattern"]=p0.split("=",1)[1]; cmd["recursive"]=True
         return cmd
 
+    # ---------------------------------------------------
     def do_include(self, tokens):
         """
         /include all|file=<file>|dir=<dir> [pattern=<glob>] [recursive] [your prompt here]
@@ -491,23 +505,19 @@ class RoboDogCLI:
         spec_tokens = []
         prompt_tokens = []
         for i, t in enumerate(tokens):
-            # if it's the first token, or one of our include‐flags, it's spec
             if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
                 spec_tokens.append(t)
             else:
-                # first non‐spec token and beyond → user's prompt
                 prompt_tokens = tokens[i:]
                 break
 
         spec_text = " ".join(spec_tokens)
         prompt_text = " ".join(prompt_tokens).strip() if prompt_tokens else None
 
-        # 2) parse include spec
         inc = self.parse_include(spec_text)
         included = []
 
         try:
-            # 3) fetch contents via MCP
             if inc["type"] == "all":
                 res = self.call_mcp("GET_ALL_CONTENTS", {})
                 included = res.get("contents", [])
@@ -537,7 +547,6 @@ class RoboDogCLI:
             else:
                 raise RuntimeError("Bad include syntax")
 
-            # 4) inject into knowledge
             text = ""
             for i in included:
                 print(f"Include: {i['path']}")
@@ -545,13 +554,10 @@ class RoboDogCLI:
             self.knowledge += text
             print(f"Included {len(included)} files into knowledge.")
 
-            # 5) if user provided a prompt, ask it
             if prompt_text:
                 print(f"Prompt → {prompt_text}")
-                # update context with the user question
                 self.context += f"\nUser: {prompt_text}"
                 answer = self.ask(prompt_text)
-                # append the AI's answer to context
                 self.context += "\nAI: " + answer
             else:
                 print("No prompt given after include; nothing asked.")
@@ -559,48 +565,82 @@ class RoboDogCLI:
         except Exception as e:
             print("include error:", e)
             logging.error(f"Include error: {e}")
+
     # ---------------------------------------------------
-    # /include command
-    def do_includebak(self, tokens):
-        if not tokens:
-            print("Usage: /include pattern=<glob>|file=<file>|dir=<dir> [recursive]")
-            return
-        inc = self.parse_include(" ".join(tokens))
-        included = []
-        try:
-            if inc["type"]=="all":
-                res = self.call_mcp("GET_ALL_CONTENTS",{})
-                included = res.get("contents",[])
-            elif inc["type"]=="file":
-                s = self.call_mcp("SEARCH",{"root":inc["file"],"pattern":inc["file"],"recursive":True})
-                if not s.get("matches"): raise RuntimeError(f"No file {inc['file']}")
-                f = self.call_mcp("READ_FILE",{"path":s["matches"][0]})
-                included = [{"path":f["path"],"content":f["content"]}]
-            elif inc["type"] in ("pattern","dir"):
-                root = inc["dir"] if inc["type"]=="dir" else ""
-                s = self.call_mcp("SEARCH",{"root":root,"pattern":inc["pattern"],"recursive":inc["recursive"]})
-                matches = s.get("matches",[])
-                if not matches: raise RuntimeError(f"No files matching {inc['pattern']}")
-                for p in matches:
-                    f = self.call_mcp("READ_FILE",{"path":p})
-                    included.append({"path":f["path"],"content":f["content"]})
+    # /curl command: drive a headless (or visible) browser via Playwright
+    def do_curl(self, tokens):
+        """
+        /curl [--no-headless] <url1> [url2] [js_script]
+        - visits url1 (then url2 if given)
+        - executes js_script in page context
+          or returns page's text content if none
+        """
+        # parse flags
+        headless = True
+        args = []
+        for t in tokens:
+            if t == "--no-headless":
+                headless = False
             else:
-                raise RuntimeError("Bad include syntax")
+                args.append(t)
 
-            text = ""
-            for i in included:
-                print(f"Include: {i['path']}")
-                text += f"\n\n--- {i['path']} ---\n{i['content']}"
-            self.knowledge += text
-            print(f"Include → {len(included)} files")
-            print(f"Prompt → {len(self.context)} ")
-            self.context = tokens;
-            summary = self.ask(self.context)
-            logging.debug(f"Included {len(included)} files; summary: {summary.strip()}")
+        if not args:
+            print("Usage: /curl [--no-headless] <url1> [url2] [js_script]")
+            return
 
+        # ensure protocol
+        url1 = args[0]
+        if not url1.startswith(("http://", "https://")):
+            url1 = "http://" + url1
+
+        url2 = None
+        script = None
+
+        # detect second URL vs script
+        if len(args) >= 2 and args[1].startswith(("http://", "https://")):
+            url2 = args[1]
+            if not url2.startswith(("http://", "https://")):
+                url2 = "http://" + url2
+            if len(args) >= 3:
+                script = " ".join(args[2:])
+        else:
+            if len(args) >= 2:
+                script = " ".join(args[1:])
+
+        if async_playwright is None:
+            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
+            return
+
+        async def runner():
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(headless=headless)
+                page = await browser.new_page()
+                print(f"Navigating to {url1} ...")
+                await page.goto(url1)
+                if url2:
+                    print(f"Navigating to {url2} ...")
+                    await page.goto(url2)
+
+                if script:
+                    print("Executing custom script…")
+                    try:
+                        result = await page.evaluate(script)
+                    except Exception as e:
+                        print("Script execution error:", e)
+                        result = None
+                else:
+                    print("Extracting page text content…")
+                    # this returns all visible text, without HTML or styles
+                    result = await page.evaluate("() => document.body.innerText")
+
+                print("----- /curl result -----")
+                print(result)
+                await browser.close()
+
+        try:
+            asyncio.run(runner())
         except Exception as e:
-            print("include error:", e)
-            logging.error(f"Include error: {e}")
+            print("Error in /curl:", e)
 
     # ---------------------------------------------------
     # stub other commands
@@ -670,7 +710,8 @@ class RoboDogCLI:
                     "presence_penalty":  lambda a: self.set_param("presence_penalty",a),
                     "stream": self.do_stream,
                     "rest":   self.do_rest,
-                    "include": self.do_include
+                    "include": self.do_include,
+                    "curl":   self.do_curl
                 }.get(cmd)
                 if fn:
                     fn(args)
@@ -749,7 +790,6 @@ if __name__ == '__main__':
     try:
         cli.interact()
     finally:
-        # on exit
         logging.info("Shutting down MCP server")
         server.shutdown()
         server.server_close()
