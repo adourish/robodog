@@ -179,7 +179,8 @@ Returns top results with clickable links.
 ![Configuration Settings](screenshot-cli.png)  
 
 ```bash
-python cli.py --config config.yaml 
+python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token testtoken --config config.yaml --model o4-mini
+```  
 
 ```  
 
@@ -199,9 +200,7 @@ python cli.py --config config.yaml
 ## MCP Server Startup  
 
 ```bash
-python mcp.py --port 2500 \
-  --folders c:\temp C:\Projects\robodog\robodoglib\src \
-  --token testtoken
+python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token testtoken --config config.yaml --model o4-mini
 ```  
 
 ---

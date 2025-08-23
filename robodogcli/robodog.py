@@ -479,9 +479,89 @@ class RoboDogCLI:
             cmd["type"]="pattern"; cmd["pattern"]=p0.split("=",1)[1]; cmd["recursive"]=True
         return cmd
 
+    def do_include(self, tokens):
+        """
+        /include all|file=<file>|dir=<dir> [pattern=<glob>] [recursive] [your prompt here]
+        """
+        if not tokens:
+            print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
+            return
+
+        # 1) split tokens into “spec” vs “prompt”
+        spec_tokens = []
+        prompt_tokens = []
+        for i, t in enumerate(tokens):
+            # if it's the first token, or one of our include‐flags, it's spec
+            if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
+                spec_tokens.append(t)
+            else:
+                # first non‐spec token and beyond → user's prompt
+                prompt_tokens = tokens[i:]
+                break
+
+        spec_text = " ".join(spec_tokens)
+        prompt_text = " ".join(prompt_tokens).strip() if prompt_tokens else None
+
+        # 2) parse include spec
+        inc = self.parse_include(spec_text)
+        included = []
+
+        try:
+            # 3) fetch contents via MCP
+            if inc["type"] == "all":
+                res = self.call_mcp("GET_ALL_CONTENTS", {})
+                included = res.get("contents", [])
+            elif inc["type"] == "file":
+                s = self.call_mcp("SEARCH", {
+                    "root": inc["file"],
+                    "pattern": inc["file"],
+                    "recursive": True
+                })
+                if not s.get("matches"):
+                    raise RuntimeError(f"No file {inc['file']}")
+                f = self.call_mcp("READ_FILE", {"path": s["matches"][0]})
+                included = [{"path": f["path"], "content": f["content"]}]
+            elif inc["type"] in ("pattern", "dir"):
+                root = inc["dir"] if inc["type"] == "dir" else ""
+                s = self.call_mcp("SEARCH", {
+                    "root": root,
+                    "pattern": inc["pattern"],
+                    "recursive": inc["recursive"]
+                })
+                matches = s.get("matches", [])
+                if not matches:
+                    raise RuntimeError(f"No files matching {inc['pattern']}")
+                for p in matches:
+                    f = self.call_mcp("READ_FILE", {"path": p})
+                    included.append({"path": f["path"], "content": f["content"]})
+            else:
+                raise RuntimeError("Bad include syntax")
+
+            # 4) inject into knowledge
+            text = ""
+            for i in included:
+                print(f"Include: {i['path']}")
+                text += f"\n\n--- {i['path']} ---\n{i['content']}"
+            self.knowledge += text
+            print(f"Included {len(included)} files into knowledge.")
+
+            # 5) if user provided a prompt, ask it
+            if prompt_text:
+                print(f"Prompt → {prompt_text}")
+                # update context with the user question
+                self.context += f"\nUser: {prompt_text}"
+                answer = self.ask(prompt_text)
+                # append the AI's answer to context
+                self.context += "\nAI: " + answer
+            else:
+                print("No prompt given after include; nothing asked.")
+
+        except Exception as e:
+            print("include error:", e)
+            logging.error(f"Include error: {e}")
     # ---------------------------------------------------
     # /include command
-    def do_include(self, tokens):
+    def do_includebak(self, tokens):
         if not tokens:
             print("Usage: /include pattern=<glob>|file=<file>|dir=<dir> [recursive]")
             return
@@ -513,11 +593,10 @@ class RoboDogCLI:
                 text += f"\n\n--- {i['path']} ---\n{i['content']}"
             self.knowledge += text
             print(f"Include → {len(included)} files")
-
-            summary_prompt = f"I have just included {len(included)} files into my knowledge base. Please summarize their contents."
-            summary = self.ask(summary_prompt)
-            print("\n[Summary of included files]\n"+summary+"\n")
-            logging.info(f"Included {len(included)} files; summary: {summary.strip()}")
+            print(f"Prompt → {len(self.context)} ")
+            self.context = tokens;
+            summary = self.ask(self.context)
+            logging.debug(f"Included {len(included)} files; summary: {summary.strip()}")
 
         except Exception as e:
             print("include error:", e)
