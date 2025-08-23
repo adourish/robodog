@@ -9,3 +9,4 @@
 /robodogcli/node_modules/.bin
 /robodogcli/node_modules/
 *.map
+/robodogmcp/config.yaml
