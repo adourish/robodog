@@ -126,10 +126,11 @@ class RouterService {
 
 
     try {
+      setThinking("🐱");
       const openai = this.getOpenAI(model, useDefault);
       const payload = { model, messages, temperature, top_p, frequency_penalty, presence_penalty, stream: true }
       const requestOpts = this.getRequestOptions(model, useDefault)
-      setThinking("🤖");
+      setThinking("🦍");
       setContent([
         ...content,
         formatService.getMessageWithTimestamp(text, "user"),
@@ -143,7 +144,7 @@ class RouterService {
           assistantText += delta;
         }
 
-        setThinking("🤖");
+        setThinking("🐗");
         setContent([
           ...content,
           formatService.getMessageWithTimestamp(text, "user"),
@@ -151,7 +152,7 @@ class RouterService {
         ]);
         consoleService.scrollToBottom();
       }
-
+      setThinking("🦓");
       // Finalize
       const finalContent = assistantText;
       const newHistory = [
@@ -177,6 +178,8 @@ class RouterService {
     }
   }
 
+
+
   async handleStreamCompletion(
     model, messages, temperature, top_p,
     frequency_penalty, presence_penalty, max_tokens,
@@ -184,7 +187,7 @@ class RouterService {
     content, userText, currentKey, context, knowledge, useDefault, setTotalChars
   ) {
 
-    // detect /include
+    setThinking("🐴");
     const scan = userText + ' ' + knowledge;
     const idx = scan.search(/\/include\b/i);
     if (idx !== -1) {
@@ -194,7 +197,7 @@ class RouterService {
         const inc = mcpService.parseInclude(includeCmd);
         if (!inc) throw new Error('Bad include syntax');
         let included = [];
-
+        setThinking("🐳");
         if (inc.type === 'all') {
           const res = await mcpService.callMCP('GET_ALL_CONTENTS', {});
           included = res.contents;
@@ -232,18 +235,27 @@ class RouterService {
             } catch (e) { /* skip */ }
           }
         }
-
+        setThinking("🐕");
         // stitch them
-        let body = 'MCP file content body:';
+        let body = '/include:';
         included.forEach(i => {
           body += `--- file: ${i.path} ---\n${i.content}\n\n`;
         });
+        let fileTokenTotal = 0;
         let bodySummary = `${includeCmd}:\n`;
         included.forEach(i => {
-          bodySummary += `File: ${i.path} (${i.content.length}) \n`;
+          var c = consoleService.calculateTokens(i.content);
+          fileTokenTotal = fileTokenTotal + c;
+          bodySummary += `Include: ${i.path} (${c}) \n`;
         });
-        let prompt = mainText || userText;
-        prompt = bodySummary + prompt;
+        
+       
+        var c = consoleService.calculateTokens(context);
+        var i = consoleService.calculateTokens(userText);
+        var k = consoleService.calculateTokens(knowledge);
+        var _totalChars = c + i + k + fileTokenTotal;
+        let prompt = userText + '\n' +  bodySummary + '' + 'Include total: ' + _totalChars + '\n';
+
         setThinking("📤");
         setContent([
           ...content,
@@ -253,15 +265,11 @@ class RouterService {
         // inject as SYSTEM
         const aug = [
           ...messages,
-          { role: "system", content: "Included files:\n" + body },
+          { role: "system", content: "/include:\n" + body },
           { role: "system", content: "Do not repeat included files unless you have modified the content based on a prompt." }
         ];
-        var c = consoleService.calculateTokens(context);
-        var i = consoleService.calculateTokens(prompt);
-        var k = consoleService.calculateTokens(knowledge);
-        var _totalChars = c + i + k;
-        //setTotalChars(_totalChars);
-        // hand off to the normal streamer
+
+        setThinking("🦫");
         return this.getStreamCompletion(
           model, aug, temperature, top_p,
           frequency_penalty, presence_penalty, max_tokens,
@@ -269,6 +277,7 @@ class RouterService {
           content, prompt, currentKey, context, knowledge, useDefault, bodySummary, setTotalChars
         );
       } catch (err) {
+        setThinking("🐧");
         const errMsg = `Include error: ${err.message}`;
         const hist = [
           ...content,
