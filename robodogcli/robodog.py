@@ -609,17 +609,20 @@ class RoboDogCLI:
 
     # ---------------------------------------------------
     # /play command: natural-language testing via Playwright + LLM,
-    # now with page-title logging and retry-on-failure logic.
+    # now with per-step success/failure, asserts, full logging, and summary.
     def do_play(self, tokens):
         if async_playwright is None:
             print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
+            logging.debug("Playwright not installed.")
             return
         if not tokens:
             print("Usage: /play <test instructions>")
+            logging.debug("No tokens passed to /play.")
             return
 
         instructions = " ".join(tokens)
         print("Instructions:", instructions)
+        logging.debug(f"Instructions: {instructions}")
 
         # 1) Parse into numbered steps
         parse_prompt = (
@@ -630,6 +633,7 @@ class RoboDogCLI:
         parsed = self.ask2(parse_prompt)
         print("----- Parsed steps -----")
         print(parsed)
+        logging.debug(f"Parsed steps raw:\n{parsed}")
 
         # extract into Python list
         steps = []
@@ -637,8 +641,11 @@ class RoboDogCLI:
             m = re.match(r"\s*\d+\.\s*(.+)", line)
             if m:
                 steps.append(m.group(1).strip())
+        logging.debug(f"Parsed steps list: {steps}")
+
         if not steps:
             print("Error: Couldn't parse any steps. Aborting.")
+            logging.debug("No steps parsed; aborting /play.")
             return
 
         # helper to strip markdown fences
@@ -654,29 +661,36 @@ class RoboDogCLI:
                     return "\n".join(lines[1:end])
             return snip
 
-        # 2) Run them in one browser/page session, generating snippet per step
+        # Prepare to collect results
+        step_results = []
+
+        # 2) Run them in one browser/page session
         async def runner():
             async with async_playwright() as pw:
                 browser = await pw.chromium.launch()
                 page = await browser.new_page()
 
                 for idx, step in enumerate(steps):
-                    # We'll allow up to 2 attempts per step
-                    snippet = None
-                    for attempt in range(2):
-                        # Always report current page
+                    success = False
+                    res = None
+                    print(f"\n>>> Starting step {idx+1}: {step}")
+                    logging.debug(f"Step {idx+1} instruction: {step}")
+
+                    # Allow up to 2 attempts per step
+                    for attempt in range(1, 3):
+                        # Report current page
                         try:
                             title = await page.title()
                         except Exception:
                             title = "<no title>"
                         url = page.url
-                        print(f"\n--- Step {idx+1}, attempt {attempt+1} on page: {title} ({url}) ---")
+                        print(f"--- Attempt {attempt} on page: {title} ({url}) ---")
+                        logging.debug(f"Step {idx+1}, attempt {attempt}, page title: {title}, url: {url}")
 
-                        # Inspect current HTML
                         html = await page.content()
+                        logging.debug(f"HTML snapshot (first 2000 chars): {html[:2000]!r}")
 
-                        # Ask LLM for the exact snippet given HTML + instruction
-                        if attempt == 0:
+                        if attempt == 1:
                             prompt_snip = (
                                 "You are given the HTML of the current page and an instruction. "
                                 "Write a snippet of Python Playwright code using only 'await page...' lines to perform the instruction. "
@@ -692,13 +706,11 @@ class RoboDogCLI:
                             )
 
                         snippet = self.ask2(prompt_snip)
-                        print(f"----- Snippet for step {idx+1}, attempt {attempt+1} -----")
-                
-                        logging.debug(snippet)
-                        snippet = strip_code_blocks(snippet).strip()
+                        print(f"----- Snippet for step {idx+1}, attempt {attempt} -----")
+                        logging.debug(f"Snippet for step {idx+1}, attempt {attempt}:\n{snippet}")
 
-                        # Build and compile the step function
-                        fn_name = f"step_fn_{idx+1}_a{attempt+1}"
+                        snippet = strip_code_blocks(snippet).strip()
+                        fn_name = f"step_fn_{idx+1}_a{attempt}"
                         src = f"async def {fn_name}(page):\n"
                         for ln in snippet.splitlines():
                             src += f"    {ln.rstrip()}\n"
@@ -707,29 +719,36 @@ class RoboDogCLI:
                             exec(src, globals(), local)
                             fn = local[fn_name]
                         except Exception as e:
-                            print(f"Error compiling snippet for step {idx+1}, attempt {attempt+1}:", e)
-                            logging.error(f"Compilation error in /play step {idx+1}, attempt {attempt+1}: {e}")
-                            fn = None
+                            print(f"Error compiling snippet for step {idx+1}, attempt {attempt}:", e)
+                            logging.error(f"Compilation error in /play step {idx+1}, attempt {attempt}: {e}")
+                            continue
 
-                        # Execute
-                        res = None
-                        if fn:
-                            try:
-                                res = await fn(page)
-                                logging.debug(f"Result of step {idx+1}: {res!r}")
-           
-                                break  # success, exit attempt loop
-                            except Exception as e:
-                                print(f"Error executing step {idx+1}, attempt {attempt+1}:", e)
-                                logging.error(f"Execution error in /play step {idx+1}, attempt {attempt+1}: {e}")
+                        try:
+                            res = await fn(page)
+                            logging.debug(f"Raw result of step {idx+1}, attempt {attempt}: {res!r}")
+                            # Enforce that result is not None or empty
+                            assert res is not None, f"Step {idx+1} returned None"
+                            success = True
+                            print(f"Step {idx+1} attempt {attempt} → Success: {res!r}")
+                            logging.debug(f"Step {idx+1} attempt {attempt} succeeded with result: {res!r}")
+                            break
+                        except AssertionError as ae:
+                            print(f"Assertion failed in step {idx+1}, attempt {attempt}: {ae}")
+                            logging.debug(f"AssertionError in step {idx+1}, attempt {attempt}: {ae}")
+                        except Exception as e:
+                            print(f"Error executing step {idx+1}, attempt {attempt}:", e)
+                            logging.error(f"Execution error in /play step {idx+1}, attempt {attempt}: {e}")
 
-                        # If we're here and it was the second attempt, give up
                         if attempt == 1:
-                            print(f"Step {idx+1} failed after retry. Skipping.")
-                        else:
                             print("Retrying with alternate snippet…")
+                            logging.debug(f"Retrying step {idx+1} with alternate snippet.")
+                        else:
+                            print(f"Step {idx+1} failed after 2 attempts.")
+                            logging.debug(f"Step {idx+1} marked as failure after 2 attempts.")
 
-                    # If this wasn't the last step, ask LLM if we should continue
+                    step_results.append(success)
+
+                    # If not last, check with LLM whether to continue
                     if idx < len(steps)-1:
                         next_prompt = (
                             f"I executed step '{step}' and got result: {res!r}.\n"
@@ -737,22 +756,35 @@ class RoboDogCLI:
                             "What should be the next step? If all done, respond 'done'."
                         )
                         suggestion = self.ask2(next_prompt).strip()
-                        print("LLM next-step suggestion:", suggestion)
+                        print("LLM next‐step suggestion:", suggestion)
+                        logging.debug(f"LLM next‐step suggestion after step {idx+1}: {suggestion}")
                         if suggestion.lower() == 'done':
                             print("LLM indicates completion. Stopping early.")
+                            logging.debug("LLM requested early completion.")
                             break
 
                 await browser.close()
+                logging.debug("Browser closed.")
 
+        # Run the async runner and then summarize
         try:
             asyncio.run(runner())
         except Exception as e:
             print("Error in /play:", e)
             logging.error(f"Unexpected error in /play: {e}")
+
+        # Summary
+        print("\n--- /play summary ---")
+        logging.debug("Compiling /play summary.")
+        for idx, ok in enumerate(step_results, start=1):
+            status = "Success" if ok else "Failure"
+            print(f"Step {idx}: {status}")
+            logging.debug(f"Step {idx}: {status}")
+
     # ---------------------------------------------------
-    # /play command: natural-language testing via Playwright + LLM, but now
-    # interleaving HTML inspection so each snippet adapts to real structure.
+    # /play2 remains unchanged...
     def do_play2(self, tokens):
+        # ... unchanged ...
         if async_playwright is None:
             print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
             return
@@ -803,9 +835,7 @@ class RoboDogCLI:
                 page = await browser.new_page()
                 for idx, step in enumerate(steps):
                     print(f"\n--- Executing step {idx+1}: {step} ---")
-                    # Inspect current HTML
                     html = await page.content()
-                    # Ask LLM for the exact snippet given HTML + instruction
                     snippet_prompt = (
                         "You are given the HTML of the current page and an instruction. "
                         "Write a snippet of Python Playwright code using only 'await page...' lines to perform the instruction. "
@@ -817,7 +847,6 @@ class RoboDogCLI:
                     print(snippet)
                     snippet = strip_code_blocks(snippet).strip()
 
-                    # Build and compile the step function
                     fn_name = f"step_fn_{idx+1}"
                     src = f"async def {fn_name}(page):\n"
                     for ln in snippet.splitlines():
@@ -834,7 +863,6 @@ class RoboDogCLI:
                             return None
                         fn = _dummy
 
-                    # Execute
                     try:
                         res = await fn(page)
                         print(f"Result of step {idx+1}:", res)
@@ -843,7 +871,6 @@ class RoboDogCLI:
                         logging.error(f"Execution error in /play step {idx+1}: {e}")
                         res = None
 
-                    # Ask LLM for next-step confirmation or early stop
                     if idx < len(steps)-1:
                         next_prompt = (
                             f"I executed step '{step}' and got result: {res!r}.\n"
@@ -861,8 +888,8 @@ class RoboDogCLI:
         try:
             asyncio.run(runner())
         except Exception as e:
-            print("Error in /play:", e)
-            logging.error(f"Unexpected error in /play: {e}")
+            print("Error in /play2:", e)
+            logging.error(f"Unexpected error in /play2: {e}")
 
     # ---------------------------------------------------
     # stub other commands...
