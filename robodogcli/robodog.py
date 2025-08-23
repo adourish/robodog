@@ -693,7 +693,8 @@ class RoboDogCLI:
 
                         snippet = self.ask2(prompt_snip)
                         print(f"----- Snippet for step {idx+1}, attempt {attempt+1} -----")
-                        print(snippet)
+                
+                        logging.debug(snippet)
                         snippet = strip_code_blocks(snippet).strip()
 
                         # Build and compile the step function
@@ -715,7 +716,8 @@ class RoboDogCLI:
                         if fn:
                             try:
                                 res = await fn(page)
-                                print(f"Result of step {idx+1}:", res)
+                                logging.debug(f"Result of step {idx+1}: {res!r}")
+           
                                 break  # success, exit attempt loop
                             except Exception as e:
                                 print(f"Error executing step {idx+1}, attempt {attempt+1}:", e)
