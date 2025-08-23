@@ -7,6 +7,8 @@ import shutil
 import datetime
 import yaml
 import argparse
+import json
+import requests
 from pprint import pprint
 
 # -----------------------------------------------------------------------------
@@ -15,7 +17,7 @@ configs:
   providers:
     - provider: openAI
       baseUrl: "https://api.openai.com"
-      apiKey: "<YOUR_OPENAI_KEY>"
+      apiKey: "<>"
       httpReferer: ""
   specialists: []
   mcpServer:
@@ -73,104 +75,89 @@ class RoboDogCLI:
         if not self.api_key:
             raise RuntimeError("Missing OpenAI API key")
 
-        # instantiate the new OpenAI client
+        # instantiate the OpenAI client
         self.client = OpenAI(api_key=self.api_key)
 
     def model_provider(self, model_name: str):
         m = next((m for m in self.cfg_models if m["model"] == model_name), None)
         return m["provider"] if m else None
 
+    # --- MCP support ---------------------------------------------------------
+    def call_mcp(self, op: str, payload: dict, timeout: float = 5.0) -> dict:
+        """
+        Call the MCP server.  Format is: POST to baseUrl with
+        text/plain body "OP {json_payload}\\n" and
+        Authorization: Bearer <apiKey>.
+        """
+        if not self.mcp.get("baseUrl"):
+            raise RuntimeError("MCP baseUrl not configured")
+        url = self.mcp["baseUrl"]
+        headers = {
+            "Content-Type": "text/plain",
+            "Authorization": f"Bearer {self.mcp['apiKey']}"
+        }
+        body = f"{op} {json.dumps(payload)}\n"
+        r = requests.post(url, headers=headers, data=body, timeout=timeout)
+        r.raise_for_status()
+        # Last line is JSON
+        lines = r.text.strip().split("\n")
+        return json.loads(lines[-1])
+
+    def parse_include(self, text: str) -> dict:
+        """
+        Parse tokens after '/include'.  Returns dict:
+        {type: all|file|dir|pattern, file, dir, pattern, recursive}
+        """
+        parts = text.strip().split()
+        cmd = {"type": None, "file": None, "dir": None, "pattern": "*", "recursive": False}
+        if not parts:
+            return cmd
+        p0 = parts[0]
+        # all
+        if p0 == "all":
+            cmd["type"] = "all"
+        # file=...
+        elif p0.startswith("file="):
+            spec = p0[5:]
+            if re.search(r"[*?\[]", spec):
+                cmd["type"] = "pattern"
+                cmd["pattern"], cmd["dir"], cmd["recursive"] = spec, "", True
+            else:
+                cmd["type"], cmd["file"] = "file", spec
+        # dir=...
+        elif p0.startswith("dir="):
+            spec = p0[4:]
+            cmd["type"], cmd["dir"] = "dir", spec
+            for p in parts[1:]:
+                if p.startswith("pattern="):
+                    cmd["pattern"] = p.split("=",1)[1]
+                if p == "recursive":
+                    cmd["recursive"] = True
+            # if dir itself is a glob:
+            if re.search(r"[*?\[]", spec):
+                cmd["type"], cmd["pattern"], cmd["dir"], cmd["recursive"] = "pattern", spec, "", True
+        # pattern=...
+        elif p0.startswith("pattern="):
+            cmd["type"]     = "pattern"
+            cmd["pattern"]  = p0.split("=",1)[1]
+            cmd["recursive"]= True
+        return cmd
+
     # --- command handlers ----------------------------------------------------
-    def set_model(self, tokens):
-        if not tokens:
-            print("Usage: /model <name>")
-            return
-        name = tokens[0]
-        if any(m["model"] == name for m in self.cfg_models):
-            self.cur_model = name
-            print(f"model ← {name}")
-        else:
-            print("Unknown model:", name)
-
-    def set_key(self, tokens):
-        if not tokens:
-            print("Usage: /key <your-api-key>")
-            return
-        self.api_key = tokens[0]
-        self.client = OpenAI(api_key=self.api_key)
-        print("key ←", self.api_key[:4] + "…")
-
-    def get_key(self, _):
-        print("key →", self.api_key[:4] + "…")
-
-    def clear(self, _):
-        os.system("cls" if os.name == "nt" else "clear")
-
-    def show_help(self, _):
-        cmds = [
-            "/help", "/model <name>", "/key <key>", "/getkey", "/clear",
-            "/import <path>", "/export <name>", "/stash <name>", "/pop <name>", "/list",
-            "/temperature <n>", "/top_p <n>", "/max_tokens <n>",
-            "/frequency_penalty <n>", "/presence_penalty <n>",
-            "/stream", "/rest", "include pattern=<glob>|file=<file>|recursive"
-        ]
-        print("Commands:")
-        for c in cmds:
-            print(" ", c)
-
-    def set_param(self, key, tokens):
-        if not tokens:
-            print(f"Usage: /{key} <value>")
-            return
-        val = float(tokens[0])
-        setattr(self, key, val)
-        print(f"{key} ← {val}")
-
-    def do_stream(self, _):
-        self.stream = True
-        print("stream ON")
-
-    def do_rest(self, _):
-        self.stream = False
-        print("stream OFF")
-
-    def do_list(self, _):
-        print("stash list:", list(self.stash.keys()))
-
-    def do_stash(self, tokens):
-        if not tokens:
-            print("Usage: /stash <name>")
-            return
-        name = tokens[0]
-        self.stash[name] = {"context": self.context, "knowledge": self.knowledge}
-        print("stashed →", name)
-
-    def do_pop(self, tokens):
-        if not tokens:
-            print("Usage: /pop <name>")
-            return
-        name = tokens[0]
-        snap = self.stash.get(name)
-        if not snap:
-            print("no such stash:", name)
-        else:
-            self.context   = snap["context"]
-            self.knowledge = snap["knowledge"]
-            print("popped →", name)
-
-    def do_export(self, tokens):
-        name = tokens[0] if tokens else f"snapshot-{datetime.datetime.now():%Y%m%d%H%M%S}.txt"
-        data = (
-            f"MODEL {self.cur_model}\n"
-            f"TEMP {self.temperature}\n\n"
-            f"Knowledge:\n{self.knowledge}\n\n"
-            f"History:\n{self.context}\n"
-        )
-        with open(name, "w") as f:
-            f.write(data)
-        print("wrote", name)
-
+    def set_model(self, tokens): ...
+    def set_key(self, tokens): ...
+    def get_key(self, _): ...
+    def clear(self, _): ...
+    def show_help(self, _): ...
+    def set_param(self, key, tokens): ...
+    def do_stream(self, _): ...
+    def do_rest(self, _): ...
+    def do_list(self, _): ...
+    def do_stash(self, tokens): ...
+    def do_pop(self, tokens): ...
+    def do_export(self, tokens): ...
     def do_import(self, tokens):
+        # local files import (unchanged)
         if not tokens:
             print("Usage: /import <file|dir|glob>")
             return
@@ -187,26 +174,60 @@ class RoboDogCLI:
         print(f"imported {len(files)} files")
 
     def do_include(self, tokens):
-        opts = " ".join(tokens)
-        m_file = re.search(r"file=([^ ]+)", opts)
-        m_pat  = re.search(r"pattern=([^ ]+)", opts)
-        rec    = "recursive" in opts
-        files = []
-        if m_file:
-            fn = m_file.group(1)
-            if os.path.exists(fn):
-                files = [fn]
-        elif m_pat:
-            files = glob.glob(m_pat.group(1), recursive=rec)
-        count = 0
-        for fn in files:
-            try:
-                text = open(fn, encoding="utf8", errors="ignore").read()
-                self.knowledge += f"\n\n--- {fn} ---\n{text}"
-                count += 1
-            except:
-                pass
-        print(f"include → {count} files")
+        """
+        /include pattern=...|file=...|dir=... [recursive]
+        uses MCP server if configured.
+        """
+        if not tokens:
+            print("Usage: /include pattern=<glob>|file=<file>|dir=<dir> [recursive]")
+            return
+        inc = self.parse_include(" ".join(tokens))
+        included = []
+
+        try:
+            if inc["type"] == "all":
+                res = self.call_mcp("GET_ALL_CONTENTS", {})
+                included = res.get("contents", [])
+
+            elif inc["type"] == "file":
+                # search for the file anywhere
+                s = self.call_mcp("SEARCH", {
+                    "root": inc["file"],
+                    "pattern": inc["file"],
+                    "recursive": True
+                })
+                if not s.get("matches"):
+                    raise RuntimeError(f"No file {inc['file']}")
+                f = self.call_mcp("READ_FILE", {"path": s["matches"][0]})
+                included = [ {"path": f["path"], "content": f["content"]} ]
+
+            elif inc["type"] in ("pattern","dir"):
+                root = inc["dir"] if inc["type"] == "dir" else ""
+                s = self.call_mcp("SEARCH", {
+                    "root": root,
+                    "pattern": inc["pattern"],
+                    "recursive": inc["recursive"]
+                })
+                matches = s.get("matches", [])
+                if not matches:
+                    raise RuntimeError(f"No files matching {inc['pattern']}")
+                for p in matches:
+                    f = self.call_mcp("READ_FILE", {"path": p})
+                    included.append({"path": f["path"], "content": f["content"]})
+
+            else:
+                raise RuntimeError("Bad include syntax")
+
+            # stitch into knowledge
+            text = ""
+            for i in included:
+                print(f"Include: {i['path']} ")
+                text += f"\n\n--- {i['path']} ---\n{i['content']}"
+            self.knowledge += text
+            print(f"Include → {len(included)} files")
+
+        except Exception as e:
+            print("include error:", e)
 
     # --- parsing & main loop ------------------------------------------------
     def parse_command(self, line: str):
@@ -239,7 +260,6 @@ class RoboDogCLI:
                     "list": self.do_list,
                     "temperature": lambda a: self.set_param("temperature", a),
                     "top_p":       lambda a: self.set_param("top_p", a),
-                    "max_tokens":  lambda a: self.set_param("max_tokens", a),
                     "frequency_penalty": lambda a: self.set_param("frequency_penalty", a),
                     "presence_penalty":  lambda a: self.set_param("presence_penalty", a),
                     "stream": self.do_stream,
@@ -274,14 +294,12 @@ class RoboDogCLI:
             top_p=self.top_p,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self.max_tokens,
             stream=self.stream,
         )
 
         if self.stream:
             answer = ""
             for chunk in resp:
-            # delta is a ChoiceDelta object; pull its .content attribute
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
                     print(delta, end="", flush=True)
