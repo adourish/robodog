@@ -24,9 +24,9 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
   - `npm install robodoglib`  
   - `npm install robodogcli`  
   - `npm install robodog`  
-  - `pip install unclebulgaria-robodog`
-  - `pip show -f unclebulgaria-robodog`
-  - `python -m robodog.cli --help`
+  - `pip install robodogcli`
+  - `pip show -f robodogcli`
+  - `python -m robodogcli.cli --help`
 
 
 ---
@@ -317,6 +317,21 @@ cd robodog
 python build.py
 # Open in browser
 open ./dist/robodog.html
+```  
+
+## Run the CLI
+The cli an optional service that can run robodog commands and host the MCP file service for local context
+```bash
+pip install robodogcli
+pip show -f robodogcli
+python -m robodog.cli --help
+python -m robodog.cli --folders c:\projects\robodog\robodogcli --port 2500 --token "<mcpServer.apiKey>" --config config.yaml --model o4-mini    
+```  
+
+## Use Robodog
+Robodog is hosted on github, navigate. Robodog stores user data in the browser local storage. 
+```bash
+open https://adourish.github.io/robodog/robodog/dist/
 ```  
 
 Experience the future of AI interaction—fast, contextual, and extensible. Enjoy Robodog AI!

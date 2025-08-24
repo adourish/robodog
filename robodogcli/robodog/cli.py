@@ -71,6 +71,41 @@ def is_within_roots(path: str) -> bool:
             return True
     return False
 
+def load_or_create_config(config_path: str) -> dict:
+    """
+    Ensure a Robodog YAML config exists at config_path.
+    If missing, ask the user whether to create DEFAULT_CONFIG.
+    Returns the loaded configs dict, or exits on error/refusal.
+    """
+    # DEFAULT_CONFIG is already defined in your module
+    if not os.path.exists(config_path):
+        resp = input(
+            f"Config file not found at '{config_path}'.\n"
+            "Would you like to create a new default config? [Y/n]: "
+        ).strip().lower()
+        if resp in ("", "y", "yes"):
+            parent = os.path.dirname(config_path) or "."
+            os.makedirs(parent, exist_ok=True)
+            with open(config_path, "w", encoding="utf-8") as f:
+                # write the module’s DEFAULT_CONFIG constant
+                f.write(DEFAULT_CONFIG.lstrip() if DEFAULT_CONFIG.startswith("\n") else DEFAULT_CONFIG)
+            print(f"Created default config at '{config_path}'. Edit it as needed and re-run.")
+        else:
+            print("Aborting: a configuration file is required.")
+            sys.exit(1)
+
+    # Now load and validate
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        cfg = data.get("configs")
+        if not isinstance(cfg, dict):
+            raise ValueError("Top‐level 'configs' section missing or malformed.")
+        return cfg
+    except Exception as e:
+        print(f"Error loading config '{config_path}': {e}")
+        sys.exit(1)
+
 # ----------------------------------------
 # MCP protocol handler
 # ----------------------------------------
@@ -323,11 +358,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 # ----------------------------------------
 class RoboDogCLI:
     def __init__(self, config_path: str, api_key: str = None):
-        if not os.path.exists(config_path):
-            with open(config_path, "w") as f:
-                f.write(DEFAULT_CONFIG)
-        with open(config_path) as f:
-            cfg = yaml.safe_load(f)["configs"]
+        cfg = load_or_create_config(config_path)
 
         self.provider_map = {p["provider"]: p for p in cfg["providers"]}
         self.cfg_models   = cfg["models"]

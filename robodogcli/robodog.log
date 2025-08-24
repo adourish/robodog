@@ -436,3 +436,12 @@ Call log:
 [2025-08-23 23:22:16,588] INFO:Model switched to o4-mini
 [2025-08-23 23:27:32,902] INFO:CLI session ended by user
 [2025-08-23 23:27:32,902] INFO:Shutting down MCP server
+[2025-08-24 09:38:40,863] INFO:Starting robodog
+[2025-08-24 09:38:40,864] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 09:38:41,617] INFO:Model switched to o4-mini
+[2025-08-24 09:38:47,464] INFO:CLI session ended by user
+[2025-08-24 09:38:47,464] INFO:Shutting down MCP server
+[2025-08-24 09:39:01,807] INFO:Starting robodog
+[2025-08-24 09:39:01,808] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 09:39:14,985] INFO:CLI session ended by user
+[2025-08-24 09:39:14,985] INFO:Shutting down MCP server

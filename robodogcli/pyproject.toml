@@ -3,8 +3,8 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "unclebulgaria-robodog"
-version = "2.6.2"
+name = "robodogcli"
+version = "2.6.5"
 description = "Robodog"
 readme = "README.md"
 requires-python = ">=3.7"
