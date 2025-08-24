@@ -125,6 +125,8 @@ configs:
   - `/include file=README.md`  
   - `/include pattern=*.js|*.css recursive`  
   - `/include dir=src pattern=*.py recursive`  
+  - `/curl tell me about example.com`  
+  - `/play tgo to example.com tell me the page title` 
   Hand off included files into prompts seamlessly.  
 - **Web Search**: Enter `/search` mode or click 🔎 to perform live web queries.  
 - **Image Generation & OCR**: Ask questions to `dall-e-3` or drop an image to extract text via OCR.  
@@ -136,6 +138,44 @@ configs:
 ---
 
 ## Usage Examples  
+
+### Web‐Automation Testing with `/play`
+
+Run AI-generated Playwright tests end-to-end. Robodog will:
+
+1. Parse your natural-language instructions into discrete steps  
+2. Spin up a headless browser and execute each step, retrying once on failure  
+3. Log each attempt and, at the end, print a Success/Failure summary
+
+Example:
+```
+  /play navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
+```
+Expected output:
+
+  Instructions: navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
+
+  ----- Parsed steps -----
+  1. Navigate to https://example.com
+  2. Extract the page title
+  3. Verify the title contains 'Example Domain'
+
+  >>> Starting step 1: Navigate to https://example.com
+  --- Attempt 1 on page: <no title> (about:blank) ---
+  Step 1 attempt 1 → Success: None
+
+  >>> Starting step 2: Extract the page title
+  --- Attempt 1 on page: Example Domain (https://example.com) ---
+  Step 2 attempt 1 → Success: 'Example Domain'
+
+  >>> Starting step 3: Verify the title contains 'Example Domain'
+  --- Attempt 1 on page: Example Domain (https://example.com) ---
+  Step 3 attempt 1 → Success: True
+
+  --- /play summary ---
+  Step 1: Success
+  Step 2: Success
+  Step 3: Success
 
 ### Switch Model  
 ```
@@ -240,6 +280,7 @@ Run `/help` in-app or see the list below:
 /rest                    — use REST completions  
 /stream                  — use streaming completions  
 /include …               — include files via MCP  
+/play <instructions>     — run AI-driven Playwright tests against a website: parses your instructions into code, executes each step, and summarizes success/failure
 ```
 
 *Also supports keyboard shortcuts:*  
