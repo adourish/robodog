@@ -175,6 +175,15 @@ Returns top results with clickable links.
 
 ---
 
+## Robodog CLI
+![Configuration Settings](screenshot-cli.png)  
+
+```bash
+python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token testtoken --config config.yaml --model o4-mini
+```  
+
+```  
+
 ## MCP File Service Syntax  
 
 ![Robodog MCP File Service](screenshot-mcp.png)  
@@ -191,9 +200,7 @@ Returns top results with clickable links.
 ## MCP Server Startup  
 
 ```bash
-python mcp.py --port 2500 \
-  --folders c:\temp C:\Projects\robodog\robodoglib\src \
-  --token testtoken
+python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token testtoken --config config.yaml --model o4-mini
 ```  
 
 ---

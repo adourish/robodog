@@ -1,0 +1,2 @@
+[console_scripts]
+robodog = robodog.cli:main

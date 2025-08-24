@@ -1,3 +1,31 @@
+Metadata-Version: 2.4
+Name: robodog
+Version: 0.1.0
+Summary: Combined MCP file‐server + Robodog CLI
+Home-page: https://github.com/youruser/robodog
+Author: Your Name
+Author-email: you@example.com
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: PyYAML>=5.4
+Requires-Dist: openai>=0.27.0
+Requires-Dist: requests>=2.25
+Requires-Dist: playwright>=1.30
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
 # Robodog AI  
 
 ![Robodog MCP File Service](screenshot-mcp.png)  
