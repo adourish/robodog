@@ -24,8 +24,8 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
   - `npm install robodoglib`  
   - `npm install robodogcli`  
   - `npm install robodog`  
-  - `pip show -f unclebulgaria-robodog`
   - `pip install unclebulgaria-robodog`
+  - `pip show -f unclebulgaria-robodog`
   - `python -m robodog.cli --help`
 
 
