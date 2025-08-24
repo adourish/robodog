@@ -3,14 +3,14 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "robodog"
-version = "2.5.0"
-description = "A short description of Robodog"
+name = "unclebulgaria-robodog"
+version = "2.6.0"
+description = "Robodog"
 readme = "README.md"
 requires-python = ">=3.7"
 license = { file = "LICENSE" }
 authors = [
-  { name = "sol9001", email = "sol9001@gmail.com" }
+  { name = "adourish", email = "adourish@gmail.com" }
 ]
 dependencies = [
   # e.g. "requests>=2.25.1",

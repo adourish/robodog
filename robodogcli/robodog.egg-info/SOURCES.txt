@@ -1,6 +1,5 @@
 README.md
 pyproject.toml
-setup.py
 robodog/__init__.py
 robodog/cli.py
 robodog.egg-info/PKG-INFO

@@ -1,3 +1,18 @@
+Metadata-Version: 2.4
+Name: unclebulgaria-robodog
+Version: 2.6.0
+Summary: Robodog
+Author-email: adourish <adourish@gmail.com>
+Project-URL: Homepage, https://github.com/adourish/robodog
+Project-URL: Repository, https://github.com/adourish/robodog.git
+Project-URL: Documentation, https://robodog.readthedocs.io
+Keywords: robot,dog,automation
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+
 # Robodog AI  
 
 ![Robodog MCP File Service](screenshot-mcp.png)  
@@ -24,10 +39,6 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
   - `npm install robodoglib`  
   - `npm install robodogcli`  
   - `npm install robodog`  
-  - `pip show -f unclebulgaria-robodog`
-  - `pip install unclebulgaria-robodog`
-  - `python -m robodog.cli --help`
-
 
 ---
 

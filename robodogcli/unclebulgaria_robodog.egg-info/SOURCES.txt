@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+robodog/__init__.py
+robodog/cli.py
+unclebulgaria_robodog.egg-info/PKG-INFO
+unclebulgaria_robodog.egg-info/SOURCES.txt
+unclebulgaria_robodog.egg-info/dependency_links.txt
+unclebulgaria_robodog.egg-info/top_level.txt
