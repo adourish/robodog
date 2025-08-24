@@ -981,7 +981,37 @@ class RoboDogCLI:
     def set_key(self, tokens): pass
     def get_key(self, _): pass
     def clear(self, _): pass
-    def show_help(self, _): pass
+    def show_help(self, _):
+        """
+        /help
+        Print a list of all available commands with a short description.
+        """
+        commands = {
+            "help":                "show this help",
+            "models":              "list all configured models",
+            "model <name>":        "switch to a different model",
+            "import <glob>":       "import files matching a glob into knowledge",
+            "export <filename>":   "export chat & knowledge snapshot",
+            "clear":               "clear chat history & knowledge",
+            "stash <name>":        "stash current chatknowledge under <name>",
+            "pop <name>":          "restore stash named <name>",
+            "list":                "list all stashes",
+            "temperature <n>":     "set temperature (0–2)",
+            "top_p <n>":           "set nucleus sampling (0–1)",
+            "frequency_penalty <n>":"set frequency penalty (−2–2)",
+            "presence_penalty <n>":"set presence penalty (−2–2)",
+            "stream":              "use streaming completions",
+            "rest":                "use REST completions",
+            "include":             "include files via MCP (see README for syntax)",
+            "curl":                "fetch web pages / run simple scripts",
+            "play":                "run AI-driven Playwright tests",
+        }
+        print("\nAvailable /commands:\n")
+        for cmd, desc in commands.items():
+            # pad to 20 chars for alignment
+            print(f"  /{cmd:<20} — {desc}")
+        print()
+
     def set_param(self, key, tokens): pass
     def do_stream(self, _): pass
     def do_rest(self, _): pass
