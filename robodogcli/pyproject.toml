@@ -1,3 +1,29 @@
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "robodog"
+version = "2.5.0"
+description = "A short description of Robodog"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { file = "LICENSE" }
+authors = [
+  { name = "sol9001", email = "sol9001@gmail.com" }
+]
+dependencies = [
+  # e.g. "requests>=2.25.1",
+]
+keywords = ["robot", "dog", "automation"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/adourish/robodog"
+Repository = "https://github.com/adourish/robodog.git"
+Documentation = "https://robodog.readthedocs.io"
+

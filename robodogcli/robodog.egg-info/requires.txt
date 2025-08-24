@@ -1,4 +1,0 @@
-PyYAML>=5.4
-openai>=0.27.0
-requests>=2.25
-playwright>=1.30
