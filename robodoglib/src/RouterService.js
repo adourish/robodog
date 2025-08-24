@@ -120,7 +120,7 @@ class RouterService {
     knowledge,
     useDefault,
     bodySummary,
-    
+
     setTotalChars
   ) {
 
@@ -248,13 +248,13 @@ class RouterService {
           fileTokenTotal = fileTokenTotal + c;
           bodySummary += `Include: ${i.path} (${c}) \n`;
         });
-        
-       
+
+
         var c = consoleService.calculateTokens(context);
         var i = consoleService.calculateTokens(userText);
         var k = consoleService.calculateTokens(knowledge);
         var _totalChars = c + i + k + fileTokenTotal;
-        let prompt = userText + '\n' +  bodySummary + '' + 'Include total: ' + _totalChars + '\n';
+        let prompt = userText + '\n' + bodySummary + '' + 'Include total: ' + _totalChars + '\n';
 
         setThinking("📤");
         setContent([
@@ -407,7 +407,7 @@ class RouterService {
       routerModel.setThinking,
       routerModel.currentKey,
       routerModel.size,
-      routerModel.scrollToBottom, 
+      routerModel.scrollToBottom,
       routerModel.setKnowledge,
       routerModel.setTotalChars
     );
@@ -436,12 +436,91 @@ class RouterService {
     setKnowledge,
     setTotalChars
   ) {
-
-
-    let systemRole = "system";
-    if (model === "o1-mini" || model === "o1") {
-      systemRole = "user";
+    // 1) Validate incoming `content`
+    if (!Array.isArray(content)) {
+      const errorMsg = "Invalid parameter: ‘content’ must be an array of messages.";
+      setThinking("⚠️");
+      const hist = [
+        // preserve whatever was there if it was an array
+        ...(Array.isArray(content) ? content : []),
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errorMsg, "error")
+      ];
+      setContent(hist);
+      setMessage(errorMsg);
+      scrollToBottom();
+      return;
     }
+
+    setThinking("💭");
+
+    // 2) Load & validate config JSON
+    let config;
+    try {
+      config = providerService.getJson();
+    } catch (e) {
+      const errorMsg = "Configuration error: unable to parse YAML. Please check your YAML syntax.";
+      setThinking("⚠️");
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errorMsg, "error")
+      ]);
+      setMessage(errorMsg);
+      scrollToBottom();
+      return;
+    }
+    if (!config || !config.configs) {
+      const errorMsg = "Configuration missing: no ‘configs’ block found. Please provide a valid config.";
+      setThinking("⚠️");
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errorMsg, "error")
+      ]);
+      setMessage(errorMsg);
+      scrollToBottom();
+      return;
+    }
+
+    // 3) Lookup model
+    const _model = providerService.getModel(model);
+    if (!_model) {
+      const available = (providerService.getModels() || [])
+        .map(m => m.model)
+        .join(", ") || "(none)";
+      const errorMsg = `Model not found: ‘${model}’. Available models: ${available}.`;
+      setThinking("⚠️");
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errorMsg, "error")
+      ]);
+      setMessage(errorMsg);
+      scrollToBottom();
+      return;
+    }
+
+    // 4) Lookup provider
+    let _provider = null;
+    if (_model.provider) {
+      _provider = providerService.getProvider(_model.provider);
+    }
+    if (!_provider || !_provider.provider) {
+      const errorMsg = `Provider not configured for model ‘${model}’. Expected provider name: ‘${_model.provider}’. Please update your provider settings.`;
+      setThinking("⚠️");
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errorMsg, "error")
+      ]);
+      setMessage(errorMsg);
+      scrollToBottom();
+      return;
+    }
+
+    // 5) Build the prompt messages
+    const systemRole = ["o1", "o1-mini"].includes(model) ? "user" : "system";
     const messages = [
       { role: "user", content: "Chat History:" + context },
       { role: "user", content: "Knowledge Base:" + knowledge },
@@ -449,128 +528,259 @@ class RouterService {
       {
         role: systemRole,
         content:
-          "Instruction 1: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:' Do not provide answers based solely on the chat history or context.",
-      },
+          "Instruction 1: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:'. Do not provide answers based solely on the chat history or context."
+      }
     ];
 
-    setThinking(formatService.getRandomEmoji());
-    var _cc = [];
+    // 6) Route to the correct handler
+    let matched = false;
+    let resultContent = content;
+
     try {
-      var config = providerService.getJson();
-      var _model = providerService.getModel(model);
-      var _provider = providerService.getProvider(_model.provider);
-      console.log("askQuestion", _provider, _model);
-      if (_model && _model.provider && _provider && _provider.provider) {
-        if (model === "dall-e-3") {
-          console.log("rounter handleDalliRestCompletion");
-          _cc = await this.handleDalliRestCompletion(
-            model,
-            messages,
-            temperature,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            max_tokens,
-            setThinking,
-            setContent,
-            setMessage,
-            content,
-            text,
-            currentKey,
-            context,
-            knowledge,
-            size,
-            true
-          );
-        } else if (model === "search") {
-          console.log("rounter search");
-          _cc = await searchService.search(
-            text,
-            setThinking,
-            setMessage,
-            setContent,
-            content
-          );
-        } else if (_model.provider === "openAI" && _model.stream === true) {
-
-          _cc = await this.handleStreamCompletion(
-            model,
-            messages,
-            temperature,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            max_tokens,
-            setThinking,
-            setContent,
-            setMessage,
-            content,
-            text,
-            currentKey,
-            context,
-            knowledge,
-            true,
-            setTotalChars
-          );
-        } else if (_model.provider === "openRouter" && _model.stream === true) {
-          console.log("rounter openRouter handleStreamCompletion");
-          _cc = await this.handleStreamCompletion(
-            model,
-            messages,
-            temperature,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            max_tokens,
-            setThinking,
-            setContent,
-            setMessage,
-            content,
-            text,
-            currentKey,
-            context,
-            knowledge,
-            false,
-            setTotalChars
-          );
-
-        } else if (_model.stream === true) {
-          console.log("rounter fall through " + _model.provider + " handleStreamCompletion");
-          _cc = await this.handleStreamCompletion(
-            model,
-            messages,
-            temperature,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            max_tokens,
-            setThinking,
-            setContent,
-            setMessage,
-            content,
-            text,
-            currentKey,
-            context,
-            knowledge,
-            true,
-            setTotalChars
-          );
-        } else {
-          console.log("no matching model condigtions");
-        }
-      } else {
-        console.log("no matching provider or model");
+      if (model === "dall-e-3") {
+        matched = true;
+        resultContent = await this.handleDalliRestCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          size, true
+        );
+      } else if (model === "search") {
+        matched = true;
+        resultContent = await searchService.search(
+          text, setThinking, setMessage, setContent, content
+        );
+      } else if (_model.provider === "openAI" && _model.stream) {
+        matched = true;
+        resultContent = await this.handleStreamCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          true, setTotalChars
+        );
+      } else if (_model.provider === "openRouter" && _model.stream) {
+        matched = true;
+        resultContent = await this.handleStreamCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          false, setTotalChars
+        );
+      } else if (_model.stream) {
+        matched = true;
+        resultContent = await this.handleStreamCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          true, setTotalChars
+        );
       }
+
+      if (!matched) {
+        const errorMsg = `Unsupported combination: model='${model}', provider='${_model.provider}', stream='${_model.stream}'.`;
+        setThinking("⚠️");
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(text, "user"),
+          formatService.getMessageWithTimestamp(errorMsg, "error")
+        ]);
+        setMessage(
+          `${errorMsg} Please update your configuration or choose a supported model.`
+        );
+        scrollToBottom();
+        return;
+      }
+
       setThinking("🦥");
-    } catch (error) {
+      return resultContent;
+    } catch (err) {
+      // 7) Catch-all unexpected errors
       setThinking("🐛");
-      const errorMessage = this.formatErrorMessage(error);
-      console.error(errorMessage);
-      setMessage("Error");
-    } finally {
-      consoleService.scrollToBottom();
+      const errMsg = "Unexpected error: " + this.formatErrorMessage(err);
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errMsg, "error")
+      ]);
+      setMessage(errMsg);
+      scrollToBottom();
+      return;
     }
-    return _cc;
+  }
+
+  async askQuestionBak2(
+    text,
+    model,
+    context,
+    knowledge,
+    setContent,
+    setMessage,
+    content,
+    temperature,
+    max_tokens,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    setPerformance,
+    setThinking,
+    currentKey,
+    size,
+    scrollToBottom,
+    setKnowledge,
+    setTotalChars
+  ) {
+    // 1) Validate incoming `content`
+    if (!Array.isArray(content)) {
+      const errorMsg = "Invalid parameter: ’content’ must be an array of messages.";
+      setThinking("⚠️");
+      const hist = [
+        /* if possible preserve existing content */
+        ...(Array.isArray(content) ? content : []),
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errorMsg, "error")
+      ];
+      setContent(hist);
+      setMessage(errorMsg);
+      return;
+    }
+
+    setThinking("💭");
+    let _cc = [];
+
+    try {
+      const config = providerService.getJson();
+      const _model = providerService.getModel(model);
+      const _provider =
+        _model && _model.provider
+          ? providerService.getProvider(_model.provider)
+          : null;
+
+      // 2) No such model?
+      if (!_model) {
+        const errorMsg = `Model not found: ‘${model}’. Please verify your model name.`;
+        setThinking("⚠️");
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(text, "user"),
+          formatService.getMessageWithTimestamp(errorMsg, "error")
+        ]);
+        setMessage(errorMsg);
+        return;
+      }
+
+      // 3) No such provider?
+      if (!_provider || !_provider.provider) {
+        const errorMsg = `Provider configuration missing for model ‘${model}’. Please check your provider settings.`;
+        setThinking("⚠️");
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(text, "user"),
+          formatService.getMessageWithTimestamp(errorMsg, "error")
+        ]);
+        setMessage(errorMsg);
+        return;
+      }
+
+      // 4) Build messages
+      const systemRole = ["o1", "o1-mini"].includes(model) ? "user" : "system";
+      const messages = [
+        { role: "user", content: "Chat History:" + context },
+        { role: "user", content: "Knowledge Base:" + knowledge },
+        { role: "user", content: "Question:" + text },
+        {
+          role: systemRole,
+          content:
+            "Instruction 1: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:'. Do not provide answers based solely on the chat history or context."
+        }
+      ];
+
+      // 5) Route to the correct handler
+      let matched = false;
+
+      if (model === "dall-e-3") {
+        matched = true;
+        _cc = await this.handleDalliRestCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          size, true
+        );
+
+      } else if (model === "search") {
+        matched = true;
+        _cc = await searchService.search(
+          text, setThinking, setMessage, setContent, content
+        );
+
+      } else if (_model.provider === "openAI" && _model.stream === true) {
+        matched = true;
+        _cc = await this.handleStreamCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          true, setTotalChars
+        );
+
+      } else if (_model.provider === "openRouter" && _model.stream === true) {
+        matched = true;
+        _cc = await this.handleStreamCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          false, setTotalChars
+        );
+
+      } else if (_model.stream === true) {
+        matched = true;
+        _cc = await this.handleStreamCompletion(
+          model, messages,
+          temperature, top_p, frequency_penalty, presence_penalty,
+          max_tokens, setThinking, setContent, setMessage,
+          content, text, currentKey, context, knowledge,
+          true, setTotalChars
+        );
+      }
+
+      // 6) If nothing matched, inform the user
+      if (!matched) {
+        const errorMsg = `Unsupported combination: model='${model}', provider='${_model.provider}', stream='${_model.stream}'.`;
+        setThinking("⚠️");
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(text, "user"),
+          formatService.getMessageWithTimestamp(errorMsg, "error")
+        ]);
+        setMessage(
+          errorMsg + " Please update your configuration or choose a supported model."
+        );
+        return;
+      }
+
+      setThinking("🦥");
+      return _cc;
+
+    } catch (error) {
+      // 7) Catch-all
+      setThinking("🐛");
+      const errorMessage = "Ask error: " + this.formatErrorMessage(error);
+      console.error(errorMessage);
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(text, "user"),
+        formatService.getMessageWithTimestamp(errorMessage, "error")
+      ]);
+      setMessage(errorMessage);
+
+    } finally {
+      scrollToBottom();
+    }
   }
 }
 

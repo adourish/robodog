@@ -371,12 +371,15 @@ function Console() {
 
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
-              modelsText += engine.model;
-              
+              if (modelsText) {
+                modelsText += ", " + engine.model;
+              } else {
+                modelsText += "Models: " + engine.model;
+              }
             }
           }
           var item = formatService.getMessageWithTimestamp(modelsText, 'model')
-              list.push(item);
+          list.push(item);
           setContent(list);
 
           console.log(models);
@@ -488,33 +491,33 @@ function Console() {
             }
           }
           break;
-          case '/replace':
-            try {
-              // Split the verb into 'from' and 'to' texts
-              const args = _command.verb.match(/'([^']+)'/g);
-              if (!args || args.length < 2) {
-                throw new Error("Invalid syntax. Use /replace 'from text' 'to text'");
-              }
-              const fromText = args[0].replace(/'/g, '');
-              const toText = args[1].replace(/'/g, '');
-    
-              // Perform the replacement in all content items
-              const updatedContent = content.map(item => {
-                if (typeof item.text === 'string') {
-                  return { ...item, text: item.text.split(fromText).join(toText) };
-                }
-                return item;
-              });
-    
-              setContent(updatedContent);
-              message = `Replaced all instances of '${fromText}' with '${toText}'`;
-              setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
-            } catch (error) {
-              message = error.message;
-              setContent([...content, formatService.getMessageWithTimestamp(message, 'error')]);
+        case '/replace':
+          try {
+            // Split the verb into 'from' and 'to' texts
+            const args = _command.verb.match(/'([^']+)'/g);
+            if (!args || args.length < 2) {
+              throw new Error("Invalid syntax. Use /replace 'from text' 'to text'");
             }
-            break;
-    
+            const fromText = args[0].replace(/'/g, '');
+            const toText = args[1].replace(/'/g, '');
+
+            // Perform the replacement in all content items
+            const updatedContent = content.map(item => {
+              if (typeof item.text === 'string') {
+                return { ...item, text: item.text.split(fromText).join(toText) };
+              }
+              return item;
+            });
+
+            setContent(updatedContent);
+            message = `Replaced all instances of '${fromText}' with '${toText}'`;
+            setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
+          } catch (error) {
+            message = error.message;
+            setContent([...content, formatService.getMessageWithTimestamp(message, 'error')]);
+          }
+          break;
+
         case '/pop':
           var _pop = consoleService.pop(_command.verb);
           setCurrentKey(_command.verb);
@@ -685,63 +688,63 @@ function Console() {
     }
   };
 
-const handleSubmit = async (event) => {
-  event.preventDefault();
-  var command = question.trim();
-  console.log('submit:', command);
-  setThinking('🦧');
-  setMessage('');
-  
-  // Get the referer URL
-  const refererUrl = document.referrer || 'Referer info not available';
-  
-  try {
-    var _command = consoleService.getVerb(command);
-    if (_command.isCommand) {
-      executeCommands(_command);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    var command = question.trim();
+    console.log('submit:', command);
+    setThinking('🦧');
+    setMessage('');
+
+    // Get the referer URL
+    const refererUrl = document.referrer || 'Referer info not available';
+
+    try {
+      var _command = consoleService.getVerb(command);
+      if (_command.isCommand) {
+        executeCommands(_command);
+        setThinking('🦥');
+      } else {
+        console.log('content:', command);
+        const updatedContext = context ? `${context}\n${command}` : command;
+        setContext(updatedContext);
+        var routerModel = new RobodogLib.RouterModel(
+          question,
+          model,
+          context,
+          knowledge,
+          content,
+          temperature,
+          max_tokens,
+          currentKey,
+          size,
+          setContent,
+          setMessage,
+          setPerformance,
+          setThinking,
+          setKnowledge,
+          setTotalChars
+        );
+        var response = await routerService.routeQuestion(routerModel);
+        console.debug(response);
+      }
       setThinking('🦥');
-    } else {
-      console.log('content:', command);
-      const updatedContext = context ? `${context}\n${command}` : command;
-      setContext(updatedContext);
-      var routerModel = new RobodogLib.RouterModel(
-        question,
-        model,
-        context,
-        knowledge,
-        content,
-        temperature,
-        max_tokens,
-        currentKey,
-        size,
-        setContent,
-        setMessage,
-        setPerformance,
-        setThinking,
-        setKnowledge,
-        setTotalChars          
-      );
-      var response = await routerService.routeQuestion(routerModel);
-      console.debug(response);
+    } catch (ex) {
+      setThinking('🐛');
+
+      // Include referer URL and additional debug information in the error message
+      console.error('handleSubmit', ex);
+      const errorMessage = `Error occurred: ${ex.message}, Referer URL: ${refererUrl}, Stack: ${ex.stack}`;
+      setMessage(errorMessage);
+
+      setContent([
+        ...content,
+        formatService.getMessageWithTimestamp(errorMessage, 'error')
+      ]);
+    } finally {
+      setQuestion('');
+      consoleService.scrollToBottom();
     }
-    setThinking('🦥');
-  } catch (ex) {
-    setThinking('🐛');
-    
-    // Include referer URL and additional debug information in the error message
-    console.error('handleSubmit', ex);
-    const errorMessage = `Error occurred: ${ex.message}, Referer URL: ${refererUrl}, Stack: ${ex.stack}`;
-    setMessage(errorMessage);
-    
-    setContent([
-      ...content,
-      formatService.getMessageWithTimestamp(errorMessage, 'error')
-    ]);
-  } finally {
-    setQuestion('');
-    consoleService.scrollToBottom();
-  }
-};
+  };
   return (
 
     <div className="console">
