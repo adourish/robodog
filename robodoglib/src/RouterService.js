@@ -179,8 +179,184 @@ class RouterService {
   }
 
 
-
   async handleStreamCompletion(
+    model,
+    messages,
+    temperature,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    max_tokens,
+    setThinking,
+    setContent,
+    setMessage,
+    content,
+    userText,
+    currentKey,
+    context,
+    knowledge,
+    useDefault,
+    setTotalChars
+  ) {
+    // 1) show initial thinking state
+    setThinking("🐴");
+    // 2) detect /include
+    const scan = userText + " " + knowledge;
+    const idx = scan.search(/\/include\b/i);
+    if (idx !== -1) {
+      const includeCmd = scan.substring(idx).trim();
+      const mainText = scan.substring(0, idx).trim();
+      try {
+        // parse the /include command
+        const inc = mcpService.parseInclude(includeCmd);
+        if (!inc) throw new Error("Bad include syntax");
+        setThinking("🐳");
+        // fetch included files
+        let included = [];
+        if (inc.type === "all") {
+          const res = await mcpService.callMCP("GET_ALL_CONTENTS", {});
+          included = res.contents;
+        } else if (inc.type === "file") {
+          const s = await mcpService.callMCP("SEARCH", {
+            root: inc.file,
+            pattern: inc.file,
+            recursive: true
+          });
+          if (!s.matches.length) throw new Error(`No file ${inc.file}`);
+          const f = await mcpService.callMCP("READ_FILE", { path: s.matches[0] });
+          included.push({ path: f.path, content: f.content });
+        } else {
+          // pattern or dir
+          const s = await mcpService.callMCP("SEARCH", {
+            root: inc.dir || "",
+            pattern: inc.pattern || "*",
+            recursive: inc.recursive
+          });
+          if (!s.matches.length) throw new Error(`No matches for ${inc.pattern || inc.dir}`);
+          for (let p of s.matches) {
+            const f = await mcpService.callMCP("READ_FILE", { path: p });
+            included.push({ path: f.path, content: f.content });
+          }
+        }
+
+        // stitch them into a single “/include:” system message
+        setThinking("🐕");
+        let body = "/include:\n";
+        let fileTokenTotal = 0;
+        let bodySummary = `${includeCmd}:\n`;
+        for (let i of included) {
+          body += `--- file: ${i.path} ---\n${i.content}\n\n`;
+          const c = consoleService.calculateTokens(i.content);
+          fileTokenTotal += c;
+          bodySummary += `Include: ${i.path} (${c} tokens)\n`;
+        }
+
+        // recalc total tokens if you need to display it
+        const cContext = consoleService.calculateTokens(context);
+        const cUser = consoleService.calculateTokens(userText);
+        const cKnow = consoleService.calculateTokens(knowledge);
+        const _totalChars = cContext + cUser + cKnow + fileTokenTotal;
+        setTotalChars && setTotalChars(_totalChars);
+
+        // show the user what we’re sending
+        const prompt = userText + "\n" + bodySummary + "Include total tokens: " + _totalChars;
+        setThinking("📤");
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(prompt, "user")
+        ]);
+        consoleService.scrollToBottom();
+
+        // inject the include as system roles into the existing messages
+        const aug = [
+          ...messages,
+          { role: "system", content: body },
+          {
+            role: "system",
+            content:
+              "Do not repeat included files unless you have modified the content based on a prompt."
+          }
+        ];
+        setThinking("🦫");
+
+        // finally call the normal streaming completion with the augmented messages
+        return this.getStreamCompletion(
+          model,
+          aug,
+          temperature,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          max_tokens,
+          setThinking,
+          setContent,
+          setMessage,
+          content,
+          prompt,
+          currentKey,
+          context,
+          knowledge,
+          useDefault,
+          bodySummary,
+          setTotalChars
+        );
+      } catch (err) {
+        // ANY error in include parsing or MCP calls → fallback
+        console.warn("Include processing failed, proceeding WITHOUT include:", err);
+        setMessage("⚠️ Unable to fetch included content, continuing without include.");
+        // restore the normal user message
+        setContent([
+          ...content,
+          formatService.getMessageWithTimestamp(userText, "user")
+        ]);
+        // and proceed with the original messages unmodified
+        return this.getStreamCompletion(
+          model,
+          messages,
+          temperature,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          max_tokens,
+          setThinking,
+          setContent,
+          setMessage,
+          content,
+          userText,
+          currentKey,
+          context,
+          knowledge,
+          useDefault,
+          null,
+          setTotalChars
+        );
+      }
+    }
+
+    // 3) no /include found → normal path
+    return this.getStreamCompletion(
+      model,
+      messages,
+      temperature,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
+      max_tokens,
+      setThinking,
+      setContent,
+      setMessage,
+      content,
+      userText,
+      currentKey,
+      context,
+      knowledge,
+      useDefault,
+      null,
+      setTotalChars
+    );
+  }
+  
+  async handleStreamCompletionB(
     model, messages, temperature, top_p,
     frequency_penalty, presence_penalty, max_tokens,
     setThinking, setContent, setMessage,
@@ -612,176 +788,6 @@ class RouterService {
     }
   }
 
-  async askQuestionBak2(
-    text,
-    model,
-    context,
-    knowledge,
-    setContent,
-    setMessage,
-    content,
-    temperature,
-    max_tokens,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    setPerformance,
-    setThinking,
-    currentKey,
-    size,
-    scrollToBottom,
-    setKnowledge,
-    setTotalChars
-  ) {
-    // 1) Validate incoming `content`
-    if (!Array.isArray(content)) {
-      const errorMsg = "Invalid parameter: ’content’ must be an array of messages.";
-      setThinking("⚠️");
-      const hist = [
-        /* if possible preserve existing content */
-        ...(Array.isArray(content) ? content : []),
-        formatService.getMessageWithTimestamp(text, "user"),
-        formatService.getMessageWithTimestamp(errorMsg, "error")
-      ];
-      setContent(hist);
-      setMessage(errorMsg);
-      return;
-    }
-
-    setThinking("💭");
-    let _cc = [];
-
-    try {
-      const config = providerService.getJson();
-      const _model = providerService.getModel(model);
-      const _provider =
-        _model && _model.provider
-          ? providerService.getProvider(_model.provider)
-          : null;
-
-      // 2) No such model?
-      if (!_model) {
-        const errorMsg = `Model not found: ‘${model}’. Please verify your model name.`;
-        setThinking("⚠️");
-        setContent([
-          ...content,
-          formatService.getMessageWithTimestamp(text, "user"),
-          formatService.getMessageWithTimestamp(errorMsg, "error")
-        ]);
-        setMessage(errorMsg);
-        return;
-      }
-
-      // 3) No such provider?
-      if (!_provider || !_provider.provider) {
-        const errorMsg = `Provider configuration missing for model ‘${model}’. Please check your provider settings.`;
-        setThinking("⚠️");
-        setContent([
-          ...content,
-          formatService.getMessageWithTimestamp(text, "user"),
-          formatService.getMessageWithTimestamp(errorMsg, "error")
-        ]);
-        setMessage(errorMsg);
-        return;
-      }
-
-      // 4) Build messages
-      const systemRole = ["o1", "o1-mini"].includes(model) ? "user" : "system";
-      const messages = [
-        { role: "user", content: "Chat History:" + context },
-        { role: "user", content: "Knowledge Base:" + knowledge },
-        { role: "user", content: "Question:" + text },
-        {
-          role: systemRole,
-          content:
-            "Instruction 1: Analyze the provided 'Chat History:' and 'Knowledge Base:' to understand and answer the user's 'Question:'. Do not provide answers based solely on the chat history or context."
-        }
-      ];
-
-      // 5) Route to the correct handler
-      let matched = false;
-
-      if (model === "dall-e-3") {
-        matched = true;
-        _cc = await this.handleDalliRestCompletion(
-          model, messages,
-          temperature, top_p, frequency_penalty, presence_penalty,
-          max_tokens, setThinking, setContent, setMessage,
-          content, text, currentKey, context, knowledge,
-          size, true
-        );
-
-      } else if (model === "search") {
-        matched = true;
-        _cc = await searchService.search(
-          text, setThinking, setMessage, setContent, content
-        );
-
-      } else if (_model.provider === "openAI" && _model.stream === true) {
-        matched = true;
-        _cc = await this.handleStreamCompletion(
-          model, messages,
-          temperature, top_p, frequency_penalty, presence_penalty,
-          max_tokens, setThinking, setContent, setMessage,
-          content, text, currentKey, context, knowledge,
-          true, setTotalChars
-        );
-
-      } else if (_model.provider === "openRouter" && _model.stream === true) {
-        matched = true;
-        _cc = await this.handleStreamCompletion(
-          model, messages,
-          temperature, top_p, frequency_penalty, presence_penalty,
-          max_tokens, setThinking, setContent, setMessage,
-          content, text, currentKey, context, knowledge,
-          false, setTotalChars
-        );
-
-      } else if (_model.stream === true) {
-        matched = true;
-        _cc = await this.handleStreamCompletion(
-          model, messages,
-          temperature, top_p, frequency_penalty, presence_penalty,
-          max_tokens, setThinking, setContent, setMessage,
-          content, text, currentKey, context, knowledge,
-          true, setTotalChars
-        );
-      }
-
-      // 6) If nothing matched, inform the user
-      if (!matched) {
-        const errorMsg = `Unsupported combination: model='${model}', provider='${_model.provider}', stream='${_model.stream}'.`;
-        setThinking("⚠️");
-        setContent([
-          ...content,
-          formatService.getMessageWithTimestamp(text, "user"),
-          formatService.getMessageWithTimestamp(errorMsg, "error")
-        ]);
-        setMessage(
-          errorMsg + " Please update your configuration or choose a supported model."
-        );
-        return;
-      }
-
-      setThinking("🦥");
-      return _cc;
-
-    } catch (error) {
-      // 7) Catch-all
-      setThinking("🐛");
-      const errorMessage = "Ask error: " + this.formatErrorMessage(error);
-      console.error(errorMessage);
-      setContent([
-        ...content,
-        formatService.getMessageWithTimestamp(text, "user"),
-        formatService.getMessageWithTimestamp(errorMessage, "error")
-      ]);
-      setMessage(errorMessage);
-
-    } finally {
-      scrollToBottom();
-    }
-  }
 }
 
 export { RouterService };

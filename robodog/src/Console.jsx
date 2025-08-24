@@ -302,7 +302,7 @@ function Console() {
   };
 
   const handleKnowledgeChange = (event) => {
-    console.debug('handleKnowledgeChange', event)
+
     const value = event.target.value;
     setKnowledge(value);
     handleCharsChange(event);
