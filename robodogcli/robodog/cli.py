@@ -923,6 +923,60 @@ class RoboDogCLI:
             logging.error(f"Unexpected error in /play2: {e}")
 
     # ---------------------------------------------------
+    # new command: list models
+    def do_models(self, tokens):
+        """
+        /models
+        List all configured models and their providers.
+        """
+        if not self.cfg_models:
+            print("No models configured.")
+            return
+        print("Available models:")
+        for m in self.cfg_models:
+            name     = m.get("model", "<missing>")
+            provider = m.get("provider", "<missing>")
+            about    = m.get("about","")
+            line = f"  {name} (provider: {provider})"
+            if about:
+                line += f" – {about}"
+            print(line)
+
+
+    # ---------------------------------------------------
+    # strengthen set_model to catch missing provider
+    def set_model(self, tokens):
+        if not tokens:
+            print("Usage: /model <model_name>")
+            print("Available models:", ", ".join(m["model"] for m in self.cfg_models))
+            return
+
+        new_model = tokens[0]
+        models = [m["model"] for m in self.cfg_models]
+        if new_model not in models:
+            print(f"Unknown model: '{new_model}'")
+            print("Available models:", ", ".join(models))
+            return
+
+        prov = self.model_provider(new_model)
+        if not prov or prov not in self.provider_map:
+            print(f"Provider '{prov}' for model '{new_model}' is not configured.")
+            return
+
+        self.cur_model = new_model
+        self.api_key = (
+            os.getenv("OPENAI_API_KEY")
+            or self.provider_map[prov].get("apiKey")
+        )
+        if not self.api_key:
+            print(f"No API key for provider '{prov}'")
+            return
+
+        self.client = OpenAI(api_key=self.api_key)
+        print(f"Model set to: {self.cur_model}")
+        logging.info(f"Model switched to {self.cur_model}")
+
+    # ---------------------------------------------------
     # stub other commands...
     def set_key(self, tokens): pass
     def get_key(self, _): pass
@@ -990,6 +1044,7 @@ class RoboDogCLI:
                     "presence_penalty":  lambda a: self.set_param("presence_penalty",a),
                     "stream": self.do_stream,
                     "rest":   self.do_rest,
+                    "models":   self.do_models,
                     "include": self.do_include,
                     "curl":   self.do_curl,
                     "play":   self.do_play,
