@@ -500,76 +500,213 @@ class RoboDogCLI:
         elif p0.startswith("pattern="):
             cmd["type"]="pattern"; cmd["pattern"]=p0.split("=",1)[1]; cmd["recursive"]=True
         return cmd
-
+    
     def do_include(self, tokens):
-        # ... unchanged ...
+        import concurrent.futures, logging
+        from pathlib import Path
+
+        MAX_FILES    = 500
+        READ_TIMEOUT = 30
+        MAX_WORKERS  = 8
+
         if not tokens:
             print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
             return
 
-        spec_tokens = []
-        prompt_tokens = []
+        # split out spec vs prompt
+        spec_tokens, prompt_tokens = [], []
         for i, t in enumerate(tokens):
             if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
                 spec_tokens.append(t)
             else:
                 prompt_tokens = tokens[i:]
                 break
+        spec = " ".join(spec_tokens)
+        prompt = " ".join(prompt_tokens).strip() if prompt_tokens else None
 
-        spec_text = " ".join(spec_tokens)
-        prompt_text = " ".join(prompt_tokens).strip() if prompt_tokens else None
-
-        inc = self.parse_include(spec_text)
-        included = []
-
+        inc = self.parse_include(spec)
         try:
-            if inc["type"] == "all":
-                res = self.call_mcp("GET_ALL_CONTENTS", {})
-                included = res.get("contents", [])
-            elif inc["type"] == "file":
-                s = self.call_mcp("SEARCH", {
-                    "root": inc["file"],
-                    "pattern": inc["file"],
-                    "recursive": True
-                })
-                if not s.get("matches"):
-                    raise RuntimeError(f"No file {inc['file']}")
-                f = self.call_mcp("READ_FILE", {"path": s["matches"][0]})
-                included = [{"path": f["path"], "content": f["content"]}]
-            elif inc["type"] in ("pattern", "dir"):
-                root = inc["dir"] if inc["type"] == "dir" else ""
-                s = self.call_mcp("SEARCH", {
-                    "root": root,
+            # 1) Build SEARCH payloads
+            searches = []
+            if inc["type"] == "dir":
+                searches.append({
+                    "root": inc["dir"],
                     "pattern": inc["pattern"],
                     "recursive": inc["recursive"]
                 })
-                matches = s.get("matches", [])
-                if not matches:
-                    raise RuntimeError(f"No files matching {inc['pattern']}")
-                for p in matches:
-                    f = self.call_mcp("READ_FILE", {"path": p})
-                    included.append({"path": f["path"], "content": f["content"]})
             else:
-                raise RuntimeError("Bad include syntax")
+                pat = "*"
+                if inc["type"] == "file":
+                    pat = inc["file"]
+                elif inc["type"] == "pattern":
+                    pat = inc["pattern"]
+                searches.append({
+                    "pattern": pat,
+                    "recursive": True
+                })
 
-            text = ""
-            for i in included:
-                print(f"Include: {i['path']}")
-                text += f"\n\n--- {i['path']} ---\n{i['content']}"
-            self.knowledge += text
-            print(f"Included {len(included)} files into knowledge.")
+            # 2) Find matches
+            matches = []
+            for payload in searches:
+                res = self.call_mcp("SEARCH", payload, timeout=READ_TIMEOUT)
+                matches.extend(res.get("matches", []))
 
-            if prompt_text:
-                print(f"Prompt → {prompt_text}")
-                self.context += f"\nUser: {prompt_text}"
-                answer = self.ask(prompt_text)
-                self.context += "\nAI: " + answer
+            # filter out node_modules
+            matches = [m for m in matches if "node_modules" not in Path(m).parts]
+
+            if not matches:
+                raise RuntimeError(f"No files matching '{inc.get('pattern') or inc.get('file') or '*'}'")
+
+            total = len(matches)
+            if total > MAX_FILES:
+                ans = input(f"{total} files match your include. Continue? [y/N] ")
+                if ans.strip().lower() != "y":
+                    print("Include cancelled.")
+                    return
+
+            # 3) Read files in parallel
+            included = []
+            def _read(path):
+                return self.call_mcp("READ_FILE", {"path": path}, timeout=READ_TIMEOUT)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+                fut2path = { pool.submit(_read, p): p for p in matches }
+                for fut in concurrent.futures.as_completed(fut2path):
+                    p = fut2path[fut]
+                    try:
+                        blob = fut.result()
+                        included.append(blob)
+                        print(f"Included: {blob['path']}")
+                    except Exception as e:
+                        print(f"Error reading {p}: {e}")
+
+            # 4) Stitch into knowledge *only* contents
+            combined = "\n".join(b.get("content","") for b in included)
+            if combined:
+                # ensure trailing newline
+                self.knowledge += ("\n" + combined + "\n")
+                print(f"Included {len(included)} files into knowledge.")
+            else:
+                print("No content to include.")
+
+            # 5) If prompt given, immediately ask
+            if prompt:
+                print(f"Prompt → {prompt}")
+                self.context += f"\nUser: {prompt}"
+                ans = self.ask(prompt)
+                self.context += f"\nAI: {ans}"
             else:
                 print("No prompt given after include; nothing asked.")
 
         except Exception as e:
             print("include error:", e)
             logging.error(f"Include error: {e}")
+            
+
+    def do_include8(self, tokens):
+        import concurrent.futures, logging
+        from pathlib import Path
+
+        # Tunables
+        MAX_FILES    = 500       # warn if more than this
+        READ_TIMEOUT = 30        # seconds per‐file read timeout
+        MAX_WORKERS  = 8         # parallel readers
+
+        if not tokens:
+            print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
+            return
+
+        # split out spec vs prompt
+        spec_tokens, prompt_tokens = [], []
+        for i, t in enumerate(tokens):
+            if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
+                spec_tokens.append(t)
+            else:
+                prompt_tokens = tokens[i:]
+                break
+        spec = " ".join(spec_tokens)
+        prompt = " ".join(prompt_tokens).strip() if prompt_tokens else None
+
+        inc = self.parse_include(spec)
+        try:
+            # 1) Determine search parameters per spec
+            searches = []
+            if inc["type"] == "dir":
+                # search under a single directory
+                searches.append({
+                    "root": inc["dir"],
+                    "pattern": inc["pattern"],
+                    "recursive": inc["recursive"]
+                })
+            else:
+                # across all configured roots
+                pat = "*"
+                if inc["type"] == "file":
+                    pat = inc["file"]
+                elif inc["type"] == "pattern":
+                    pat = inc["pattern"]
+                # inc["type"] == "all" → pat="*"
+                searches.append({
+                    # omit "root" → MCP uses all roots
+                    "pattern": pat,
+                    "recursive": True
+                })
+
+            # 2) Collect matches
+            matches = []
+            for payload in searches:
+                res = self.call_mcp("SEARCH", payload, timeout=READ_TIMEOUT)
+                matches.extend(res.get("matches", []))
+
+            # 3) Exclude node_modules
+            matches = [m for m in matches if "node_modules" not in Path(m).parts]
+
+            if not matches:
+                raise RuntimeError(f"No files matching '{inc.get('pattern') or inc.get('file') or '*'}'")
+
+            total = len(matches)
+            if total > MAX_FILES:
+                ans = input(f"{total} files match your include. Continue? [y/N] ")
+                if ans.strip().lower() != "y":
+                    print("Include cancelled.")
+                    return
+
+            # 4) Read files in parallel
+            included = []
+            def _read(path):
+                return self.call_mcp("READ_FILE", {"path": path}, timeout=READ_TIMEOUT)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+                fut2path = { pool.submit(_read, p): p for p in matches }
+                for fut in concurrent.futures.as_completed(fut2path):
+                    p = fut2path[fut]
+                    try:
+                        blob = fut.result()
+                        included.append(blob)
+                        print(f"Included: {blob['path']}")
+                    except Exception as e:
+                        print(f"Error reading {p}: {e}")
+
+            # 5) Stitch into knowledge
+            text = ""
+            for b in included:
+                text += f"\n\n--- {b['path']} ---\n{b['content']}"
+            self.knowledge += text
+            print(f"Included {len(included)} files into knowledge.")
+
+            # 6) Fire prompt if given
+            if prompt:
+                print(f"Prompt → {prompt}")
+                self.context += f"\nUser: {prompt}"
+                ans = self.ask(prompt)
+                self.context += f"\nAI: {ans}"
+            else:
+                print("No prompt given after include; nothing asked.")
+
+        except Exception as e:
+            print("include error:", e)
+            logging.error(f"Include error: {e}")
+
 
     # ---------------------------------------------------
     # /curl command (unchanged)...
@@ -638,10 +775,155 @@ class RoboDogCLI:
         except Exception as e:
             print("Error in /curl:", e)
 
+    def do_play(self, tokens):
+        if async_playwright is None:
+            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
+            return
+        if not tokens:
+            print("Usage: /play <test instructions>")
+            return
+
+        instructions = " ".join(tokens)
+        print("Instructions:", instructions)
+
+        # 1) Parse instructions into steps
+        parse_prompt = (
+            "Parse the following instructions into a numbered list of discrete steps:\n\n"
+            f"{instructions}\n\nRespond ONLY as a numbered list (e.g. '1. ...')."
+        )
+        parsed = self.ask2(parse_prompt)
+        print("----- Parsed steps -----")
+        print(parsed)
+
+        # extract into Python list
+        steps = []
+        for line in parsed.splitlines():
+            m = re.match(r"\s*\d+\.\s*(.+)", line)
+            if m:
+                steps.append(m.group(1).strip())
+        if not steps:
+            print("Error: Couldn't parse any steps. Aborting.")
+            return
+
+        step_results = []
+
+        async def runner():
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch()
+                page = await browser.new_page()
+
+                # 0) Block heavy assets
+                await page.route("**/*.{png,jpg,jpeg,svg,css,woff,woff2}", lambda r: r.abort())
+
+                for idx, step in enumerate(steps):
+                    print(f"\n>>> Step {idx+1}: {step}")
+                    # trivial navigation shortcut
+                    low = step.lower()
+                    if low.startswith("navigate to"):
+                        target = step.split("navigate to",1)[1].strip()
+                        print(f"→ navigate shortcut to {target}")
+                        await page.goto(target, wait_until="domcontentloaded")
+                        step_results.append(True)
+                        continue
+                    # trivial click shortcut
+                    if low.startswith("click"):
+                        target = step.split("click",1)[1].strip().strip("'\"")
+                        print(f"→ click shortcut on text={target}")
+                        await page.click(f"text={target}")
+                        step_results.append(True)
+                        continue
+
+                    # up to 2 attempts for non-trivial steps
+                    success = False
+                    res = None
+                    for attempt in (1,2):
+                        title = await page.title() or "<no title>"
+                        url   = page.url
+                        print(f"--- Attempt {attempt} on {title} ({url}) ---")
+
+                        # build mini‐DOM
+                        mini_dom = await page.evaluate("""
+                            () => Array.from(
+                            document.querySelectorAll('h1,h2,p,a,button,input')
+                            ).slice(0,5).map(e=>({
+                            tag:e.tagName,
+                            text:e.innerText?.trim()?.slice(0,80) || e.getAttribute('value') || ''
+                            }))
+                        """)
+
+                        # build prompt
+                        prompt = (
+                            "You are writing a Python Playwright snippet.\n"
+                            f"Page title: {title}\n"
+                            f"Page URL: {url}\n"
+                            f"MiniDOM: {json.dumps(mini_dom, ensure_ascii=False)}\n"
+                            f"Instruction: {step}\n"
+                            "Write ONLY the await-page code lines, assign output to `result`, then `return result`."
+                        )
+
+                        snippet = self.ask2(prompt).strip()
+                        # strip markdown fences
+                        if snippet.startswith("```"):
+                            snippet = "\n".join(snippet.splitlines()[1:-1])
+
+                        # compile
+                        fn_name = f"_step_{idx+1}_a{attempt}"
+                        src = f"async def {fn_name}(page):\n"
+                        for ln in snippet.splitlines():
+                            src += f"    {ln.rstrip()}\n"
+                        local = {}
+                        try:
+                            exec(src, globals(), local)
+                            fn = local[fn_name]
+                        except Exception as e:
+                            print(f"Compile error: {e}")
+                            continue
+
+                        # run
+                        try:
+                            res = await fn(page)
+                            assert res is not None, "returned None"
+                            print(f"→ Success: {res!r}")
+                            success = True
+                            break
+                        except AssertionError as ae:
+                            print(f"Assertion: {ae}")
+                        except Exception as e:
+                            print(f"Runtime error: {e}")
+
+                    step_results.append(success)
+                    if not success:
+                        print(f"Step {idx+1} failed after 2 attempts.")
+
+                    # optionally ask LLM whether to continue
+                    if idx < len(steps)-1:
+                        sugg = self.ask2(
+                            f"I executed '{step}' and got {res!r}. "
+                            f"Original instructions: {instructions}\n"
+                            "Next step? Or 'done'."
+                        ).strip().lower()
+                        print("LLM suggestion:", sugg)
+                        if sugg == "done":
+                            print("Stopping early per LLM.")
+                            break
+
+                await browser.close()
+
+        # run the runner
+        try:
+            asyncio.run(runner())
+        except Exception as e:
+            print("Error in /play:", e)
+
+        # summary
+        print("\n--- /play summary ---")
+        for i, ok in enumerate(step_results,1):
+            print(f"Step {i}: {'Success' if ok else 'Failure'}")
+            
     # ---------------------------------------------------
     # /play command: natural-language testing via Playwright + LLM,
     # now with per-step success/failure, asserts, full logging, and summary.
-    def do_play(self, tokens):
+    def do_play3(self, tokens):
         if async_playwright is None:
             print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
             logging.debug("Playwright not installed.")
