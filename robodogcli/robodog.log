@@ -726,3 +726,24 @@ Call log:
 [2025-08-25 19:15:28,848] INFO:Shutting down MCP server
 [2025-08-25 19:19:20,263] INFO:Starting robodog
 [2025-08-25 19:19:20,265] INFO:MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
+[2025-08-25 19:21:09,477] INFO:Shutting down MCP server
+[2025-08-25 19:23:30,612] INFO:Starting robodog
+[2025-08-25 19:23:30,613] INFO:MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
+[2025-08-25 19:28:06,810] INFO:Shutting down MCP server
+[2025-08-25 19:28:44,640] INFO:Starting robodog
+[2025-08-25 19:28:44,641] INFO:MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
+[2025-08-25 19:32:31,309] INFO:Shutting down MCP server
+[2025-08-25 19:35:53,690] INFO:Starting robodog
+[2025-08-25 19:35:53,692] INFO:MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
+[2025-08-25 19:37:46,737] INFO:Shutting down MCP server
+[2025-08-25 19:38:01,713] INFO:Starting robodog
+[2025-08-25 19:38:01,718] INFO:MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
+[2025-08-25 19:49:12,459] INFO:Shutting down MCP server
+[2025-08-25 19:50:14,487] INFO: Starting Robodog MCP + CLI
+[2025-08-25 19:50:15,182] INFO: MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
+[2025-08-25 19:52:12,197] INFO: Shutting down MCP server
+[2025-08-25 19:52:17,221] INFO:Starting robodog
+[2025-08-25 19:52:17,222] INFO:MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
+[2025-08-25 19:54:33,117] INFO:Shutting down MCP server
+[2025-08-25 19:59:13,447] INFO:Starting robodog
+[2025-08-25 19:59:13,448] INFO:MCP file server on 127.0.0.1:2500, roots=['c:\\projects\\robodog\\robodogcli']
