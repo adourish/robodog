@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robodogcli"
-version = "2.6.6"
+version = "2.6.7"
 description = "Robodog"
 readme = "README.md"
 requires-python = ">=3.7"
