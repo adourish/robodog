@@ -585,3 +585,103 @@ Call log:
 [2025-08-24 21:49:49,943] INFO:Starting robodog
 [2025-08-24 21:49:49,945] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli', 'c:\\projects\\robodog\\robodoglib'] on 127.0.0.1:2500
 [2025-08-24 21:49:50,745] INFO:Model switched to o4-mini
+[2025-08-24 23:33:06,966] ERROR:[('127.0.0.1', 51147)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:33:06,968] ERROR:[('127.0.0.1', 51148)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:33:06,980] ERROR:[('127.0.0.1', 51144)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:33:09,861] ERROR:Include error: Error code: 400 - {'error': {'message': "This model's maximum context length is 200000 tokens. However, your messages resulted in 699642 tokens. Please reduce the length of the messages.", 'type': 'invalid_request_error', 'param': 'messages', 'code': 'context_length_exceeded'}}
+[2025-08-24 23:33:19,004] INFO:CLI session ended by user
+[2025-08-24 23:33:19,005] INFO:Shutting down MCP server
+[2025-08-24 23:33:48,774] INFO:Starting robodog
+[2025-08-24 23:33:48,776] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:33:49,563] INFO:Model switched to o4-mini
+[2025-08-24 23:33:52,992] ERROR:[('127.0.0.1', 63440)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:33:53,000] ERROR:[('127.0.0.1', 63441)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:33:53,042] ERROR:[('127.0.0.1', 63438)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:39:54,038] INFO:CLI session ended by user
+[2025-08-24 23:39:54,038] INFO:Shutting down MCP server
+[2025-08-24 23:40:00,202] INFO:Starting robodog
+[2025-08-24 23:40:00,203] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:40:00,953] INFO:Model switched to o4-mini
+[2025-08-24 23:41:57,141] ERROR:[('127.0.0.1', 60593)] Error: Not a directory: C:\Projects\robodog\robodogcli\"c:\projects\robodog\robodogcli"
+[2025-08-24 23:42:38,463] ERROR:[('127.0.0.1', 49364)] Error: Not a directory: C:\Projects\robodog\robodogcli\"c:\projects\robodog\robodogcli"
+[2025-08-24 23:42:57,380] ERROR:[('127.0.0.1', 56518)] Error: Not a directory: C:\Projects\robodog\robodogcli\"c:\projects\robodog\robodogcli"
+[2025-08-24 23:43:39,193] ERROR:[('127.0.0.1', 54136)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:43:39,197] ERROR:[('127.0.0.1', 54137)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:43:39,205] ERROR:[('127.0.0.1', 54134)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:44:57,064] INFO:CLI session ended by user
+[2025-08-24 23:44:57,065] INFO:Shutting down MCP server
+[2025-08-24 23:45:01,148] INFO:Starting robodog
+[2025-08-24 23:45:01,150] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:45:01,946] INFO:Model switched to o4-mini
+[2025-08-24 23:45:14,371] ERROR:Include error: name 'concurrent' is not defined
+[2025-08-24 23:45:55,836] INFO:CLI session ended by user
+[2025-08-24 23:45:55,836] INFO:Shutting down MCP server
+[2025-08-24 23:46:17,001] INFO:Starting robodog
+[2025-08-24 23:46:17,005] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:46:17,987] INFO:Model switched to o4-mini
+[2025-08-24 23:46:21,589] ERROR:[('127.0.0.1', 53055)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:46:21,590] ERROR:[('127.0.0.1', 53056)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:46:21,610] ERROR:[('127.0.0.1', 53054)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:46:23,101] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7-py3-none-any.whl: 'path'
+[2025-08-24 23:46:23,102] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7.tar.gz: 'path'
+[2025-08-24 23:46:23,123] ERROR:do_include read error for c:\projects\robodog\robodogcli\robodog.log: 'path'
+[2025-08-24 23:47:03,107] ERROR:[('127.0.0.1', 61526)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:47:03,117] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7-py3-none-any.whl: 'path'
+[2025-08-24 23:47:03,127] ERROR:[('127.0.0.1', 61527)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:47:03,149] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7.tar.gz: 'path'
+[2025-08-24 23:47:03,156] ERROR:[('127.0.0.1', 61524)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:47:03,166] ERROR:do_include read error for c:\projects\robodog\robodogcli\robodog.log: 'path'
+[2025-08-24 23:48:03,776] INFO:Shutting down MCP server
+[2025-08-24 23:48:09,128] INFO:Starting robodog
+[2025-08-24 23:48:09,129] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:48:09,834] INFO:Model switched to o4-mini
+[2025-08-24 23:48:16,287] ERROR:[('127.0.0.1', 59433)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:48:16,290] ERROR:[('127.0.0.1', 59434)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:48:16,309] ERROR:[('127.0.0.1', 59432)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:48:16,868] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7-py3-none-any.whl: 'path'
+[2025-08-24 23:48:16,868] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7.tar.gz: 'path'
+[2025-08-24 23:48:16,872] ERROR:do_include read error for c:\projects\robodog\robodogcli\robodog.log: 'path'
+[2025-08-24 23:48:26,435] INFO:Shutting down MCP server
+[2025-08-24 23:48:30,361] INFO:Starting robodog
+[2025-08-24 23:48:30,363] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:48:31,036] INFO:Model switched to o4-mini
+[2025-08-24 23:48:50,803] ERROR:[('127.0.0.1', 53961)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:48:50,809] ERROR:[('127.0.0.1', 53962)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:48:50,849] ERROR:[('127.0.0.1', 53959)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:48:51,293] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7-py3-none-any.whl: 'path'
+[2025-08-24 23:48:51,294] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7.tar.gz: 'path'
+[2025-08-24 23:48:51,329] ERROR:do_include read error for c:\projects\robodog\robodogcli\robodog.log: 'path'
+[2025-08-24 23:49:01,016] INFO:Shutting down MCP server
+[2025-08-24 23:49:06,088] INFO:Starting robodog
+[2025-08-24 23:49:06,089] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:49:06,794] INFO:Model switched to o4-mini
+[2025-08-24 23:49:28,155] ERROR:[('127.0.0.1', 52234)] Error: 'utf-8' codec can't decode byte 0xca in position 52: invalid continuation byte
+[2025-08-24 23:49:28,162] ERROR:[('127.0.0.1', 52237)] Error: 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+[2025-08-24 23:49:28,176] ERROR:[('127.0.0.1', 52235)] Error: 'utf-8' codec can't decode byte 0x92 in position 2621: invalid start byte
+[2025-08-24 23:49:28,688] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7-py3-none-any.whl: 'path'
+[2025-08-24 23:49:28,689] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7.tar.gz: 'path'
+[2025-08-24 23:49:28,712] ERROR:do_include read error for c:\projects\robodog\robodogcli\robodog.log: 'path'
+[2025-08-24 23:54:03,165] INFO:CLI session ended by user
+[2025-08-24 23:54:03,165] INFO:Shutting down MCP server
+[2025-08-24 23:54:07,834] INFO:Starting robodog
+[2025-08-24 23:54:07,835] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:54:08,660] INFO:Model switched to o4-mini
+[2025-08-24 23:54:17,481] ERROR:[('127.0.0.1', 57088)] Error: File is not valid UTF-8 text: c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7-py3-none-any.whl
+[2025-08-24 23:54:17,485] ERROR:[('127.0.0.1', 57089)] Error: File is not valid UTF-8 text: c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7.tar.gz
+[2025-08-24 23:54:17,490] ERROR:[('127.0.0.1', 57086)] Error: File is not valid UTF-8 text: c:\projects\robodog\robodogcli\robodog.log
+[2025-08-24 23:54:18,102] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7-py3-none-any.whl: 'path'
+[2025-08-24 23:54:18,103] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.7.tar.gz: 'path'
+[2025-08-24 23:54:18,103] ERROR:do_include read error for c:\projects\robodog\robodogcli\robodog.log: 'path'
+[2025-08-24 23:54:40,691] INFO:CLI session ended by user
+[2025-08-24 23:54:40,691] INFO:Shutting down MCP server
+[2025-08-24 23:58:29,883] INFO:Starting robodog
+[2025-08-24 23:58:29,887] INFO:Robodog MCP file server serving ['c:\\projects\\robodog\\robodogcli'] on 127.0.0.1:2500
+[2025-08-24 23:58:30,680] INFO:Model switched to o4-mini
+[2025-08-24 23:58:42,684] ERROR:[('127.0.0.1', 56980)] Error: File is not valid UTF-8 text: c:\projects\robodog\robodogcli\dist\robodogcli-2.6.8-py3-none-any.whl
+[2025-08-24 23:58:42,687] ERROR:[('127.0.0.1', 56981)] Error: File is not valid UTF-8 text: c:\projects\robodog\robodogcli\dist\robodogcli-2.6.8.tar.gz
+[2025-08-24 23:58:42,694] ERROR:[('127.0.0.1', 56978)] Error: File is not valid UTF-8 text: c:\projects\robodog\robodogcli\robodog.log
+[2025-08-24 23:58:43,238] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.8-py3-none-any.whl: 'path'
+[2025-08-24 23:58:43,238] ERROR:do_include read error for c:\projects\robodog\robodogcli\dist\robodogcli-2.6.8.tar.gz: 'path'
+[2025-08-24 23:58:43,239] ERROR:do_include read error for c:\projects\robodog\robodogcli\robodog.log: 'path'
+[2025-08-25 18:12:20,742] INFO:CLI session ended by user
+[2025-08-25 18:12:20,742] INFO:Shutting down MCP server

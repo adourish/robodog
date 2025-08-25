@@ -9,6 +9,10 @@ import yaml
 import argparse
 import json
 import requests
+import tiktoken
+import concurrent.futures
+import logging
+from pathlib import Path
 import threading
 import logging
 import socketserver
@@ -58,7 +62,20 @@ configs:
 # ----------------------------------------
 ROOTS = []
 TOKEN = None
-
+# at top‐of‐module, next to is_within_roots():
+def is_utf8_text(path: str, check_bytes: int = 4096) -> bool:
+    """
+    Return True if the first `check_bytes` of the file at `path`
+    can be decoded as UTF-8.  Otherwise return False.
+    """
+    try:
+        with open(path, 'rb') as f:
+            raw = f.read(check_bytes)
+        raw.decode('utf-8')
+        return True
+    except (UnicodeDecodeError, OSError):
+        return False
+    
 # ----------------------------------------
 # Security helper for MCP
 # ----------------------------------------
@@ -122,6 +139,23 @@ class MCPHandler(socketserver.StreamRequestHandler):
         if op == 'HELP':
             return {"commands": ["LIST_FILES","GET_ALL_CONTENTS","READ_FILE <json:{\"path\":\"...\"}>", "..."], "status":"ok"}
 
+        if op == 'SET_ROOTS':
+            # payload must be { "roots": [ "/path/a", "/path/b", … ] }
+            roots = payload.get("roots")
+            if not isinstance(roots, list):
+                raise ValueError("Missing or invalid 'roots' list")
+            new_roots = []
+            for r in roots:
+                # ensure each is a real directory
+                r_abs = os.path.abspath(r)
+                if not os.path.isdir(r_abs):
+                    raise FileNotFoundError(f"Not a directory: {r_abs}")
+                new_roots.append(r_abs)
+            # overwrite global ROOTS
+            global ROOTS
+            ROOTS = new_roots
+            return {"status":"ok","roots":ROOTS}
+    
         if op == 'LIST_FILES':
             files = []
             for root in ROOTS:
@@ -129,6 +163,23 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     for fn in filenames:
                         files.append(os.path.join(dirpath, fn))
             return {"files": files, "status": "ok"}
+
+        if op == 'GET_ALL_CONTENTS':
+            contents = []
+            for root in ROOTS:
+                for dirpath, _, filenames in os.walk(root):
+                    for fn in filenames:
+                        fp = os.path.join(dirpath, fn)
+                        if not is_utf8_text(fp):
+                            # skip binaries & non-UTF8
+                            continue
+                        try:
+                            with open(fp, 'r', encoding='utf-8') as f:
+                                blob = f.read()
+                        except Exception as e:
+                            blob = f"<error reading {fp}: {e}>"
+                        contents.append({"path": fp, "content": blob})
+            return {"contents": contents, "status": "ok"}
 
         if op == 'GET_ALL_CONTENTS':
             contents = []
@@ -145,10 +196,20 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
         if op == 'READ_FILE':
             path = payload.get("path")
-            if not path: raise ValueError("Missing 'path'")
-            if not is_within_roots(path): raise PermissionError("Not allowed")
-            if not os.path.isfile(path): raise FileNotFoundError(path)
-            data = open(path, 'r', encoding='utf-8').read()
+            if not path:
+                raise ValueError("Missing 'path'")
+            # security check
+            if not is_within_roots(path):
+                raise PermissionError("Not allowed")
+            # file existence
+            if not os.path.isfile(path):
+                raise FileNotFoundError(path)
+            # only UTF-8 text files:
+            if not is_utf8_text(path):
+                raise ValueError(f"File is not valid UTF-8 text: {path}")
+            # now safe to read as UTF-8
+            with open(path, 'r', encoding='utf-8') as f:
+                data = f.read()
             return {"path": path, "content": data, "status": "ok"}
 
         if op == 'UPDATE_FILE':
@@ -472,6 +533,29 @@ class RoboDogCLI:
         # Bypass MCP and always use direct OpenAI call to avoid unsupported 'COMPLETE' op
         return self.ask(prompt)
 
+    def do_folders(self, tokens):
+        """
+        /folders <dir1> [dir2 …]
+        Update the MCP server’s list of root folders.
+        """
+        if not tokens:
+            print("Usage: /folders <folder1> [folder2] …")
+            return
+
+        # locally warn if any folder doesn’t exist
+        for d in tokens:
+            if not os.path.isdir(d):
+                print(f"Warning: {d} is not a directory")
+
+        try:
+            resp = self.call_mcp("SET_ROOTS", {"roots": tokens})
+            updated = resp.get("roots", [])
+            print("MCP server root folders are now:")
+            for r in updated:
+                print("  " + r)
+        except Exception as e:
+            print("Error updating folders:", e)
+
     # ---------------------------------------------------
     # /include command (unchanged)...
     def parse_include(self, text: str) -> dict:
@@ -500,8 +584,31 @@ class RoboDogCLI:
         elif p0.startswith("pattern="):
             cmd["type"]="pattern"; cmd["pattern"]=p0.split("=",1)[1]; cmd["recursive"]=True
         return cmd
-    
-    def do_include(self, tokens):
+
+    def do_folders(self, tokens):
+        """
+        /folders <dir1> [dir2 …]
+        Update the MCP server’s list of root folders.
+        """
+        if not tokens:
+            print("Usage: /folders <folder1> [folder2] …")
+            return
+
+        # locally warn if any folder doesn’t exist
+        for d in tokens:
+            if not os.path.isdir(d):
+                print(f"Warning: {d} is not a directory")
+
+        try:
+            resp = self.call_mcp("SET_ROOTS", {"roots": tokens})
+            updated = resp.get("roots", [])
+            print("MCP server root folders are now:")
+            for r in updated:
+                print("  " + r)
+        except Exception as e:
+            print("Error updating folders:", e)
+
+    def do_include2(self, tokens):
         import concurrent.futures, logging
         from pathlib import Path
 
@@ -601,7 +708,121 @@ class RoboDogCLI:
         except Exception as e:
             print("include error:", e)
             logging.error(f"Include error: {e}")
-            
+
+    def do_include(self, tokens):
+        """
+        /include [all|file=…|dir=… [pattern=…] [recursive]] [prompt]
+
+        Includes files into knowledge, printing word & token counts per file.
+        """
+        MAX_FILES    = 500
+        READ_TIMEOUT = 30
+        MAX_WORKERS  = 8
+
+        if not tokens:
+            print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
+            return
+
+        # split out spec vs prompt
+        spec_tokens, prompt_tokens = [], []
+        for i, t in enumerate(tokens):
+            if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
+                spec_tokens.append(t)
+            else:
+                prompt_tokens = tokens[i:]
+                break
+        spec   = " ".join(spec_tokens)
+        prompt = " ".join(prompt_tokens).strip() if prompt_tokens else None
+
+        inc = self.parse_include(spec)
+
+        try:
+            # 1) Build SEARCH payloads
+            searches = []
+            if inc["type"] == "dir":
+                searches.append({
+                    "root": inc["dir"],
+                    "pattern": inc["pattern"],
+                    "recursive": inc["recursive"]
+                })
+            else:
+                pat = "*"
+                if inc["type"] == "file":
+                    pat = inc["file"]
+                elif inc["type"] == "pattern":
+                    pat = inc["pattern"]
+                searches.append({
+                    "pattern": pat,
+                    "recursive": True
+                })
+
+            # 2) Find matches
+            matches = []
+            for payload in searches:
+                res = self.call_mcp("SEARCH", payload, timeout=READ_TIMEOUT)
+                matches.extend(res.get("matches", []))
+
+            # filter out node_modules
+            matches = [m for m in matches if "node_modules" not in Path(m).parts]
+
+            if not matches:
+                raise RuntimeError(f"No files matching '{inc.get('pattern') or inc.get('file') or '*'}'")
+
+            total = len(matches)
+            if total > MAX_FILES:
+                ans = input(f"{total} files match your include. Continue? [y/N] ")
+                if ans.strip().lower() != "y":
+                    print("Include cancelled.")
+                    return
+
+            # 3) Read files in parallel
+            included = []
+            def _read(path):
+                return self.call_mcp("READ_FILE", {"path": path}, timeout=READ_TIMEOUT)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+                fut2path = { pool.submit(_read, p): p for p in matches }
+                for fut in concurrent.futures.as_completed(fut2path):
+                    p = fut2path[fut]
+                    try:
+                        blob = fut.result()
+                        content = blob.get("content", "")
+                        # word count
+                        words = content.split()
+                        wc = len(words)
+                        # token count via tiktoken
+                        try:
+                            enc = tiktoken.encoding_for_model(self.cur_model)
+                        except Exception:
+                            enc = tiktoken.get_encoding("gpt2")
+                        tc = len(enc.encode(content))
+                        included.append(blob)
+                        print(f"Included: {blob['path']}  (words: {wc}, tokens: {tc})")
+                    except Exception as e:
+                        print(f"Error reading {p}: {e}")
+                        logging.error(f"do_include read error for {p}: {e}")
+
+            # 4) Stitch into knowledge
+            combined = "\n".join(b.get("content","") for b in included)
+            if combined:
+                self.knowledge += "\n" + combined + "\n"
+                print(f"Included {len(included)} files into knowledge (total words: {sum(len(b.get('content','').split()) for b in included)}, "
+                      f"total tokens: {sum(len(enc.encode(b.get('content',''))) for b in included)})")
+            else:
+                print("No content to include.")
+
+            # 5) If prompt given, immediately ask
+            if prompt:
+                print(f"Prompt → {prompt}")
+                self.context += f"\nUser: {prompt}"
+                ans = self.ask(prompt)
+                self.context += f"\nAI: {ans}"
+            else:
+                print("No prompt given after include; nothing asked.")
+
+        except Exception as e:
+            print("include error:", e)
+            logging.error(f"Include error: {e}")
 
     def do_include8(self, tokens):
         import concurrent.futures, logging
@@ -1279,6 +1500,7 @@ class RoboDogCLI:
             "pop <name>":          "restore stash named <name>",
             "list":                "list all stashes",
             "temperature <n>":     "set temperature (0–2)",
+            "folders <dirs>": "set MCP root folders",
             "top_p <n>":           "set nucleus sampling (0–1)",
             "frequency_penalty <n>":"set frequency penalty (−2–2)",
             "presence_penalty <n>":"set presence penalty (−2–2)",
@@ -1360,6 +1582,7 @@ class RoboDogCLI:
                     "include": self.do_include,
                     "curl":   self.do_curl,
                     "play":   self.do_play,
+                    "folders": self.do_folders,
                 }.get(cmd)
                 if fn:
                     fn(args)
