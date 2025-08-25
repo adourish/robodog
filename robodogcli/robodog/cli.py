@@ -14,12 +14,10 @@ import concurrent.futures
 import logging
 from pathlib import Path
 import threading
-import logging
 import socketserver
 import fnmatch
 import hashlib
 import asyncio
-from pathlib import Path
 from pprint import pprint
 from openai import OpenAI
 
@@ -62,11 +60,11 @@ configs:
 # ----------------------------------------
 ROOTS = []
 TOKEN = None
-# at top‐of‐module, next to is_within_roots():
+
 def is_utf8_text(path: str, check_bytes: int = 4096) -> bool:
     """
     Return True if the first `check_bytes` of the file at `path`
-    can be decoded as UTF-8.  Otherwise return False.
+    can be decoded as UTF-8.
     """
     try:
         with open(path, 'rb') as f:
@@ -75,43 +73,36 @@ def is_utf8_text(path: str, check_bytes: int = 4096) -> bool:
         return True
     except (UnicodeDecodeError, OSError):
         return False
-    
-# ----------------------------------------
-# Security helper for MCP
-# ----------------------------------------
+
 def is_within_roots(path: str) -> bool:
-    ap = os.path.abspath(path)
-    ap = os.path.realpath(ap)
+    """
+    Security check: ensure `path` is within one of the ROOTS.
+    """
+    ap = os.path.realpath(os.path.abspath(path))
     for r in ROOTS:
-        rr = os.path.realpath(r)
-        if os.path.commonpath([rr, ap]) == rr:
+        if os.path.commonpath([os.path.realpath(r), ap]) == os.path.realpath(r):
             return True
     return False
 
 def load_or_create_config(config_path: str) -> dict:
     """
     Ensure a Robodog YAML config exists at config_path.
-    If missing, ask the user whether to create DEFAULT_CONFIG.
-    Returns the loaded configs dict, or exits on error/refusal.
+    If missing, offer to create DEFAULT_CONFIG.
     """
-    # DEFAULT_CONFIG is already defined in your module
     if not os.path.exists(config_path):
         resp = input(
             f"Config file not found at '{config_path}'.\n"
-            "Would you like to create a new default config? [Y/n]: "
+            "Create a new default config? [Y/n]: "
         ).strip().lower()
         if resp in ("", "y", "yes"):
-            parent = os.path.dirname(config_path) or "."
-            os.makedirs(parent, exist_ok=True)
+            os.makedirs(os.path.dirname(config_path) or ".", exist_ok=True)
             with open(config_path, "w", encoding="utf-8") as f:
-                # write the module’s DEFAULT_CONFIG constant
-                f.write(DEFAULT_CONFIG.lstrip() if DEFAULT_CONFIG.startswith("\n") else DEFAULT_CONFIG)
-            print(f"Created default config at '{config_path}'. Edit it as needed and re-run.")
+                f.write(DEFAULT_CONFIG.lstrip())
+            print(f"Created default config at '{config_path}'. Edit it and re-run.")
+            sys.exit(0)
         else:
             print("Aborting: a configuration file is required.")
             sys.exit(1)
-
-    # Now load and validate
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
@@ -137,135 +128,125 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
         # Dispatch commands...
         if op == 'HELP':
-            return {"commands": ["LIST_FILES","GET_ALL_CONTENTS","READ_FILE <json:{\"path\":\"...\"}>", "..."], "status":"ok"}
+            return {"commands": [
+                "LIST_FILES",
+                "GET_ALL_CONTENTS",
+                "READ_FILE {\"path\":...}",
+                "UPDATE_FILE {\"path\":...,\"content\":...}",
+                "CREATE_FILE",
+                "DELETE_FILE",
+                "APPEND_FILE",
+                "CREATE_DIR",
+                "DELETE_DIR",
+                "RENAME",
+                "COPY_FILE",
+                "SEARCH",
+                "CHECKSUM",
+                "..."], "status":"ok"}
 
         if op == 'SET_ROOTS':
-            # payload must be { "roots": [ "/path/a", "/path/b", … ] }
             roots = payload.get("roots")
             if not isinstance(roots, list):
                 raise ValueError("Missing or invalid 'roots' list")
             new_roots = []
             for r in roots:
-                # ensure each is a real directory
                 r_abs = os.path.abspath(r)
                 if not os.path.isdir(r_abs):
                     raise FileNotFoundError(f"Not a directory: {r_abs}")
                 new_roots.append(r_abs)
-            # overwrite global ROOTS
             global ROOTS
             ROOTS = new_roots
             return {"status":"ok","roots":ROOTS}
-    
+
         if op == 'LIST_FILES':
             files = []
             for root in ROOTS:
-                for dirpath, _, filenames in os.walk(root):
-                    for fn in filenames:
-                        files.append(os.path.join(dirpath, fn))
-            return {"files": files, "status": "ok"}
+                for dp, _, fns in os.walk(root):
+                    for fn in fns:
+                        files.append(os.path.join(dp, fn))
+            return {"files": files, "status":"ok"}
 
         if op == 'GET_ALL_CONTENTS':
             contents = []
             for root in ROOTS:
-                for dirpath, _, filenames in os.walk(root):
-                    for fn in filenames:
-                        fp = os.path.join(dirpath, fn)
+                for dp, _, fns in os.walk(root):
+                    for fn in fns:
+                        fp = os.path.join(dp, fn)
                         if not is_utf8_text(fp):
-                            # skip binaries & non-UTF8
                             continue
                         try:
-                            with open(fp, 'r', encoding='utf-8') as f:
-                                blob = f.read()
+                            txt = open(fp, 'r', encoding='utf-8').read()
                         except Exception as e:
-                            blob = f"<error reading {fp}: {e}>"
-                        contents.append({"path": fp, "content": blob})
-            return {"contents": contents, "status": "ok"}
-
-        if op == 'GET_ALL_CONTENTS':
-            contents = []
-            for root in ROOTS:
-                for dirpath, _, filenames in os.walk(root):
-                    for fn in filenames:
-                        fp = os.path.join(dirpath, fn)
-                        try:
-                            data = open(fp, 'r', encoding='utf-8').read()
-                        except Exception as e:
-                            data = f"<error: {e}>"
-                        contents.append({"path": fp, "content": data})
-            return {"contents": contents, "status": "ok"}
+                            txt = f"<error reading {fp}: {e}>"
+                        contents.append({"path": fp, "content": txt})
+            return {"contents": contents, "status":"ok"}
 
         if op == 'READ_FILE':
             path = payload.get("path")
-            if not path:
-                raise ValueError("Missing 'path'")
-            # security check
-            if not is_within_roots(path):
-                raise PermissionError("Not allowed")
-            # file existence
-            if not os.path.isfile(path):
-                raise FileNotFoundError(path)
-            # only UTF-8 text files:
-            if not is_utf8_text(path):
-                raise ValueError(f"File is not valid UTF-8 text: {path}")
-            # now safe to read as UTF-8
-            with open(path, 'r', encoding='utf-8') as f:
-                data = f.read()
-            return {"path": path, "content": data, "status": "ok"}
+            if not path: raise ValueError("Missing 'path'")
+            if not is_within_roots(path): raise PermissionError("Not allowed")
+            if not os.path.isfile(path): raise FileNotFoundError(path)
+            if not is_utf8_text(path): raise ValueError(f"Not valid UTF-8: {path}")
+            data = open(path, 'r', encoding='utf-8').read()
+            return {"path": path, "content": data, "status":"ok"}
 
         if op == 'UPDATE_FILE':
             path = payload.get("path"); content = payload.get("content")
-            if path is None or content is None: raise ValueError("Need path and content")
+            if path is None or content is None:
+                raise ValueError("Need 'path' and 'content'")
             if not is_within_roots(path): raise PermissionError("Not allowed")
             parent = os.path.dirname(path)
             if not os.path.isdir(parent): raise FileNotFoundError(parent)
             open(path, 'w', encoding='utf-8').write(content)
-            return {"path": path, "status": "ok"}
+            return {"path": path, "status":"ok"}
 
         if op == 'CREATE_FILE':
             path = payload.get("path"); content = payload.get("content","")
-            if not path: raise ValueError("Missing path")
+            if not path: raise ValueError("Missing 'path'")
             if not is_within_roots(path): raise PermissionError("Not allowed")
             parent = os.path.dirname(path)
             if not os.path.isdir(parent): raise FileNotFoundError(parent)
             open(path, 'w', encoding='utf-8').write(content)
-            return {"path": path, "status": "ok"}
+            return {"path": path, "status":"ok"}
 
         if op == 'DELETE_FILE':
             path = payload.get("path")
-            if not path: raise ValueError("Missing path")
+            if not path: raise ValueError("Missing 'path'")
             if not is_within_roots(path): raise PermissionError("Not allowed")
             if not os.path.isfile(path): raise FileNotFoundError(path)
             os.remove(path)
-            return {"path": path, "status": "ok"}
+            return {"path": path, "status":"ok"}
 
         if op == 'APPEND_FILE':
             path = payload.get("path"); content = payload.get("content","")
-            if not path: raise ValueError("Missing path")
+            if not path: raise ValueError("Missing 'path'")
             if not is_within_roots(path): raise PermissionError("Not allowed")
             open(path, 'a', encoding='utf-8').write(content)
-            return {"path": path, "status": "ok"}
+            return {"path": path, "status":"ok"}
 
         if op == 'CREATE_DIR':
             path = payload.get("path"); mode = payload.get("mode", 0o755)
-            if not path: raise ValueError("Missing path")
+            if not path: raise ValueError("Missing 'path'")
             if not is_within_roots(path): raise PermissionError("Not allowed")
             os.makedirs(path, mode, exist_ok=True)
-            return {"path": path, "status": "ok"}
+            return {"path": path, "status":"ok"}
 
         if op == 'DELETE_DIR':
             path = payload.get("path"); recursive = payload.get("recursive", False)
-            if not path: raise ValueError("Missing path")
+            if not path: raise ValueError("Missing 'path'")
             if not is_within_roots(path): raise PermissionError("Not allowed")
             if recursive:
                 shutil.rmtree(path)
             else:
                 os.rmdir(path)
-            return {"path": path, "status": "ok"}
+            return {"path": path, "status":"ok"}
 
         if op in ('RENAME','MOVE'):
             src = payload.get("src"); dst = payload.get("dst")
-            if not src or not dst: raise ValueError("Need src and dst")
-            if not is_within_roots(src) or not is_within_roots(dst): raise PermissionError("Not allowed")
+            if not src or not dst:
+                raise ValueError("Need 'src' and 'dst'")
+            if not is_within_roots(src) or not is_within_roots(dst):
+                raise PermissionError("Not allowed")
             parent = os.path.dirname(dst)
             if not os.path.isdir(parent): raise FileNotFoundError(parent)
             os.rename(src, dst)
@@ -273,8 +254,10 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
         if op == 'COPY_FILE':
             src = payload.get("src"); dst = payload.get("dst")
-            if not src or not dst: raise ValueError("Need src and dst")
-            if not is_within_roots(src) or not is_within_roots(dst): raise PermissionError("Not allowed")
+            if not src or not dst:
+                raise ValueError("Need 'src' and 'dst'")
+            if not is_within_roots(src) or not is_within_roots(dst):
+                raise PermissionError("Not allowed")
             parent = os.path.dirname(dst)
             if not os.path.isdir(parent): raise FileNotFoundError(parent)
             shutil.copy2(src, dst)
@@ -282,7 +265,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
         if op == 'SEARCH':
             raw = payload.get("pattern","*")
-            patterns = raw.split('|') if isinstance(raw,str) else [raw]
+            patterns = raw.split('|') if isinstance(raw, str) else [raw]
             recursive = payload.get("recursive", True)
             root = payload.get("root","")
             matches = []
@@ -290,19 +273,21 @@ class MCPHandler(socketserver.StreamRequestHandler):
             for r in roots:
                 if not os.path.isdir(r): continue
                 if recursive:
-                    for dp,_,fns in os.walk(r):
+                    for dp, _, fns in os.walk(r):
                         for fn in fns:
-                            fp = os.path.join(dp,fn)
+                            fp = os.path.join(dp, fn)
                             for pat in patterns:
-                                if fnmatch.fnmatch(fn,pat) or fnmatch.fnmatch(fp,pat):
-                                    matches.append(fp); break
+                                if fnmatch.fnmatch(fp, pat):
+                                    matches.append(fp)
+                                    break
                 else:
                     for fn in os.listdir(r):
-                        fp = os.path.join(r,fn)
+                        fp = os.path.join(r, fn)
                         if not os.path.isfile(fp): continue
                         for pat in patterns:
-                            if fnmatch.fnmatch(fn,pat) or fnmatch.fnmatch(fp,pat):
-                                matches.append(fp); break
+                            if fnmatch.fnmatch(fp, pat):
+                                matches.append(fp)
+                                break
             return {"matches": matches, "status":"ok"}
 
         if op == 'CHECKSUM':
@@ -310,7 +295,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
             if not path: raise ValueError("Missing 'path'")
             if not is_within_roots(path): raise PermissionError("Not allowed")
             h = hashlib.sha256()
-            with open(path,'rb') as f:
+            with open(path, 'rb') as f:
                 for chunk in iter(lambda: f.read(8192), b''):
                     h.update(chunk)
             return {"path": path, "checksum": h.hexdigest(), "status":"ok"}
@@ -319,10 +304,6 @@ class MCPHandler(socketserver.StreamRequestHandler):
             return {"message":"Goodbye!","status":"ok"}
 
         raise ValueError(f"Unknown command '{op}'")
-
-    def send_json(self, obj: dict):
-        raw = json.dumps(obj, ensure_ascii=False) + "\n"
-        self.wfile.write(raw.encode('utf-8'))
 
     def handle(self):
         peer = self.client_address
@@ -333,24 +314,20 @@ class MCPHandler(socketserver.StreamRequestHandler):
         is_http = first.upper().startswith(("GET ","POST ","OPTIONS ")) and "HTTP/" in first
 
         if is_http:
-            logging.debug(f"[{peer}] HTTP request: {first}")
-            # parse request line
+            # Parse HTTP request, support CORS & bearer auth
             try:
                 method, uri, version = first.split(None,2)
             except:
-                self.send_http_error(400,"Bad Request"); return
+                return
             method = method.upper()
-
-            # read headers
             headers = {}
             while True:
-                line = self.rfile.readline().decode('utf-8',errors='ignore')
-                if not line or line in ('\r\n','\n'): break
-                name,val = line.split(":",1)
+                line = self.rfile.readline().decode('utf-8', errors='ignore')
+                if not line or line in ('\r\n','\n'):
+                    break
+                name, val = line.split(":",1)
                 headers[name.lower().strip()] = val.strip()
-
-            # CORS preflight
-            if method=='OPTIONS':
+            if method == 'OPTIONS':
                 resp = ["HTTP/1.1 204 No Content",
                         "Access-Control-Allow-Origin: *",
                         "Access-Control-Allow-Methods: POST, OPTIONS",
@@ -359,18 +336,14 @@ class MCPHandler(socketserver.StreamRequestHandler):
                         "Connection: close","",""]
                 self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
                 return
-
-            if method!='POST':
+            if method != 'POST':
                 resp = ["HTTP/1.1 405 Method Not Allowed",
                         "Access-Control-Allow-Origin: *",
                         "Allow: POST, OPTIONS",
                         "Content-Type: text/plain; charset=utf-8",
-                        "Content-Length: 23",
-                        "Connection: close","","Only POST is supported\n"]
+                        "Connection: close","", "Only POST supported\n"]
                 self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
                 return
-
-            # auth
             authz = headers.get('authorization','')
             if authz != f"Bearer {TOKEN}":
                 body = json.dumps({"status":"error","error":"Authentication required"})
@@ -381,35 +354,27 @@ class MCPHandler(socketserver.StreamRequestHandler):
                         "Connection: close","", body]
                 self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
                 return
-
-            # read body
             length = int(headers.get('content-length','0'))
             raw_body = self.rfile.read(length).decode('utf-8', errors='ignore').strip()
-            logging.debug(f"[{peer}] HTTP POST body: {raw_body!r}")
-
             try:
                 parts = raw_body.split(' ',1)
-                op = parts[0].upper()
+                op  = parts[0].upper()
                 arg = parts[1] if len(parts)>1 else None
-                result = self.execute_command(op,arg)
+                result = self.execute_command(op, arg)
             except Exception as e:
-                logging.error(f"[{peer}] Error: {e}")
                 result = {"status":"error","error": str(e)}
-
-            json_body = json.dumps(result, ensure_ascii=False)
+            body = json.dumps(result, ensure_ascii=False)
             resp = ["HTTP/1.1 200 OK",
                     "Access-Control-Allow-Origin: *",
                     "Access-Control-Allow-Headers: Content-Type, Authorization",
                     "Content-Type: application/json; charset=utf-8",
-                    f"Content-Length: {len(json_body.encode('utf-8'))}",
-                    "Connection: close","", json_body]
+                    f"Content-Length: {len(body.encode('utf-8'))}",
+                    "Connection: close","", body]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
-            return
 
-        # raw‐TCP not supported
-        logging.info(f"[{peer}] Closing raw connection")
-        return
-
+# ----------------------------------------
+# Threaded TCP server for MCP
+# ----------------------------------------
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -420,15 +385,12 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 class RoboDogCLI:
     def __init__(self, config_path: str, api_key: str = None):
         cfg = load_or_create_config(config_path)
-
-        self.provider_map = {p["provider"]: p for p in cfg["providers"]}
-        self.cfg_models   = cfg["models"]
-        self.mcp          = cfg.get("mcpServer", {})
-
-        self.context      = ""
-        self.knowledge    = ""
-        self.stash        = {}
-
+        self.provider_map   = {p["provider"]: p for p in cfg["providers"]}
+        self.cfg_models     = cfg["models"]
+        self.mcp            = cfg.get("mcpServer", {})
+        self.context        = ""
+        self.knowledge      = ""
+        self.stash          = {}
         mdl = self.cfg_models[0]
         self.cur_model       = mdl["model"]
         self.stream          = mdl.get("stream", True)
@@ -437,7 +399,6 @@ class RoboDogCLI:
         self.max_tokens      = 1024
         self.frequency_penalty = 0.0
         self.presence_penalty  = 0.0
-
         self.api_key = (
             api_key
             or os.getenv("OPENAI_API_KEY")
@@ -445,7 +406,6 @@ class RoboDogCLI:
         )
         if not self.api_key:
             raise RuntimeError("Missing API key")
-
         self.client = OpenAI(api_key=self.api_key)
 
     def model_provider(self, model_name: str):
@@ -463,42 +423,13 @@ class RoboDogCLI:
             "Authorization": f"Bearer {self.mcp['apiKey']}"
         }
         body = f"{op} {json.dumps(payload)}\n"
-        r = requests.post(url, headers=headers, data=body, timeout=timeout)
-        r.raise_for_status()
-        lines = r.text.strip().split("\n")
+        resp = requests.post(url, headers=headers, data=body, timeout=timeout)
+        resp.raise_for_status()
+        lines = resp.text.strip().split("\n")
         return json.loads(lines[-1])
 
     # ---------------------------------------------------
-    # /model command
-    def set_model(self, tokens):
-        if not tokens:
-            models = [m["model"] for m in self.cfg_models]
-            print("Usage: /model <model_name>")
-            print("Available models:", ", ".join(models))
-            return
-
-        new_model = tokens[0]
-        models = [m["model"] for m in self.cfg_models]
-        if new_model not in models:
-            print(f"Unknown model: '{new_model}'")
-            print("Available models:", ", ".join(models))
-            return
-
-        self.cur_model = new_model
-        prov = self.model_provider(self.cur_model)
-        self.api_key = (
-            os.getenv("OPENAI_API_KEY")
-            or self.provider_map[prov]["apiKey"]
-        )
-        if not self.api_key:
-            print(f"No API key for provider '{prov}'")
-            return
-        self.client = OpenAI(api_key=self.api_key)
-        print(f"Model set to: {self.cur_model}")
-        logging.info(f"Model switched to {self.cur_model}")
-
-    # ---------------------------------------------------
-    # ask via OpenAI
+    # Core LLM ask
     def ask(self, prompt: str) -> str:
         messages = [
             {"role":"system","content":"You are Robodog, a helpful assistant."},
@@ -518,9 +449,9 @@ class RoboDogCLI:
         answer = ""
         if self.stream:
             for chunk in resp:
-                delta = getattr(chunk.choices[0].delta,"content",None)
+                delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
-                    print(delta,end="",flush=True)
+                    print(delta, end="", flush=True)
                     answer += delta
             print()
         else:
@@ -528,216 +459,107 @@ class RoboDogCLI:
         return answer
 
     # ---------------------------------------------------
-    # ask via MCP or OpenAI
-    def ask2(self, prompt: str) -> str:
-        # Bypass MCP and always use direct OpenAI call to avoid unsupported 'COMPLETE' op
-        return self.ask(prompt)
-
-    def do_folders(self, tokens):
-        """
-        /folders <dir1> [dir2 …]
-        Update the MCP server’s list of root folders.
-        """
+    # /model
+    def set_model(self, tokens):
         if not tokens:
-            print("Usage: /folders <folder1> [folder2] …")
+            print("Usage: /model <model_name>")
+            print("Available models:", ", ".join(m["model"] for m in self.cfg_models))
             return
-
-        # locally warn if any folder doesn’t exist
-        for d in tokens:
-            if not os.path.isdir(d):
-                print(f"Warning: {d} is not a directory")
-
-        try:
-            resp = self.call_mcp("SET_ROOTS", {"roots": tokens})
-            updated = resp.get("roots", [])
-            print("MCP server root folders are now:")
-            for r in updated:
-                print("  " + r)
-        except Exception as e:
-            print("Error updating folders:", e)
+        new_model = tokens[0]
+        if new_model not in [m["model"] for m in self.cfg_models]:
+            print(f"Unknown model: '{new_model}'")
+            return
+        prov = self.model_provider(new_model)
+        if not prov or prov not in self.provider_map:
+            print(f"Provider '{prov}' not configured.")
+            return
+        self.cur_model = new_model
+        self.api_key = (
+            os.getenv("OPENAI_API_KEY")
+            or self.provider_map[prov].get("apiKey")
+        )
+        if not self.api_key:
+            print(f"No API key for provider '{prov}'")
+            return
+        self.client = OpenAI(api_key=self.api_key)
+        print(f"Model set to: {self.cur_model}")
 
     # ---------------------------------------------------
-    # /include command (unchanged)...
+    # /models
+    def do_models(self, tokens):
+        print("Available models:")
+        for m in self.cfg_models:
+            line = f"  {m['model']} (provider: {m['provider']})"
+            if m.get("about"):
+                line += f" – {m['about']}"
+            print(line)
+
+    # ---------------------------------------------------
+    # /folders
+    def do_folders(self, tokens):
+        if not tokens:
+            print("Usage: /folders <dir1> [dir2 …]")
+            return
+        for d in tokens:
+            if not os.path.isdir(d):
+                print(f"Warning: '{d}' is not a directory")
+        try:
+            resp = self.call_mcp("SET_ROOTS", {"roots": tokens})
+            print("MCP server roots:")
+            for r in resp.get("roots", []):
+                print("  " + r)
+        except Exception as e:
+            print("Error updating roots:", e)
+
+    # ---------------------------------------------------
+    # /include (unchanged)
     def parse_include(self, text: str) -> dict:
         parts = text.strip().split()
         cmd = {"type":None,"file":None,"dir":None,"pattern":"*","recursive":False}
-        if not parts: return cmd
+        if not parts:
+            return cmd
         p0 = parts[0]
-        if p0=="all":
-            cmd["type"]="all"
+        if p0 == "all":
+            cmd["type"] = "all"
         elif p0.startswith("file="):
             spec = p0[5:]
-            if re.search(r"[*?\[]",spec):
-                cmd["type"]="pattern"; cmd["pattern"],cmd["dir"],cmd["recursive"]=spec,"",True
+            if re.search(r"[*?\[]", spec):
+                cmd["type"],cmd["pattern"],cmd["recursive"] = "pattern", spec, True
             else:
-                cmd["type"],cmd["file"]="file",spec
+                cmd["type"],cmd["file"] = "file", spec
         elif p0.startswith("dir="):
             spec = p0[4:]
-            cmd["type"],cmd["dir"]="dir",spec
+            cmd["type"],cmd["dir"] = "dir", spec
             for p in parts[1:]:
                 if p.startswith("pattern="):
-                    cmd["pattern"]=p.split("=",1)[1]
-                if p=="recursive":
-                    cmd["recursive"]=True
-            if re.search(r"[*?\[]",spec):
-                cmd["type"],cmd["pattern"],cmd["dir"],cmd["recursive"]="pattern",spec,"",True
+                    cmd["pattern"] = p.split("=",1)[1]
+                if p == "recursive":
+                    cmd["recursive"] = True
+            if re.search(r"[*?\[]", spec):
+                cmd["type"],cmd["pattern"],cmd["recursive"] = "pattern", spec, True
         elif p0.startswith("pattern="):
-            cmd["type"]="pattern"; cmd["pattern"]=p0.split("=",1)[1]; cmd["recursive"]=True
+            cmd["type"],cmd["pattern"],cmd["recursive"] = "pattern", p0.split("=",1)[1], True
         return cmd
 
-    def do_folders(self, tokens):
-        """
-        /folders <dir1> [dir2 …]
-        Update the MCP server’s list of root folders.
-        """
-        if not tokens:
-            print("Usage: /folders <folder1> [folder2] …")
-            return
-
-        # locally warn if any folder doesn’t exist
-        for d in tokens:
-            if not os.path.isdir(d):
-                print(f"Warning: {d} is not a directory")
-
-        try:
-            resp = self.call_mcp("SET_ROOTS", {"roots": tokens})
-            updated = resp.get("roots", [])
-            print("MCP server root folders are now:")
-            for r in updated:
-                print("  " + r)
-        except Exception as e:
-            print("Error updating folders:", e)
-
-    def do_include2(self, tokens):
-        import concurrent.futures, logging
-        from pathlib import Path
-
-        MAX_FILES    = 500
-        READ_TIMEOUT = 30
-        MAX_WORKERS  = 8
-
-        if not tokens:
-            print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
-            return
-
-        # split out spec vs prompt
-        spec_tokens, prompt_tokens = [], []
-        for i, t in enumerate(tokens):
-            if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
-                spec_tokens.append(t)
-            else:
-                prompt_tokens = tokens[i:]
-                break
-        spec = " ".join(spec_tokens)
-        prompt = " ".join(prompt_tokens).strip() if prompt_tokens else None
-
-        inc = self.parse_include(spec)
-        try:
-            # 1) Build SEARCH payloads
-            searches = []
-            if inc["type"] == "dir":
-                searches.append({
-                    "root": inc["dir"],
-                    "pattern": inc["pattern"],
-                    "recursive": inc["recursive"]
-                })
-            else:
-                pat = "*"
-                if inc["type"] == "file":
-                    pat = inc["file"]
-                elif inc["type"] == "pattern":
-                    pat = inc["pattern"]
-                searches.append({
-                    "pattern": pat,
-                    "recursive": True
-                })
-
-            # 2) Find matches
-            matches = []
-            for payload in searches:
-                res = self.call_mcp("SEARCH", payload, timeout=READ_TIMEOUT)
-                matches.extend(res.get("matches", []))
-
-            # filter out node_modules
-            matches = [m for m in matches if "node_modules" not in Path(m).parts]
-
-            if not matches:
-                raise RuntimeError(f"No files matching '{inc.get('pattern') or inc.get('file') or '*'}'")
-
-            total = len(matches)
-            if total > MAX_FILES:
-                ans = input(f"{total} files match your include. Continue? [y/N] ")
-                if ans.strip().lower() != "y":
-                    print("Include cancelled.")
-                    return
-
-            # 3) Read files in parallel
-            included = []
-            def _read(path):
-                return self.call_mcp("READ_FILE", {"path": path}, timeout=READ_TIMEOUT)
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-                fut2path = { pool.submit(_read, p): p for p in matches }
-                for fut in concurrent.futures.as_completed(fut2path):
-                    p = fut2path[fut]
-                    try:
-                        blob = fut.result()
-                        included.append(blob)
-                        print(f"Included: {blob['path']}")
-                    except Exception as e:
-                        print(f"Error reading {p}: {e}")
-
-            # 4) Stitch into knowledge *only* contents
-            combined = "\n".join(b.get("content","") for b in included)
-            if combined:
-                # ensure trailing newline
-                self.knowledge += ("\n" + combined + "\n")
-                print(f"Included {len(included)} files into knowledge.")
-            else:
-                print("No content to include.")
-
-            # 5) If prompt given, immediately ask
-            if prompt:
-                print(f"Prompt → {prompt}")
-                self.context += f"\nUser: {prompt}"
-                ans = self.ask(prompt)
-                self.context += f"\nAI: {ans}"
-            else:
-                print("No prompt given after include; nothing asked.")
-
-        except Exception as e:
-            print("include error:", e)
-            logging.error(f"Include error: {e}")
-
     def do_include(self, tokens):
-        """
-        /include [all|file=…|dir=… [pattern=…] [recursive]] [prompt]
-
-        Includes files into knowledge, printing word & token counts per file.
-        """
-        MAX_FILES    = 500
+        MAX_FILES = 500
         READ_TIMEOUT = 30
-        MAX_WORKERS  = 8
-
+        MAX_WORKERS = 8
         if not tokens:
-            print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
+            print("Usage: /include [all|file=…|dir=… [pattern=…] [recursive]] [prompt]")
             return
-
-        # split out spec vs prompt
-        spec_tokens, prompt_tokens = [], []
+        # split spec vs prompt
+        spec_toks, prompt_toks = [], []
         for i, t in enumerate(tokens):
-            if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
-                spec_tokens.append(t)
+            if i == 0 or t == "recursive" or t.startswith(("file=","dir=","pattern=")):
+                spec_toks.append(t)
             else:
-                prompt_tokens = tokens[i:]
+                prompt_toks = tokens[i:]
                 break
-        spec   = " ".join(spec_tokens)
-        prompt = " ".join(prompt_tokens).strip() if prompt_tokens else None
-
-        inc = self.parse_include(spec)
+        inc = self.parse_include(" ".join(spec_toks))
+        prompt = " ".join(prompt_toks) if prompt_toks else None
 
         try:
-            # 1) Build SEARCH payloads
             searches = []
             if inc["type"] == "dir":
                 searches.append({
@@ -746,193 +568,62 @@ class RoboDogCLI:
                     "recursive": inc["recursive"]
                 })
             else:
-                pat = "*"
-                if inc["type"] == "file":
-                    pat = inc["file"]
-                elif inc["type"] == "pattern":
-                    pat = inc["pattern"]
-                searches.append({
-                    "pattern": pat,
-                    "recursive": True
-                })
+                pat = inc["pattern"] if inc["type"] == "pattern" else (inc["file"] or "*")
+                searches.append({"pattern": pat, "recursive": True})
 
-            # 2) Find matches
             matches = []
             for payload in searches:
                 res = self.call_mcp("SEARCH", payload, timeout=READ_TIMEOUT)
                 matches.extend(res.get("matches", []))
-
-            # filter out node_modules
             matches = [m for m in matches if "node_modules" not in Path(m).parts]
 
             if not matches:
-                raise RuntimeError(f"No files matching '{inc.get('pattern') or inc.get('file') or '*'}'")
+                print("No files matched; aborting.")
+                return
 
-            total = len(matches)
-            if total > MAX_FILES:
-                ans = input(f"{total} files match your include. Continue? [y/N] ")
-                if ans.strip().lower() != "y":
-                    print("Include cancelled.")
+            if len(matches) > MAX_FILES:
+                ans = input(f"{len(matches)} files; continue? [y/N]: ").strip().lower()
+                if ans != "y":
+                    print("Cancelled.")
                     return
 
-            # 3) Read files in parallel
             included = []
-            def _read(path):
-                return self.call_mcp("READ_FILE", {"path": path}, timeout=READ_TIMEOUT)
-
+            def _read(p): return self.call_mcp("READ_FILE", {"path": p}, timeout=READ_TIMEOUT)
             with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-                fut2path = { pool.submit(_read, p): p for p in matches }
-                for fut in concurrent.futures.as_completed(fut2path):
-                    p = fut2path[fut]
+                fut2p = {pool.submit(_read,p): p for p in matches}
+                for fut in concurrent.futures.as_completed(fut2p):
+                    p = fut2p[fut]
                     try:
                         blob = fut.result()
-                        content = blob.get("content", "")
-                        # word count
-                        words = content.split()
-                        wc = len(words)
-                        # token count via tiktoken
+                        content = blob.get("content","")
+                        enc = None
                         try:
                             enc = tiktoken.encoding_for_model(self.cur_model)
-                        except Exception:
+                        except:
                             enc = tiktoken.get_encoding("gpt2")
+                        wc = len(content.split())
                         tc = len(enc.encode(content))
-                        included.append(blob)
-                        print(f"Included: {blob['path']}  (words: {wc}, tokens: {tc})")
+                        print(f"Included: {p} (words:{wc} tokens:{tc})")
+                        included.append(content)
                     except Exception as e:
                         print(f"Error reading {p}: {e}")
-                        logging.error(f"do_include read error for {p}: {e}")
 
-            # 4) Stitch into knowledge
-            combined = "\n".join(b.get("content","") for b in included)
+            combined = "\n".join(included)
             if combined:
                 self.knowledge += "\n" + combined + "\n"
-                print(f"Included {len(included)} files into knowledge (total words: {sum(len(b.get('content','').split()) for b in included)}, "
-                      f"total tokens: {sum(len(enc.encode(b.get('content',''))) for b in included)})")
-            else:
-                print("No content to include.")
-
-            # 5) If prompt given, immediately ask
+                print(f"Total included files: {len(included)}")
             if prompt:
-                print(f"Prompt → {prompt}")
+                print(f"→ Prompt: {prompt}")
                 self.context += f"\nUser: {prompt}"
                 ans = self.ask(prompt)
                 self.context += f"\nAI: {ans}"
-            else:
-                print("No prompt given after include; nothing asked.")
 
         except Exception as e:
-            print("include error:", e)
-            logging.error(f"Include error: {e}")
-
-    def do_include8(self, tokens):
-        import concurrent.futures, logging
-        from pathlib import Path
-
-        # Tunables
-        MAX_FILES    = 500       # warn if more than this
-        READ_TIMEOUT = 30        # seconds per‐file read timeout
-        MAX_WORKERS  = 8         # parallel readers
-
-        if not tokens:
-            print("Usage: /include [all|file=<file>|dir=<dir> [pattern=<glob>] [recursive]] [prompt]")
-            return
-
-        # split out spec vs prompt
-        spec_tokens, prompt_tokens = [], []
-        for i, t in enumerate(tokens):
-            if i == 0 or t == "recursive" or t.startswith(("file=", "dir=", "pattern=")):
-                spec_tokens.append(t)
-            else:
-                prompt_tokens = tokens[i:]
-                break
-        spec = " ".join(spec_tokens)
-        prompt = " ".join(prompt_tokens).strip() if prompt_tokens else None
-
-        inc = self.parse_include(spec)
-        try:
-            # 1) Determine search parameters per spec
-            searches = []
-            if inc["type"] == "dir":
-                # search under a single directory
-                searches.append({
-                    "root": inc["dir"],
-                    "pattern": inc["pattern"],
-                    "recursive": inc["recursive"]
-                })
-            else:
-                # across all configured roots
-                pat = "*"
-                if inc["type"] == "file":
-                    pat = inc["file"]
-                elif inc["type"] == "pattern":
-                    pat = inc["pattern"]
-                # inc["type"] == "all" → pat="*"
-                searches.append({
-                    # omit "root" → MCP uses all roots
-                    "pattern": pat,
-                    "recursive": True
-                })
-
-            # 2) Collect matches
-            matches = []
-            for payload in searches:
-                res = self.call_mcp("SEARCH", payload, timeout=READ_TIMEOUT)
-                matches.extend(res.get("matches", []))
-
-            # 3) Exclude node_modules
-            matches = [m for m in matches if "node_modules" not in Path(m).parts]
-
-            if not matches:
-                raise RuntimeError(f"No files matching '{inc.get('pattern') or inc.get('file') or '*'}'")
-
-            total = len(matches)
-            if total > MAX_FILES:
-                ans = input(f"{total} files match your include. Continue? [y/N] ")
-                if ans.strip().lower() != "y":
-                    print("Include cancelled.")
-                    return
-
-            # 4) Read files in parallel
-            included = []
-            def _read(path):
-                return self.call_mcp("READ_FILE", {"path": path}, timeout=READ_TIMEOUT)
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-                fut2path = { pool.submit(_read, p): p for p in matches }
-                for fut in concurrent.futures.as_completed(fut2path):
-                    p = fut2path[fut]
-                    try:
-                        blob = fut.result()
-                        included.append(blob)
-                        print(f"Included: {blob['path']}")
-                    except Exception as e:
-                        print(f"Error reading {p}: {e}")
-
-            # 5) Stitch into knowledge
-            text = ""
-            for b in included:
-                text += f"\n\n--- {b['path']} ---\n{b['content']}"
-            self.knowledge += text
-            print(f"Included {len(included)} files into knowledge.")
-
-            # 6) Fire prompt if given
-            if prompt:
-                print(f"Prompt → {prompt}")
-                self.context += f"\nUser: {prompt}"
-                ans = self.ask(prompt)
-                self.context += f"\nAI: {ans}"
-            else:
-                print("No prompt given after include; nothing asked.")
-
-        except Exception as e:
-            print("include error:", e)
-            logging.error(f"Include error: {e}")
-
+            print("Include error:", e)
 
     # ---------------------------------------------------
-    # /curl command (unchanged)...
+    # /curl (unchanged)
     def do_curl(self, tokens):
-        # ... unchanged ...
         headless = True
         args = []
         for t in tokens:
@@ -940,88 +631,173 @@ class RoboDogCLI:
                 headless = False
             else:
                 args.append(t)
-
         if not args:
-            print("Usage: /curl [--no-headless] <url1> [url2] [js_script]")
+            print("Usage: /curl [--no-headless] <url> [<url2>|<js>]")
             return
-
-        url1 = args[0]
-        if not url1.startswith(("http://", "https://")):
-            url1 = "http://" + url1
-
-        url2 = None
-        script = None
-
-        if len(args) >= 2 and args[1].startswith(("http://", "https://")):
-            url2 = args[1]
-            if not url2.startswith(("http://", "https://")):
-                url2 = "http://" + url2
+        url1 = args[0] if args[0].startswith(("http://","https://")) else "http://"+args[0]
+        url2 = None; script = None
+        if len(args) >= 2 and args[1].startswith(("http://","https://")):
+            url2 = args[1] if args[1].startswith(("http://","https://")) else "http://"+args[1]
             if len(args) >= 3:
                 script = " ".join(args[2:])
         else:
             if len(args) >= 2:
                 script = " ".join(args[1:])
-
         if async_playwright is None:
-            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
+            print("Install Playwright: `pip install playwright` + `playwright install`")
             return
-
         async def runner():
             async with async_playwright() as pw:
                 browser = await pw.chromium.launch(headless=headless)
                 page = await browser.new_page()
-                print(f"Navigating to {url1} ...")
+                print(f"→ Navigating {url1}")
                 await page.goto(url1)
                 if url2:
-                    print(f"Navigating to {url2} ...")
+                    print(f"→ Navigating {url2}")
                     await page.goto(url2)
-
                 if script:
-                    print("Executing custom script…")
+                    print("→ Exec script")
                     try:
                         result = await page.evaluate(script)
                     except Exception as e:
-                        print("Script execution error:", e)
+                        print("Script error:", e)
                         result = None
                 else:
-                    print("Extracting page text content…")
                     result = await page.evaluate("() => document.body.innerText")
-
                 print("----- /curl result -----")
-   
+                print(result)
                 await browser.close()
-
         try:
             asyncio.run(runner())
         except Exception as e:
             print("Error in /curl:", e)
 
-    def do_play(self, tokens):
+    # ---------------------------------------------------
+    # /play (unchanged)
+    def do_play2(self, tokens):
         if async_playwright is None:
-            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
+            print("Install Playwright: `pip install playwright` + `playwright install`")
             return
         if not tokens:
-            print("Usage: /play <test instructions>")
+            print("Usage: /play <instructions>")
             return
-
         instructions = " ".join(tokens)
         print("Instructions:", instructions)
-
-        # 1) Parse instructions into steps
         parse_prompt = (
-            "Parse the following instructions into a numbered list of discrete steps:\n\n"
-            f"{instructions}\n\nRespond ONLY as a numbered list (e.g. '1. ...')."
+            "Parse into numbered steps:\n\n" + instructions +
+            "\n\nRespond ONLY as '1. ...'"
         )
-        parsed = self.ask2(parse_prompt)
+        parsed = self.ask(parse_prompt)
         print("----- Parsed steps -----")
         print(parsed)
-
-        # extract into Python list
         steps = []
         for line in parsed.splitlines():
             m = re.match(r"\s*\d+\.\s*(.+)", line)
             if m:
                 steps.append(m.group(1).strip())
+        if not steps:
+            print("No steps parsed; aborting.")
+            return
+        results = []
+        async def runner():
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch()
+                page = await browser.new_page()
+                await page.route("**/*.{png,jpg,css,svg}", lambda r: r.abort())
+                for idx, step in enumerate(steps):
+                    print(f"\n>>> Step {idx+1}: {step}")
+                    low = step.lower()
+                    if low.startswith("navigate to"):
+                        tgt = step.split("navigate to",1)[1].strip()
+                        await page.goto(tgt, wait_until="domcontentloaded")
+                        results.append(True)
+                        continue
+                    if low.startswith("click"):
+                        tgt = step.split("click",1)[1].strip().strip("'\"")
+                        await page.click(f"text={tgt}")
+                        results.append(True)
+                        continue
+                    success = False
+                    res = None
+                    for attempt in (1,2):
+                        title = await page.title() or "<no title>"
+                        url = page.url
+                        print(f"--- Attempt {attempt} on {title} ({url})")
+                        mini = await page.evaluate("""
+                            () => Array.from(
+                                document.querySelectorAll('h1,h2,p,a,button,input')
+                            ).slice(0,5).map(e=>({
+                                tag: e.tagName,
+                                text: e.innerText?.slice(0,80)||''
+                            }))
+                        """)
+                        prompt = (
+                            f"You are writing Playwright code.\nTitle: {title}\n"
+                            f"URL: {url}\nMiniDOM: {json.dumps(mini)}\n"
+                            f"Instruction: {step}\n"
+                            "Write ONLY the await-page lines, assign to `result`, then return result."
+                        )
+                        snippet = self.ask(prompt).strip()
+                        if snippet.startswith("```"):
+                            snippet = "\n".join(snippet.splitlines()[1:-1])
+                        fn_name = f"_step_{idx+1}_a{attempt}"
+                        src = f"async def {fn_name}(page):\n"
+                        for ln in snippet.splitlines():
+                            src += f"    {ln}\n"
+                        local = {}
+                        try:
+                            exec(src, globals(), local)
+                            fn = local[fn_name]
+                        except Exception as e:
+                            print("Compile error:", e)
+                            continue
+                        try:
+                            res = await fn(page)
+                            assert res is not None
+                            print(f"→ Success: {res!r}")
+                            success = True
+                            break
+                        except Exception as e:
+                            print("Runtime error:", e)
+                    results.append(success)
+                    if not success:
+                        print(f"Step {idx+1} failed.")
+                await browser.close()
+        try:
+            asyncio.run(runner())
+        except Exception as e:
+            print("Error in /play:", e)
+        print("\n--- /play summary ---")
+        for i, ok in enumerate(results,1):
+            print(f"Step {i}: {'Success' if ok else 'Failure'}")
+
+    def do_play(self, tokens):
+        """
+        /play <instructions>
+        Runs AI-driven Playwright tests against a website.
+        """
+        if async_playwright is None:
+            print("Error: Playwright not installed. Install with `pip install playwright` + `playwright install`.")
+            return
+        if not tokens:
+            print("Usage: /play <instructions>")
+            return
+
+        instructions = " ".join(tokens)
+        print("Instructions:", instructions)
+
+        # 1) Parse instructions into discrete steps
+        parse_prompt = (
+            "Parse the following instructions into a numbered list of discrete steps:\n\n"
+            f"{instructions}\n\n"
+            "Respond ONLY as a numbered list (e.g. '1. ...')."
+        )
+        parsed = self.ask(parse_prompt)
+        print("----- Parsed steps -----")
+        print(parsed)
+
+        # 2) Extract steps
+        steps = [m.group(1).strip() for m in re.finditer(r"\d+\.\s*(.+)", parsed)]
         if not steps:
             print("Error: Couldn't parse any steps. Aborting.")
             return
@@ -1032,21 +808,20 @@ class RoboDogCLI:
             async with async_playwright() as pw:
                 browser = await pw.chromium.launch()
                 page = await browser.new_page()
-
-                # 0) Block heavy assets
+                # block heavy assets
                 await page.route("**/*.{png,jpg,jpeg,svg,css,woff,woff2}", lambda r: r.abort())
 
                 for idx, step in enumerate(steps):
                     print(f"\n>>> Step {idx+1}: {step}")
-                    # trivial navigation shortcut
                     low = step.lower()
+
+                    # simple shortcuts
                     if low.startswith("navigate to"):
-                        target = step.split("navigate to",1)[1].strip()
-                        print(f"→ navigate shortcut to {target}")
-                        await page.goto(target, wait_until="domcontentloaded")
+                        url = step.split("navigate to",1)[1].strip()
+                        print(f"→ navigate shortcut to {url}")
+                        await page.goto(url, wait_until="domcontentloaded")
                         step_results.append(True)
                         continue
-                    # trivial click shortcut
                     if low.startswith("click"):
                         target = step.split("click",1)[1].strip().strip("'\"")
                         print(f"→ click shortcut on text={target}")
@@ -1054,7 +829,7 @@ class RoboDogCLI:
                         step_results.append(True)
                         continue
 
-                    # up to 2 attempts for non-trivial steps
+                    # non-trivial: up to 2 attempts
                     success = False
                     res = None
                     for attempt in (1,2):
@@ -1062,36 +837,56 @@ class RoboDogCLI:
                         url   = page.url
                         print(f"--- Attempt {attempt} on {title} ({url}) ---")
 
-                        # build mini‐DOM
                         mini_dom = await page.evaluate("""
                             () => Array.from(
-                            document.querySelectorAll('h1,h2,p,a,button,input')
+                                document.querySelectorAll('h1,h2,p,a,button,input')
                             ).slice(0,5).map(e=>({
-                            tag:e.tagName,
-                            text:e.innerText?.trim()?.slice(0,80) || e.getAttribute('value') || ''
+                                tag: e.tagName,
+                                text: e.innerText?.trim()?.slice(0,80) || e.getAttribute('value') || ''
                             }))
                         """)
 
-                        # build prompt
-                        prompt = (
+                        prompt_snip = (
                             "You are writing a Python Playwright snippet.\n"
                             f"Page title: {title}\n"
                             f"Page URL: {url}\n"
                             f"MiniDOM: {json.dumps(mini_dom, ensure_ascii=False)}\n"
                             f"Instruction: {step}\n"
-                            "Write ONLY the await-page code lines, assign output to `result`, then `return result`."
+                            "Write ONLY the await page code lines, assign output to `result`, then return result."
                         )
+                        snippet = self.ask(prompt_snip).strip()
 
-                        snippet = self.ask2(prompt).strip()
                         # strip markdown fences
                         if snippet.startswith("```"):
                             snippet = "\n".join(snippet.splitlines()[1:-1])
 
-                        # compile
+                        # break snippet into statements
+                        stmt_lines = []
+                        for part in re.split(r';|\n', snippet):
+                            part = part.strip()
+                            if not part:
+                                continue
+                            # handle single-line list “[ … ]”
+                            if part.startswith('[') and part.endswith(']'):
+                                inner = part[1:-1]
+                                for sub in inner.split(','):
+                                    sub = sub.strip()
+                                    if sub:
+                                        stmt_lines.append(sub)
+                            else:
+                                stmt_lines.append(part)
+
+                        # ensure a return
+                        if not any(ln.startswith("return") for ln in stmt_lines):
+                            stmt_lines.append("return result")
+
+                        # build the async fn
                         fn_name = f"_step_{idx+1}_a{attempt}"
-                        src = f"async def {fn_name}(page):\n"
-                        for ln in snippet.splitlines():
-                            src += f"    {ln.rstrip()}\n"
+                        src_lines = [f"async def {fn_name}(page):"]
+                        for ln in stmt_lines:
+                            src_lines.append("    " + ln)
+                        src = "\n".join(src_lines)
+
                         local = {}
                         try:
                             exec(src, globals(), local)
@@ -1100,7 +895,7 @@ class RoboDogCLI:
                             print(f"Compile error: {e}")
                             continue
 
-                        # run
+                        # run it
                         try:
                             res = await fn(page)
                             assert res is not None, "returned None"
@@ -1116,431 +911,205 @@ class RoboDogCLI:
                     if not success:
                         print(f"Step {idx+1} failed after 2 attempts.")
 
-                    # optionally ask LLM whether to continue
-                    if idx < len(steps)-1:
-                        sugg = self.ask2(
-                            f"I executed '{step}' and got {res!r}. "
-                            f"Original instructions: {instructions}\n"
-                            "Next step? Or 'done'."
-                        ).strip().lower()
-                        print("LLM suggestion:", sugg)
-                        if sugg == "done":
-                            print("Stopping early per LLM.")
-                            break
-
                 await browser.close()
 
-        # run the runner
+        # 3) Execute runner
         try:
             asyncio.run(runner())
         except Exception as e:
             print("Error in /play:", e)
 
-        # summary
+        # 4) Summary
         print("\n--- /play summary ---")
         for i, ok in enumerate(step_results,1):
             print(f"Step {i}: {'Success' if ok else 'Failure'}")
-            
-    # ---------------------------------------------------
-    # /play command: natural-language testing via Playwright + LLM,
-    # now with per-step success/failure, asserts, full logging, and summary.
-    def do_play3(self, tokens):
-        if async_playwright is None:
-            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
-            logging.debug("Playwright not installed.")
-            return
-        if not tokens:
-            print("Usage: /play <test instructions>")
-            logging.debug("No tokens passed to /play.")
-            return
-
-        instructions = " ".join(tokens)
-        print("Instructions:", instructions)
-        logging.debug(f"Instructions: {instructions}")
-
-        # 1) Parse into numbered steps
-        parse_prompt = (
-            "Parse the following instructions into a numbered list of discrete steps:\n\n"
-            f"{instructions}\n\n"
-            "Respond ONLY as a numbered list (e.g. '1. ...')."
-        )
-        parsed = self.ask2(parse_prompt)
-        print("----- Parsed steps -----")
-        print(parsed)
-        logging.debug(f"Parsed steps raw:\n{parsed}")
-
-        # extract into Python list
-        steps = []
-        for line in parsed.splitlines():
-            m = re.match(r"\s*\d+\.\s*(.+)", line)
-            if m:
-                steps.append(m.group(1).strip())
-        logging.debug(f"Parsed steps list: {steps}")
-
-        if not steps:
-            print("Error: Couldn't parse any steps. Aborting.")
-            logging.debug("No steps parsed; aborting /play.")
-            return
-
-        # helper to strip markdown fences
-        def strip_code_blocks(snip: str) -> str:
-            lines = snip.splitlines()
-            if lines and lines[0].strip().startswith("```"):
-                end = None
-                for i, ln in enumerate(lines[1:], start=1):
-                    if ln.strip().startswith("```"):
-                        end = i
-                        break
-                if end is not None:
-                    return "\n".join(lines[1:end])
-            return snip
-
-        # Prepare to collect results
-        step_results = []
-
-        # 2) Run them in one browser/page session
-        async def runner():
-            async with async_playwright() as pw:
-                browser = await pw.chromium.launch()
-                page = await browser.new_page()
-
-                for idx, step in enumerate(steps):
-                    success = False
-                    res = None
-                    print(f"\n>>> Starting step {idx+1}: {step}")
-                    logging.debug(f"Step {idx+1} instruction: {step}")
-
-                    # Allow up to 2 attempts per step
-                    for attempt in range(1, 3):
-                        # Report current page
-                        try:
-                            title = await page.title()
-                        except Exception:
-                            title = "<no title>"
-                        url = page.url
-                        print(f"--- Attempt {attempt} on page: {title} ({url}) ---")
-                        logging.debug(f"Step {idx+1}, attempt {attempt}, page title: {title}, url: {url}")
-
-                        html = await page.content()
-                        logging.debug(f"HTML snapshot (first 2000 chars): {html[:2000]!r}")
-
-                        if attempt == 1:
-                            prompt_snip = (
-                                "You are given the HTML of the current page and an instruction. "
-                                "Write a snippet of Python Playwright code using only 'await page...' lines to perform the instruction. "
-                                "Assign any extracted data to a variable named 'result' and end with 'return result'.\n\n"
-                                f"HTML:\n{html[:2000]}...\n\nInstruction:\n{step}"
-                            )
-                        else:
-                            prompt_snip = (
-                                f"The previous snippet for instruction '{step}' failed on attempt 1. "
-                                "Given the HTML of the current page, write a corrected Python Playwright snippet using only 'await page...' lines. "
-                                "Assign any extracted data to a variable named 'result' and end with 'return result'.\n\n"
-                                f"HTML:\n{html[:2000]}...\n\nInstruction:\n{step}"
-                            )
-
-                        snippet = self.ask2(prompt_snip)
-                        print(f"----- Snippet for step {idx+1}, attempt {attempt} -----")
-                        logging.debug(f"Snippet for step {idx+1}, attempt {attempt}:\n{snippet}")
-
-                        snippet = strip_code_blocks(snippet).strip()
-                        fn_name = f"step_fn_{idx+1}_a{attempt}"
-                        src = f"async def {fn_name}(page):\n"
-                        for ln in snippet.splitlines():
-                            src += f"    {ln.rstrip()}\n"
-                        local = {}
-                        try:
-                            exec(src, globals(), local)
-                            fn = local[fn_name]
-                        except Exception as e:
-                            print(f"Error compiling snippet for step {idx+1}, attempt {attempt}:", e)
-                            logging.error(f"Compilation error in /play step {idx+1}, attempt {attempt}: {e}")
-                            continue
-
-                        try:
-                            res = await fn(page)
-                            logging.debug(f"Raw result of step {idx+1}, attempt {attempt}: {res!r}")
-                            # Enforce that result is not None or empty
-                            assert res is not None, f"Step {idx+1} returned None"
-                            success = True
-                            print(f"Step {idx+1} attempt {attempt} → Success: {res!r}")
-                            logging.debug(f"Step {idx+1} attempt {attempt} succeeded with result: {res!r}")
-                            break
-                        except AssertionError as ae:
-                            print(f"Assertion failed in step {idx+1}, attempt {attempt}: {ae}")
-                            logging.debug(f"AssertionError in step {idx+1}, attempt {attempt}: {ae}")
-                        except Exception as e:
-                            print(f"Error executing step {idx+1}, attempt {attempt}:", e)
-                            logging.error(f"Execution error in /play step {idx+1}, attempt {attempt}: {e}")
-
-                        if attempt == 1:
-                            print("Retrying with alternate snippet…")
-                            logging.debug(f"Retrying step {idx+1} with alternate snippet.")
-                        else:
-                            print(f"Step {idx+1} failed after 2 attempts.")
-                            logging.debug(f"Step {idx+1} marked as failure after 2 attempts.")
-
-                    step_results.append(success)
-
-                    # If not last, check with LLM whether to continue
-                    if idx < len(steps)-1:
-                        next_prompt = (
-                            f"I executed step '{step}' and got result: {res!r}.\n"
-                            f"The original instructions are: {instructions}\n"
-                            "What should be the next step? If all done, respond 'done'."
-                        )
-                        suggestion = self.ask2(next_prompt).strip()
-                        print("LLM next‐step suggestion:", suggestion)
-                        logging.debug(f"LLM next‐step suggestion after step {idx+1}: {suggestion}")
-                        if suggestion.lower() == 'done':
-                            print("LLM indicates completion. Stopping early.")
-                            logging.debug("LLM requested early completion.")
-                            break
-
-                await browser.close()
-                logging.debug("Browser closed.")
-
-        # Run the async runner and then summarize
-        try:
-            asyncio.run(runner())
-        except Exception as e:
-            print("Error in /play:", e)
-            logging.error(f"Unexpected error in /play: {e}")
-
-        # Summary
-        print("\n--- /play summary ---")
-        logging.debug("Compiling /play summary.")
-        for idx, ok in enumerate(step_results, start=1):
-            status = "Success" if ok else "Failure"
-            print(f"Step {idx}: {status}")
-            logging.debug(f"Step {idx}: {status}")
 
     # ---------------------------------------------------
-    # /play2 remains unchanged...
-    def do_play2(self, tokens):
-        # ... unchanged ...
-        if async_playwright is None:
-            print("Error: Playwright is not installed. Install with `pip install playwright` and run `playwright install`.")
-            return
-        if not tokens:
-            print("Usage: /play <test instructions>")
-            return
-
-        instructions = " ".join(tokens)
-        print("Instructions:", instructions)
-
-        # 1) Parse into numbered steps
-        parse_prompt = (
-            "Parse the following instructions into a numbered list of discrete steps:\n\n"
-            f"{instructions}\n\n"
-            "Respond ONLY as a numbered list (e.g. '1. ...')."
-        )
-        parsed = self.ask2(parse_prompt)
-        print("----- Parsed steps -----")
-        print(parsed)
-
-        # extract into Python list
-        steps = []
-        for line in parsed.splitlines():
-            m = re.match(r"\s*\d+\.\s*(.+)", line)
-            if m:
-                steps.append(m.group(1).strip())
-        if not steps:
-            print("Error: Couldn't parse any steps. Aborting.")
-            return
-
-        # helper to strip markdown fences
-        def strip_code_blocks(snip: str) -> str:
-            lines = snip.splitlines()
-            if lines and lines[0].strip().startswith("```"):
-                end = None
-                for i, ln in enumerate(lines[1:], start=1):
-                    if ln.strip().startswith("```"):
-                        end = i
-                        break
-                if end is not None:
-                    return "\n".join(lines[1:end])
-            return snip
-
-        # 2) Run them in one browser/page session, generating snippet per step
-        async def runner():
-            async with async_playwright() as pw:
-                browser = await pw.chromium.launch()
-                page = await browser.new_page()
-                for idx, step in enumerate(steps):
-                    print(f"\n--- Executing step {idx+1}: {step} ---")
-                    html = await page.content()
-                    snippet_prompt = (
-                        "You are given the HTML of the current page and an instruction. "
-                        "Write a snippet of Python Playwright code using only 'await page...' lines to perform the instruction. "
-                        "Assign any extracted data to a variable named 'result' and end with 'return result'.\n\n"
-                        f"HTML:\n{html[:2000]}...\n\nInstruction:\n{step}"
-                    )
-                    snippet = self.ask2(snippet_prompt)
-                    print(f"----- Snippet for step {idx+1} -----")
-                    print(snippet)
-                    snippet = strip_code_blocks(snippet).strip()
-
-                    fn_name = f"step_fn_{idx+1}"
-                    src = f"async def {fn_name}(page):\n"
-                    for ln in snippet.splitlines():
-                        src += f"    {ln.rstrip()}\n"
-                    local = {}
-                    try:
-                        exec(src, globals(), local)
-                        fn = local[fn_name]
-                    except Exception as e:
-                        print(f"Error compiling snippet for step {idx+1}:", e)
-                        logging.error(f"Compilation error in /play step {idx+1}: {e}")
-                        async def _dummy(page, idx=idx+1):
-                            print(f"(Dummy) Skipping step {idx} due to compile error.")
-                            return None
-                        fn = _dummy
-
-                    try:
-                        res = await fn(page)
-                        print(f"Result of step {idx+1}:", res)
-                    except Exception as e:
-                        print(f"Error executing step {idx+1}:", e)
-                        logging.error(f"Execution error in /play step {idx+1}: {e}")
-                        res = None
-
-                    if idx < len(steps)-1:
-                        next_prompt = (
-                            f"I executed step '{step}' and got result: {res!r}.\n"
-                            f"The original instructions are: {instructions}\n"
-                            "What should be the next step? If all done, respond 'done'."
-                        )
-                        suggestion = self.ask2(next_prompt).strip()
-                        print("LLM next-step suggestion:", suggestion)
-                        if suggestion.lower() == 'done':
-                            print("LLM indicates completion. Stopping early.")
-                            break
-
-                await browser.close()
-
-        try:
-            asyncio.run(runner())
-        except Exception as e:
-            print("Error in /play2:", e)
-            logging.error(f"Unexpected error in /play2: {e}")
-
-    # ---------------------------------------------------
-    # new command: list models
-    def do_models(self, tokens):
+    # /mcp – invoke any MCP operation
+    def do_mcp(self, tokens):
         """
-        /models
-        List all configured models and their providers.
+        /mcp OP [<json-payload>]
+        Example: /mcp LIST_FILES
+                 /mcp READ_FILE {"path":"./foo.py"}
         """
-        if not self.cfg_models:
-            print("No models configured.")
-            return
-        print("Available models:")
-        for m in self.cfg_models:
-            name     = m.get("model", "<missing>")
-            provider = m.get("provider", "<missing>")
-            about    = m.get("about","")
-            line = f"  {name} (provider: {provider})"
-            if about:
-                line += f" – {about}"
-            print(line)
-
-
-    # ---------------------------------------------------
-    # strengthen set_model to catch missing provider
-    def set_model(self, tokens):
         if not tokens:
-            print("Usage: /model <model_name>")
-            print("Available models:", ", ".join(m["model"] for m in self.cfg_models))
+            print("Usage: /mcp OP [JSON]")
             return
-
-        new_model = tokens[0]
-        models = [m["model"] for m in self.cfg_models]
-        if new_model not in models:
-            print(f"Unknown model: '{new_model}'")
-            print("Available models:", ", ".join(models))
-            return
-
-        prov = self.model_provider(new_model)
-        if not prov or prov not in self.provider_map:
-            print(f"Provider '{prov}' for model '{new_model}' is not configured.")
-            return
-
-        self.cur_model = new_model
-        self.api_key = (
-            os.getenv("OPENAI_API_KEY")
-            or self.provider_map[prov].get("apiKey")
-        )
-        if not self.api_key:
-            print(f"No API key for provider '{prov}'")
-            return
-
-        self.client = OpenAI(api_key=self.api_key)
-        print(f"Model set to: {self.cur_model}")
-        logging.info(f"Model switched to {self.cur_model}")
+        op = tokens[0].upper()
+        raw = " ".join(tokens[1:]).strip()
+        payload = {}
+        if raw:
+            try:
+                payload = json.loads(raw)
+            except Exception as e:
+                print("Invalid JSON payload:", e)
+                return
+        try:
+            result = self.call_mcp(op, payload)
+            pprint(result)
+        except Exception as e:
+            print("MCP error:", e)
 
     # ---------------------------------------------------
-    # stub other commands...
-    def set_key(self, tokens): pass
-    def get_key(self, _): pass
-    def clear(self, _): pass
+    # /import (local)
+    def do_import(self, tokens):
+        if not tokens:
+            print("Usage: /import <glob>")
+            return
+        pat = tokens[0]
+        files = glob.glob(pat, recursive=True)
+        cnt = 0
+        for fn in files:
+            try:
+                txt = open(fn, encoding="utf-8", errors="ignore").read()
+                self.knowledge += f"\n\n--- {fn} ---\n{txt}"
+                cnt += 1
+            except:
+                pass
+        print(f"Imported {cnt} files.")
+
+    # ---------------------------------------------------
+    # /export chat+knowledge snapshot
+    def do_export(self, tokens):
+        if not tokens:
+            print("Usage: /export <filename>")
+            return
+        fn = tokens[0]
+        try:
+            with open(fn, 'w', encoding="utf-8") as f:
+                f.write("=== Chat History ===\n")
+                f.write(self.context+"\n")
+                f.write("=== Knowledge ===\n")
+                f.write(self.knowledge+"\n")
+            print(f"Exported to {fn}")
+        except Exception as e:
+            print("Export error:", e)
+
+    # ---------------------------------------------------
+    # /clear
+    def clear(self, _):
+        self.context = ""
+        self.knowledge = ""
+        print("Cleared chat history and knowledge.")
+
+    # ---------------------------------------------------
+    # /stash <name>
+    def do_stash(self, tokens):
+        if not tokens:
+            print("Usage: /stash <name>")
+            return
+        name = tokens[0]
+        self.stash[name] = (self.context, self.knowledge)
+        print(f"Stashed under '{name}'.")
+
+    # ---------------------------------------------------
+    # /pop <name>
+    def do_pop(self, tokens):
+        if not tokens:
+            print("Usage: /pop <name>")
+            return
+        name = tokens[0]
+        if name not in self.stash:
+            print(f"No stash named '{name}'.")
+            return
+        self.context, self.knowledge = self.stash[name]
+        print(f"Popped '{name}' into current session.")
+
+    # ---------------------------------------------------
+    # /list (stashes)
+    def do_list(self, _):
+        if not self.stash:
+            print("No stashes.")
+            return
+        print("Stashes:")
+        for name in self.stash:
+            print("  " + name)
+
+    # ---------------------------------------------------
+    # /key <provider> <api_key>
+    def set_key(self, tokens):
+        if len(tokens) < 2:
+            print("Usage: /key <provider> <api_key>")
+            return
+        prov, key = tokens[0], tokens[1]
+        if prov not in self.provider_map:
+            print(f"Unknown provider '{prov}'.")
+            return
+        self.provider_map[prov]["apiKey"] = key
+        print(f"API key for '{prov}' set.")
+
+    # ---------------------------------------------------
+    # /getkey <provider>
+    def get_key(self, tokens):
+        if not tokens:
+            print("Usage: /getkey <provider>")
+            return
+        prov = tokens[0]
+        if prov not in self.provider_map:
+            print(f"Unknown provider '{prov}'.")
+            return
+        print(f"{prov} API key: {self.provider_map[prov].get('apiKey','<none>')}")
+
+    # ---------------------------------------------------
+    # /stream
+    def do_stream(self, _):
+        self.stream = True
+        print("Switched to streaming mode.")
+
+    # ---------------------------------------------------
+    # /rest
+    def do_rest(self, _):
+        self.stream = False
+        print("Switched to REST mode (no streaming).")
+
+    # ---------------------------------------------------
+    # parameter setter for numeric params
+    def set_param(self, key, tokens):
+        if not tokens:
+            print(f"Usage: /{key} <value>")
+            return
+        try:
+            val = float(tokens[0]) if "." in tokens[0] else int(tokens[0])
+            setattr(self, key, val)
+            print(f"{key} set to {val}")
+        except Exception as e:
+            print(f"Invalid value for {key}:", e)
+
+    # ---------------------------------------------------
+    # /help
     def show_help(self, _):
-        """
-        /help
-        Print a list of all available commands with a short description.
-        """
         commands = {
             "help":                "show this help",
-            "models":              "list all configured models",
-            "model <name>":        "switch to a different model",
-            "import <glob>":       "import files matching a glob into knowledge",
-            "export <filename>":   "export chat & knowledge snapshot",
-            "clear":               "clear chat history & knowledge",
-            "stash <name>":        "stash current chatknowledge under <name>",
-            "pop <name>":          "restore stash named <name>",
-            "list":                "list all stashes",
-            "temperature <n>":     "set temperature (0–2)",
-            "folders <dirs>": "set MCP root folders",
-            "top_p <n>":           "set nucleus sampling (0–1)",
-            "frequency_penalty <n>":"set frequency penalty (−2–2)",
-            "presence_penalty <n>":"set presence penalty (−2–2)",
-            "stream":              "use streaming completions",
-            "rest":                "use REST completions",
-            "include":             "include files via MCP (see README for syntax)",
-            "curl":                "fetch web pages / run simple scripts",
+            "models":              "list configured models",
+            "model <name>":        "switch model",
+            "key <prov> <key>":    "set API key for provider",
+            "getkey <prov>":       "get API key for provider",
+            "import <glob>":       "import files into knowledge",
+            "export <file>":       "export chat+knowledge snapshot",
+            "clear":               "clear chat+knowledge",
+            "stash <name>":        "stash state",
+            "pop <name>":          "restore stash",
+            "list":                "list stashes",
+            "temperature <n>":     "set temperature",
+            "top_p <n>":           "set top_p",
+            "max_tokens <n>":      "set max_tokens",
+            "frequency_penalty <n>":"set frequency_penalty",
+            "presence_penalty <n>":"set presence_penalty",
+            "stream":              "enable streaming",
+            "rest":                "disable streaming",
+            "folders <dirs>":      "set MCP roots",
+            "include":             "include files via MCP",
+            "curl":                "fetch web pages / scripts",
             "play":                "run AI-driven Playwright tests",
+            "mcp":                 "invoke raw MCP operation",
         }
         print("\nAvailable /commands:\n")
         for cmd, desc in commands.items():
-            # pad to 20 chars for alignment
             print(f"  /{cmd:<20} — {desc}")
         print()
 
-    def set_param(self, key, tokens): pass
-    def do_stream(self, _): pass
-    def do_rest(self, _): pass
-    def do_list(self, _): pass
-    def do_stash(self, tokens): pass
-    def do_pop(self, tokens): pass
-    def do_export(self, tokens): pass
-
-    def do_import(self, tokens):
-        if not tokens:
-            print("Usage: /import <file|dir|glob>"); return
-        pat = tokens[0]
-        files = glob.glob(pat, recursive=True)
-        text = ""
-        for fn in files:
-            try:
-                text += f"\n\n--- {fn} ---\n"
-                text += open(fn, encoding="utf8", errors="ignore").read()
-            except:
-                pass
-        self.knowledge += "\n"+text
-        print(f"imported {len(files)} files")
-        logging.debug(f"Imported {len(files)} files with pattern {pat}")
-
     # ---------------------------------------------------
+    # parse and dispatch
     def parse_command(self, line: str):
         parts = line.strip().split()
         return parts[0][1:], parts[1:]
@@ -1552,109 +1121,97 @@ class RoboDogCLI:
                 prompt = input(f"[{self.cur_model}]{'»' if self.stream else '>'} ").strip()
             except (EOFError, KeyboardInterrupt):
                 print("\nbye")
-                logging.info("CLI session ended by user")
                 break
             if not prompt:
                 continue
-
-            logging.debug(f"User input: {prompt}")
-
             if prompt.startswith("/"):
-                cmd,args = self.parse_command(prompt)
+                cmd, args = self.parse_command(prompt)
                 fn = {
-                    "help": self.show_help,
-                    "model": self.set_model,
-                    "key": self.set_key,
-                    "getkey": self.get_key,
-                    "clear": self.clear,
-                    "import": self.do_import,
-                    "export": self.do_export,
-                    "stash": self.do_stash,
-                    "pop": self.do_pop,
-                    "list": self.do_list,
-                    "temperature": lambda a: self.set_param("temperature",a),
-                    "top_p":       lambda a: self.set_param("top_p",a),
+                    "help":     self.show_help,
+                    "models":   self.do_models,
+                    "model":    self.set_model,
+                    "key":      self.set_key,
+                    "getkey":   self.get_key,
+                    "import":   self.do_import,
+                    "export":   self.do_export,
+                    "clear":    self.clear,
+                    "stash":    self.do_stash,
+                    "pop":      self.do_pop,
+                    "list":     self.do_list,
+                    "temperature":     lambda a: self.set_param("temperature",a),
+                    "top_p":           lambda a: self.set_param("top_p",a),
+                    "max_tokens":      lambda a: self.set_param("max_tokens",a),
                     "frequency_penalty": lambda a: self.set_param("frequency_penalty",a),
                     "presence_penalty":  lambda a: self.set_param("presence_penalty",a),
-                    "stream": self.do_stream,
-                    "rest":   self.do_rest,
-                    "models":   self.do_models,
-                    "include": self.do_include,
-                    "curl":   self.do_curl,
-                    "play":   self.do_play,
-                    "folders": self.do_folders,
+                    "stream":    self.do_stream,
+                    "rest":      self.do_rest,
+                    "folders":   self.do_folders,
+                    "include":   self.do_include,
+                    "curl":      self.do_curl,
+                    "play":      self.do_play,
+                    "mcp":       self.do_mcp,
                 }.get(cmd)
                 if fn:
                     fn(args)
                 else:
                     print("unknown /cmd:", cmd)
                 continue
-
+            # free‐form chat
             self.context += f"\nUser: {prompt}"
             reply = self.ask(prompt)
             if reply:
-                logging.debug(f"AI response: {reply.strip()}")
-                self.context += "\nAI: "+reply
+                self.context += f"\nAI: {reply}"
 
 # ----------------------------------------
-# Main: parse args, set up logging, launch MCP & CLI
+# Main: CLI + MCP server
 # ----------------------------------------
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="robodog",
-        description="Combined MCP file‐server + Robodog CLI with file logging")
+        description="Combined MCP file‐server + Robodog CLI")
     parser.add_argument('--config', default='config.yaml',
                         help='path to robodog YAML config')
     parser.add_argument('--folders', nargs='+', required=True,
-                        help='one or more root folders to serve (recursive)')
+                        help='one or more root folders to serve')
     parser.add_argument('--host', default='127.0.0.1',
-                        help='host for MCP server (default 127.0.0.1)')
+                        help='MCP host (default 127.0.0.1)')
     parser.add_argument('--port', type=int, default=2500,
-                        help='port for MCP server (default 2500)')
+                        help='MCP port (default 2500)')
     parser.add_argument('--token', required=True,
-                        help='authentication token clients must present')
+                        help='MCP auth token')
     parser.add_argument('--model', '-m',
-                        help='startup model name (overrides default in config)')
+                        help='startup model name')
     parser.add_argument('--log-file', default='robodog.log',
                         help='path to log file')
     args = parser.parse_args()
 
-    # configure logging: console + file
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    # configure logging
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
     fmt = logging.Formatter('[%(asctime)s] %(levelname)s:%(message)s')
-
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setFormatter(fmt)
-    root_logger.addHandler(ch)
-
-    fh = logging.FileHandler(args.log_file)
-    fh.setFormatter(fmt)
-    root_logger.addHandler(fh)
-
+    ch = logging.StreamHandler(sys.stdout); ch.setFormatter(fmt); root.addHandler(ch)
+    fh = logging.FileHandler(args.log_file); fh.setFormatter(fmt); root.addHandler(fh)
     logging.info("Starting robodog")
 
     # prepare MCP globals
     TOKEN = args.token
-    ROOTS = []
+    ROOTS.clear()
     for p in args.folders:
-        absp = os.path.abspath(p)
-        if not os.path.isdir(absp):
-            logging.error(f"Error: not a directory: {p}")
+        ap = os.path.abspath(p)
+        if not os.path.isdir(ap):
+            logging.error(f"Not a directory: {p}")
             sys.exit(1)
-        ROOTS.append(absp)
+        ROOTS.append(ap)
 
-    # launch MCP server in background
+    # launch MCP server
     server = ThreadedTCPServer((args.host, args.port), MCPHandler)
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
-    logging.info(f"Robodog MCP file server serving {ROOTS} on {args.host}:{args.port}")
+    logging.info(f"MCP file server on {args.host}:{args.port}, roots={ROOTS}")
 
     # start CLI
     cli = RoboDogCLI(args.config)
     cli.mcp['baseUrl'] = f"http://{args.host}:{args.port}"
     cli.mcp['apiKey']  = args.token
-
-    # if user specified startup model, apply it now
     if args.model:
         cli.set_model([args.model])
 
