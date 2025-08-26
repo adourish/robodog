@@ -415,20 +415,32 @@ class RobodogService:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(src, dst)
 
-    def search(self, roots, pattern="*", recursive=True):
+
+        raw = p.get("pattern","*")
+        patterns = raw.split('|') if isinstance(raw, str) else [raw]
+        recursive = p.get("recursive", True)
+        root = p.get("root","")
         matches = []
+        roots = ROOTS if not root else [root]
         for r in roots:
+            if not os.path.isdir(r): continue
             if recursive:
                 for dp, _, fns in os.walk(r):
                     for fn in fns:
-                        if fnmatch.fnmatch(fn, pattern):
-                            matches.append(os.path.join(dp,fn))
+                        fp = os.path.join(dp, fn)
+                        for pat in patterns:
+                            if fnmatch.fnmatch(fp, pat):
+                                matches.append(fp)
+                                break
             else:
                 for fn in os.listdir(r):
-                    full = os.path.join(r,fn)
-                    if os.path.isfile(full) and fnmatch.fnmatch(fn,pattern):
-                        matches.append(full)
-        return matches
+                    fp = os.path.join(r, fn)
+                    if not os.path.isfile(fp): continue
+                    for pat in patterns:
+                        if fnmatch.fnmatch(fp, pat):
+                            matches.append(fp)
+                            break
+        return {"matches": matches, "status":"ok"}
 
     def checksum(self, path: str):
         h = hashlib.sha256()

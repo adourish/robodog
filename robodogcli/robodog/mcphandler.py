@@ -1,29 +1,12 @@
 #!/usr/bin/env python3
 import os
-import sys
-import re
-import glob
-import shutil
-import datetime
-import yaml
-import argparse
 import json
-import requests
-import tiktoken
-import concurrent.futures
-import logging
-from pathlib import Path
 import threading
 import socketserver
 import fnmatch
 import hashlib
-import asyncio
-from pprint import pprint
-from openai import OpenAI
-
-import threading
-import socketserver
-from service import RobodogService
+import shutil
+from service import RobodogService  # your existing service.py
 
 ROOTS    = []
 TOKEN    = None
@@ -31,42 +14,42 @@ SERVICE  = None
 
 class MCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
-        # Read first line
-        raw = self.rfile.readline().decode('utf-8', errors='ignore')
-        if not raw:
+        # Read the first line
+        raw_first = self.rfile.readline()
+        if not raw_first:
             return
-        line = raw.rstrip('\r\n')
-        is_http = line.upper().startswith(("GET ","POST ","OPTIONS ")) and "HTTP/" in line
+        first = raw_first.decode('utf-8', errors='ignore').rstrip('\r\n')
+        is_http = first.upper().startswith(("GET ","POST ","OPTIONS ")) and "HTTP/" in first
 
         if is_http:
-            self._handle_http(line)
+            self._handle_http(first)
         else:
             # raw MCP protocol
-            op, _, arg = line.partition(" ")
+            op, _, arg = first.partition(" ")
             try:
                 payload = json.loads(arg) if arg else {}
             except json.JSONDecodeError:
-                self._write_json({"status":"error","error":"Invalid JSON payload"})
-                return
+                return self._write_json({"status":"error","error":"Invalid JSON payload"})
             res = self._dispatch(op.upper(), payload)
             self._write_json(res)
 
     def _handle_http(self, first_line):
         # parse request line
         try:
-            method, uri, version = first_line.split(None,2)
+            method, uri, version = first_line.split(None, 2)
         except ValueError:
             return
         headers = {}
         # read headers
         while True:
-            h = self.rfile.readline().decode('utf-8', errors='ignore')
-            if not h or h in ('\r\n','\n'):
+            line = self.rfile.readline().decode('utf-8', errors='ignore')
+            if not line or line in ('\r\n', '\n'):
                 break
-            name, val = h.split(":",1)
+            name, val = line.split(":",1)
             headers[name.lower().strip()] = val.strip()
+
         # CORS preflight
-        if method.upper() == "OPTIONS":
+        if method.upper() == 'OPTIONS':
             resp = [
                 "HTTP/1.1 204 No Content",
                 "Access-Control-Allow-Origin: *",
@@ -76,8 +59,10 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 "Connection: close", "", ""
             ]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
+            self.wfile.flush()
             return
-        if method.upper() != "POST":
+
+        if method.upper() != 'POST':
             resp = [
                 "HTTP/1.1 405 Method Not Allowed",
                 "Access-Control-Allow-Origin: *",
@@ -86,10 +71,12 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 "Connection: close", "", "Only POST supported\n"
             ]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
+            self.wfile.flush()
             return
-        # auth
-        auth = headers.get("authorization","")
-        if auth != f"Bearer {TOKEN}":
+
+        # Authorization
+        authz = headers.get('authorization','')
+        if authz != f"Bearer {TOKEN}":
             body = json.dumps({"status":"error","error":"Authentication required"})
             resp = [
                 "HTTP/1.1 401 Unauthorized",
@@ -99,10 +86,12 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 "Connection: close", "", body
             ]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
+            self.wfile.flush()
             return
-        # read body
-        length = int(headers.get("content-length","0"))
-        raw_body = self.rfile.read(length).decode('utf-8', errors='ignore').strip()
+
+        # Read body
+        length = int(headers.get('content-length','0'))
+        raw_body = self.rfile.read(length).decode('utf-8', errors='ignore')
         op, _, arg = raw_body.partition(" ")
         try:
             payload = json.loads(arg) if arg else {}
@@ -110,6 +99,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
             result = {"status":"error","error":"Invalid JSON payload"}
         else:
             result = self._dispatch(op.upper(), payload)
+
         body = json.dumps(result, ensure_ascii=False)
         resp = [
             "HTTP/1.1 200 OK",
@@ -120,19 +110,25 @@ class MCPHandler(socketserver.StreamRequestHandler):
             "Connection: close", "", body
         ]
         self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
+        self.wfile.flush()
+
+    def _write_json(self, obj):
+        data = json.dumps(obj) + "\n"
+        self.wfile.write(data.encode('utf-8'))
+        self.wfile.flush()
 
     def _dispatch(self, op, p):
-        svc = SERVICE
         try:
-            # ==== BASIC MCP FILE OPERATIONS ====
+            # --- file‐service ops ---
             if op == "HELP":
-                return {"status":"ok","commands": [
+                return {"status":"ok","commands":[
                     "LIST_FILES","GET_ALL_CONTENTS","READ_FILE","UPDATE_FILE",
                     "CREATE_FILE","DELETE_FILE","APPEND_FILE","CREATE_DIR",
                     "DELETE_DIR","RENAME","MOVE","COPY_FILE","SEARCH",
                     "CHECKSUM","QUIT","EXIT"
                 ]}
-            if op == "SET_ROOTS":
+
+            if op == 'SET_ROOTS':
                 roots = p.get("roots")
                 if not isinstance(roots, list):
                     raise ValueError("Missing 'roots' list")
@@ -140,145 +136,134 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 for r in roots:
                     a = os.path.abspath(r)
                     if not os.path.isdir(a):
-                        raise FileNotFoundError(a)
+                        raise FileNotFoundError(f"Not a directory: {r}")
                     absr.append(a)
                 global ROOTS
                 ROOTS = absr
                 return {"status":"ok","roots":ROOTS}
-            if op == "LIST_FILES":
-                files = svc.list_files(ROOTS)
-                return {"status":"ok","files": files}
-            if op == "GET_ALL_CONTENTS":
-                contents = svc.get_all_contents(ROOTS)
-                return {"status":"ok","contents": contents}
-            if op == "READ_FILE":
-                path = p.get("path")
-                return {"status":"ok","path":path,
-                        "content": svc.read_file(path)}
-            if op == "UPDATE_FILE":
-                svc.update_file(p["path"], p["content"])
-                return {"status":"ok","path":p["path"]}
-            if op == "CREATE_FILE":
-                svc.create_file(p["path"], p.get("content",""))
-                return {"status":"ok","path":p["path"]}
-            if op == "DELETE_FILE":
-                svc.delete_file(p["path"])
-                return {"status":"ok","path":p["path"]}
-            if op == "APPEND_FILE":
-                svc.append_file(p["path"], p.get("content",""))
-                return {"status":"ok","path":p["path"]}
-            if op == "CREATE_DIR":
-                svc.create_dir(p["path"], p.get("mode",0o755))
-                return {"status":"ok","path":p["path"]}
-            if op == "DELETE_DIR":
-                svc.delete_dir(p["path"], p.get("recursive",False))
-                return {"status":"ok","path":p["path"]}
-            if op in ("RENAME","MOVE"):
-                svc.rename(p["src"], p["dst"])
-                return {"status":"ok","src":p["src"],"dst":p["dst"]}
-            if op == "COPY_FILE":
-                svc.copy_file(p["src"], p["dst"])
-                return {"status":"ok","src":p["src"],"dst":p["dst"]}
-            if op == "SEARCH":
-                pattern   = p.get("pattern","*")
-                recursive = p.get("recursive",True)
-                roots     = [p["root"]] if p.get("root") else ROOTS
-                matches   = svc.search(roots, pattern, recursive)
-                return {"status":"ok","matches": matches}
-            if op == "CHECKSUM":
-                cs = svc.checksum(p["path"])
-                return {"status":"ok","path":p["path"],"checksum":cs}
 
-            # ==== ROBODOG SERVICE (CLI) OPERATIONS ====
+            if op == 'LIST_FILES':
+                files = SERVICE.list_files(ROOTS)
+                return {"status":"ok","files":files}
+
+            if op == 'GET_ALL_CONTENTS':
+                contents = SERVICE.get_all_contents(ROOTS)
+                return {"status":"ok","contents":contents}
+
+            if op == 'READ_FILE':
+                path = p.get("path")
+                if not path: raise ValueError("Missing 'path'")
+                content = SERVICE.read_file(path)
+                return {"status":"ok","path":path,"content":content}
+
+            if op == 'SEARCH':
+                raw = p.get("pattern","*")
+                patterns = raw.split('|') if isinstance(raw, str) else [raw]
+                recursive = p.get("recursive", True)
+                root = p.get("root","")
+                matches = []
+                roots = ROOTS if not root else [root]
+                for r in roots:
+                    if not os.path.isdir(r): continue
+                    if recursive:
+                        for dp, _, fns in os.walk(r):
+                            for fn in fns:
+                                fp = os.path.join(dp, fn)
+                                for pat in patterns:
+                                    if fnmatch.fnmatch(fp, pat):
+                                        matches.append(fp)
+                                        break
+                    else:
+                        for fn in os.listdir(r):
+                            fp = os.path.join(r, fn)
+                            if not os.path.isfile(fp): continue
+                            for pat in patterns:
+                                if fnmatch.fnmatch(fp, pat):
+                                    matches.append(fp)
+                                    break
+                return {"matches": matches, "status":"ok"}
+
+
+            if op == 'CHECKSUM':
+                path = p.get("path")
+                if not path: raise ValueError("Missing 'path'")
+                cs = SERVICE.checksum(path)
+                return {"status":"ok","path":path,"checksum":cs}
+
+            # --- pass‐through RobodogService operations ---
             if op == "ASK":
                 prompt = p.get("prompt")
-                if prompt is None:
-                    raise ValueError("Missing 'prompt'")
-                response = svc.ask(prompt)
-                return {"status":"ok","response": response}
+                if prompt is None: raise ValueError("Missing 'prompt'")
+                resp = SERVICE.ask(prompt)
+                return {"status":"ok","response":resp}
 
             if op == "LIST_MODELS":
-                return {"status":"ok","models": svc.list_models()}
+                return {"status":"ok","models":SERVICE.list_models()}
 
             if op == "SET_MODEL":
-                model = p.get("model")
-                svc.set_model(model)
-                return {"status":"ok","model": model}
+                m = p.get("model")
+                SERVICE.set_model(m)
+                return {"status":"ok","model":m}
 
             if op == "SET_KEY":
-                prov = p.get("provider")
-                key  = p.get("key")
-                svc.set_key(prov, key)
-                return {"status":"ok","provider": prov}
+                prov = p.get("provider"); key = p.get("key")
+                SERVICE.set_key(prov, key)
+                return {"status":"ok","provider":prov}
 
             if op == "GET_KEY":
                 prov = p.get("provider")
-                key  = svc.get_key(prov)
+                key  = SERVICE.get_key(prov)
                 return {"status":"ok","provider":prov,"key":key}
 
             if op == "STASH":
-                name = p.get("name")
-                svc.stash(name)
-                return {"status":"ok","stashed":name}
+                SERVICE.stash(p.get("name"))
+                return {"status":"ok","stashed":p.get("name")}
 
             if op == "POP":
-                name = p.get("name")
-                svc.pop(name)
-                return {"status":"ok","popped":name}
+                SERVICE.pop(p.get("name"))
+                return {"status":"ok","popped":p.get("name")}
 
             if op == "LIST_STASHES":
-                return {"status":"ok","stashes": svc.list_stashes()}
+                return {"status":"ok","stashes":SERVICE.list_stashes()}
 
             if op == "CLEAR":
-                svc.clear()
+                SERVICE.clear()
                 return {"status":"ok"}
 
             if op == "IMPORT_FILES":
-                pattern = p.get("pattern")
-                count = svc.import_files(pattern)
-                return {"status":"ok","imported":count}
+                cnt = SERVICE.import_files(p.get("pattern"))
+                return {"status":"ok","imported":cnt}
 
             if op == "EXPORT_SNAPSHOT":
-                filename = p.get("filename")
-                svc.export_snapshot(filename)
-                return {"status":"ok","snapshot":filename}
+                fn = p.get("filename")
+                SERVICE.export_snapshot(fn)
+                return {"status":"ok","snapshot":fn}
 
             if op == "SET_PARAM":
-                key   = p.get("key")
-                value = p.get("value")
-                svc.set_param(key, value)
-                return {"status":"ok","param":key,"value":value}
+                SERVICE.set_param(p.get("key"), p.get("value"))
+                return {"status":"ok"}
 
             if op == "INCLUDE":
-                spec   = p.get("spec")
-                prompt = p.get("prompt", None)
-                answer = svc.include(spec, prompt)
+                answer = SERVICE.include(p.get("spec"), p.get("prompt",None))
                 resp = {"status":"ok"}
-                if answer is not None:
-                    resp["answer"] = answer
+                if answer is not None: resp["answer"] = answer
                 return resp
 
             if op == "CURL":
-                tokens = p.get("tokens", [])
-                svc.curl(tokens)
+                SERVICE.curl(p.get("tokens",[]))
                 return {"status":"ok"}
 
             if op == "PLAY":
-                instructions = p.get("instructions")
-                svc.play(instructions)
+                SERVICE.play(p.get("instructions"))
                 return {"status":"ok"}
 
             if op in ("QUIT","EXIT"):
                 return {"status":"ok","message":"Goodbye!"}
 
-            # unknown
-            raise ValueError(f"Unknown op: {op}")
+            raise ValueError(f"Unknown command '{op}'")
 
         except Exception as e:
-            return {"status":"error","error": str(e)}
-
-    def _write_json(self, obj):
-        self.wfile.write((json.dumps(obj)+"\n").encode('utf-8'))
+            return {"status":"error","error":str(e)}
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads      = True
@@ -287,15 +272,13 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 def run_robodogmcp(host: str, port: int, token: str,
                    folders: list, svc: RobodogService):
     """
-    Launches a threaded MCP server on (host,port), with bearer auth token,
-    serving the given folders via the provided RobodogService.
-    Returns the server instance (call shutdown()/server_close() when done).
+    Launch a threaded MCP server on (host,port) with bearer‐auth and
+    hook into the provided RobodogService instance.
     """
     global TOKEN, ROOTS, SERVICE
     TOKEN   = token
     SERVICE = svc
     ROOTS   = [os.path.abspath(f) for f in folders]
     server  = ThreadedTCPServer((host, port), MCPHandler)
-    t       = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
+    threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
