@@ -14,7 +14,7 @@ import tiktoken
 import yaml
 from openai import OpenAI
 from playwright.async_api import async_playwright
-
+import logging
 class RobodogService:
     def __init__(self, config_path: str, api_key: str = None):
         self._load_config(config_path)
@@ -208,9 +208,10 @@ class RobodogService:
         included_txts = []
         def _read(path):
             blob = self.call_mcp("READ_FILE", {"path": path})
-            return blob.get("content","")
+            return path, blob.get("content", "")
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-            for txt in pool.map(_read, matches):
+            for path, txt in pool.map(_read, matches):
                 # token count
                 try:
                     enc = tiktoken.encoding_for_model(self.cur_model)
@@ -218,10 +219,11 @@ class RobodogService:
                     enc = tiktoken.get_encoding("gpt2")
                 wc = len(txt.split())
                 tc = len(enc.encode(txt))
-                print(f"Included: words={wc}, tokens={tc}")
+                # fixed print statement
+                print(f"Included: {path} ({wc})")
                 included_txts.append(txt)
-        combined = "\n".join(included_txts)
-        self.knowledge += "\n" + combined + "\n"
+                combined = "\n".join(included_txts)
+                self.knowledge += "\n" + combined + "\n"
 
         # if prompt, ask & update context
         if prompt:
@@ -231,7 +233,144 @@ class RobodogService:
             self.context += f"\nAI: {ans}"
             return ans
         return None
+    
+    # ----------------------------------------------------------------
+    DEFAULT_EXCLUDE_DIRS = {"node_modules", "dist"}
+    logger = logging.getLogger(__name__)
 
+    def search_files(self,
+                    patterns="*",
+                    recursive=True,
+                    roots=None,
+                    exclude_dirs=None):
+        """
+        patterns: a string (e.g. '*.js|*.jsx') or a list of patterns
+        recursive: whether to walk subdirectories
+        roots:       list of root folders to search
+        exclude_dirs: iterable of dir‐names to skip (default: node_modules, dist)
+        """
+        # Normalize inputs
+        self.logger.debug("Raw patterns input: %r", patterns)
+        if isinstance(patterns, str):
+            patterns = patterns.split("|")
+        else:
+            patterns = list(patterns)
+        self.logger.debug("Normalized patterns list: %r", patterns)
+
+        exclude_dirs = set(exclude_dirs or self.DEFAULT_EXCLUDE_DIRS)
+        self.logger.debug("Excluding directories: %r", exclude_dirs)
+
+        matches = []
+
+        for root in roots or []:
+            self.logger.debug(">> Entering root: %r", root)
+            if not os.path.isdir(root):
+                self.logger.debug("   Skipping %r because it is not a directory", root)
+                continue
+
+            if recursive:
+                for dirpath, dirnames, filenames in os.walk(root):
+                    self.logger.debug("Walking into %r, subdirs=%r, files=%r",
+                                dirpath, dirnames, filenames)
+
+                    # prune excluded dirs in-place
+                    before = list(dirnames)
+                    dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+                    removed = set(before) - set(dirnames)
+                    if removed:
+                        self.logger.debug("   Pruned dirs %r from %r", removed, dirpath)
+
+                    for fn in filenames:
+                        full_path = os.path.join(dirpath, fn)
+                        self.logger.debug("   Considering file: %r", full_path)
+                        matched = False
+                        for pat in patterns:
+                            if fnmatch.fnmatch(full_path, pat) or fnmatch.fnmatch(fn, pat):
+                                self.logger.debug("      MATCH: %r matches pattern %r", full_path, pat)
+                                matches.append(full_path)
+                                matched = True
+                                break
+                            else:
+                                self.logger.debug("      no match: %r !~ %r", full_path, pat)
+                        if not matched:
+                            self.logger.debug("   -> File %r did not match any pattern", full_path)
+
+            else:
+                self.logger.debug("Non-recursive mode in root: %r", root)
+                for fn in os.listdir(root):
+                    full = os.path.join(root, fn)
+                    self.logger.debug("   Top-level entry: %r", full)
+                    if not os.path.isfile(full):
+                        self.logger.debug("      Skipped %r (not a file)", full)
+                        continue
+                    if fn in exclude_dirs:
+                        self.logger.debug("      Skipped %r (in exclude_dirs)", fn)
+                        continue
+
+                    matched = False
+                    for pat in patterns:
+                        if fnmatch.fnmatch(full, pat) or fnmatch.fnmatch(fn, pat):
+                            self.logger.debug("      MATCH: %r matches pattern %r", full, pat)
+                            matches.append(full)
+                            matched = True
+                            break
+                        else:
+                            self.logger.debug("      no match: %r !~ %r", full, pat)
+                    if not matched:
+                        self.logger.debug("   -> File %r did not match any pattern", full)
+
+        self.logger.debug("Search complete. Found %d matches: %r", len(matches), matches)
+        return matches
+    def search_files3(self,
+                     patterns="*",
+                     recursive=True,
+                     roots=None,
+                     exclude_dirs=None):
+        """
+        patterns: a string (e.g. '*.js|*.jsx') or a list of patterns
+        recursive: whether to walk subdirectories
+        roots:       list of root folders to search
+        exclude_dirs: iterable of dir‐names to skip (default: node_modules, dist)
+        """
+        # normalize inputs
+        if isinstance(patterns, str):
+            patterns = patterns.split("|")
+        else:
+            patterns = list(patterns)
+
+        exclude_dirs = set(exclude_dirs or self.DEFAULT_EXCLUDE_DIRS)
+        matches = []
+
+        for root in roots or []:
+
+            if not os.path.isdir(root):
+                continue
+
+            if recursive:
+                for dirpath, dirnames, filenames in os.walk(root):
+                    # prune excluded dirs in-place
+                    dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+
+                    for fn in filenames:
+                        # quick basename match
+                        for pat in patterns:
+                            if fnmatch.fnmatch(fn, pat):
+                                matches.append(os.path.join(dirpath, fn))
+                                break
+            else:
+                # non-recursive: only top-level files
+                for fn in os.listdir(root):
+                    full = os.path.join(root, fn)
+                    if not os.path.isfile(full):
+                        continue
+                    if fn in exclude_dirs:
+                        continue
+                    for pat in patterns:
+                        if fnmatch.fnmatch(fn, pat):
+                            matches.append(full)
+                            break
+
+        return matches
     # ————————————————————————————————————————————————————————————
     # /CURL IMPLEMENTATION
     def curl(self, tokens: list):

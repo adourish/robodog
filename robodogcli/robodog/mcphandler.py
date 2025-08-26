@@ -157,32 +157,21 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 return {"status":"ok","path":path,"content":content}
 
             if op == 'SEARCH':
-                raw = p.get("pattern","*")
-                patterns = raw.split('|') if isinstance(raw, str) else [raw]
+                raw = p.get("pattern", "*")
+                # pass through exclude if provided, or let service use its default
+                exclude = p.get("exclude", None)
+                patterns = raw if isinstance(raw, list) else raw.split("|")
                 recursive = p.get("recursive", True)
-                root = p.get("root","")
-                matches = []
-                roots = ROOTS if not root else [root]
-                for r in roots:
-                    if not os.path.isdir(r): continue
-                    if recursive:
-                        for dp, _, fns in os.walk(r):
-                            for fn in fns:
-                                fp = os.path.join(dp, fn)
-                                for pat in patterns:
-                                    if fnmatch.fnmatch(fp, pat):
-                                        matches.append(fp)
-                                        break
-                    else:
-                        for fn in os.listdir(r):
-                            fp = os.path.join(r, fn)
-                            if not os.path.isfile(fp): continue
-                            for pat in patterns:
-                                if fnmatch.fnmatch(fp, pat):
-                                    matches.append(fp)
-                                    break
-                return {"matches": matches, "status":"ok"}
+                root_param = p.get("root", "")
+                roots = ROOTS if not root_param else [root_param]
 
+                found = SERVICE.search_files(
+                    patterns=patterns,
+                    recursive=recursive,
+                    roots=roots,
+                    exclude_dirs=exclude
+                )
+                return {"status":"ok", "matches": found}
 
             if op == 'CHECKSUM':
                 path = p.get("path")
