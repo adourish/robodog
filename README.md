@@ -12,6 +12,8 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
 - In-chat file inclusion from a local MCP server.  
 - Built-in web search integration.  
 - Image generation & OCR pipelines.  
+- AI-driven web automation/testing via Playwright (`/play`).  
+- Raw MCP operations (`/mcp`).  
 - Accessible, retro “console” UI with customizable themes and responsive design.  
 
 ---
@@ -24,21 +26,16 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
   - `npm install robodoglib`  
   - `npm install robodogcli`  
   - `npm install robodog`  
-  - `pip install robodogcli`
-  - `pip show -f robodogcli`
-  - `python -m robodogcli.cli --help`
-  - `pip install requests requests openai`
-
+- **Python**:  
+  - `pip install robodogcli`  
+  - `pip show -f robodogcli`  
+  - `python -m robodogcli.cli --help`  
 
 ---
 
 ## Configuration  
 
-Click the ⚙️ icon in the top-menu to open settings:  
-
-![Configuration Settings](screenshot-quick.png)  
-
-Edit your YAML to configure providers, models, specialists, and the MCP server:  
+Click the ⚙️ icon in the top-menu to open settings, or edit your YAML directly:  
 
 ```yaml
 configs:
@@ -46,7 +43,6 @@ configs:
     - provider: openAI
       baseUrl: "https://api.openai.com"
       apiKey: "<YOUR_OPENAI_KEY>"
-      httpReferer: "https://adourish.github.io"
     - provider: openRouter
       baseUrl: "https://openrouter.ai/api/v1"
       apiKey: "<YOUR_ROUTER_KEY>"
@@ -109,134 +105,133 @@ configs:
 
 ## Key Features  
 
-- **Multi-Provider Support**: Switch between any configured provider or model on the fly.  
+- **Multi-Provider Support**: Switch between any configured provider or model on the fly (`/model`).  
 - **Chat & Knowledge**: Separate panes for Chat History (💭) and Knowledge (📝)—both resizable.  
 - **Stash Management**:  
   - `/stash <name>` — save current chat+knowledge  
-  - `/pop  <name>` — restore a stash  
-  - `/list`            — list all stashes  
-  - CTRL+SHIFT+UP     — cycle through stashes  
+  - `/pop <name>`   — restore a stash  
+  - `/list`         — list all stashes  
 - **File Import/Export**:  
-  - `/import` — pick files (.md, .txt, .js, .py, .json, .yaml, .csv, PDFs, images)  
-  - `/export <filename>` — download knowledge & chat snapshot  
-  - 📤 / 📥 buttons in toolbar  
-  ![Import Features](import.png)  
+  - `/import <glob>` — import files (.md, .js, .py, .pdf, images via OCR)  
+  - `/export <file>` — export chat+knowledge snapshot  
 - **MCP File Inclusion**:  
   - `/include all`  
   - `/include file=README.md`  
   - `/include pattern=*.js|*.css recursive`  
   - `/include dir=src pattern=*.py recursive`  
-  - `/curl tell me about example.com`  
-  - `/play tgo to example.com tell me the page title` 
-  Hand off included files into prompts seamlessly.  
-- **Web Search**: Enter `/search` mode or click 🔎 to perform live web queries.  
+- **Raw MCP Operations**:  
+  - `/mcp OP [JSON]` — e.g. `/mcp LIST_FILES`, `/mcp READ_FILE {"path":"./foo.py"}`  
+- **Web Fetch & Automation**:  
+  - `/curl [--no-headless] <url> [<url2>|<js>]` — fetch pages or run JS  
+  - `/play <instructions>` — run AI-driven Playwright tests end-to-end  
+- **Web Search**:  
+  - Use `search` model or click 🔎 to perform live web queries.  
 - **Image Generation & OCR**: Ask questions to `dall-e-3` or drop an image to extract text via OCR.  
 - **Interactive Console UI**: Retro “pip-boy green” theme, responsive on desktop/mobile, accessible.  
 - **Performance & Size Indicators**: Emoji feedback for processing speed and token usage.  
 - **Extensive Command Palette**: `/help` lists all commands, indicators, and settings.  
 
-![Configuration Settings](screenshot-mobile.png)  
 ---
 
 ## Usage Examples  
 
-### Web‐Automation Testing with `/play`
+### 1) AI-Driven Web Tests with `/play`  
 
-Run AI-generated Playwright tests end-to-end. Robodog will:
-
+Robodog will:  
 1. Parse your natural-language instructions into discrete steps  
 2. Spin up a headless browser and execute each step, retrying once on failure  
-3. Log each attempt and, at the end, print a Success/Failure summary
+3. Log each attempt and summarize as Success/Failure  
 
-Example:
 ```
-  /play navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
+/play navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
 ```
-Expected output:
 
-  Instructions: navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
+Output snippet:
+```
+Instructions: navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
 
-  ----- Parsed steps -----
-  1. Navigate to https://example.com
-  2. Extract the page title
-  3. Verify the title contains 'Example Domain'
+----- Parsed steps -----
+1. Navigate to https://example.com
+2. Extract the page title
+3. Verify the title contains 'Example Domain'
 
-  >>> Starting step 1: Navigate to https://example.com
-  --- Attempt 1 on page: <no title> (about:blank) ---
-  Step 1 attempt 1 → Success: None
+>>> Starting step 1: Navigate to https://example.com
+--- Attempt 1 on page: <no title> (about:blank) ---
+Step 1 attempt 1 → Success: None
 
-  >>> Starting step 2: Extract the page title
-  --- Attempt 1 on page: Example Domain (https://example.com) ---
-  Step 2 attempt 1 → Success: 'Example Domain'
+...  
 
-  >>> Starting step 3: Verify the title contains 'Example Domain'
-  --- Attempt 1 on page: Example Domain (https://example.com) ---
-  Step 3 attempt 1 → Success: True
+--- /play summary ---
+Step 1: Success
+Step 2: Success
+Step 3: Success
+```
 
-  --- /play summary ---
-  Step 1: Success
-  Step 2: Success
-  Step 3: Success
+### 2) Fetch & Scrape with `/curl`  
 
-### Switch Model  
+```
+/curl https://example.com
+```
+→ prints page text.  
+
+```
+/curl --no-headless example.com document.querySelector('h1').innerText
+```
+→ runs JS snippet to extract an element.
+
+### 3) Include Local Files via MCP  
+
+```
+/include pattern=*.js recursive fix bug in parser
+```
+→ pulls matching files from your project into context, then asks the LLM.
+
+### 4) Raw MCP Commands  
+
+```
+/mcp LIST_FILES
+/mcp READ_FILE {"path":"./src/cli.py"}
+```
+
+### 5) Switch Model on the Fly  
+
 ```
 /model o4-mini
 ```
-→ “Model is set to o4-mini”  
+→ “Model set to: o4-mini”
 
-### Ask a Question  
-Simply type your query in the Chat💬 box and hit 🤖 or Enter.  
+### 6) Import & Export  
 
-### Import Files  
-Click 📤 or type:  
 ```
-/import
-```  
-Select one or more files—content is appended to Knowledge📝.  
-
-### Export Snapshot  
+/import **/*.md
+/export conversation_snapshot.txt
 ```
-/export my_conversation.txt
-```  
-Downloads a plain-text transcript of Chat History, Knowledge, and Content logs.  
-
-### Include Code from Your Project  
-```
-/include pattern=*robodog*.js recursive
-```  
-Includes all `*.js` files matching pattern under all configured project roots.  
-
-### Web Search  
-```
-/search What is Robodog AI?
-```  
-Returns top results with clickable links.  
-
-### Generate an Image  
-```
-/dall-e-3 Create a sci-fi console UI in 1024x1024
-```  
-→ Displays generated image inline.  
 
 ---
 
-## Robodog CLI
-![Configuration Settings](screenshot-cli.png)  
+## Robodog CLI Usage  
 
 ```bash
-python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token testtoken --config config.yaml --model o4-mini
-```  
+python -m robodog.cli \
+  --folders /path/to/project/src /another/root \
+  --host 127.0.0.1 \
+  --port 2500 \
+  --token my_mcp_token \
+  --config config.yaml \
+  --model o4-mini
+```
 
-```  
+Type `/help` in the CLI for a full list of commands.
+
+---
 
 ## MCP File Service Syntax  
 
-![Robodog MCP File Service](screenshot-mcp.png)  
-```txt
+```
 /include all
 /include file=*.md
-/include pattern=*service*.js recursive
-/include dir=src pattern=*.py recursive
+/include pattern=*.py recursive
+/include dir=src pattern=*.js recursive
 ```
 *Globs: `*`, `?`, character classes. No full regex.*  
 
@@ -245,8 +240,8 @@ python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token t
 ## MCP Server Startup  
 
 ```bash
-python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token testtoken --config config.yaml --model o4-mini
-```  
+python -m robodog.cli --folders . --port 2500 --token testtoken --config config.yaml
+```
 
 ---
 
@@ -256,37 +251,43 @@ python robodog.py --folders c:\projects\robodog\robodogcli --port 2500 --token t
 - Code: `.js`, `.ts`, `.py`, `.java`, `.c`, `.cpp`, `.go`, `.rs`  
 - Config/Data: `.yaml`, `.yml`, `.json`, `.xml`, `.csv`  
 - PDF: `.pdf`  
-- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`, `.pbm`, `.pgm`, `.ppm`  
+- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`  
 
 ---
 
 ## Command Reference  
 
-Run `/help` in-app or see the list below:  
+Run `/help` in-app or see the list below:
 
 ```
 /help                    — show help  
+/models                  — list configured models  
 /model <name>            — switch model  
-/import                  — import files  
-/export <filename>       — export snapshot  
+/key <prov> <key>        — set API key for provider  
+/getkey <prov>           — view API key for provider  
+/import <glob>           — import files into knowledge  
+/export <file>           — export chat+knowledge snapshot  
 /clear                   — clear chat & knowledge  
 /stash <name>            — stash chat+knowledge  
-/pop   <name>            — retrieve stash  
+/pop <name>              — restore a stash  
 /list                    — list stashes  
 /temperature <n>         — set temperature (0–2)  
-/max_tokens <n>          — set max tokens  
 /top_p <n>               — set nucleus sampling  
+/max_tokens <n>          — set max tokens  
 /frequency_penalty <n>   — set frequency penalty  
 /presence_penalty <n>    — set presence penalty  
-/rest                    — use REST completions  
-/stream                  — use streaming completions  
+/stream                  — enable streaming mode  
+/rest                    — disable streaming (REST mode)  
+/folders <dirs>          — update MCP roots  
 /include …               — include files via MCP  
-/play <instructions>     — run AI-driven Playwright tests against a website: parses your instructions into code, executes each step, and summarizes success/failure
+/curl …                  — fetch web pages / run JS  
+/play <instructions>     — run AI-driven Playwright tests  
+/mcp OP [JSON]           — invoke raw MCP operation  
 ```
 
-*Also supports keyboard shortcuts:*  
-- CTRL+SHIFT+UP to cycle stashes  
-- CTRL+S to save a snapshot  
+*Keyboard Shortcuts:*  
+- CTRL+SHIFT+UP — cycle through stashes  
+- CTRL+S        — save a snapshot  
 
 ---
 
@@ -306,7 +307,7 @@ Run `/help` in-app or see the list below:
 ## Accessibility & PWA  
 
 - Meets Section 508 and WCAG principles.  
-- Detects standalone ≥Installable as a PWA on supported devices.  
+- Installable as a PWA on supported devices.  
 
 ---
 
@@ -320,19 +321,6 @@ python build.py
 open ./dist/robodog.html
 ```  
 
-## Run the CLI
-The cli an optional service that can run robodog commands and host the MCP file service for local context
-```bash
-pip install robodogcli
-pip show -f robodogcli
-python -m robodog.cli --help
-python -m robodog.cli --folders c:\projects\robodog\robodogcli --port 2500 --token "<mcpServer.apiKey>" --config config.yaml --model o4-mini    
-```  
+---
 
-## Use Robodog
-Robodog is hosted on github, navigate. Robodog stores user data in the browser local storage. 
-```bash
-open https://adourish.github.io/robodog/robodog/dist/
-```  
-
-Experience the future of AI interaction—fast, contextual, and extensible. Enjoy Robodog AI!
+Enjoy Robodog AI—the future of fast, contextual, and extensible AI interaction!

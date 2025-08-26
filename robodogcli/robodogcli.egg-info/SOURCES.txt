@@ -2,6 +2,9 @@ README.md
 pyproject.toml
 robodog/__init__.py
 robodog/cli.py
+robodog/cli2.py
+robodog/mcphandler.py
+robodog/service.py
 robodogcli.egg-info/PKG-INFO
 robodogcli.egg-info/SOURCES.txt
 robodogcli.egg-info/dependency_links.txt
