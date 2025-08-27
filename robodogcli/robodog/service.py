@@ -220,7 +220,7 @@ class RobodogService:
                 wc = len(txt.split())
                 tc = len(enc.encode(txt))
                 # fixed print statement
-                print(f"Included: {path} ({wc})")
+                print(f"Included: {path} ({wc} tokens)")
                 included_txts.append(txt)
                 combined = "\n".join(included_txts)
                 self.knowledge += "\n" + combined + "\n"
