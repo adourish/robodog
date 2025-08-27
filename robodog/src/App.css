@@ -71,7 +71,7 @@ html, body, #root {
 }
 .top-menu button:hover,
 .top-menu select:hover {
-  background: rgba(51,255,0,0.1);
+  background: #0f0101;
 }
 
 /* 6) Console content */
