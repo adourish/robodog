@@ -226,38 +226,44 @@ class ConsoleService {
     return commands;
   }
   getIndicators() {
-    var indicators = [' indicators: ',
-      '[3432/9000] - estimated remaining context',
-      '[rest] - rest completion mode',
-      '[stream] - stream completion mode.',
-      '[486+929=1415] - token usage.',
-      '[🦥] - ready.',
-      '[🦧] - thinking.',
-      '[🐋] - 💬📝💭 is dangerously large.',
-      '[🦕] - 💬📝💭 is very large.',
-      '[🐘] - 💬📝💭 is large.',
-      '[🐁] - 💬📝💭 is acceptable.',
-      '[🐘] - 💬📝💭 is large.',
-      '[🐁] - 💬📝💭 is acceptable.',
-      '[💭] - Chat History',
-      '[📝] - Knowledge Content',
-      '[💬] - Chat Text',
-      '[👾] - User',
-      '[🤖] - Assistant',
-      '[💾] - System',
-      '[👹] - Event',
-      '[💩] - Error',
-      '[🍄] - Warning',
-      '[😹] - Info',
-      '[💣] - Experiment',
-      '[🙀] - Default',
-      '[🦥] - Ready',
-      '[🦧] - Thinking',
-      '[🦉] - Thinking',
-      '[🐝] - Thinking',
-      '[🐋] - Dangerously large',
-      '[🦕] - Very large',
-      '[🦘, 🐆 , 🦌, 🐕, 🐅, 🐈, 🐢] - Performance'];
+    getIndicators() {
+  const indicators = [
+    'indicators:',
+    '[9000] - tokens',
+    '[rest] - REST completion mode',
+    '[stream] - streaming completion mode',
+    '[486+929=1415] - token usage summary',
+    '[🦥] - ready',
+    '[🦧] - thinking',
+    '[🐋] - 💬📝💭 is dangerously large',
+    '[🦕] - 💬📝💭 is very large',
+    '[🐘] - 💬📝💭 is large',
+    '[🐁] - 💬📝💭 is acceptable',
+    '[💭] - Chat History',
+    '[📝] - Knowledge Content',
+    '[💬] - Chat Text',
+    '[👾] - User',
+    '[🤖] - Assistant',
+    '[💾] - System',
+    '[👹] - Event',
+    '[💩] - Error',
+    '[🍄] - Warning',
+    '[😹] - Info',
+    '[💣] - Experiment',
+    '[🙀] - Default',
+    '[🦉] - alternate thinking emoji',
+    '[🐝] - alternate thinking emoji',
+    '[🦘, 🐆, 🦌, 🐕, 🐅, 🐈, 🐢] - Performance (response time)'
+  ];
+
+  return indicators.map(line => ({
+    datetime: '',
+    role: 'setting',
+    roleEmoji: '',
+    command: line,
+    url: ''
+  }));
+}
 
     var commands = indicators.map((line, index) => {
       return {
