@@ -7,6 +7,8 @@ const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
 const providerService = new RobodogLib.ProviderService();
+const rtcService = new RobodogLib.RTCService();
+const hostService = new RobodogLib.HostService()
 const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
 const SettingsComponent = RobodogLib.SettingsComponent;
 
@@ -19,12 +21,13 @@ if (window) {
 }
 console.log(build, consoleService);
 
-function Console() {
+function Consolebak() {
 
   const [completionType, setCompletionType] = useState('stream');
   const [maxChars, setMaxChars] = useState(4096);
   const [totalChars, setTotalChars] = useState(0);
   const [question, setQuestion] = useState('');
+
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
   const [contextButton, setcontextButton] = useState('⬜');
@@ -51,6 +54,7 @@ function Console() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKey, setCurrentKey] = useState('autosave');
   const [size, setSize] = useState('1792x1024');
+  const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
   const [stashList, setStashList] = useState([]);
@@ -61,40 +65,118 @@ function Console() {
   const [file, setFile] = useState('');
   const [group, setGroup] = useState('');
 
-  // RUN THIS ONCE
   useEffect(() => {
     console.log('Component has mounted!');
-    // all your setup logic here, was previously guarded by isLoaded
-    var _commands = consoleService.getCommands();
-    var _options = consoleService.getOptions();
-    var _yamlConfig = providerService.getYaml();
-    setYamlConfig(_yamlConfig);
-    var _model = providerService.getCurrentModel();
-    if (_model && _model !== '') {
-      setModel(_model)
-    }
-    var _l = consoleService.getSettings(build, _model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
-    var _stashList = consoleService.getStashList();
-    if (_stashList) {
-      var stashList = _stashList.split(',');
-      setStashList(stashList);
-    }
-    setCommands(_commands);
-    setOptions(_options);
-    setIsLoaded(true);
-    setContent(_l);
-    setCurrentKey('autosave');
-    // no repeated setCommands
+    if (!isLoaded) {
 
+      var _commands = consoleService.getCommands();
+      var _options = consoleService.getOptions();
+      var _yamlConfig = providerService.getYaml();
+      setYamlConfig(_yamlConfig);
+      var _model = providerService.getCurrentModel();
+      if (_model && _model !== '') {
+        setModel(_model)
+      }
+      var _l = consoleService.getSettings(build, _model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+      var _stashList = consoleService.getStashList();
+
+      if (_stashList) {
+        var stashList = _stashList.split(',');
+        setStashList(stashList);
+      }
+      setCommands(_commands);
+      setOptions(_options);
+      setIsLoaded(true);
+      setContent(_l);
+      setCurrentKey('autosave');
+      setCommands(_commands);
+
+    }
     return () => {
       clearInterval(intervalId);
       console.log('Cleaning up...');
     };
-  }, []);
+  }, [intervalId, setIntervalId, isLoaded,
+    setIsLoaded,
+    size,
+    commands,
+    selectedCommand,
+    setSelectedCommand,
+    setContext,
+    setKnowledge,
+    setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea,
+    model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty,
+    setCurrentKey, setStashList, setSize,
+    knowledgeTextarea, setknowledgeTextarea, contextTextarea, setcontextTextarea]);
+
+  const setFocusOnLastItem = () => {
+    setContent(prevContent => {
+      return prevContent.map((item, index) => {
+        if (index === prevContent.length - 1) {
+          return { ...item, focus: true };
+        }
+        return item;
+      });
+    });
+  };
+
 
   useEffect(() => {
-    consoleService.scrollToBottom();
+    // Call the function to set focus on the last item when content changes
+    setFocusOnLastItem();
   }, [content]);
+
+  useEffect(() => {
+    try {
+
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        setIsPWA(true);
+      } else {
+        window.addEventListener('appinstalled', () => {
+          setIsPWA(true);
+        });
+      }
+    } catch (error) {
+      console.error('Error in detecting PWA', error);
+    }
+  }, []);
+
+  const handleSettingsToggle = () => {
+    console.debug('handleSettingsToggle', showSettings)
+    setShowSettings(!showSettings);
+  };
+
+  const handleStash = () => {
+    try {
+      var q = question + ' ' + content
+      var verb = q.length < 15 ? q : q.substring(0, 20);
+      console.log(verb);
+      console.debug('handleStash', "verb")
+      consoleService.stash(verb, context, knowledge, question, content, temperature, showTextarea);
+      var _stashList = consoleService.getStashList();
+
+      if (_stashList) {
+        var stashList = _stashList.split(',');
+        setStashList(stashList);
+      }
+    } catch (ex) {
+      console.log("test")
+    }
+  };
+
+
+  //handleYamlConfigKeyChange
+  const handleYamlConfigKeyChange = (key) => {
+    console.debug('handleYamlConfigKeyChange', key);
+    providerService.setYaml(key);
+    setYamlConfig(key);
+  };
+
+  const handleModelChange = (model) => {
+    console.debug('handleModelChange', model);
+    setModel(model)
+  };
+
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -121,8 +203,9 @@ function Console() {
 
     const handleCtrlS = (event) => {
       if (event.ctrlKey && event.keyCode === 83) {
+        // Save logic here
         event.preventDefault();
-        consoleService.save(context, knowledge, question, content, temperature, showTextarea);
+        var key = consoleService.save(context, knowledge, question, content, temperature, showTextarea);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -131,71 +214,116 @@ function Console() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', handleCtrlS);
     };
-  }, [currentIndex, context, knowledge, question, content, showTextarea, temperature]);
+  }, [currentIndex, setContext, setKnowledge, setQuestion, showTextarea, temperature, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, question]);
 
-  useEffect(() => {
-    try {
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        setIsPWA(true);
-      } else {
-        window.addEventListener('appinstalled', () => {
-          setIsPWA(true);
-        });
-      }
-    } catch (error) {
-      console.error('Error in detecting PWA', error);
-    }
-  }, []);
-
-  const handleSettingsToggle = () => {
-    console.debug('handleSettingsToggle', showSettings)
-    setShowSettings(!showSettings);
+  const handleInputChange = (event) => {
+    const value = event.target.value;
+    setQuestion(value);
+    handleCharsChange(event);
   };
 
-  const handleStash = () => {
-    try {
-      var q = question + ' ' + content
-      var verb = q.length < 15 ? q : q.substring(0, 20);
-      console.log(verb);
-      console.debug('handleStash', "verb")
-      consoleService.stash(verb, context, knowledge, question, content, temperature, showTextarea);
-      var _stashList = consoleService.getStashList();
-      if (_stashList) {
-        var stashList = _stashList.split(',');
-        setStashList(stashList);
-      }
-    } catch (ex) {
-      console.log("test")
-    }
+
+  const handleFileUpload = (event) => {
+    event.preventDefault();
+    setThinking('🦧');
+    consoleService.handleImport(setKnowledge, knowledge, setContent, content);
+    setThinking('🦥');
   };
 
-  const handleYamlConfigKeyChange = (key) => {
-    console.debug('handleYamlConfigKeyChange', key);
-    providerService.setYaml(key);
-    setYamlConfig(key);
-  };
+  const handleSetModel = (event) => {
+    var message = 'Model is set to ' + event;
+    providerService.setCurrentModel(event)
+    setModel(event)
+    setContent([...content, formatService.getMessageWithTimestamp(message, 'model')]);
+  }
 
-  const handleModelChange = (model) => {
-    console.debug('handleModelChange', model);
-    setModel(model)
-  };
 
-  function copyToClipboard(text) {
-    var first6chars = text.substring(0, 6);
-    if (text.length < 6) {
-      first6chars = text;
-    } else {
-      setCopySuccess(first6chars);
-    }
-
-    navigator.clipboard.writeText(text)
+  const handleSetGroup = (event) => {
+    var message = 'Group is set to ' + event;
+    hostService.setActiveGroup(event)
       .then(() => {
-        setCopySuccess(first6chars);
+        setGroup(event);
+        setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
       })
-      .catch(err => {
-        setCopySuccess('Failed to copy text ');
+      .catch(error => {
+        console.error('Error setting active group:', error);
       });
   }
+
+  const handleGetGroups = () => {
+    var message = 'Fetching groups';
+    hostService.getGroups()
+      .then(groups => {
+        if (groups && groups.groups && Array.isArray(groups.groups)) {
+          const groupNames = groups.map(group => group.name).join(', ');
+          setContent([...content, formatService.getMessageWithTimestamp(`Groups: ${groupNames}`, 'experiment')]);
+        } else {
+          console.error('Error: groups is not an array');
+        }
+      })
+      .catch(error => {
+        console.error('Error getting groups:', error);
+      });
+  }
+
+  const handleSetFile = (event) => {
+    var message = 'File is set to ' + event;
+    hostService.setActiveFile(event)
+      .then(() => {
+        setFile(event);
+        setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
+      })
+      .catch(error => {
+        console.error('Error setting active file:', error);
+      });
+  }
+
+  const handleSetWatch = () => {
+    const newWatchState = watch ? '' : '💻';
+    hostService.toggleCircuitBreaker(!watch);
+    var message = 'Watch is set to ' + newWatchState;
+
+    setWatch(newWatchState);
+    setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
+  }
+  const handleSaveClick = (event) => {
+    event.preventDefault();
+    setThinking('🦧');
+    consoleService.handleExport("save", context, knowledge, question, content, temperature, showTextarea);
+    setThinking('🦥');
+  };
+
+
+
+  const handleContextChange = (event) => {
+    const value = event.target.value;
+    setContext(value);
+    handleCharsChange(event);
+  };
+
+  const handleKnowledgeChange = (event) => {
+
+    const value = event.target.value;
+    setKnowledge(value);
+    handleCharsChange(event);
+
+  };
+
+
+  const handleCharsChange = (event) => {
+    try {
+      var c = consoleService.calculateTokens(context);
+      var i = consoleService.calculateTokens(question);
+      var k = consoleService.calculateTokens(knowledge);
+      var _totalChars = c + i + k;
+      setTotalChars(_totalChars);
+      var tooBig = formatService.getTooBigEmoji(_totalChars, maxChars);
+      setTooBig(tooBig);
+
+    } catch (ex) {
+      console.warn(ex);
+    }
+  };
 
   function executeCommands(_command) {
     var message = '';
@@ -471,11 +599,93 @@ function Console() {
     }
     consoleService.scrollToBottom();
   }
+  function handleDropdownChange(event) {
+    const selectedValue = event.target.value;
+    const selectedOption = options.find((option) => option.command === selectedValue);
 
-  const handleInputChange = (event) => {
-    const value = event.target.value;
-    setQuestion(value);
-    handleCharsChange(event);
+    if (selectedOption && selectedOption.command) {
+      var _c = selectedOption.command;
+
+      if (_c.includes("<name>")) {
+        const name = prompt("Please enter a name:" + selectedOption.description);
+        _c = _c.replace("<name>", name);
+      }
+
+      if (_c.includes("<number>")) {
+        const number = prompt("Please enter a number:" + selectedOption.description);
+        _c = _c.replace("<number>", number);
+      }
+
+      setQuestion(_c);
+      console.log(_c);
+    }
+  }
+
+  function handleStashListChange(event) {
+    const key = event?.target?.value;
+    if (key) {
+      consoleService.setStashKey(key,
+        currentIndex,
+        setContext,
+        setKnowledge,
+        setQuestion,
+        setContent,
+        setCurrentIndex,
+        setCurrentKey,
+        setTemperature,
+        setShowTextarea);
+      console.log(key);
+    }
+  }
+  function copyToClipboard(text) {
+    var first6chars = text.substring(0, 6);
+    if (text.length < 6) {
+      first6chars = text;
+    } else {
+      setCopySuccess(first6chars);
+    }
+
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopySuccess(first6chars);
+      })
+      .catch(err => {
+        setCopySuccess('Failed to copy text ');
+      });
+  }
+
+  function handleLaunch(name, url) {
+    console.debug('handleLaunch', name, url)
+
+  }
+
+  const handleKnowledgeSizeEvent = async (event) => {
+    event.preventDefault();
+    console.log('handleKnowledgeEvent', knowledgeTextarea)
+    if (knowledgeTextarea === 'knowledge-textarea') {
+      setknowledgeTextarea('knowledge-big-textarea');
+      setknowledgeButton('🟥');
+    } else if (knowledgeTextarea === 'knowledge-big-textarea') {
+      setknowledgeTextarea('knowledge-small-textarea');
+      setknowledgeButton('⬜');
+    } else {
+      setknowledgeTextarea('knowledge-textarea');
+      setknowledgeButton('🟦');
+    }
+  };
+  const handleHistorySizeEvent = async (event) => {
+    event.preventDefault();
+    console.log('handleHistoryEvent', contextTextarea)
+    if (contextTextarea === 'context-textarea') {
+      setcontextTextarea('context-big-textarea');
+      setcontextButton('🟥');
+    } else if (contextTextarea === 'context-big-textarea') {
+      setcontextTextarea('context-small-textarea');
+      setcontextButton('⬜');
+    } else {
+      setcontextTextarea('context-textarea');
+      setcontextButton('🟦');
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -535,126 +745,6 @@ function Console() {
       consoleService.scrollToBottom();
     }
   };
-
-  const handleFileUpload = (event) => {
-    event.preventDefault();
-    setThinking('🦧');
-    consoleService.handleImport(setKnowledge, knowledge, setContent, content);
-    setThinking('🦥');
-  };
-
-  const handleSetModel = (event) => {
-    var message = 'Model is set to ' + event;
-    providerService.setCurrentModel(event)
-    setModel(event)
-    setContent([...content, formatService.getMessageWithTimestamp(message, 'model')]);
-  }
-
-  function handleDropdownChange(event) {
-    const selectedValue = event.target.value;
-    const selectedOption = options.find((option) => option.command === selectedValue);
-
-    if (selectedOption && selectedOption.command) {
-      var _c = selectedOption.command;
-
-      if (_c.includes("<name>")) {
-        const name = prompt("Please enter a name:" + selectedOption.description);
-        _c = _c.replace("<name>", name);
-      }
-
-      if (_c.includes("<number>")) {
-        const number = prompt("Please enter a number:" + selectedOption.description);
-        _c = _c.replace("<number>", number);
-      }
-
-      setQuestion(_c);
-      console.log(_c);
-    }
-  }
-
-  const handleSaveClick = (event) => {
-    event.preventDefault();
-    setThinking('🦧');
-    consoleService.handleExport("save", context, knowledge, question, content, temperature, showTextarea);
-    setThinking('🦥');
-  };
-
-  const handleContextChange = (event) => {
-    setContext(event.target.value);
-    handleCharsChange(event);
-  };
-
-  function handleLaunch(name, url) {
-    console.debug('handleLaunch', name, url)
-
-  }
-
-  function handleStashListChange(event) {
-    const key = event?.target?.value;
-    if (key) {
-      consoleService.setStashKey(key,
-        currentIndex,
-        setContext,
-        setKnowledge,
-        setQuestion,
-        setContent,
-        setCurrentIndex,
-        setCurrentKey,
-        setTemperature,
-        setShowTextarea);
-      console.log(key);
-    }
-  }
-
-  const handleKnowledgeChange = (event) => {
-    setKnowledge(event.target.value);
-    handleCharsChange(event);
-  };
-
-  const handleKnowledgeSizeEvent = async (event) => {
-    event.preventDefault();
-    console.log('handleKnowledgeEvent', knowledgeTextarea)
-    if (knowledgeTextarea === 'knowledge-textarea') {
-      setknowledgeTextarea('knowledge-big-textarea');
-      setknowledgeButton('🟥');
-    } else if (knowledgeTextarea === 'knowledge-big-textarea') {
-      setknowledgeTextarea('knowledge-small-textarea');
-      setknowledgeButton('⬜');
-    } else {
-      setknowledgeTextarea('knowledge-textarea');
-      setknowledgeButton('🟦');
-    }
-  };
-
-  const handleHistorySizeEvent = async (event) => {
-    event.preventDefault();
-    console.log('handleHistoryEvent', contextTextarea)
-    if (contextTextarea === 'context-textarea') {
-      setcontextTextarea('context-big-textarea');
-      setcontextButton('🟥');
-    } else if (contextTextarea === 'context-big-textarea') {
-      setcontextTextarea('context-small-textarea');
-      setcontextButton('⬜');
-    } else {
-      setcontextTextarea('context-textarea');
-      setcontextButton('🟦');
-    }
-  };
-
-  const handleCharsChange = (event) => {
-    try {
-      var c = consoleService.calculateTokens(context);
-      var i = consoleService.calculateTokens(question);
-      var k = consoleService.calculateTokens(knowledge);
-      var _totalChars = c + i + k;
-      setTotalChars(_totalChars);
-      var tooBig = formatService.getTooBigEmoji(_totalChars, maxChars);
-      setTooBig(tooBig);
-    } catch (ex) {
-      console.warn(ex);
-    }
-  };
-
   return (
 
     <div className="console">
@@ -757,4 +847,4 @@ function Console() {
   );
 }
 
-export default Console;
+export default Consolebak;
