@@ -708,7 +708,7 @@ function Console() {
           <textarea
             value={context}
             onChange={handleContextChange}
-            placeholder="Chat history💭: "
+            placeholder="Context History: "
             className={`input-textarea ${contextTextarea}`}
             aria-label="chat history"
           ></textarea>
@@ -718,7 +718,7 @@ function Console() {
           <textarea
             value={knowledge}
             onChange={handleKnowledgeChange}
-            placeholder="Knowledge📝: examples, data, code"
+            placeholder="Knowledge:"
             className={`input-textarea ${knowledgeTextarea}`}
             aria-label="knowledge content"
           ></textarea>
@@ -728,7 +728,7 @@ function Console() {
           <textarea
             value={question}
             onChange={handleInputChange}
-            placeholder="Chat💬: "
+            placeholder="Ask: "
             className="input-textarea question-textarea"
             aria-label="chat text"
           ></textarea>
