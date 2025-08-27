@@ -134,3 +134,23 @@ html, body, #root {
 .button-uploader:hover {
   background: rgba(51,255,0,0.1);
 }
+
+/* Light-mode overrides: force white bg / black text */
+body.light-mode,
+body.light-mode .console,
+body.light-mode .console *,
+body.light-mode .top-menu,
+body.light-mode .input-form,
+body.light-mode textarea,
+body.light-mode select,
+body.light-mode button {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
+  text-shadow: none !important;
+}
+/* If you have any background-images or scanlines, you may want to disable them: */
+body.light-mode .console::before,
+body.light-mode .console::after {
+  display: none !important;
+}

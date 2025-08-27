@@ -319,10 +319,18 @@ Run `/help` in-app or see the list below:
 # Clone or unzip robodog
 cd robodog
 python build.py
-# Open in browser
 open ./dist/robodog.html
 ```  
 
+```bash
+npm install robodoglib 
+npm install robodogcli 
+npm install robodog
+pip install robodogcli
+pip show -f robodogcli
+python -m robodogcli.cli --help
+python -m playwright install
+```  
 ---
 
 Enjoy Robodog AI—the future of fast, contextual, and extensible AI interaction!

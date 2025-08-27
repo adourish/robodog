@@ -73,7 +73,9 @@ function Console() {
     if (_model && _model !== '') {
       setModel(_model)
     }
-    var _l = consoleService.getSettings(build, _model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+    setContent([...content,
+    formatService.getMessageWithTimestamp(build, 'setting'),
+    formatService.getMessageWithTimestamp(_model, 'setting')]);
     var _stashList = consoleService.getStashList();
     if (_stashList) {
       var stashList = _stashList.split(',');
@@ -82,7 +84,6 @@ function Console() {
     setCommands(_commands);
     setOptions(_options);
     setIsLoaded(true);
-    setContent(_l);
     setCurrentKey('autosave');
     // no repeated setCommands
 
@@ -180,6 +181,27 @@ function Console() {
     setModel(model)
   };
 
+  // --- theme toggler ---
+  const THEME_KEY = 'robodog:theme';
+
+  function applyDarkMode() {
+    document.body.classList.remove('light-mode');
+    localStorage.setItem(THEME_KEY, 'dark');
+  }
+
+  function applyLightMode() {
+    document.body.classList.add('light-mode');
+    localStorage.setItem(THEME_KEY, 'light');
+  }
+
+  function toggleDarkMode() {
+    if (document.body.classList.contains('light-mode')) {
+      applyDarkMode();
+    } else {
+      applyLightMode();
+    }
+  }
+
   function copyToClipboard(text) {
     var first6chars = text.substring(0, 6);
     if (text.length < 6) {
@@ -260,16 +282,9 @@ function Console() {
         case '/model':
           handleSetModel(_command.verb)
           break;
-        case '/watch':
-          handleSetWatch(_command.verb)
-          break;
-        case '/file':
+
           handleSetFile(_command.verb)
           break;
-        case '/group':
-          handleSetGroup(_command.verb)
-          break;
-        case '/groups':
           handleGetGroups(_command.verb)
           break;
         case '/search':
@@ -337,7 +352,17 @@ function Console() {
             setContent([...content, formatService.getMessageWithTimestamp("Presence Penalty: " + _command.verb, 'experiment')]);
           }
           break;
-
+        case '/dark':
+          toggleDarkMode();
+          const now = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+          setContent([
+            ...content,
+            formatService.getMessageWithTimestamp(
+              `Switched to ${now} mode`,
+              'setting'
+            )
+          ]);
+          break;
         case '/stash':
           if (_command.verb === 'clear') {
             consoleService.clearStashList();
@@ -363,33 +388,6 @@ function Console() {
             }
           }
           break;
-        case '/replace':
-          try {
-            // Split the verb into 'from' and 'to' texts
-            const args = _command.verb.match(/'([^']+)'/g);
-            if (!args || args.length < 2) {
-              throw new Error("Invalid syntax. Use /replace 'from text' 'to text'");
-            }
-            const fromText = args[0].replace(/'/g, '');
-            const toText = args[1].replace(/'/g, '');
-
-            // Perform the replacement in all content items
-            const updatedContent = content.map(item => {
-              if (typeof item.text === 'string') {
-                return { ...item, text: item.text.split(fromText).join(toText) };
-              }
-              return item;
-            });
-
-            setContent(updatedContent);
-            message = `Replaced all instances of '${fromText}' with '${toText}'`;
-            setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
-          } catch (error) {
-            message = error.message;
-            setContent([...content, formatService.getMessageWithTimestamp(message, 'error')]);
-          }
-          break;
-
         case '/pop':
           var _pop = consoleService.pop(_command.verb);
           setCurrentKey(_command.verb);
@@ -419,32 +417,6 @@ function Console() {
             }
           }
           break;
-        case '/dall-e-3':
-          setModel('dall-e-3');
-          setMaxChars(16385);
-          message = `Switching to dall-e-3: dall-e-3 1024x1024, 1024x1792 or 1792x1024`;
-          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
-          break;
-        case '/gpt-3.5-turbo-16k':
-          handleSetModel('gpt-3.5-turbo-16k')
-          setMaxChars(16385);
-          message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
-          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
-          break;
-        //gpt-4o
-        case '/gpt-4o':
-          handleSetModel('gpt-4o')
-          setMaxChars(16385);
-          message = `Switching to GPT-4o: gpt-4o`;
-          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
-          break;
-        case '/gpt-3.5-turbo':
-          handleSetModel('gpt-3.5-turbo')
-          setMaxChars(4096);
-          message = `Switching to GPT-3.5: gpt-3.5-turbo`;
-          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
-          break;
-        case '/gpt-4':
           setModel('gpt-4');
           handleSetModel('gpt-4')
           setMaxChars(8192);
@@ -654,6 +626,16 @@ function Console() {
       console.warn(ex);
     }
   };
+
+  // on mount, restore last theme:
+  useEffect(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light') {
+      applyLightMode();
+    } else {
+      applyDarkMode();
+    }
+  }, []);
 
   return (
 
