@@ -236,10 +236,14 @@ def main():
                         help='startup model name')
     parser.add_argument('--log-file', default='robodog.log',
                         help='path to log file')
+    parser.add_argument('--log-level', default='INFO',
+                        choices=['DEBUG','INFO','WARNING','ERROR','CRITICAL'],
+                        help='set the root logging level')
     args = parser.parse_args()
 
     # configure logging
     root = logging.getLogger()
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
     root.setLevel(logging.INFO)
     fmt = logging.Formatter('[%(asctime)s] %(levelname)s:%(message)s')
     ch = logging.StreamHandler(sys.stdout); ch.setFormatter(fmt); root.addHandler(ch)

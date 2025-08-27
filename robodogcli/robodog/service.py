@@ -15,6 +15,8 @@ import yaml
 from openai import OpenAI
 from playwright.async_api import async_playwright
 import logging
+logger = logging.getLogger('robodog.service')
+
 class RobodogService:
     def __init__(self, config_path: str, api_key: str = None):
         self._load_config(config_path)
@@ -56,6 +58,7 @@ class RobodogService:
     # ————————————————————————————————————————————————————————————
     # CORE LLM / CHAT
     def ask(self, prompt: str) -> str:
+        logger.debug(f"ask {prompt!r}")
         messages = [
             {"role":"system","content":"You are Robodog, a helpful assistant."},
             {"role":"system","content":"Chat History:\n"+self.context},

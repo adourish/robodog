@@ -7,7 +7,8 @@ import fnmatch
 import hashlib
 import shutil
 from service import RobodogService  # your existing service.py
-
+import logging
+logger = logging.getLogger('robodog.mcphandler')
 ROOTS    = []
 TOKEN    = None
 SERVICE  = None
@@ -16,6 +17,8 @@ class MCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
         # Read the first line
         raw_first = self.rfile.readline()
+        peer = self.client_address
+        logger.debug(f"Connection from {peer!r}")
         if not raw_first:
             return
         first = raw_first.decode('utf-8', errors='ignore').rstrip('\r\n')
