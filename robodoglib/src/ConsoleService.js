@@ -6,10 +6,6 @@ class ConsoleService {
   constructor() {
     this._options = [
       {
-        "command": "/model o4-mini",
-        "description": ""
-      },
-       {
         "command": "/help",
         "description": "Get help."
       },
@@ -24,14 +20,6 @@ class ConsoleService {
       {
         "command": "/clear",
         "description": "Clear screen."
-      },
-      {
-        "command": "/key <key>",
-        "description": "set key."
-      },
-      {
-        "command": "/getkey",
-        "description": "get your key."
       },
       {
         "command": "/rest",
@@ -96,17 +84,18 @@ class ConsoleService {
       {
         "command": "/include pattern=*.txt|*.js recursive`",
         "description": "."
-      }
+      },
+      { command: "/models", description: "List all configured models." },
+      { command: "/folders <dirs>", description: "Update MCP root folders." },
+      { command: "/curl <url> [<js>]", description: "Fetch web pages or run JS snippets." },
+      { command: "/play <instructions>", description: "Run AI-driven Playwright tests end-to-end." },
+      { command: "/mcp <OP> [JSON]", description: "Invoke raw MCP operation." },
+      { command: "/filter", description: "Toggle chat/knowledge filter mode." },
+      { command: "/toggle", description: "Toggle visibility of text areas." },
+      { command: "/search", description: "Toggle web search mode." },
+      { command: "/dark", description: "Toggle dark/light UI theme." }
     ];
   }
-
-  // getOpenAI() {
-  //   const openai = new OpenAI({
-  //     apiKey: this.getAPIKey(),
-  //     dangerouslyAllowBrowser: true,
-  //   });
-  //   return openai;
-  // }
 
   calculateTokens(text) {
     text = text.trim();
@@ -157,7 +146,7 @@ class ConsoleService {
       let consoleContent = document.getElementById('consoleContent');
 
       if (consoleContent) {
-            consoleContent.scrollTop = consoleContent.scrollHeight;
+        consoleContent.scrollTop = consoleContent.scrollHeight;
       } else {
         console.debug('no scroll');
       }
@@ -406,25 +395,25 @@ class ConsoleService {
 
   getVerb(command) {
     let model = { "cmd": "", "verb": "", isCommand: false };
-    
+
     // Regular Expression to handle strings with spaces within quotes
     let regexp = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
     let commandParts = command.match(regexp);
     let cmd = commandParts[0];
     let verb = '';
-    
+
     if (commandParts.length > 1) {
       verb = commandParts.slice(1).join(' ').replace(/"/g, '');
     }
-    
+
     if (command.startsWith('/')) {
       model.isCommand = true;
     }
-    
+
     model.cmd = cmd;
     model.verb = verb;
     return model;
-}
+  }
 
   formatJSONToString(jsonObject) {
     let formattedString = '';
@@ -461,12 +450,12 @@ class ConsoleService {
       showTextarea: showTextarea,
       timestamp: new Date().toISOString()
     };
-  
+
     try {
       localStorage.setItem(stashKey, JSON.stringify(_c));
     } catch (error) {
       console.error("Failed to save data in localStorage:", error);
-      
+
     }
   }
 
