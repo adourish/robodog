@@ -10,9 +10,12 @@ from pprint import pprint
 try:
     from .service import RobodogService
     from .mcphandler import run_robodogmcp
+    from .todo import TodoService
+    
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
+    from todo import TodoService
 
 def print_help():
     cmds = {
@@ -245,7 +248,7 @@ def main():
 
     # instantiate service
     svc = RobodogService(args.config)
-
+    # svc.todo = TodoService(roots=args.folders, work_path="work.txt")
     # start MCP server
     server = run_robodogmcp(
         host    = args.host,
