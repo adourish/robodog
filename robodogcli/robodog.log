@@ -817,3 +817,67 @@ Call log:
 [2025-08-27 17:58:57,802] INFO:Starting robodog
 [2025-08-27 17:58:58,126] INFO:MCP file server on 127.0.0.1:2500
 [2025-08-27 17:58:58,429] INFO:Startup model set to o4-mini
+[2025-08-27 17:59:37,153] INFO:Shutting down MCP server
+[2025-08-27 19:56:30,019] INFO:Starting robodog
+[2025-08-27 19:56:30,388] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 19:56:30,713] INFO:Startup model set to o4-mini
+[2025-08-27 20:12:41,907] INFO:Shutting down MCP server
+[2025-08-27 20:12:44,761] INFO:Starting robodog
+[2025-08-27 20:12:45,091] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:12:45,413] INFO:Startup model set to o4-mini
+[2025-08-27 20:19:16,117] INFO:Shutting down MCP server
+[2025-08-27 20:19:19,792] INFO:Starting robodog
+[2025-08-27 20:19:20,136] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:19:20,470] INFO:Startup model set to o4-mini
+[2025-08-27 20:21:11,053] INFO:Shutting down MCP server
+[2025-08-27 20:21:19,530] INFO:Starting robodog
+[2025-08-27 20:21:19,834] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:21:20,154] INFO:Startup model set to o4-mini
+[2025-08-27 20:23:55,831] INFO:Shutting down MCP server
+[2025-08-27 20:23:59,485] INFO:Starting robodog
+[2025-08-27 20:23:59,882] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:24:00,169] INFO:Startup model set to o4-mini
+[2025-08-27 20:25:42,780] INFO:Shutting down MCP server
+[2025-08-27 20:25:46,390] INFO:Starting robodog
+[2025-08-27 20:25:46,709] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:25:46,989] INFO:Startup model set to o4-mini
+[2025-08-27 20:29:48,561] INFO:Shutting down MCP server
+[2025-08-27 20:29:52,117] INFO:Starting robodog
+[2025-08-27 20:29:52,478] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:29:52,803] INFO:Startup model set to o4-mini
+[2025-08-27 20:30:08,649] INFO:Shutting down MCP server
+[2025-08-27 20:30:11,563] INFO:Starting robodog
+[2025-08-27 20:30:11,884] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:30:12,175] INFO:Startup model set to o4-mini
+[2025-08-27 20:31:58,211] INFO:Shutting down MCP server
+[2025-08-27 20:32:02,736] INFO:Starting robodog
+[2025-08-27 20:32:03,033] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:32:03,380] INFO:Startup model set to o4-mini
+[2025-08-27 20:35:05,787] INFO:Shutting down MCP server
+[2025-08-27 20:35:09,138] INFO:Starting robodog
+[2025-08-27 20:35:09,479] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:35:09,805] INFO:Startup model set to o4-mini
+[2025-08-27 20:35:34,182] INFO:Shutting down MCP server
+[2025-08-27 20:35:40,094] INFO:Starting robodog
+[2025-08-27 20:35:40,423] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:35:40,723] INFO:Startup model set to o4-mini
+[2025-08-27 20:40:22,322] INFO:Shutting down MCP server
+[2025-08-27 20:40:25,735] INFO:Starting robodog
+[2025-08-27 20:40:26,048] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:40:26,393] INFO:Startup model set to o4-mini
+[2025-08-27 20:46:39,541] INFO:Shutting down MCP server
+[2025-08-27 20:46:43,638] INFO:Starting robodog
+[2025-08-27 20:46:43,948] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:46:44,268] INFO:Startup model set to o4-mini
+[2025-08-27 20:54:26,479] INFO:Shutting down MCP server
+[2025-08-27 20:54:29,439] INFO:Starting robodog
+[2025-08-27 20:54:29,785] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:54:30,087] INFO:Startup model set to o4-mini
+[2025-08-27 20:57:24,357] INFO:Shutting down MCP server
+[2025-08-27 20:57:27,238] INFO:Starting robodog
+[2025-08-27 20:57:27,591] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:57:27,887] INFO:Startup model set to o4-mini
+[2025-08-27 20:57:55,813] INFO:Shutting down MCP server
+[2025-08-27 20:58:28,462] INFO:Starting robodog
+[2025-08-27 20:58:28,776] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-27 20:58:29,102] INFO:Startup model set to o4-mini

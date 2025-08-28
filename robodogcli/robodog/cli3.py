@@ -11,6 +11,7 @@ try:
     from .service import RobodogService
     from .mcphandler import run_robodogmcp
     from .todo import TodoService
+    
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
@@ -206,12 +207,6 @@ def interact(svc: RobodogService):
                     svc.stream = False
                     print("Switched to REST mode (no streaming).")
 
-                elif cmd == "todo":
-                    # run next To Do task
-                    try:
-                        svc.todo.run_next_task(svc)
-                    except Exception as e:
-                        print("Error running /todo:", e)
                 else:
                     print(f"unknown /cmd: {cmd}")
 
@@ -223,26 +218,6 @@ def interact(svc: RobodogService):
             svc.context += f"\nUser: {line}"
             resp = svc.ask(line)
             svc.context += f"\nAI: {resp}"
-
-#!/usr/bin/env python3
-import os
-import sys
-import argparse
-import logging
-import json
-from pprint import pprint
-
-# support both “python -m robodog.cli” and “python cli.py” invocations:
-try:
-    from .service import RobodogService
-    from .mcphandler import run_robodogmcp
-    from .todo import TodoService
-except ImportError:
-    from service import RobodogService
-    from mcphandler import run_robodogmcp
-    from todo import TodoService
-
-# … [rest of file unchanged] …
 
 def main():
     parser = argparse.ArgumentParser(prog="robodog",
@@ -277,9 +252,7 @@ def main():
 
     # instantiate service
     svc = RobodogService(args.config)
-    # wire up the To-Do engine:
-    svc.todo = TodoService(args.folders)
-
+    # svc.todo = TodoService(roots=args.folders, work_path="work.txt")
     # start MCP server
     server = run_robodogmcp(
         host    = args.host,
