@@ -959,3 +959,6 @@ Call log:
 [2025-08-28 10:53:56,266] INFO:Startup model set to o4-mini
 [2025-08-28 10:54:16,370] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
 [2025-08-28 10:54:33,470] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-28 17:35:02,207] INFO:Starting robodog
+[2025-08-28 17:35:04,874] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-28 17:35:05,104] INFO:Startup model set to o4-mini

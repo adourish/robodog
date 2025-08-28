@@ -31,7 +31,7 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
   - `pip install robodogcli`  
   - `pip show -f robodogcli`  
   - `python -m robodogcli.cli --help`  
-  - `python -m playwright install`  (optional)
+  - `pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain`  (optional)
    
 
 ---
