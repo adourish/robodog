@@ -1,6 +1,17 @@
 # Project To-Dos
 
-- [x] print: fix logging support through command line
+- [x] ask: fix logging support through command line
+  - completed: 2025-08-28 14:54
+  - started: 2025-08-28 14:54
+  - started: 2025-08-28 14:49
+  - started: 2025-08-28 14:41
+  - started: 2025-08-28 14:37
+  - started: 2025-08-28 14:35
+  - started: 2025-08-28 14:34
+  - started: 2025-08-28 14:19
+  - started: 2025-08-28 14:13
+  - started: 2025-08-28 14:09
+  - started: 2025-08-28 14:07
   - completed: 2025-08-28 00:59
   - started: 2025-08-28 00:58
   - started: 2025-08-28 00:57

@@ -7,41 +7,34 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel
 from langchain.output_parsers import PydanticOutputParser
 
-# new import for token counting
-import tiktoken
-
-logger = logging.getLogger(__name__)
-
-# regexes for parsing the todo.md
 TASK_RE = re.compile(r'^(\s*)-\s*\[(?P<status>[ x~])\]\s*(?P<desc>.+)$')
 SUB_RE  = re.compile(
-    r'^\s*-\s*(?P<key>include|focus):\s*'
-    r'(?:pattern=)?(?P<pattern>\S+)'
+    r'^\s*-\s*(?P<key>include|focus):\s*(?:pattern=)?(?P<pattern>\S+)' +
     r'(?:\s+(?P<rec>recursive))?'
 )
 
 STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
 REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
 
+logger = logging.getLogger(__name__)
 
-class Change(BaseModel):
+# ----------------------------------------------------------------------
+# Pydantic models for a single change and for a list of changes
+# ----------------------------------------------------------------------
+class Change3(BaseModel):
     path: str
     start_line: int
     end_line: int
     new_content: str
 
-class ChangesList(RootModel[List[Change]]):
-    """
-    RootModel wrapping a list of Change objects.
-    Access the list via `.root`.
-    """
-    pass
+class ChangesList3(BaseModel):
+    __root__: List[Change]
 
 
-class TodoService:
+class TodoService3:
     FILENAME = 'todo.md'
 
     def __init__(self, roots):
@@ -83,7 +76,7 @@ class TodoService:
                     'focus':       None
                 }
                 j = i + 1
-                # collect include/focus subtasks
+                # collect any include/focus subtasks
                 while j < len(lines) and lines[j].startswith(indent + '  '):
                     ms = SUB_RE.match(lines[j])
                     if ms:
@@ -102,10 +95,11 @@ class TodoService:
         return None
 
     def _update_status(self, task, new_char):
-        fn   = task['file']
-        ln   = task['line_no']
+        fn     = task['file']
+        ln     = task['line_no']
         indent = task['indent']
-        desc = task['desc']
+        desc   = task['desc']
+        # rewrite the task line
         self.file_lines[fn][ln] = f"{indent}- [{new_char}] {desc}\n"
         task['status_char'] = new_char
 
@@ -137,16 +131,22 @@ class TodoService:
         self._write_file(task['file'])
 
     def _apply_change(self, svc, change: Change):
-        # same resolution logic as before...
+        """
+        Same logic as before, but now `change` is a Pydantic model.
+        """
         path = change.path
         resolved = False
+
+        # try absolute or relative resolve
         if not os.path.isabs(path):
             for root in self.roots:
-                cand = os.path.join(root, path)
-                if os.path.isfile(cand):
-                    path = cand
+                candidate = os.path.join(root, path)
+                if os.path.isfile(candidate):
+                    path = candidate
                     resolved = True
                     break
+
+        # search by basename
         if not resolved and not os.path.isfile(path):
             base = os.path.basename(path)
             for root in self.roots:
@@ -157,6 +157,7 @@ class TodoService:
                         break
                 if resolved:
                     break
+
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Cannot find file to patch: {change.path}")
 
@@ -170,18 +171,18 @@ class TodoService:
         print(f"Applied change to {path}: lines {change.start_line}-{change.end_line}")
 
     def run_next_task(self, svc):
-        # reload all tasks
+        # reload tasks
         self._load_all()
         task = self.get_next()
         if not task:
             print("No To Do tasks found.")
             return
 
-        # mark as Doing
+        # mark Doing
         self.start(task)
         print(f"→ Starting task: {task['desc']}")
 
-        # include/focus brings in knowledge
+        # bring in include & focus files exactly as before
         for key in ('focus', 'include'):
             spec = task.get(key)
             if not spec:
@@ -195,17 +196,11 @@ class TodoService:
             else:
                 svc.include(spec_str)
 
-        # extract just this task’s delta-knowledge
-        know_before = svc.knowledge
-        know_after  = svc.knowledge
-        if know_after.startswith(know_before):
-            task_knowledge = know_after[len(know_before):]
-        else:
-            task_knowledge = know_after
-
-        # set up parser and prompt
+        # prepare PydanticOutputParser
         parser = PydanticOutputParser(pydantic_object=ChangesList)
-        fmt    = parser.get_format_instructions()
+        fmt = parser.get_format_instructions()
+
+        # prompt the model
         prompt = (
             task['desc']
             + "\n\n"
@@ -213,59 +208,35 @@ class TodoService:
             + fmt
         )
 
-        # minimal-context call
+        # temporarily strip context so only the prompt + knowledge is sent
         orig_ctx = svc.context
-        orig_kn  = svc.knowledge
-        svc.context = ""           # clear chat history
-        svc.knowledge = task_knowledge
-        print("test")
-        # —— Token counting block ——
-        try:
-            enc = tiktoken.encoding_for_model(svc.cur_model)
-        except Exception:
-            enc = tiktoken.get_encoding("gpt2")
+        orig_know = svc.knowledge
+        svc.context = ""
+        svc.knowledge = orig_know
 
-        # build the raw text as svc.ask will send it
-        sys1 = "You are Robodog, a helpful assistant."
-        sys2 = "Chat History:\n" + svc.context
-        sys3 = "Knowledge Base:\n" + svc.knowledge
-        usr  = prompt
-
-        tok_sys1 = len(enc.encode(sys1))
-        tok_sys2 = len(enc.encode(sys2))
-        tok_sys3 = len(enc.encode(sys3))
-        tok_usr  = len(enc.encode(usr))
-        total    = tok_sys1 + tok_sys2 + tok_sys3 + tok_usr
-        print("test2")
-        print(
-            f"→ [Token count] "
-            f"sys1:{tok_sys1} sys2:{tok_sys2} sys3:{tok_sys3} usr:{tok_usr} "
-            f"total≈{total}"
-        )
-        # — end token block —
-
-        # call the model
+        svc.context += f"\nUser: {prompt}"
         ai_out = svc.ask(prompt)
 
-        # restore full state
-        svc.context   = orig_ctx
-        svc.knowledge = orig_kn
-        svc.context  += f"\nAI: {ai_out}"
+        # restore
+        svc.context = orig_ctx
+        svc.knowledge = orig_know
+        svc.context += f"\nAI: {ai_out}"
 
-        # parse & apply
+        # parse via LangChain
         try:
             parsed = parser.parse(ai_out)
-            changes: List[Change] = parsed.root
+            changes: List[Change] = parsed.__root__
         except Exception as e:
             print(f"Warning: could not parse JSON changes: {e}")
             return
 
+        # apply each change
         for ch in changes:
             try:
                 self._apply_change(svc, ch)
             except Exception as e:
                 print(f"Error applying change {ch.dict()}: {e}")
 
-        # mark done
+        # mark Done
         self.complete(task)
         print(f"✔ Completed task: {task['desc']}")

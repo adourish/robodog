@@ -41,6 +41,7 @@ def print_help():
         "curl":                "fetch web pages / scripts",
         "play":                "run AI-driven Playwright tests",
         "mcp":                 "invoke raw MCP operation",
+        "todo":                "run next To Do task",
     }
     print("\nAvailable /commands:\n")
     for cmd, desc in cmds.items():
@@ -212,6 +213,7 @@ def interact(svc: RobodogService):
                         svc.todo.run_next_task(svc)
                     except Exception as e:
                         print("Error running /todo:", e)
+
                 else:
                     print(f"unknown /cmd: {cmd}")
 
@@ -223,26 +225,6 @@ def interact(svc: RobodogService):
             svc.context += f"\nUser: {line}"
             resp = svc.ask(line)
             svc.context += f"\nAI: {resp}"
-
-#!/usr/bin/env python3
-import os
-import sys
-import argparse
-import logging
-import json
-from pprint import pprint
-
-# support both “python -m robodog.cli” and “python cli.py” invocations:
-try:
-    from .service import RobodogService
-    from .mcphandler import run_robodogmcp
-    from .todo import TodoService
-except ImportError:
-    from service import RobodogService
-    from mcphandler import run_robodogmcp
-    from todo import TodoService
-
-# … [rest of file unchanged] …
 
 def main():
     parser = argparse.ArgumentParser(prog="robodog",
@@ -277,7 +259,7 @@ def main():
 
     # instantiate service
     svc = RobodogService(args.config)
-    # wire up the To-Do engine:
+    # wire up the To-Do engine
     svc.todo = TodoService(args.folders)
 
     # start MCP server
