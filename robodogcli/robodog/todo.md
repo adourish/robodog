@@ -1,24 +1,11 @@
 # Project To-Dos
 
-- [x] ask: fix logging support through command line
+- [x] ask: 1. edit cli.py 2. change logging so that it gets log level through command line
+  - completed: 2025-08-28 21:45
+  - started: 2025-08-28 21:45
+  - started: 2025-08-28 21:41
   - completed: 2025-08-28 14:54
   - started: 2025-08-28 14:54
-  - started: 2025-08-28 14:49
-  - started: 2025-08-28 14:41
-  - started: 2025-08-28 14:37
-  - started: 2025-08-28 14:35
-  - started: 2025-08-28 14:34
-  - started: 2025-08-28 14:19
-  - started: 2025-08-28 14:13
-  - started: 2025-08-28 14:09
-  - started: 2025-08-28 14:07
-  - completed: 2025-08-28 00:59
-  - started: 2025-08-28 00:58
-  - started: 2025-08-28 00:57
-  - completed: 2025-08-28 00:55
-  - started: 2025-08-28 00:54
-  - started: 2025-08-28 00:52
-  - started: 2025-08-28 00:52
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\robodog\cli3.py
 
