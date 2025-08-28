@@ -159,9 +159,16 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 content = SERVICE.read_file(path)
                 return {"status":"ok","path":path,"content":content}
 
+            # << NEW: support full‐file overwrite >>
+            if op == 'UPDATE_FILE':
+                path = p.get("path")
+                if not path: raise ValueError("Missing 'path'")
+                content = p.get("content", "")
+                SERVICE.update_file(path, content)
+                return {"status":"ok","path":path}
+
             if op == 'SEARCH':
                 raw = p.get("pattern", "*")
-                # pass through exclude if provided, or let service use its default
                 exclude = p.get("exclude", None)
                 patterns = raw if isinstance(raw, list) else raw.split("|")
                 recursive = p.get("recursive", True)
