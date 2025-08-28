@@ -1,6 +1,9 @@
 # Project To-Dos
 
-- [x] ask: 1. edit cli.py 2. change logging so that it gets log level through command line
+- [x] ask: 1. edit cli3.py 2. change logging so that it gets log level through command line
+  - completed: 2025-08-28 21:53
+  - started: 2025-08-28 21:53
+  - started: 2025-08-28 21:48
   - completed: 2025-08-28 21:45
   - started: 2025-08-28 21:45
   - started: 2025-08-28 21:41
