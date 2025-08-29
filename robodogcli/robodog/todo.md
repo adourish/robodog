@@ -43,9 +43,20 @@ my knowledge
 do not remove any features. only add the watch feature
 ```
 
-- [X] ask: 
-  - include: pattern=todo2.py recursive
-  - focus: pattern=todo2.py recursive
-  ```code
-my knowledge
+# todo fixes
+- [x] change so that we can handle rror running /todo: [WinError 87] The parameter is incorrect: 'G:\\My Drive\\Context\\"G:'. only change the code to support spaces in the path.
+  - completed: 2025-08-29 15:06
+  - started: 2025-08-29 15:05
+  - completed: 2025-08-29 15:04
+  - started: 2025-08-29 15:03
+  - completed: 2025-08-29 13:29
+  - started: 2025-08-29 13:28
+  - completed: 2025-08-29 13:27
+  - started: 2025-08-29 13:26
+  - completed: 2025-08-29 13:00
+  - started: 2025-08-29 12:59
+  - include: pattern=*robodog*.md|*robodog*.py  recursive`
+  - focus:   file=c:\projects\robodog\robodogcli\robodog\todo3.py
+```code
+do not remove any features. only add the watch feature
 ```

@@ -1112,3 +1112,23 @@ Call log:
 [2025-08-29 09:23:57,542] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
 [2025-08-29 09:27:11,064] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
 [2025-08-29 09:28:50,940] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 10:35:33,381] INFO:Shutting down MCP server
+[2025-08-29 10:50:40,290] INFO:Starting robodog
+[2025-08-29 10:50:43,520] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 10:50:44,626] INFO:Startup model set to o4-mini
+[2025-08-29 10:51:02,442] INFO:Shutting down MCP server
+[2025-08-29 10:51:20,577] INFO:Starting robodog
+[2025-08-29 10:51:21,244] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 10:51:21,716] INFO:Startup model set to o4-mini
+[2025-08-29 10:55:40,138] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 10:57:13,553] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 10:59:05,969] INFO:Shutting down MCP server
+[2025-08-29 10:59:13,761] INFO:Starting robodog
+[2025-08-29 10:59:15,155] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 10:59:15,754] INFO:Startup model set to o4-mini
+[2025-08-29 11:03:10,332] INFO:Shutting down MCP server
+[2025-08-29 11:03:18,401] INFO:Starting robodog
+[2025-08-29 11:03:20,279] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 11:03:20,880] INFO:Startup model set to o4-mini
+[2025-08-29 11:03:47,324] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 11:06:22,420] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"

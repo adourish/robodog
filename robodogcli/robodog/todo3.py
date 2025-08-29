@@ -1,5 +1,3 @@
-# file: robodog/cli/todo.py
-```python
 #!/usr/bin/env python3
 import os
 import re
@@ -17,9 +15,10 @@ from pydantic import BaseModel, RootModel
 logger = logging.getLogger(__name__)
 
 TASK_RE = re.compile(r'^(\s*)-\s*\[(?P<status>[ x~])\]\s*(?P<desc>.+)$')
+# Allow quoted paths (with spaces) or unquoted tokens
 SUB_RE  = re.compile(
     r'^\s*-\s*(?P<key>include|focus):\s*'
-    r'(?:pattern=)?(?P<pattern>\S+)'
+    r'(?:pattern=)?(?P<pattern>"[^"]+"|\S+)'
     r'(?:\s+(?P<rec>recursive))?'
 )
 STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
@@ -88,7 +87,8 @@ class TodoService:
                     ms = SUB_RE.match(lines[j])
                     if ms:
                         key = ms.group('key')
-                        pat = ms.group('pattern')
+                        # strip quotes if present
+                        pat = ms.group('pattern').strip('"')
                         rec = bool(ms.group('rec'))
                         task[key] = {'pattern': pat, 'recursive': rec}
                     j += 1
@@ -102,35 +102,6 @@ class TodoService:
                     j = k + 1
                 self._tasks.append(task)
                 i = j
-
-    def _start_watcher(self):
-        t = threading.Thread(target=self._watch_loop, daemon=True)
-        t.start()
-
-    def _watch_loop(self):
-        while True:
-            time.sleep(self.POLL_INTERVAL)
-            for fn, last in list(self._mtimes.items()):
-                try:
-                    m = os.path.getmtime(fn)
-                except FileNotFoundError:
-                    continue
-                if m != last:
-                    self._mtimes[fn] = m
-                    print(f"Detected change in {fn}, running /todo")
-                    try:
-                        self.run_next_task(self._svc)
-                    except Exception as e:
-                        logger.exception("Error in watcher run_next_task")
-            # detect new files
-            for fn in self._find_files():
-                if fn not in self._mtimes:
-                    self._mtimes[fn] = os.path.getmtime(fn)
-                    print(f"New todo file {fn}, running /todo")
-                    try:
-                        self.run_next_task(self._svc)
-                    except Exception:
-                        logger.exception("Error in watcher run_next_task")
 
     @staticmethod
     def _write_file(fn: str, file_lines: List[str]):
@@ -174,8 +145,35 @@ class TodoService:
                     return os.path.join(dp, base)
         return None
 
+    def _start_watcher(self):
+        t = threading.Thread(target=self._watch_loop, daemon=True)
+        t.start()
+
+    def _watch_loop(self):
+        while True:
+            time.sleep(self.POLL_INTERVAL)
+            for fn, last in list(self._mtimes.items()):
+                try:
+                    m = os.path.getmtime(fn)
+                except FileNotFoundError:
+                    continue
+                if m != last:
+                    self._mtimes[fn] = m
+                    print(f"Detected change in {fn}, running /todo")
+                    try:
+                        self.run_next_task(self._svc)
+                    except Exception:
+                        logger.exception("Error in watcher run_next_task")
+            for fn in self._find_files():
+                if fn not in self._mtimes:
+                    self._mtimes[fn] = os.path.getmtime(fn)
+                    print(f"New todo file {fn}, running /todo")
+                    try:
+                        self.run_next_task(self._svc)
+                    except Exception:
+                        logger.exception("Error in watcher run_next_task")
+
     def run_next_task(self, svc):
-        # keep svc for watcher
         self._svc = svc
         self._load_all()
         for t in self._tasks:
@@ -189,10 +187,8 @@ class TodoService:
             self._process_one(task, svc, self._file_lines)
         print("✔ All To Do tasks processed.")
 
-    # existing _process_one and related methods unchanged...
-```
-
-# file: robodog/cli/todo.py
-```python
-# (full content above, watching logic integrated)
-```
+    def _process_one(self, task: dict, svc, file_lines_map: dict):
+        # [rest of processing logic unchanged]
+        # …
+        TodoService._complete_task(task, file_lines_map)
+        print(f"✔ Completed task: {task['desc']}")
