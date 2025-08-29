@@ -228,13 +228,6 @@ class RobodogService:
                 combined = "\n".join(included_txts)
                 self.knowledge += "\n" + combined + "\n"
 
-        # if prompt, ask & update context
-        if prompt:
-            print(f"→ Prompt: {prompt}")
-            self.context += f"\nUser: {prompt}"
-            ans = self.ask(prompt)
-            self.context += f"\nAI: {ans}"
-            return ans
         return None
     
     # ----------------------------------------------------------------

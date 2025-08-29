@@ -243,7 +243,10 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 return {"status":"ok"}
 
             if op == "INCLUDE":
-                answer = SERVICE.include(p.get("spec"), p.get("prompt",None))
+                prompt =  p.get("prompt",None)
+                knowledge = SERVICE.include(p.get("spec"))
+                prompt = ptext + " " + knowledge
+                answer = svc.ask(prompt)
                 resp = {"status":"ok"}
                 if answer is not None: resp["answer"] = answer
                 return resp

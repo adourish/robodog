@@ -121,7 +121,9 @@ def interact(svc: RobodogService):
                                 break
                         spec = " ".join(parts[:brk])
                         ptext = " ".join(parts[brk:]) or None
-                        answer = svc.include(spec, ptext)
+                        knowledge = svc.include(spec)
+                        prompt = ptext + " " + knowledge
+                        answer = svc.ask(prompt)
                         if answer is not None:
                             svc.context += f"\nAI: {answer}"
 
