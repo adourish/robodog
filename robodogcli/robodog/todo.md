@@ -43,24 +43,16 @@ my knowledge
 do not remove any features. only add the watch feature
 ```
 
-# todo fixes
-- [x] change so that we can handle spaces in the focus file path focus: file="G:\My Drive\Context\Mockups\scope-review-v2.html"
-  - completed: 2025-08-29 15:17
-  - started: 2025-08-29 15:16
-  - completed: 2025-08-29 15:14
-  - started: 2025-08-29 15:13
-  - completed: 2025-08-29 15:06
-  - started: 2025-08-29 15:05
-  - completed: 2025-08-29 15:04
-  - started: 2025-08-29 15:03
-  - completed: 2025-08-29 13:29
-  - started: 2025-08-29 13:28
-  - completed: 2025-08-29 13:27
-  - started: 2025-08-29 13:26
-  - completed: 2025-08-29 13:00
-  - started: 2025-08-29 12:59
+
+
+# todo fix counts
+- [x] change prints
+  - completed: 2025-08-29 23:42
+  - started: 2025-08-29 23:41
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus:   file=c:\projects\robodog\robodogcli\robodog\todo3.py
+  - focus:   file=c:\projects\robodog\robodogcli\temp\todo.txt
 ```code
-do not remove any features. only add the watch feature
+1. do not change any logic
+2. replace the print statements logger INFO
+
 ```
