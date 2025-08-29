@@ -1,4 +1,4 @@
-# Robodog AI  
+# Robodog Code
 
 ![Robodog MCP File Service](screenshot-mcp.png)  
 
@@ -14,6 +14,7 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
 - Image generation & OCR pipelines.  
 - AI-driven web automation/testing via Playwright (`/play`).  
 - Raw MCP operations (`/mcp`).  
+- Todo.md task
 - Accessible, retro “console” UI with customizable themes and responsive design.  
 
 ---
@@ -30,7 +31,7 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
   - `pip install robodogcli`  
   - `pip show -f robodogcli`  
   - `python -m robodogcli.cli --help`  
-  - `python -m playwright install`  (optional)
+  - `pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain`  (optional)
    
 
 ---

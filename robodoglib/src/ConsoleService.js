@@ -1,99 +1,108 @@
-import { FormatService } from './FormatService';
-import { FileService } from './FileService';
+import { FormatService } from "./FormatService";
+import { FileService } from "./FileService";
 const formatService = new FormatService();
-const fileService = new FileService()
+const fileService = new FileService();
 class ConsoleService {
   constructor() {
     this._options = [
       {
-        "command": "/help",
-        "description": "Get help."
+        command: "/help",
+        description: "Get help.",
       },
       {
-        "command": "/import",
-        "description": "Import files into knowledge (.md, .txt, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)"
+        command: "/import",
+        description:
+          "Import files into knowledge (.md, .txt, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)",
       },
       {
-        "command": "/export <name>",
-        "description": "Export knowledge to a file."
+        command: "/export <name>",
+        description: "Export knowledge to a file.",
       },
       {
-        "command": "/clear",
-        "description": "Clear screen."
+        command: "/clear",
+        description: "Clear screen.",
       },
       {
-        "command": "/rest",
-        "description": "Use rest completions"
+        command: "/rest",
+        description: "Use rest completions",
       },
       {
-        "command": "/stream",
-        "description": "Use stream completions"
+        command: "/stream",
+        description: "Use stream completions",
       },
       {
-        "command": "/reset",
-        "description": "Reset API key"
+        command: "/reset",
+        description: "Reset API key",
       },
       {
-        "command": "/stash <name>",
-        "description": "Stash questions and knowledge"
+        command: "/stash <name>",
+        description: "Stash questions and knowledge",
       },
       {
-        "command": "/pop <name>",
-        "description": "Pop questions and knowledge"
+        command: "/pop <name>",
+        description: "Pop questions and knowledge",
       },
       {
-        "command": "/list",
-        "description": "list stashed questions and knowledge"
+        command: "/list",
+        description: "list stashed questions and knowledge",
       },
       {
-        "command": "/temperature <number>",
-        "description": "Temperature is a number between 0 and 2, Default value of 1 or 0.7 depending on the model."
+        command: "/temperature <number>",
+        description:
+          "Temperature is a number between 0 and 2, Default value of 1 or 0.7 depending on the model.",
       },
       {
-        "command": "/max_tokens <number>",
-        "description": "Set max tokens."
+        command: "/max_tokens <number>",
+        description: "Set max tokens.",
       },
       {
-        "command": "/top_p <number>",
-        "description": "Set top p."
+        command: "/top_p <number>",
+        description: "Set top p.",
       },
       {
-        "command": "/frequency_penalty <number>",
-        "description": "Set frequency penalty."
+        command: "/frequency_penalty <number>",
+        description: "Set frequency penalty.",
       },
       {
-        "command": "/presence_penalty <number>",
-        "description": "Set presence penalty."
+        command: "/presence_penalty <number>",
+        description: "Set presence penalty.",
       },
       {
-        "command": "CTRL+SHIFT+UP",
-        "description": "Cycle through stash list."
+        command: "CTRL+SHIFT+UP",
+        description: "Cycle through stash list.",
       },
       {
-        "command": "CTRL+S",
-        "description": "Save a snapshot to storage."
+        command: "CTRL+S",
+        description: "Save a snapshot to storage.",
       },
       {
-        "command": "/include pattern=*robodog*.css|*robodog*.js|*robodog*.jsx recursive`",
-        "description": "include all robodog files"
+        command:
+          "/include pattern=*robodog*.css|*robodog*.js|*robodog*.jsx recursive`",
+        description: "include all robodog files",
       },
       {
-        "command": "/include file=*.txt`  ",
-        "description": "→ glob search across all roots ."
+        command: "/include file=*.txt`  ",
+        description: "→ glob search across all roots .",
       },
       {
-        "command": "/include pattern=*.txt|*.js recursive`",
-        "description": "."
+        command: "/include pattern=*.txt|*.js recursive`",
+        description: ".",
       },
       { command: "/models", description: "List all configured models." },
       { command: "/folders <dirs>", description: "Update MCP root folders." },
-      { command: "/curl <url> [<js>]", description: "Fetch web pages or run JS snippets." },
-      { command: "/play <instructions>", description: "Run AI-driven Playwright tests end-to-end." },
+      {
+        command: "/curl <url> [<js>]",
+        description: "Fetch web pages or run JS snippets.",
+      },
+      {
+        command: "/play <instructions>",
+        description: "Run AI-driven Playwright tests end-to-end.",
+      },
       { command: "/mcp <OP> [JSON]", description: "Invoke raw MCP operation." },
       { command: "/filter", description: "Toggle chat/knowledge filter mode." },
       { command: "/toggle", description: "Toggle visibility of text areas." },
       { command: "/search", description: "Toggle web search mode." },
-      { command: "/dark", description: "Toggle dark/light UI theme." }
+      { command: "/dark", description: "Toggle dark/light UI theme." },
     ];
   }
 
@@ -103,24 +112,43 @@ class ConsoleService {
     return tokens.length;
   }
 
-
-
   save(context, knowledge, question, content, temperature, showTextarea) {
     const currentDate = new Date();
-    const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
+    const formattedDate = currentDate
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[-T:]/g, "");
     var key = "snapshot" + "-" + formattedDate;
-    this.stash(key, context, knowledge, question, content, temperature,)
-    this.handleExport(key, context, knowledge, question, content, temperature, showTextarea);
+    this.stash(key, context, knowledge, question, content, temperature);
+    this.handleExport(
+      key,
+      context,
+      knowledge,
+      question,
+      content,
+      temperature,
+      showTextarea
+    );
     return key;
   }
 
-  handleExport(fileName, context, knowledge, question, content, temperature, showTextarea) {
+  handleExport(
+    fileName,
+    context,
+    knowledge,
+    question,
+    content,
+    temperature,
+    showTextarea
+  ) {
     const currentDate = new Date();
-    const formattedDate = currentDate.toISOString().slice(0, 19).replace(/[-T:]/g, '');
+    const formattedDate = currentDate
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[-T:]/g, "");
     if (!fileName) {
       fileName = `${formattedDate}.txt`;
     }
-
 
     let concatenatedString = "";
     if (Array.isArray(content)) {
@@ -130,12 +158,26 @@ class ConsoleService {
         }
       }
     }
-    var fileContent = "Temperature:" + temperature + "\n\n Question:\n\n" + question + "\n\nChat history:\n\n" + context + "\n\nKnowledge:\n\n" + knowledge + '\n\nContent:\n\n' + concatenatedString + '\n\n';
+    var fileContent =
+      "Temperature:" +
+      temperature +
+      "\n\n Question:\n\n" +
+      question +
+      "\n\nChat history:\n\n" +
+      context +
+      "\n\nKnowledge:\n\n" +
+      knowledge +
+      "\n\nContent:\n\n" +
+      concatenatedString +
+      "\n\n";
 
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileContent));
-    element.setAttribute('download', fileName);
-    element.style.display = 'none';
+    const element = document.createElement("a");
+    element.setAttribute(
+      "href",
+      "data:text/plain;charset=utf-8," + encodeURIComponent(fileContent)
+    );
+    element.setAttribute("download", fileName);
+    element.style.display = "none";
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -143,48 +185,54 @@ class ConsoleService {
 
   scrollToBottom() {
     if (document) {
-      let consoleContent = document.getElementById('consoleContent');
+      let consoleContent = document.getElementById("consoleContent");
 
       if (consoleContent) {
         consoleContent.scrollTop = consoleContent.scrollHeight;
       } else {
-        console.debug('no scroll');
+        console.debug("no scroll");
       }
     }
   }
 
   handleImport(setKnowledge, knowledge, setContent, content) {
-    console.debug("handleUpload")
-    fileService.extractFileContent(setContent, content)
+    console.debug("handleUpload");
+    fileService
+      .extractFileContent(setContent, content)
       .then((text) => {
         console.log(text);
         var _k = knowledge + "\n" + text;
         setKnowledge(_k);
         setContent([
           ...content,
-          formatService.getMessageWithTimestamp(text, 'assistant')
+          formatService.getMessageWithTimestamp(text, "assistant"),
         ]);
       })
       .catch((error) => {
         setContent([
           ...content,
-          formatService.getMessageWithTimestamp(error, 'assistant')
+          formatService.getMessageWithTimestamp(error, "assistant"),
         ]);
         console.error(error);
       });
   }
-  getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty) {
-    var settings = [
-      "build: " + build,
-      "model: " + model
-    ];
+  getSettings(
+    build,
+    model,
+    temperature,
+    max_tokens,
+    top_p,
+    frequency_penalty,
+    presence_penalty
+  ) {
+    var settings = ["build: " + build, "model: " + model];
     var commands = settings.map((line, index) => {
       return {
-        "datetime": "",
-        "role": "setting",
-        "roleEmoji": "",
-        "command": line,
-        "url": ""
+        datetime: "",
+        role: "setting",
+        roleEmoji: "",
+        command: line,
+        url: "",
       };
     });
     return commands;
@@ -197,11 +245,11 @@ class ConsoleService {
       var description = this._options[i].description;
 
       var item = {
-        "datetime": "",
-        "role": "setting",
-        "roleEmoji": "",
-        "command": ' ' + command + ' - ' + description,
-        "url": ""
+        datetime: "",
+        role: "setting",
+        roleEmoji: "",
+        command: " " + command + " - " + description,
+        url: "",
       };
 
       commands.push(item);
@@ -214,7 +262,7 @@ class ConsoleService {
   }
   getFormattedCommands() {
     var options = this.getOptions();
-    var commands = ['commands:'];
+    var commands = ["commands:"];
 
     for (var i = 0; i < options.length; i++) {
       var option = options[i];
@@ -226,60 +274,74 @@ class ConsoleService {
     return commands;
   }
   getIndicators() {
-    getIndicators() {
-  const indicators = [
-    'indicators:',
-    '[9000] - tokens',
-    '[rest] - REST completion mode',
-    '[stream] - streaming completion mode',
-    '[486+929=1415] - token usage summary',
-    '[🦥] - ready',
-    '[🦧] - thinking',
-    '[🐋] - Context is dangerously large',
-    '[🦕] - Context is very large',
-    '[🐘] - Context is large',
-    '[🐁] - Context is acceptable',
-    '[💭] - Context History',
-    '[📝] - Knowledge Content',
-    '[💬] - Ask',
-    '[👾] - User',
-    '[🤖] - Assistant',
-    '[💾] - System',
-    '[👹] - Event',
-    '[💩] - Error',
-    '[🍄] - Warning',
-    '[😹] - Info',
-    '[💣] - Experiment',
-    '[🙀] - Default',
-    '[🦉] - alternate thinking emoji',
-    '[🐝] - alternate thinking emoji',
-    '[🦘, 🐆, 🦌, 🐕, 🐅, 🐈, 🐢] - Performance (response time)'
-  ];
+    const indicators = [
+      "indicators:",
+      "[9000] - tokens",
+      "[rest] - REST completion mode",
+      "[stream] - streaming completion mode",
+      "[486+929=1415] - token usage summary",
+      "[🦥] - ready",
+      "[🦧] - thinking",
+      "[🐋] - Context is dangerously large",
+      "[🦕] - Context is very large",
+      "[🐘] - Context is large",
+      "[🐁] - Context is acceptable",
+      "[💭] - Context History",
+      "[📝] - Knowledge Content",
+      "[💬] - Ask",
+      "[👾] - User",
+      "[🤖] - Assistant",
+      "[💾] - System",
+      "[👹] - Event",
+      "[💩] - Error",
+      "[🍄] - Warning",
+      "[😹] - Info",
+      "[💣] - Experiment",
+      "[🙀] - Default",
+      "[🦉] - alternate thinking emoji",
+      "[🐝] - alternate thinking emoji",
+      "[🦘, 🐆, 🦌, 🐕, 🐅, 🐈, 🐢] - Performance (response time)",
+    ];
 
-  return indicators.map(line => ({
-    datetime: '',
-    role: 'setting',
-    roleEmoji: '',
-    command: line,
-    url: ''
-  }));
-}
+    return indicators.map((line) => ({
+      datetime: "",
+      role: "setting",
+      roleEmoji: "",
+      command: line,
+      url: "",
+    }));
 
     var commands = indicators.map((line, index) => {
       return {
-        "datetime": "",
-        "role": "setting",
-        "roleEmoji": "",
-        "command": line,
-        "url": ""
+        datetime: "",
+        role: "setting",
+        roleEmoji: "",
+        command: line,
+        url: "",
       };
     });
     return commands;
-
   }
-  getHelp(message, build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty) {
-    var list = [formatService.getMessageWithTimestamp(message, 'info', '')];
-    var settings = this.getSettings(build, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+  getHelp(
+    message,
+    build,
+    model,
+    temperature,
+    max_tokens,
+    top_p,
+    frequency_penalty,
+    presence_penalty
+  ) {
+    var list = [formatService.getMessageWithTimestamp(message, "info", "")];
+    var settings = this.getSettings(
+      build,
+      model,
+      temperature,
+      max_tokens,
+      top_p,
+      frequency_penalty,
+      presence_penalty
+    );
     var commands = this.getCommands();
     var indicators = this.getIndicators();
 
@@ -287,22 +349,20 @@ class ConsoleService {
     return _list;
   }
 
-
-
   async getTextContent(url, model, knowledge, setKnowledge) {
     var _content;
     try {
       console.log("get", url);
-      const response = await fetch(url, { mode: 'no-cors' });
+      const response = await fetch(url, { mode: "no-cors" });
       const text = await response.text();
       console.log("get result", text);
       const _messages = [
         { role: "user", content: "page result text:" + text },
-        { role: "user", content: "question:" + text + ". format in markdown." }
+        { role: "user", content: "question:" + text + ". format in markdown." },
       ];
       var _p2 = {
         model: model,
-        messages: _messages
+        messages: _messages,
       };
       const openai = getOpenAI();
       const response2 = await openai.chat.completions.create(_p2);
@@ -312,13 +372,13 @@ class ConsoleService {
       }
       return _content;
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       return null;
     }
   }
 
-
-  setStashKey(key,
+  setStashKey(
+    key,
     currentIndex,
     setContext,
     setKnowledge,
@@ -327,7 +387,8 @@ class ConsoleService {
     setCurrentIndex,
     setCurrentKey,
     setTemperature,
-    setShowTextarea) {
+    setShowTextarea
+  ) {
     const stashItem = this.pop(key);
     setCurrentKey(key);
     if (stashItem) {
@@ -361,7 +422,8 @@ class ConsoleService {
     }
   }
 
-  setStashIndex(currentIndex,
+  setStashIndex(
+    currentIndex,
     setContext,
     setKnowledge,
     setQuestion,
@@ -369,17 +431,19 @@ class ConsoleService {
     setCurrentIndex,
     setCurrentKey,
     setTemperature,
-    setShowTextarea) {
+    setShowTextarea
+  ) {
     var stashList = this.getStashList();
     var total = 0;
     if (stashList) {
-      var _l = stashList.split(',');
+      var _l = stashList.split(",");
       if (_l && Array.isArray(_l)) {
         total = _l.length;
         var key = _l[currentIndex];
         if (key) {
           console.log("shift+38:" + key);
-          this.setStashKey(key,
+          this.setStashKey(
+            key,
             currentIndex,
             setContext,
             setKnowledge,
@@ -388,31 +452,30 @@ class ConsoleService {
             setCurrentIndex,
             setCurrentKey,
             setTemperature,
-            setShowTextarea);
-
+            setShowTextarea
+          );
         }
       }
     }
     return total;
   }
 
-
   // Function to generate a message with a timestamp
 
   getVerb(command) {
-    let model = { "cmd": "", "verb": "", isCommand: false };
+    let model = { cmd: "", verb: "", isCommand: false };
 
     // Regular Expression to handle strings with spaces within quotes
     let regexp = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
     let commandParts = command.match(regexp);
     let cmd = commandParts[0];
-    let verb = '';
+    let verb = "";
 
     if (commandParts.length > 1) {
-      verb = commandParts.slice(1).join(' ').replace(/"/g, '');
+      verb = commandParts.slice(1).join(" ").replace(/"/g, "");
     }
 
-    if (command.startsWith('/')) {
+    if (command.startsWith("/")) {
       model.isCommand = true;
     }
 
@@ -422,7 +485,7 @@ class ConsoleService {
   }
 
   formatJSONToString(jsonObject) {
-    let formattedString = '';
+    let formattedString = "";
     for (const key in jsonObject) {
       if (jsonObject.hasOwnProperty(key)) {
         formattedString += `${key}: ${JSON.stringify(jsonObject[key])}\n`;
@@ -433,13 +496,13 @@ class ConsoleService {
 
   getTooBigEmoji(_totalChars, maxChars) {
     if (_totalChars >= maxChars) {
-      return '🐋'; // Dinosaur emoji for the biggest level
-    } else if (_totalChars >= (maxChars * 0.75)) {
-      return '🦕'; // Bear emoji for the third level
-    } else if (_totalChars >= (maxChars * 0.5)) {
-      return '🐘'; // Lion emoji for the second level
-    } else if (_totalChars >= (maxChars * 0.25)) {
-      return '🐁'; // Mouse emoji for the first level
+      return "🐋"; // Dinosaur emoji for the biggest level
+    } else if (_totalChars >= maxChars * 0.75) {
+      return "🦕"; // Bear emoji for the third level
+    } else if (_totalChars >= maxChars * 0.5) {
+      return "🐘"; // Lion emoji for the second level
+    } else if (_totalChars >= maxChars * 0.25) {
+      return "🐁"; // Mouse emoji for the first level
     }
   }
   // Function to save content in local storage
@@ -454,14 +517,13 @@ class ConsoleService {
       content: content,
       temperature: temperature,
       showTextarea: showTextarea,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
       localStorage.setItem(stashKey, JSON.stringify(_c));
     } catch (error) {
       console.error("Failed to save data in localStorage:", error);
-
     }
   }
 
@@ -478,7 +540,9 @@ class ConsoleService {
   }
 
   clearStashList() {
-    const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
+    const keys = Object.keys(localStorage).filter((key) =>
+      key.startsWith("stash-")
+    );
     if (keys) {
       for (var i = 0; i < keys.length; i++) {
         var key = keys[i];
@@ -488,19 +552,21 @@ class ConsoleService {
   }
 
   getStashList() {
-    const keys = Object.keys(localStorage).filter(key => key.startsWith("stash-"));
-    const list = keys.map(key => {
+    const keys = Object.keys(localStorage).filter((key) =>
+      key.startsWith("stash-")
+    );
+    const list = keys.map((key) => {
       const content = localStorage.getItem(key);
       const parsedContent = JSON.parse(content);
       return { key: key, timestamp: parsedContent.timestamp };
     });
-    var csvString = '';
+    var csvString = "";
     if (list) {
       for (var i = 0; i < list.length; i++) {
         var _key = list[i].key;
-        csvString += _key.replace('stash-', '');
+        csvString += _key.replace("stash-", "");
         if (i < list.length - 1) {
-          csvString += ',';
+          csvString += ",";
         }
       }
     }

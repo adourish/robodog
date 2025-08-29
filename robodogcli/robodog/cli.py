@@ -6,7 +6,7 @@ import logging
 import json
 from pprint import pprint
 
-# pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain
+# pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain setuptools
 # support both “python -m robodog.cli” and “python cli.py” invocations:
 try:
     from .service import RobodogService

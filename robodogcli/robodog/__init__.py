@@ -1,2 +1,2 @@
 # robodog/__init__.py
-__version__ = "2.6.10"
+__version__ = "2.6.11"
