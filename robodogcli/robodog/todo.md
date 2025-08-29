@@ -29,14 +29,18 @@ my knowledge
 my knowledge
 ```
 
-# create backup file
-- [x] use the backup folder command line backupFolder. update todo.py to create a backup of the focus file with filename-yyyymmdd-timestamp. do not change any other features or remove any features
+# watch
+- [x] change todo.py so that it watches for changes in the todo.md file. if there is a change, we want to run /todo any other features or remove any features.
+  - completed: 2025-08-29 13:29
+  - started: 2025-08-29 13:28
+  - completed: 2025-08-29 13:27
+  - started: 2025-08-29 13:26
   - completed: 2025-08-29 13:00
   - started: 2025-08-29 12:59
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus:   file=c:\projects\robodog\robodogcli\robodog\cli3.py
+  - focus:   file=c:\projects\robodog\robodogcli\robodog\todo3.py
 ```code
-my knowledge
+do not remove any features. only add the watch feature
 ```
 
 - [X] ask: 
