@@ -1,3 +1,4 @@
+# file: robodog/cli.py
 #!/usr/bin/env python3
 import os
 import sys
@@ -73,32 +74,27 @@ def interact(svc: RobodogService):
             try:
                 if cmd == "help":
                     print_help()
-
                 elif cmd == "models":
                     for m in svc.list_models():
                         print(" ", m)
-
                 elif cmd == "model":
                     if not args:
                         print("Usage: /model <model_name>")
                     else:
                         svc.set_model(args[0])
                         print(f"Model set to: {svc.cur_model}")
-
                 elif cmd == "key":
                     if len(args) < 2:
                         print("Usage: /key <provider> <api_key>")
                     else:
                         svc.set_key(args[0], args[1])
                         print(f"API key for '{args[0]}' set.")
-
                 elif cmd == "getkey":
                     if not args:
                         print("Usage: /getkey <provider>")
                     else:
                         key = svc.get_key(args[0])
                         print(f"{args[0]} API key: {key or '<none>'}")
-
                 elif cmd == "folders":
                     if not args:
                         print("Usage: /folders <dir1> [dir2 …]")
@@ -107,7 +103,6 @@ def interact(svc: RobodogService):
                         print("MCP server roots:")
                         for r in resp.get("roots", []):
                             print("  " + r)
-
                 elif cmd == "include":
                     if not args:
                         print("Usage: /include [spec] [prompt]")
@@ -126,13 +121,10 @@ def interact(svc: RobodogService):
                         answer = svc.ask(prompt)
                         if answer is not None:
                             svc.context += f"\nAI: {answer}"
-
                 elif cmd == "curl":
                     svc.curl(args)
-
                 elif cmd == "play":
                     svc.play(" ".join(args))
-
                 elif cmd == "mcp":
                     if not args:
                         print("Usage: /mcp OP [JSON]")
@@ -148,39 +140,33 @@ def interact(svc: RobodogService):
                                 continue
                         res = svc.call_mcp(op, payload)
                         pprint(res)
-
                 elif cmd == "import":
                     if not args:
                         print("Usage: /import <glob>")
                     else:
                         cnt = svc.import_files(args[0])
                         print(f"Imported {cnt} files.")
-
                 elif cmd == "export":
                     if not args:
                         print("Usage: /export <filename>")
                     else:
                         svc.export_snapshot(args[0])
                         print(f"Exported to {args[0]}")
-
                 elif cmd == "clear":
                     svc.clear()
                     print("Cleared chat history and knowledge.")
-
                 elif cmd == "stash":
                     if not args:
                         print("Usage: /stash <name>")
                     else:
                         svc.stash(args[0])
                         print(f"Stashed under '{args[0]}'.")
-
                 elif cmd == "pop":
                     if not args:
                         print("Usage: /pop <name>")
                     else:
                         svc.pop(args[0])
                         print(f"Popped '{args[0]}' into current session.")
-
                 elif cmd == "list":
                     st = svc.list_stashes()
                     if not st:
@@ -189,9 +175,7 @@ def interact(svc: RobodogService):
                         print("Stashes:")
                         for name in st:
                             print(" ", name)
-
-                elif cmd in ("temperature", "top_p", "max_tokens",
-                             "frequency_penalty", "presence_penalty"):
+                elif cmd in ("temperature", "top_p", "max_tokens", "frequency_penalty", "presence_penalty"):
                     if not args:
                         print(f"Usage: /{cmd} <value>")
                     else:
@@ -201,30 +185,23 @@ def interact(svc: RobodogService):
                             print(f"{cmd} set to {val}")
                         except Exception as e:
                             print("Invalid value:", e)
-
                 elif cmd == "stream":
                     svc.stream = True
                     print("Switched to streaming mode.")
-
                 elif cmd == "rest":
                     svc.stream = False
                     print("Switched to REST mode (no streaming).")
-
                 elif cmd == "todo":
-                    # run next To Do task
                     try:
                         svc.todo.run_next_task(svc)
                     except Exception as e:
                         print("Error running /todo:", e)
-
                 else:
                     print(f"unknown /cmd: {cmd}")
-
             except Exception as err:
                 print(f"Error: {err}")
 
         else:
-            # free-form chat
             svc.context += f"\nUser: {line}"
             resp = svc.ask(line)
             svc.context += f"\nAI: {resp}"
@@ -254,18 +231,15 @@ def main():
     # configure logging
     root = logging.getLogger()
     level = getattr(logging, args.log_level.upper(), logging.INFO)
-    root.setLevel(logging.INFO)
+    root.setLevel(level)                  # now honors --log-level
     fmt = logging.Formatter('[%(asctime)s] %(levelname)s:%(message)s')
     ch = logging.StreamHandler(sys.stdout); ch.setFormatter(fmt); root.addHandler(ch)
     fh = logging.FileHandler(args.log_file); fh.setFormatter(fmt); root.addHandler(fh)
     logging.info("Starting robodog")
 
-    # instantiate service
     svc = RobodogService(args.config)
-    # wire up the To-Do engine
     svc.todo = TodoService(args.folders)
 
-    # start MCP server
     server = run_robodogmcp(
         host    = args.host,
         port    = args.port,
@@ -275,11 +249,9 @@ def main():
     )
     logging.info(f"MCP file server on {args.host}:{args.port}")
 
-    # tell the service how to reach its own MCP server
     svc.mcp_cfg['baseUrl'] = f"http://{args.host}:{args.port}"
     svc.mcp_cfg['apiKey']  = args.token
 
-    # optional startup model
     if args.model:
         svc.set_model(args.model)
         logging.info(f"Startup model set to {svc.cur_model}")

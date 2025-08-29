@@ -1,6 +1,8 @@
 # Project To-Dos
 
 - [x] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
+  - completed: 2025-08-29 04:56
+  - started: 2025-08-29 04:55
   - completed: 2025-08-29 04:54
   - started: 2025-08-29 04:53
   - started: 2025-08-29 04:50
