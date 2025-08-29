@@ -226,21 +226,7 @@ class TodoService:
             enc = tiktoken.get_encoding("gpt2")
         prompt_tokens = len(enc.encode(prompt))
         print(f"Prompt token count: {prompt_tokens}")
-
-        # call the LLM
         ai_out = svc.ask(prompt)
-
-        # parse and apply changes
-        changes = TodoService.parse_llm_output(ai_out)
-        if not changes:
-            print("Warning: no file blocks detected. Task aborted.")
-            return
-        for ch in changes:
-            try:
-                self._apply_change(svc, ch)
-            except Exception as e:
-                print(f"Error applying change {ch.dict()}: {e}")
-
-        # mark Done
+        self._apply_change(svc, ai_out)
         TodoService._complete_task(task, file_lines_map)
         print(f"✔ Completed task: {task['desc']}")
