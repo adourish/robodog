@@ -44,7 +44,11 @@ do not remove any features. only add the watch feature
 ```
 
 # todo fixes
-- [x] change so that we can handle rror running /todo: [WinError 87] The parameter is incorrect: 'G:\\My Drive\\Context\\"G:'. only change the code to support spaces in the path.
+- [x] change so that we can handle spaces in the focus file path focus: file="G:\My Drive\Context\Mockups\scope-review-v2.html"
+  - completed: 2025-08-29 15:17
+  - started: 2025-08-29 15:16
+  - completed: 2025-08-29 15:14
+  - started: 2025-08-29 15:13
   - completed: 2025-08-29 15:06
   - started: 2025-08-29 15:05
   - completed: 2025-08-29 15:04

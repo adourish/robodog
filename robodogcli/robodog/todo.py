@@ -175,7 +175,7 @@ class TodoService:
                 ))
         return changes
 
-    def run_next_task(self, svc):
+    def run_next_taskb(self, svc):
         # 1) reload tasks and file‐buffer
         self._load_all()
         _tasks      = self._tasks
@@ -198,6 +198,40 @@ class TodoService:
 
         print("✔ All To Do tasks processed.")
 
+    def run_next_task(self, svc):
+        """
+        Public entry: find all To Do tasks, show them, then process exactly one.
+        """
+        self._svc = svc
+        # reload all files & tasks
+        self._load_all()
+
+        # print summary
+        for t in self._tasks:
+            print(f"Task: {t['desc']}  Status: {STATUS_MAP[t['status_char']]}")
+
+        # pick only the first To Do
+        todo_tasks = [t for t in self._tasks if STATUS_MAP[t['status_char']]=='To Do']
+        if not todo_tasks:
+            print("No To Do tasks found.")
+            return
+
+        task = todo_tasks[0]
+
+        # strip any leading "file=" from the focus pattern
+        foc = task.get('focus') or {}
+        pat = foc.get('pattern','').strip('"')
+        if pat.startswith('file='):
+            pat = pat[len('file='):]
+
+        # update the dict so _process_one sees the cleaned path
+        task['focus'] = {'pattern': pat, 'recursive': foc.get('recursive', False)}
+
+        # process it
+        self._process_one(task, svc, self._file_lines)
+
+        print("✔ Completed one To Do task.")
+        
     def _process_one(self, task: dict, svc, file_lines_map: dict):
         # mark Doing
         TodoService._start_task(task, file_lines_map)
@@ -286,101 +320,7 @@ class TodoService:
         # finally mark task Done
         TodoService._complete_task(task, file_lines_map)
         print(f"✔ Completed task: {task['desc']}")
-        
-    def _process_oned(self, task: dict, svc, file_lines_map: dict):
-        # mark Doing
-        TodoService._start_task(task, file_lines_map)
-        print(f"→ Starting task: {task['desc']}")
 
-        # clear context and knowledge at the start of each task
-        svc.context = ""
-        svc.knowledge = ""
-
-        # inject any code‐block from the todo.md into knowledge
-        code_block = task.get('code')
-        if code_block:
-            svc.knowledge += "\n" + code_block + "\n"
-
-        # prepare include/focus directives
-        focus = task.get("focus") or {}
-        include = task.get("include") or {}
-        focus_str = f"pattern={focus.get('pattern','')}" + (" recursive" if focus.get('recursive') else "")
-        include_str = f"pattern={include.get('pattern','')}" + (" recursive" if include.get('recursive') else "")
-
-        # fetch context via include (ensure we get a string back)
-        _ = svc.include(focus_str)  # focus may be used inside AI prompt
-        include_ans = svc.include(include_str) or ""
-
-        # token‐count the knowledge
-        try:
-            enc = tiktoken.encoding_for_model(svc.cur_model)
-        except Exception:
-            enc = tiktoken.get_encoding("gpt2")
-        knowledge_tokens = len(enc.encode(include_ans))
-        print(f"Knowledge length: {knowledge_tokens} tokens")
-
-        # build the prompt
-        prompt = (
-            "knowledge:\n" + include_ans + "\n\n"
-            "task A1: " + task['desc'] + "\n\n"
-            "task A2: respond with full-file code fences tagged by a leading\n"
-            "task A3: tag each code fence with a leading line `# file: <path>`\n"
-            "task A4: No diffs, no extra explanation.\n"
-        )
-
-        # token count for the prompt
-        try:
-            enc = tiktoken.encoding_for_model(svc.cur_model)
-        except Exception:
-            enc = tiktoken.get_encoding("gpt2")
-        prompt_tokens = len(enc.encode(prompt))
-        print(f"Prompt token count: {prompt_tokens}")
-
-        # get AI output
-        ai_out = svc.ask(prompt)
-
-        # write AI output directly to the focus file, but first make sure it exists
-        pattern = focus.get('pattern')
-        if pattern:
-            real_focus = self._resolve_path(pattern)
-            created = False
-            if not real_focus:
-                # create new focus file under the first root
-                if os.path.isabs(pattern):
-                    real_focus = pattern
-                else:
-                    real_focus = os.path.join(self._roots[0], pattern)
-                os.makedirs(os.path.dirname(real_focus), exist_ok=True)
-                # create empty file
-                Path(real_focus).write_text('', encoding='utf-8')
-                print(f"Created new focus file: {real_focus}")
-                created = True
-
-            # backup existing file (or newly created empty file) if backup_folder is set
-            backup_folder = getattr(svc, 'backup_folder', None)
-            if backup_folder and os.path.exists(real_focus):
-                os.makedirs(backup_folder, exist_ok=True)
-                ts = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
-                base = os.path.basename(real_focus)
-                backup_name = f"{base}-{ts}"
-                dest = os.path.join(backup_folder, backup_name)
-                shutil.copy(real_focus, dest)
-                print(f"Backup created: {dest}")
-
-            # now update via MCP
-            svc.call_mcp("UPDATE_FILE", {
-                "path": real_focus,
-                "content": ai_out
-            })
-            print(f"Updated focus file: {real_focus}")
-        else:
-            print("No focus file pattern specified; skipping file update.")
-
-        # finally mark task Done
-        TodoService._complete_task(task, file_lines_map)
-        print(f"✔ Completed task: {task['desc']}")
-
-    def _process_onec(self, task: dict, svc, file_lines_map: dict):
         # mark Doing
         TodoService._start_task(task, file_lines_map)
         print(f"→ Starting task: {task['desc']}")

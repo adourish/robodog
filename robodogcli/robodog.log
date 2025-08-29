@@ -1132,3 +1132,33 @@ Call log:
 [2025-08-29 11:03:20,880] INFO:Startup model set to o4-mini
 [2025-08-29 11:03:47,324] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
 [2025-08-29 11:06:22,420] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 11:09:48,823] INFO:Shutting down MCP server
+[2025-08-29 11:10:01,266] INFO:Starting robodog
+[2025-08-29 11:10:01,970] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 11:10:02,569] INFO:Startup model set to o4-mini
+[2025-08-29 11:10:08,122] ERROR:Error in watcher run_next_task
+Traceback (most recent call last):
+  File "C:\projects\robodog\robodogcli\robodog\todo.py", line 164, in _watch_loop
+    self.run_next_task(self._svc)
+                       ^^^^^^^^^
+AttributeError: 'TodoService' object has no attribute '_svc'
+[2025-08-29 11:11:02,579] INFO:Shutting down MCP server
+[2025-08-29 11:11:12,333] INFO:Starting robodog
+[2025-08-29 11:11:15,168] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 11:11:16,521] INFO:Startup model set to o4-mini
+[2025-08-29 11:13:51,432] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 11:14:31,411] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 11:15:06,998] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 11:15:22,123] INFO:Shutting down MCP server
+[2025-08-29 11:15:32,730] INFO:Starting robodog
+[2025-08-29 11:15:34,844] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 11:15:35,474] INFO:Startup model set to o4-mini
+[2025-08-29 11:17:02,643] INFO:HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-08-29 11:18:14,217] INFO:Shutting down MCP server
+[2025-08-29 11:19:10,412] INFO:Starting robodog
+[2025-08-29 11:19:12,028] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 11:19:12,691] INFO:Startup model set to o4-mini
+[2025-08-29 11:26:00,232] INFO:Shutting down MCP server
+[2025-08-29 11:26:15,743] INFO:Starting robodog
+[2025-08-29 11:26:17,240] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 11:26:17,867] INFO:Startup model set to o4-mini
