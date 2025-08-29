@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-
+import shutil
 import tiktoken   # ← for token counting
 from pydantic import BaseModel, RootModel
 
@@ -72,8 +72,10 @@ class TodoService:
                     'status_char': status,
                     'desc':        desc,
                     'include':     None,
-                    'focus':       None
+                    'focus':       None,
+                    'code':        None,
                 }
+                # read sub-directives
                 j = i + 1
                 while j < len(lines) and lines[j].startswith(indent + '  '):
                     ms = SUB_RE.match(lines[j])
@@ -83,6 +85,19 @@ class TodoService:
                         rec = bool(ms.group('rec'))
                         task[key] = {'pattern': pat, 'recursive': rec}
                     j += 1
+                # check for a following code fence
+                if j < len(lines) and lines[j].lstrip().startswith('```'):
+                    # we've found a fence (``` or ```code)
+                    fence_line = lines[j]
+                    k = j + 1
+                    code_lines = []
+                    while k < len(lines) and not lines[k].lstrip().startswith('```'):
+                        code_lines.append(lines[k])
+                        k += 1
+                    task['code'] = ''.join(code_lines).rstrip('\n')
+                    # advance j past the closing fence
+                    j = k + 1
+                # store task and advance
                 self._tasks.append(task)
                 i = j
 
@@ -191,6 +206,91 @@ class TodoService:
         # clear context and knowledge at the start of each task
         svc.context = ""
         svc.knowledge = ""
+
+        # inject any code‐block from the todo.md into knowledge
+        code_block = task.get('code')
+        if code_block:
+            svc.knowledge += "\n" + code_block + "\n"
+
+        # prepare include/focus directives
+        focus = task.get("focus") or {}
+        include = task.get("include") or {}
+        focus_str = f"pattern={focus.get('pattern','')}" + (" recursive" if focus.get('recursive') else "")
+        include_str = f"pattern={include.get('pattern','')}" + (" recursive" if include.get('recursive') else "")
+
+        # fetch context via include (ensure we get a string back)
+        focus_ans = svc.include(focus_str) or ""
+        include_ans = svc.include(include_str) or ""
+
+        # token‐count the knowledge
+        try:
+            enc = tiktoken.encoding_for_model(svc.cur_model)
+        except Exception:
+            enc = tiktoken.get_encoding("gpt2")
+        knowledge_tokens = len(enc.encode(include_ans))
+        print(f"Knowledge length: {knowledge_tokens} tokens")
+
+        # build the prompt
+        prompt = (
+            "knowledge:\n" + include_ans + "\n\n"
+            "task A1: " + task['desc'] + "\n\n"
+            "task A2: respond with full-file code fences tagged by a leading\n"
+            "task A3: tag each code fence with a leading line `# file: <path>`\n"
+            "task A4: No diffs, no extra explanation.\n"
+        )
+
+        # token count for the prompt
+        try:
+            enc = tiktoken.encoding_for_model(svc.cur_model)
+        except Exception:
+            enc = tiktoken.get_encoding("gpt2")
+        prompt_tokens = len(enc.encode(prompt))
+        print(f"Prompt token count: {prompt_tokens}")
+
+        # get AI output
+        ai_out = svc.ask(prompt)
+
+        # write AI output directly to the focus file, but first make a dated backup
+        pattern = focus.get('pattern')
+        if pattern:
+            real_focus = self._resolve_path(pattern)
+            if real_focus:
+                backup_folder = getattr(svc, 'backup_folder', None)
+                if backup_folder:
+                    os.makedirs(backup_folder, exist_ok=True)
+                    ts = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+                    base = os.path.basename(real_focus)
+                    backup_name = f"{base}-{ts}"
+                    dest = os.path.join(backup_folder, backup_name)
+                    shutil.copy(real_focus, dest)
+                    print(f"Backup created: {dest}")
+                svc.call_mcp("UPDATE_FILE", {
+                    "path": real_focus,
+                    "content": ai_out
+                })
+                print(f"Updated focus file: {real_focus}")
+            else:
+                print(f"Focus file not found for pattern: {pattern}")
+        else:
+            print("No focus file pattern specified; skipping file update.")
+
+        # finally mark task Done
+        TodoService._complete_task(task, file_lines_map)
+        print(f"✔ Completed task: {task['desc']}")
+
+    def _process_oneb(self, task: dict, svc, file_lines_map: dict):
+        # mark Doing
+        TodoService._start_task(task, file_lines_map)
+        print(f"→ Starting task: {task['desc']}")
+
+        # clear context and knowledge at the start of each task
+        svc.context = ""
+        svc.knowledge = ""
+
+        # inject any code‐block from the todo.md into knowledge
+        code_block = task.get('code')
+        if code_block:
+            svc.knowledge += "\n" + code_block + "\n"
 
         # prepare include/focus directives
         focus = task.get("focus") or {}

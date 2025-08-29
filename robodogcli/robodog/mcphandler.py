@@ -162,9 +162,15 @@ class MCPHandler(socketserver.StreamRequestHandler):
             # << NEW: support full‐file overwrite >>
             if op == 'UPDATE_FILE':
                 path = p.get("path")
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
                 content = p.get("content", "")
-                SERVICE.update_file(path, content)
+                # if the file doesn’t exist, create all parents
+                if not os.path.exists(path):
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    SERVICE.create_file(path, content)
+                else:
+                    SERVICE.update_file(path, content)
                 return {"status":"ok","path":path}
 
             if op == 'SEARCH':

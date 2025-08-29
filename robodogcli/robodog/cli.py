@@ -249,6 +249,9 @@ def main():
     parser.add_argument('--log-level', default='INFO',
                         choices=['DEBUG','INFO','WARNING','ERROR','CRITICAL'],
                         help='set the root logging level')
+    # new flag for backups
+    parser.add_argument('--backupFolder', default=r'c:\temp',
+                        help='folder to store focus-file backups')
     args = parser.parse_args()
 
     # configure logging
@@ -264,6 +267,8 @@ def main():
     svc = RobodogService(args.config)
     # wire up the To-Do engine
     svc.todo = TodoService(args.folders)
+    # assign backup-folder into service so todo can use it
+    svc.backup_folder = args.backupFolder
 
     # start MCP server
     server = run_robodogmcp(
