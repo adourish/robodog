@@ -203,6 +203,188 @@ class TodoService:
         TodoService._start_task(task, file_lines_map)
         print(f"→ Starting task: {task['desc']}")
 
+        # clear context and knowledge
+        svc.context = ""
+        svc.knowledge = ""
+
+        # inject code‐block if any
+        code_block = task.get('code')
+        if code_block:
+            svc.knowledge += "\n" + code_block + "\n"
+
+        # prepare and clean include/focus directives
+        focus = task.get("focus") or {}
+        include = task.get("include") or {}
+
+        # strip off any "file=" prefix or stray backticks
+        raw_focus = focus.get('pattern', '').rstrip('`')
+        if raw_focus.startswith('file='):
+            raw_focus = raw_focus[len('file='):]
+        raw_include = include.get('pattern', '').rstrip('`')
+        if raw_include.startswith('pattern='):
+            raw_include = raw_include[len('pattern='):]
+
+        focus_str   = f"pattern={raw_focus}"   + (" recursive" if focus.get('recursive') else "")
+        include_str = f"pattern={raw_include}" + (" recursive" if include.get('recursive') else "")
+
+        # fetch context via include (drop return)
+        _ = svc.include(focus_str)
+        include_ans = svc.include(include_str) or ""
+
+        # count tokens for knowledge
+        try:
+            enc = tiktoken.encoding_for_model(svc.cur_model)
+        except Exception:
+            enc = tiktoken.get_encoding("gpt2")
+        print(f"Knowledge length: {len(enc.encode(include_ans))} tokens")
+
+        # build prompt
+        prompt = (
+            "knowledge:\n" + include_ans + "\n\n"
+            "task A1: " + task['desc'] + "\n\n"
+            "task A2: respond with full-file code fences tagged by a leading\n"
+            "task A3: tag each code fence with a leading line `# file: <path>`\n"
+            "task A4: No diffs, no extra explanation.\n"
+        )
+        print(f"Prompt token count: {len(enc.encode(prompt))}")
+
+        # get AI output
+        ai_out = svc.ask(prompt)
+
+        # now write AI output to the focus file (create/backup/update)
+        if raw_focus:
+            real_focus = self._resolve_path(raw_focus)
+            created = False
+            if not real_focus:
+                # make a brand‐new focus file
+                real_focus = raw_focus if os.path.isabs(raw_focus) \
+                              else os.path.join(self._roots[0], raw_focus)
+                os.makedirs(os.path.dirname(real_focus), exist_ok=True)
+                Path(real_focus).write_text('', encoding='utf-8')
+                print(f"Created new focus file: {real_focus}")
+                created = True
+
+            # backup if requested
+            backup_folder = getattr(svc, 'backup_folder', None)
+            if backup_folder and os.path.exists(real_focus):
+                os.makedirs(backup_folder, exist_ok=True)
+                ts   = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+                base = os.path.basename(real_focus)
+                dest = os.path.join(backup_folder, f"{base}-{ts}")
+                shutil.copy(real_focus, dest)
+                print(f"Backup created: {dest}")
+
+            # push update via MCP
+            svc.call_mcp("UPDATE_FILE", {
+                "path": real_focus,
+                "content": ai_out
+            })
+            print(f"Updated focus file: {real_focus}")
+        else:
+            print("No focus file pattern specified; skipping file update.")
+
+        # finally mark task Done
+        TodoService._complete_task(task, file_lines_map)
+        print(f"✔ Completed task: {task['desc']}")
+        
+    def _process_oned(self, task: dict, svc, file_lines_map: dict):
+        # mark Doing
+        TodoService._start_task(task, file_lines_map)
+        print(f"→ Starting task: {task['desc']}")
+
+        # clear context and knowledge at the start of each task
+        svc.context = ""
+        svc.knowledge = ""
+
+        # inject any code‐block from the todo.md into knowledge
+        code_block = task.get('code')
+        if code_block:
+            svc.knowledge += "\n" + code_block + "\n"
+
+        # prepare include/focus directives
+        focus = task.get("focus") or {}
+        include = task.get("include") or {}
+        focus_str = f"pattern={focus.get('pattern','')}" + (" recursive" if focus.get('recursive') else "")
+        include_str = f"pattern={include.get('pattern','')}" + (" recursive" if include.get('recursive') else "")
+
+        # fetch context via include (ensure we get a string back)
+        _ = svc.include(focus_str)  # focus may be used inside AI prompt
+        include_ans = svc.include(include_str) or ""
+
+        # token‐count the knowledge
+        try:
+            enc = tiktoken.encoding_for_model(svc.cur_model)
+        except Exception:
+            enc = tiktoken.get_encoding("gpt2")
+        knowledge_tokens = len(enc.encode(include_ans))
+        print(f"Knowledge length: {knowledge_tokens} tokens")
+
+        # build the prompt
+        prompt = (
+            "knowledge:\n" + include_ans + "\n\n"
+            "task A1: " + task['desc'] + "\n\n"
+            "task A2: respond with full-file code fences tagged by a leading\n"
+            "task A3: tag each code fence with a leading line `# file: <path>`\n"
+            "task A4: No diffs, no extra explanation.\n"
+        )
+
+        # token count for the prompt
+        try:
+            enc = tiktoken.encoding_for_model(svc.cur_model)
+        except Exception:
+            enc = tiktoken.get_encoding("gpt2")
+        prompt_tokens = len(enc.encode(prompt))
+        print(f"Prompt token count: {prompt_tokens}")
+
+        # get AI output
+        ai_out = svc.ask(prompt)
+
+        # write AI output directly to the focus file, but first make sure it exists
+        pattern = focus.get('pattern')
+        if pattern:
+            real_focus = self._resolve_path(pattern)
+            created = False
+            if not real_focus:
+                # create new focus file under the first root
+                if os.path.isabs(pattern):
+                    real_focus = pattern
+                else:
+                    real_focus = os.path.join(self._roots[0], pattern)
+                os.makedirs(os.path.dirname(real_focus), exist_ok=True)
+                # create empty file
+                Path(real_focus).write_text('', encoding='utf-8')
+                print(f"Created new focus file: {real_focus}")
+                created = True
+
+            # backup existing file (or newly created empty file) if backup_folder is set
+            backup_folder = getattr(svc, 'backup_folder', None)
+            if backup_folder and os.path.exists(real_focus):
+                os.makedirs(backup_folder, exist_ok=True)
+                ts = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+                base = os.path.basename(real_focus)
+                backup_name = f"{base}-{ts}"
+                dest = os.path.join(backup_folder, backup_name)
+                shutil.copy(real_focus, dest)
+                print(f"Backup created: {dest}")
+
+            # now update via MCP
+            svc.call_mcp("UPDATE_FILE", {
+                "path": real_focus,
+                "content": ai_out
+            })
+            print(f"Updated focus file: {real_focus}")
+        else:
+            print("No focus file pattern specified; skipping file update.")
+
+        # finally mark task Done
+        TodoService._complete_task(task, file_lines_map)
+        print(f"✔ Completed task: {task['desc']}")
+
+    def _process_onec(self, task: dict, svc, file_lines_map: dict):
+        # mark Doing
+        TodoService._start_task(task, file_lines_map)
+        print(f"→ Starting task: {task['desc']}")
+
         # clear context and knowledge at the start of each task
         svc.context = ""
         svc.knowledge = ""
@@ -278,7 +460,7 @@ class TodoService:
         TodoService._complete_task(task, file_lines_map)
         print(f"✔ Completed task: {task['desc']}")
 
-    def _process_oneb(self, task: dict, svc, file_lines_map: dict):
+
         # mark Doing
         TodoService._start_task(task, file_lines_map)
         print(f"→ Starting task: {task['desc']}")
