@@ -226,7 +226,25 @@ class TodoService:
             enc = tiktoken.get_encoding("gpt2")
         prompt_tokens = len(enc.encode(prompt))
         print(f"Prompt token count: {prompt_tokens}")
+
+        # get AI output
         ai_out = svc.ask(prompt)
-        self._apply_change(svc, ai_out)
+
+        # write AI output directly to the focus file
+        pattern = focus.get('pattern')
+        if pattern:
+            real_focus = self._resolve_path(pattern)
+            if real_focus:
+                svc.call_mcp("UPDATE_FILE", {
+                    "path": real_focus,
+                    "content": ai_out
+                })
+                print(f"Updated focus file: {real_focus}")
+            else:
+                print(f"Focus file not found for pattern: {pattern}")
+        else:
+            print("No focus file pattern specified; skipping file update.")
+
+        # finally mark task Done
         TodoService._complete_task(task, file_lines_map)
         print(f"✔ Completed task: {task['desc']}")

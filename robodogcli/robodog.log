@@ -1062,3 +1062,7 @@ Call log:
 [2025-08-29 00:50:22,035] INFO:Starting robodog
 [2025-08-29 00:50:23,264] INFO:MCP file server on 127.0.0.1:2500
 [2025-08-29 00:50:23,518] INFO:Startup model set to o4-mini
+[2025-08-29 00:53:06,559] INFO:Shutting down MCP server
+[2025-08-29 00:53:09,382] INFO:Starting robodog
+[2025-08-29 00:53:10,674] INFO:MCP file server on 127.0.0.1:2500
+[2025-08-29 00:53:10,940] INFO:Startup model set to o4-mini
