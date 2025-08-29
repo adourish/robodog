@@ -127,6 +127,239 @@ class TodoService:
         )
         self._write_file(task['file'])
 
+    def _apply_change3(self, svc, change: Change):
+        """
+        Apply a single Change:
+        - if end_line is None, full overwrite.
+        - otherwise, only replace lines [start_line..end_line].
+        """
+        path = change.path
+        real = self._resolve_path(path)
+        if not real:
+            raise FileNotFoundError(f"Cannot find file: {path}")
+
+        # full overwrite
+        if change.end_line is None:
+            svc.call_mcp("UPDATE_FILE", {"path": real, "content": change.new_content})
+            print(f"Replaced entire file: {real}")
+            return
+
+        # targeted hunk apply
+        existing = Path(real).read_text(encoding='utf-8').splitlines(keepends=True)
+        s = change.start_line - 1
+        e = min(change.end_line, len(existing))
+        # ensure new_content has proper line endings
+        new_lines = change.new_content.splitlines(keepends=True)
+        if new_lines and not new_lines[-1].endswith('\n'):
+            new_lines[-1] += '\n'
+        updated = existing[:s] + new_lines + existing[e:]
+        svc.call_mcp("UPDATE_FILE", {"path": real, "content": "".join(updated)})
+        print(f"Applied change to {real}: lines {change.start_line}-{change.end_line}")
+
+    def _apply_change(self, svc, change: Change):
+        """
+        Apply a single Change:
+         - if end_line is None, overwrite entire file
+         - else replace only lines [start_line..end_line]
+        """
+        real = self._resolve_path(change.path)
+        if not real:
+            raise FileNotFoundError(f"Cannot find file: {change.path}")
+
+        # full overwrite
+        if change.end_line is None:
+            svc.call_mcp("UPDATE_FILE", {
+                "path": real,
+                "content": change.new_content
+            })
+            print(f"Replaced entire file: {real}")
+            return
+
+        # targeted hunk apply
+        existing = Path(real).read_text(encoding='utf-8').splitlines(keepends=True)
+        s = change.start_line - 1
+        e = min(change.end_line, len(existing))
+        # ensure each new line ends with '\n'
+        new_lines = change.new_content.splitlines(keepends=True)
+        if new_lines and not new_lines[-1].endswith('\n'):
+            new_lines[-1] += '\n'
+        updated = existing[:s] + new_lines + existing[e:]
+        svc.call_mcp("UPDATE_FILE", {
+            "path": real,
+            "content": "".join(updated)
+        })
+        print(f"Applied change to {real}: lines {change.start_line}-{change.end_line}")
+
+    def parse_llm_output(self, text: str) -> List[Change]:
+        """
+        Parse LLM output into Change objects.
+        1) try JSON via LangChain/PydanticOutputParser
+        2) fallback to fenced code blocks:
+           - full‐file blocks tagged "# file: path"
+           - unified‐diff style hunks
+        """
+        # 1) JSON attempt
+        try:
+            parser = PydanticOutputParser(pydantic_object=ChangesList)
+            parsed: ChangesList = parser.parse(text)
+            return parsed.__root__
+        except Exception:
+            pass
+
+        changes: List[Change] = []
+        fence_re = re.compile(r'```(?:diff|[\w+-]*)\n([\s\S]*?)```')
+        for block in fence_re.findall(text):
+            lines = block.splitlines()
+
+            # full‐file replace if first line is "# file: path"
+            if lines and lines[0].strip().lower().startswith('# file:'):
+                path = lines[0].split(':', 1)[1].strip()
+                content = "\n".join(lines[1:]).rstrip('\n') + '\n'
+                changes.append(Change(
+                    path=path,
+                    start_line=1,
+                    end_line=None,
+                    new_content=content
+                ))
+                continue
+
+            # unified‐diff parser
+            cur_file = None
+            for ln in lines:
+                if ln.strip().lower().startswith('# file:'):
+                    cur_file = ln.split(':', 1)[1].strip()
+                    break
+
+            hunk_re = re.compile(r'^@@\s*-(\d+)(?:,(\d+))?\s*\+(\d+)(?:,(\d+))?\s*@@')
+            orig_start = orig_count = None
+            hunk_lines: List[str] = []
+            in_hunk = False
+
+            for ln in lines:
+                m = hunk_re.match(ln)
+                if m:
+                    # flush previous hunk
+                    if in_hunk and cur_file and orig_start is not None:
+                        new_content = ''.join(
+                            l[1:] for l in hunk_lines if l.startswith(('+', ' '))
+                        )
+                        end_line = orig_start - 1 + orig_count
+                        changes.append(Change(
+                            path=cur_file,
+                            start_line=orig_start,
+                            end_line=end_line,
+                            new_content=new_content
+                        ))
+                        hunk_lines = []
+                    orig_start = int(m.group(1))
+                    orig_count = int(m.group(2) or '1')
+                    in_hunk = True
+                    continue
+                if in_hunk:
+                    hunk_lines.append(ln)
+
+            # flush last hunk
+            if in_hunk and cur_file and orig_start is not None:
+                new_content = ''.join(
+                    l[1:] for l in hunk_lines if l.startswith(('+', ' '))
+                )
+                end_line = orig_start - 1 + orig_count
+                changes.append(Change(
+                    path=cur_file,
+                    start_line=orig_start,
+                    end_line=end_line,
+                    new_content=new_content
+                ))
+                continue
+
+            # fallback: if we saw a file marker but no numeric hunks
+            if cur_file:
+                content = "\n".join(lines).lstrip('+').rstrip('\n') + '\n'
+                changes.append(Change(
+                    path=cur_file,
+                    start_line=1,
+                    end_line=None,
+                    new_content=content
+                ))
+
+        return changes
+
+
+    def parse_llm_output3(self, text: str) -> List[Change]:
+        """
+        First try to parse a JSON-ed list of Changes via LangChain's PydanticOutputParser.
+        If that fails, fall back to legacy diff/fenced-block parsing.
+        """
+        # 1) Try JSON → ChangesList
+        try:
+            parser = PydanticOutputParser(pydantic_object=ChangesList)
+            parsed: ChangesList = parser.parse(text)
+            # __root__ holds the List[Change]
+            return parsed.__root__
+        except Exception:
+            pass
+
+        changes: List[Change] = []
+        # 2) Legacy: look for fenced code/diff blocks
+        fence_re = re.compile(r'```(?:diff|[\w+-]*)\n([\s\S]*?)```')
+        for block in fence_re.findall(text):
+            lines = block.splitlines()
+            # full-file code fence tagged "# file: path"
+            if lines and lines[0].strip().lower().startswith('# file:'):
+                path = lines[0].split(':', 1)[1].strip()
+                content = "\n".join(lines[1:]) + "\n"
+                changes.append(Change(path=path, start_line=1, end_line=None, new_content=content))
+                continue
+
+            # diff-style hunks
+            cur_file = None
+            for ln in lines:
+                if ln.strip().lower().startswith('# file:'):
+                    cur_file = ln.split(':', 1)[1].strip()
+                    break
+
+            hunk_re = re.compile(r'^@@\s*-(\d+)(?:,(\d+))?\s*\+(\d+)(?:,(\d+))?\s*@@')
+            orig_start = orig_count = None
+            hunk_lines = []
+            saw_hunk = False
+            for ln in lines:
+                m = hunk_re.match(ln)
+                if m:
+                    # flush prior
+                    if saw_hunk and cur_file and orig_start is not None:
+                        new_content = ''.join(l[1:] for l in hunk_lines if l.startswith('+') or l.startswith(' '))
+                        end_line = orig_start - 1 + orig_count
+                        changes.append(Change(path=cur_file,
+                                              start_line=orig_start,
+                                              end_line=end_line,
+                                              new_content=new_content))
+                        hunk_lines = []
+                    orig_start = int(m.group(1))
+                    orig_count = int(m.group(2) or '1')
+                    saw_hunk = True
+                    continue
+                if saw_hunk:
+                    hunk_lines.append(ln)
+            # flush last
+            if saw_hunk and cur_file and orig_start is not None:
+                new_content = ''.join(l[1:] for l in hunk_lines if l.startswith('+') or l.startswith(' '))
+                end_line = orig_start - 1 + orig_count
+                changes.append(Change(path=cur_file,
+                                      start_line=orig_start,
+                                      end_line=end_line,
+                                      new_content=new_content))
+                continue
+
+            # fallback: if we saw a file but no numeric hunks, do full replace
+            if cur_file:
+                new_lines = [ln[1:] for ln in lines if ln.startswith('+') and not ln.startswith('+++')]
+                content = "".join(new_lines) if new_lines else "\n".join(lines) + "\n"
+                changes.append(Change(path=cur_file,
+                                      start_line=1,
+                                      end_line=None,
+                                      new_content=content))
+        return changes
+    
     def _resolve_path(self, path: str) -> Optional[str]:
         if os.path.isabs(path) and os.path.isfile(path):
             return path
@@ -143,7 +376,7 @@ class TodoService:
                     return os.path.join(dp, base)
         return None
 
-    def _apply_change(self, svc, change: Change):
+    def _apply_change2(self, svc, change: Change):
         path = change.path
         real = self._resolve_path(path)
         if not real:
@@ -161,7 +394,7 @@ class TodoService:
         svc.call_mcp("UPDATE_FILE", {"path": real, "content": "".join(updated)})
         print(f"Applied change to {real}: lines {change.start_line}-{change.end_line}")
 
-    def parse_llm_output(self, text: str) -> List[Change]:
+    def parse_llm_output2(self, text: str) -> List[Change]:
         changes: List[Change] = []
 
         # catch any fenced blocks: diff or generic

@@ -6,12 +6,12 @@ import logging
 import json
 from pprint import pprint
 
+# pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain
 # support both “python -m robodog.cli” and “python cli.py” invocations:
 try:
     from .service import RobodogService
     from .mcphandler import run_robodogmcp
     from .todo import TodoService
-    
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
@@ -42,6 +42,7 @@ def print_help():
         "curl":                "fetch web pages / scripts",
         "play":                "run AI-driven Playwright tests",
         "mcp":                 "invoke raw MCP operation",
+        "todo":                "run next To Do task",
     }
     print("\nAvailable /commands:\n")
     for cmd, desc in cmds.items():
@@ -207,6 +208,13 @@ def interact(svc: RobodogService):
                     svc.stream = False
                     print("Switched to REST mode (no streaming).")
 
+                elif cmd == "todo":
+                    # run next To Do task
+                    try:
+                        svc.todo.run_next_task(svc)
+                    except Exception as e:
+                        print("Error running /todo:", e)
+
                 else:
                     print(f"unknown /cmd: {cmd}")
 
@@ -252,7 +260,9 @@ def main():
 
     # instantiate service
     svc = RobodogService(args.config)
-    # svc.todo = TodoService(roots=args.folders, work_path="work.txt")
+    # wire up the To-Do engine
+    svc.todo = TodoService(args.folders)
+
     # start MCP server
     server = run_robodogmcp(
         host    = args.host,
