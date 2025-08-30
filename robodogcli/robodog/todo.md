@@ -10,6 +10,14 @@ my knowledge
 
 # add temp filter command line
 - [x] ask: add logging to service
+  - completed: 2025-08-30 17:09
+  - started: 2025-08-30 17:08
+  - started: 2025-08-30 17:06
+  - started: 2025-08-30 17:02
+  - completed: 2025-08-30 17:01
+  - started: 2025-08-30 17:00
+  - completed: 2025-08-30 16:59
+  - started: 2025-08-30 16:58
   - completed: 2025-08-30 05:59
   - started: 2025-08-30 05:59
   - completed: 2025-08-30 05:56
@@ -21,7 +29,9 @@ my knowledge
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\temp\service.log
 ```code
-my knowledge
+1. in service.py replace the mcp calls with local calls to the service. 
+e.g. include calls mcp which calls search_files.
+do not change any other code. do not remove any other features
 ```
 
 # fix logger
