@@ -8,8 +8,16 @@
 my knowledge
 ```
 
-# add temp filter command line
-- [x] ask: add logging to service
+# add features to mchhandler.py
+- [x] ask: add mcp features
+  - completed: 2025-08-30 17:24
+  - started: 2025-08-30 17:24
+  - completed: 2025-08-30 17:23
+  - started: 2025-08-30 17:22
+  - completed: 2025-08-30 17:21
+  - started: 2025-08-30 17:21
+  - completed: 2025-08-30 17:13
+  - started: 2025-08-30 17:12
   - completed: 2025-08-30 17:09
   - started: 2025-08-30 17:08
   - started: 2025-08-30 17:06
@@ -29,9 +37,9 @@ my knowledge
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\temp\service.log
 ```code
-1. in service.py replace the mcp calls with local calls to the service. 
-e.g. include calls mcp which calls search_files.
-do not change any other code. do not remove any other features
+1. add more features to mcphandlers. 
+2. make sure all of the features from service.py and todo.py are add to mcp. 
+3. do not change or remove any existing features. only add missing features
 ```
 
 # fix logger

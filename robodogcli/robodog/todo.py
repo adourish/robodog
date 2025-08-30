@@ -278,12 +278,15 @@ class TodoService:
         logger.info(f"Include knowledge total tokens: {tk}")
 
         prompt = (
-            "knowledge:\n" + knowledge + "\n\n"
+            "knowledge:\n" + knowledge + "\n\n:end knowledge:\n\n"
             "task A0: " + task['desc'] + "\n\n"
             "task A1: " + code + "\n\n"
-            "task A2: respond with code full-file \n"
-            "task A3: tag each code fence with a leading line `# file: <path>`\n"
-            "task A4: No diffs, no extra explanation.\n"
+            "task A2: Respond with full code full-file \n"
+            "task A3: Tag each code file with a leading line `# file: <path>`\n"
+            "task A4: No diffs.\n"
+            "task A5: No extra explanation.\n"
+            "task A6: No code fences.\n"
+            "task A7: Ensure all tasks and sub tasks are completed.\n"
         )
         t2 = self._get_token_count(prompt)
         logger.info(f"Prompt token count: {t2}")

@@ -1,3 +1,4 @@
+# file: robodog/cli/mcphandler.py
 #!/usr/bin/env python3
 import os
 import json
@@ -6,38 +7,36 @@ import socketserver
 import fnmatch
 import hashlib
 import shutil
-from service import RobodogService  # your existing service.py
 import logging
+
+from service import RobodogService  # your existing service.py
 logger = logging.getLogger('robodog.mcphandler')
-ROOTS    = []
-TOKEN    = None
-SERVICE  = None
+
+ROOTS   = []
+TOKEN   = None
+SERVICE = None
 
 class MCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
-        # Read the first line
-        raw_first = self.rfile.readline()
-        peer = self.client_address
-        logger.debug(f"Connection from {peer!r}")
-        if not raw_first:
+        raw = self.rfile.readline()
+        if not raw:
             return
-        first = raw_first.decode('utf-8', errors='ignore').rstrip('\r\n')
+        first = raw.decode('utf-8', errors='ignore').rstrip('\r\n')
+        # detect HTTP vs raw MCP
         is_http = first.upper().startswith(("GET ","POST ","OPTIONS ")) and "HTTP/" in first
-
         if is_http:
-            self._handle_http(first)
-        else:
-            # raw MCP protocol
-            op, _, arg = first.partition(" ")
-            try:
-                payload = json.loads(arg) if arg else {}
-            except json.JSONDecodeError:
-                return self._write_json({"status":"error","error":"Invalid JSON payload"})
-            res = self._dispatch(op.upper(), payload)
-            self._write_json(res)
+            return self._handle_http(first)
+        # raw MCP
+        op, _, arg = first.partition(" ")
+        try:
+            payload = json.loads(arg) if arg.strip() else {}
+        except json.JSONDecodeError:
+            return self._write_json({"status":"error","error":"Invalid JSON payload"})
+        resp = self._dispatch(op.upper(), payload)
+        self._write_json(resp)
 
     def _handle_http(self, first_line):
-        # parse request line
+        # parse HTTP request + CORS + auth + body
         try:
             method, uri, version = first_line.split(None, 2)
         except ValueError:
@@ -46,23 +45,20 @@ class MCPHandler(socketserver.StreamRequestHandler):
         # read headers
         while True:
             line = self.rfile.readline().decode('utf-8', errors='ignore')
-            if not line or line in ('\r\n', '\n'):
+            if not line or line in ('\r\n','\n'):
                 break
-            name, val = line.split(":",1)
-            headers[name.lower().strip()] = val.strip()
+            key, val = line.split(":",1)
+            headers[key.lower().strip()] = val.strip()
 
-        # CORS preflight
         if method.upper() == 'OPTIONS':
             resp = [
                 "HTTP/1.1 204 No Content",
                 "Access-Control-Allow-Origin: *",
                 "Access-Control-Allow-Methods: POST, OPTIONS",
                 "Access-Control-Allow-Headers: Content-Type, Authorization",
-                "Access-Control-Max-Age: 86400",
                 "Connection: close", "", ""
             ]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
-            self.wfile.flush()
             return
 
         if method.upper() != 'POST':
@@ -70,34 +66,29 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 "HTTP/1.1 405 Method Not Allowed",
                 "Access-Control-Allow-Origin: *",
                 "Allow: POST, OPTIONS",
-                "Content-Type: text/plain; charset=utf-8",
-                "Connection: close", "", "Only POST supported\n"
+                "Connection: close", "", "Only POST supported"
             ]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
-            self.wfile.flush()
             return
 
-        # Authorization
-        authz = headers.get('authorization','')
-        if authz != f"Bearer {TOKEN}":
+        # auth
+        if headers.get('authorization') != f"Bearer {TOKEN}":
             body = json.dumps({"status":"error","error":"Authentication required"})
             resp = [
                 "HTTP/1.1 401 Unauthorized",
                 "Access-Control-Allow-Origin: *",
-                "Content-Type: application/json; charset=utf-8",
-                f"Content-Length: {len(body.encode('utf-8'))}",
+                "Content-Type: application/json",
+                f"Content-Length: {len(body)}",
                 "Connection: close", "", body
             ]
             self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
-            self.wfile.flush()
             return
 
-        # Read body
         length = int(headers.get('content-length','0'))
-        raw_body = self.rfile.read(length).decode('utf-8', errors='ignore')
-        op, _, arg = raw_body.partition(" ")
+        body_raw = self.rfile.read(length).decode('utf-8', errors='ignore')
+        op, _, arg = body_raw.partition(" ")
         try:
-            payload = json.loads(arg) if arg else {}
+            payload = json.loads(arg) if arg.strip() else {}
         except json.JSONDecodeError:
             result = {"status":"error","error":"Invalid JSON payload"}
         else:
@@ -107,18 +98,15 @@ class MCPHandler(socketserver.StreamRequestHandler):
         resp = [
             "HTTP/1.1 200 OK",
             "Access-Control-Allow-Origin: *",
-            "Access-Control-Allow-Headers: Content-Type, Authorization",
             "Content-Type: application/json; charset=utf-8",
             f"Content-Length: {len(body.encode('utf-8'))}",
             "Connection: close", "", body
         ]
         self.wfile.write(("\r\n".join(resp)).encode('utf-8'))
-        self.wfile.flush()
 
     def _write_json(self, obj):
         data = json.dumps(obj) + "\n"
         self.wfile.write(data.encode('utf-8'))
-        self.wfile.flush()
 
     def _dispatch(self, op, p):
         try:
@@ -128,74 +116,127 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     "LIST_FILES","GET_ALL_CONTENTS","READ_FILE","UPDATE_FILE",
                     "CREATE_FILE","DELETE_FILE","APPEND_FILE","CREATE_DIR",
                     "DELETE_DIR","RENAME","MOVE","COPY_FILE","SEARCH",
-                    "CHECKSUM","QUIT","EXIT"
+                    "CHECKSUM","TODO","INCLUDE","CURL","PLAY",
+                    "QUIT","EXIT"
                 ]}
 
-            if op == 'SET_ROOTS':
+            if op == "SET_ROOTS":
                 roots = p.get("roots")
                 if not isinstance(roots, list):
                     raise ValueError("Missing 'roots' list")
-                absr = []
-                for r in roots:
-                    a = os.path.abspath(r)
-                    if not os.path.isdir(a):
+                absr = [os.path.abspath(r) for r in roots]
+                for r in absr:
+                    if not os.path.isdir(r):
                         raise FileNotFoundError(f"Not a directory: {r}")
-                    absr.append(a)
-                global ROOTS
-                ROOTS = absr
+                global ROOTS; ROOTS = absr
                 return {"status":"ok","roots":ROOTS}
 
-            if op == 'LIST_FILES':
+            if op == "LIST_FILES":
                 files = SERVICE.list_files(ROOTS)
                 return {"status":"ok","files":files}
 
-            if op == 'GET_ALL_CONTENTS':
+            if op == "GET_ALL_CONTENTS":
                 contents = SERVICE.get_all_contents(ROOTS)
                 return {"status":"ok","contents":contents}
 
-            if op == 'READ_FILE':
-                path = p.get("path")
+            if op == "READ_FILE":
+                path = p.get("path") or ""
                 if not path: raise ValueError("Missing 'path'")
-                content = SERVICE.read_file(path)
-                return {"status":"ok","path":path,"content":content}
+                data = SERVICE.read_file(path)
+                return {"status":"ok","path":path,"content":data}
 
-            # << NEW: support full‐file overwrite >>
-            if op == 'UPDATE_FILE':
-                path = p.get("path")
-                if not path:
-                    raise ValueError("Missing 'path'")
-                content = p.get("content", "")
-                # if the file doesn’t exist, create all parents
+            if op == "UPDATE_FILE":
+                path = p.get("path") or ""
+                if not path: raise ValueError("Missing 'path'")
+                content = p.get("content","")
                 if not os.path.exists(path):
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
                     SERVICE.create_file(path, content)
                 else:
                     SERVICE.update_file(path, content)
                 return {"status":"ok","path":path}
 
-            if op == 'SEARCH':
-                raw = p.get("pattern", "*")
-                exclude = p.get("exclude", None)
-                patterns = raw if isinstance(raw, list) else raw.split("|")
-                recursive = p.get("recursive", True)
-                root_param = p.get("root", "")
-                roots = ROOTS if not root_param else [root_param]
+            if op == "CREATE_FILE":
+                path = p.get("path") or ""
+                content = p.get("content","")
+                if not path: raise ValueError("Missing 'path'")
+                SERVICE.create_file(path, content)
+                return {"status":"ok","path":path}
 
-                found = SERVICE.search_files(
-                    patterns=patterns,
-                    recursive=recursive,
-                    roots=roots,
-                    exclude_dirs=exclude
-                )
-                return {"status":"ok", "matches": found}
+            if op == "DELETE_FILE":
+                path = p.get("path") or ""
+                if not path: raise ValueError("Missing 'path'")
+                SERVICE.delete_file(path)
+                return {"status":"ok","path":path}
 
-            if op == 'CHECKSUM':
-                path = p.get("path")
+            if op == "APPEND_FILE":
+                path = p.get("path") or ""
+                content = p.get("content","")
+                if not path: raise ValueError("Missing 'path'")
+                SERVICE.append_file(path, content)
+                return {"status":"ok","path":path}
+
+            if op == "CREATE_DIR":
+                path = p.get("path") or ""
+                mode = p.get("mode", 0o755)
+                if not path: raise ValueError("Missing 'path'")
+                SERVICE.create_dir(path, mode)
+                return {"status":"ok","path":path}
+
+            if op == "DELETE_DIR":
+                path = p.get("path") or ""
+                rec  = bool(p.get("recursive", False))
+                if not path: raise ValueError("Missing 'path'")
+                SERVICE.delete_dir(path, rec)
+                return {"status":"ok","path":path}
+
+            if op in ("RENAME","MOVE"):
+                src = p.get("src") or p.get("path")
+                dst = p.get("dst") or p.get("dest")
+                if not src or not dst:
+                    raise ValueError("Missing 'src' or 'dst'")
+                SERVICE.rename(src, dst)
+                return {"status":"ok","src":src,"dst":dst}
+
+            if op == "COPY_FILE":
+                src = p.get("src")
+                dst = p.get("dst")
+                if not src or not dst:
+                    raise ValueError("Missing 'src' or 'dst'")
+                SERVICE.copy_file(src, dst)
+                return {"status":"ok","src":src,"dst":dst}
+
+            if op == "SEARCH":
+                patt = p.get("pattern","*")
+                rec  = bool(p.get("recursive", True))
+                excl = p.get("exclude", None)
+                roots = ROOTS if not p.get("root") else [p.get("root")]
+                found = SERVICE.search_files(patterns=patt, recursive=rec,
+                                             roots=roots, exclude_dirs=excl)
+                return {"status":"ok","matches":found}
+
+            if op == "CHECKSUM":
+                path = p.get("path") or ""
                 if not path: raise ValueError("Missing 'path'")
                 cs = SERVICE.checksum(path)
                 return {"status":"ok","path":path,"checksum":cs}
 
-            # --- pass‐through RobodogService operations ---
+            # --- todo ---
+            if op == "TODO":
+                SERVICE.todo.run_next_task(SERVICE)
+                return {"status":"ok"}
+
+            # --- include/ask ---
+            if op == "INCLUDE":
+                spec   = p.get("spec","")
+                prompt = p.get("prompt","")
+                know   = SERVICE.include(spec) or ""
+                result = {"status":"ok","knowledge":know}
+                if prompt:
+                    ans = SERVICE.ask(f"{prompt} {know}".strip())
+                    result["answer"] = ans
+                return result
+
+            # --- passthrough LLM/meta ---
             if op == "ASK":
                 prompt = p.get("prompt")
                 if prompt is None: raise ValueError("Missing 'prompt'")
@@ -211,7 +252,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 return {"status":"ok","model":m}
 
             if op == "SET_KEY":
-                prov = p.get("provider"); key = p.get("key")
+                prov, key = p.get("provider"), p.get("key")
                 SERVICE.set_key(prov, key)
                 return {"status":"ok","provider":prov}
 
@@ -221,12 +262,14 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 return {"status":"ok","provider":prov,"key":key}
 
             if op == "STASH":
-                SERVICE.stash(p.get("name"))
-                return {"status":"ok","stashed":p.get("name")}
+                name = p.get("name")
+                SERVICE.stash(name)
+                return {"status":"ok","stashed":name}
 
             if op == "POP":
-                SERVICE.pop(p.get("name"))
-                return {"status":"ok","popped":p.get("name")}
+                name = p.get("name")
+                SERVICE.pop(name)
+                return {"status":"ok","popped":name}
 
             if op == "LIST_STASHES":
                 return {"status":"ok","stashes":SERVICE.list_stashes()}
@@ -236,7 +279,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 return {"status":"ok"}
 
             if op == "IMPORT_FILES":
-                cnt = SERVICE.import_files(p.get("pattern"))
+                cnt = SERVICE.import_files(p.get("pattern",""))
                 return {"status":"ok","imported":cnt}
 
             if op == "EXPORT_SNAPSHOT":
@@ -248,21 +291,12 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 SERVICE.set_param(p.get("key"), p.get("value"))
                 return {"status":"ok"}
 
-            if op == "INCLUDE":
-                prompt =  p.get("prompt",None)
-                knowledge = SERVICE.include(p.get("spec"))
-                prompt = ptext + " " + knowledge
-                answer = svc.ask(prompt)
-                resp = {"status":"ok"}
-                if answer is not None: resp["answer"] = answer
-                return resp
-
             if op == "CURL":
-                SERVICE.curl(p.get("tokens",[]))
+                SERVICE.curl(p.get("tokens", []))
                 return {"status":"ok"}
 
             if op == "PLAY":
-                SERVICE.play(p.get("instructions"))
+                SERVICE.play(p.get("instructions",""))
                 return {"status":"ok"}
 
             if op in ("QUIT","EXIT"):
@@ -271,7 +305,7 @@ class MCPHandler(socketserver.StreamRequestHandler):
             raise ValueError(f"Unknown command '{op}'")
 
         except Exception as e:
-            return {"status":"error","error":str(e)}
+            return {"status":"error","error": str(e)}
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads      = True
