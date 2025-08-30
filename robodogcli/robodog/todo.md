@@ -2,14 +2,6 @@
 
 # fix logging
 - [x] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
-  - completed: 2025-08-29 13:24
-  - started: 2025-08-29 13:23
-  - started: 2025-08-29 13:21
-  - completed: 2025-08-29 13:16
-  - started: 2025-08-29 13:15
-  - completed: 2025-08-29 12:52
-  - started: 2025-08-29 12:51
-  - started: 2025-08-29 12:48
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus: file=c:\projects\robodog\robodogcli\robodog\cli3.py
 ```code
@@ -47,12 +39,22 @@ do not remove any features. only add the watch feature
 
 # todo fix counts
 - [x] change prints
-  - completed: 2025-08-29 23:42
-  - started: 2025-08-29 23:41
+  - completed: 2025-08-30 00:17
+  - started: 2025-08-30 00:16
+  - completed: 2025-08-30 00:15
+  - started: 2025-08-30 00:14
+  - completed: 2025-08-30 00:13
+  - started: 2025-08-30 00:12
+  - completed: 2025-08-30 00:10
+  - started: 2025-08-30 00:09
+  - completed: 2025-08-30 00:04
+  - started: 2025-08-30 00:03
+  - started: 2025-08-30 00:02
+  - completed: 2025-08-30 00:01
+  - started: 2025-08-30 00:00
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\temp\todo.txt
 ```code
-1. do not change any logic
-2. replace the print statements logger INFO
+1. change to color logger
 
 ```
