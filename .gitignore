@@ -11,3 +11,4 @@
 *.map
 /robodogmcp/config.yaml
 /robodogcli/config.yaml
+*.log
