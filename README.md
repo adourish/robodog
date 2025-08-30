@@ -1,6 +1,5 @@
-# Robodog Code
-
-![Robodog MCP File Service](screenshot-mcp.png)  
+# file: README.md
+![Robodog MCP File Service](screenshot-mcp.png)
 
 ## Overview  
 Robodog is a lightweight, zero-install, command-line style generative AI client that integrates multiple providers (OpenAI, OpenRouter, LlamaAI, DeepSeek, Anthropic, Sarvam AI, Google Search API, and more) into a unified interface. Key capabilities include:
@@ -14,7 +13,7 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
 - Image generation & OCR pipelines.  
 - AI-driven web automation/testing via Playwright (`/play`).  
 - Raw MCP operations (`/mcp`).  
-- Todo.md task
+- `/todo` feature: automate and track tasks defined in `todo.md`.  
 - Accessible, retro “console” UI with customizable themes and responsive design.  
 
 ---
@@ -31,14 +30,13 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
   - `pip install robodogcli`  
   - `pip show -f robodogcli`  
   - `python -m robodogcli.cli --help`  
-  - `pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain`  (optional)
-   
+  - `pip install --upgrade requests tiktoken PyYAML openai playwright pydantic langchain` (optional)  
 
 ---
 
 ## Configuration  
 
-Click the ⚙️ icon in the top-menu to open settings, or edit your YAML directly:  
+Click the ⚙️ icon in the top-menu to open settings, or edit your YAML directly:
 
 ```yaml
 configs:
@@ -133,78 +131,39 @@ configs:
 - **Interactive Console UI**: Retro “pip-boy green” theme, responsive on desktop/mobile, accessible.  
 - **Performance & Size Indicators**: Emoji feedback for processing speed and token usage.  
 - **Extensive Command Palette**: `/help` lists all commands, indicators, and settings.  
+- **Todo Automation**: Use `/todo` to execute tasks defined in `todo.md` across your project roots.  
 
 ---
 
 ## Usage Examples  
 
-### 1) AI-Driven Web Tests with `/play`  
-
-Robodog will:  
-1. Parse your natural-language instructions into discrete steps  
-2. Spin up a headless browser and execute each step, retrying once on failure  
-3. Log each attempt and summarize as Success/Failure  
-
+### 1) AI-Driven Web Tests with `/play`
 ```
 /play navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
 ```
 
-Output snippet:
-```
-Instructions: navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
-
------ Parsed steps -----
-1. Navigate to https://example.com
-2. Extract the page title
-3. Verify the title contains 'Example Domain'
-
->>> Starting step 1: Navigate to https://example.com
---- Attempt 1 on page: <no title> (about:blank) ---
-Step 1 attempt 1 → Success: None
-
-...  
-
---- /play summary ---
-Step 1: Success
-Step 2: Success
-Step 3: Success
-```
-
-### 2) Fetch & Scrape with `/curl`  
-
+### 2) Fetch & Scrape with `/curl`
 ```
 /curl https://example.com
 ```
-→ prints page text.  
 
-```
-/curl --no-headless example.com document.querySelector('h1').innerText
-```
-→ runs JS snippet to extract an element.
-
-### 3) Include Local Files via MCP  
-
+### 3) Include Local Files via MCP
 ```
 /include pattern=*.js recursive fix bug in parser
 ```
-→ pulls matching files from your project into context, then asks the LLM.
 
-### 4) Raw MCP Commands  
-
+### 4) Raw MCP Commands
 ```
 /mcp LIST_FILES
 /mcp READ_FILE {"path":"./src/cli.py"}
 ```
 
-### 5) Switch Model on the Fly  
-
+### 5) Switch Model on the Fly
 ```
 /model o4-mini
 ```
-→ “Model set to: o4-mini”
 
-### 6) Import & Export  
-
+### 6) Import & Export
 ```
 /import **/*.md
 /export conversation_snapshot.txt
@@ -212,105 +171,98 @@ Step 3: Success
 
 ---
 
-## Robodog CLI Usage  
+## /todo Feature  
 
-```bash
-python -m robodog.cli \
-  --folders /path/to/project/src /another/root \
-  --host 127.0.0.1 \
-  --port 2500 \
-  --token my_mcp_token \
-  --config config.yaml \
-  --model o4-mini
-```
+Robodog’s `/todo` command scans one or more `todo.md` files in your configured project roots, detects tasks marked `[ ]`, transitions them to `[~]` (Doing) when started, and `[x]` (Done) when completed. Each task may include:
 
-Type `/help` in the CLI for a full list of commands.
+- `include:` pattern or file specification to gather relevant knowledge
+- `focus:` file path where the AI will write or update content
+- Optional code fences below the task as initial context
 
----
+You can have multiple `todo.md` files anywhere under your roots. `/todo` processes the earliest outstanding task, runs the AI with gathered knowledge, updates the focus file, stamps start/completion times, and advances to the next.
 
-## MCP File Service Syntax  
+### Example `todo.md` File Formats
 
-```
-/include all
-/include file=*.md
-/include pattern=*.py recursive
-/include dir=src pattern=*.js recursive
-```
-*Globs: `*`, `?`, character classes. No full regex.*  
 
----
+# file: project1/todo.md
+- [ ] Revise API client
+  - include: pattern=api/*.js recursive
+  - focus: file=api/client.js
+  ```code
+  // existing stub
+  ```
+- [ ] Add unit tests
+  - include: file=tests/template.spec.js
+  - focus: file=tests/api.client.spec.js
 
-## MCP Server Startup  
-
-```bash
-python -m robodog.cli --folders . --port 2500 --token testtoken --config config.yaml
-```
-
----
-
-## Supported File Formats  
-
-- Text & Markdown: `.txt`, `.md`, `.markdown`  
-- Code: `.js`, `.ts`, `.py`, `.java`, `.c`, `.cpp`, `.go`, `.rs`  
-- Config/Data: `.yaml`, `.yml`, `.json`, `.xml`, `.csv`  
-- PDF: `.pdf`  
-- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`  
-
----
-
-## Command Reference  
-
-Run `/help` in-app or see the list below:
+# file: project2/docs/todo.md
+- [ ] Update README
+  - focus: file=README.md
+- [ ] Generate changelog
+  - include: pattern=CHANGELOG*.md
+  - focus: file=CHANGELOG.md
+```code
 
 ```
-/help                    — show help  
-/models                  — list configured models  
-/model <name>            — switch model  
-/key <prov> <key>        — set API key for provider  
-/getkey <prov>           — view API key for provider  
-/import <glob>           — import files into knowledge  
-/export <file>           — export chat+knowledge snapshot  
-/clear                   — clear chat & knowledge  
-/stash <name>            — stash chat+knowledge  
-/pop <name>              — restore a stash  
-/list                    — list stashes  
-/temperature <n>         — set temperature (0–2)  
-/top_p <n>               — set nucleus sampling  
-/max_tokens <n>          — set max tokens  
-/frequency_penalty <n>   — set frequency penalty  
-/presence_penalty <n>    — set presence penalty  
-/stream                  — enable streaming mode  
-/rest                    — disable streaming (REST mode)  
-/folders <dirs>          — update MCP roots  
-/include …               — include files via MCP  
-/curl …                  — fetch web pages / run JS  
-/play <instructions>     — run AI-driven Playwright tests  
-/mcp OP [JSON]           — invoke raw MCP operation  
+
+# todo readme
+- [x] readme
+  - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
+  - focus: file=c:\projects\robodog\robodogcli\temp\service.log
+```code
+1. do not remove any content
+2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
+3. give lots of exampkes of file formats
 ```
 
-*Keyboard Shortcuts:*  
-- CTRL+SHIFT+UP — cycle through stashes  
-- CTRL+S        — save a snapshot  
+# watch
+- [ ] change app prints in service logger.INFO
+  - include: pattern=*robodog*.md|*robodog*.py  recursive`
+  - focus:   file=c:\projects\robodog\robodogcli\robodog\cli*3*.py
+```code
+do not remove any features.
+give me full drop in code file
+```
 
----
+# fix logging
+- [ ] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
+  - include: pattern=*robodog*.md|*robodog*.py  recursive`
+  - focus: file=c:\projects\robodog\robodogcli\robodog\cli3.py
+```code
+my knowledge
+```
 
-## Indicators & Emojis  
+You can chain as many tasks and files as needed. Each can reside in different directories, and Robodog will locate all `todo.md` files automatically.
 
-- `[💭]` Chat History  
-- `[📝]` Knowledge Content  
-- `[💬]` Chat Text  
-- `[👾]` User  
-- `[🤖]` Assistant  
-- `[💾]` System  
-- `[🐋/🦕/🐘/🐁]` Token usage levels  
-- `[🐢/🦘/🐆/🦌/🐕]` Performance (response time)  
+## Configuration & Command Reference  
 
----
+See command palette in-app (`/help`) or the reference below:
 
-## Accessibility & PWA  
-
-- Meets Section 508 and WCAG principles.  
-- Installable as a PWA on supported devices.  
+```
+/help             — show help  
+/models           — list configured models  
+/model <name>     — switch model  
+/key <prov> <key> — set API key  
+/import <glob>    — import files into knowledge  
+/export <file>    — export snapshot  
+/clear            — clear chat & knowledge  
+/stash <name>     — stash state  
+/pop <name>       — restore stash  
+/list             — list stashes  
+/temperature <n>  — set temperature  
+/top_p <n>        — set top_p  
+/max_tokens <n>   — set max_tokens  
+/frequency_penalty <n> — set frequency_penalty  
+/presence_penalty <n>  — set presence_penalty  
+/stream           — enable streaming mode  
+/rest             — disable streaming mode  
+/folders <dirs>   — set MCP roots  
+/include …        — include files via MCP  
+/curl …           — fetch pages / run JS  
+/play …           — AI-driven Playwright tests  
+/mcp …            — invoke raw MCP operation  
+/todo             — run next To Do task  
+```
 
 ---
 
@@ -321,17 +273,18 @@ Run `/help` in-app or see the list below:
 cd robodog
 python build.py
 open ./dist/robodog.html
-```  
+```
 
 ```bash
-npm install robodoglib 
-npm install robodogcli 
-npm install robodog
-pip install robodogcli
-pip show -f robodogcli
-python -m robodogcli.cli --help
+npm install robodoglib  
+npm install robodogcli  
+npm install robodog  
+pip install robodogcli  
+pip show -f robodogcli  
+python -m robodogcli.cli --help  
 python -m playwright install
-```  
+```
+
 ---
 
 Enjoy Robodog AI—the future of fast, contextual, and extensible AI interaction!

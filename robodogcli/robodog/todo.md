@@ -74,6 +74,8 @@ give me full drop in code file
 ```
 # todo fix counts
 - [x] change svc ask
+  - completed: 2025-08-30 13:03
+  - started: 2025-08-30 13:03
   - completed: 2025-08-30 13:01
   - started: 2025-08-30 13:01
   - completed: 2025-08-30 12:58
@@ -83,13 +85,36 @@ give me full drop in code file
   - completed: 2025-08-30 12:33
   - started: 2025-08-30 12:32
   - completed: 2025-08-30 12:30
-  - include: pattern=*robodog*.md|*robodog*.py  recursive`
+  - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\service.log
 ```code
 1. change def ask(self, prompt: str) -> str:
 2. change print(delta, end="", flush=True)
 3. i dont need to see all the text stream to stdout. 
 4. only show the latest line and some spinning emojis. use animals that are thinking
+
+```
+# todo readme
+- [x] readme
+  - completed: 2025-08-30 13:11
+  - started: 2025-08-30 13:10
+  - completed: 2025-08-30 13:03
+  - started: 2025-08-30 13:03
+  - completed: 2025-08-30 13:01
+  - started: 2025-08-30 13:01
+  - completed: 2025-08-30 12:58
+  - started: 2025-08-30 12:58
+  - completed: 2025-08-30 12:38
+  - started: 2025-08-30 12:38
+  - completed: 2025-08-30 12:33
+  - started: 2025-08-30 12:32
+  - completed: 2025-08-30 12:30
+  - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
+  - focus: file=c:\projects\robodog\robodogcli\temp\service.log
+```code
+1. do not remove any content
+2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
+3. give lots of exampkes of file formats
 
 
 ```
