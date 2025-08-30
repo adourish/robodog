@@ -228,7 +228,7 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 # watch
 - [ ] change app prints in service logger.INFO
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus:   file=c:\projects\robodog\robodogcli\robodog\cli*3*.py
+  - focus:   file=c:\projects\robodog\robodogcli\robodog\service.py
 ```code
 do not remove any features.
 give me full drop in code file
