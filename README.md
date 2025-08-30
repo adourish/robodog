@@ -185,18 +185,23 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 
 ### Example `todo.md` File Formats
 
-
+```markdown
 # file: project1/todo.md
 - [ ] Revise API client
   - include: pattern=api/*.js recursive
   - focus: file=api/client.js
-  ```code
-  // existing stub
-  ```
+```code
+// existing stub
+```
+
+
+```markdown
 - [ ] Add unit tests
   - include: file=tests/template.spec.js
   - focus: file=tests/api.client.spec.js
+```
 
+```markdown
 # file: project2/docs/todo.md
 - [ ] Update README
   - focus: file=README.md
@@ -207,6 +212,7 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 
 ```
 
+```markdown
 # todo readme
 - [x] readme
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
@@ -217,6 +223,8 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 3. give lots of exampkes of file formats
 ```
 
+
+```markdown
 # watch
 - [ ] change app prints in service logger.INFO
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
@@ -226,6 +234,8 @@ do not remove any features.
 give me full drop in code file
 ```
 
+
+```markdown
 # fix logging
 - [ ] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
