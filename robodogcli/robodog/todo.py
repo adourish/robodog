@@ -187,15 +187,17 @@ class TodoService:
 
         self._load_all()
         for t in self._tasks:
-            logger.info(f"Task: {t['desc']}  Status: {STATUS_MAP[t['status_char']]}")
+            logger.debug(f"Task: {t['desc']}  Status: {STATUS_MAP[t['status_char']]}")
 
         todo = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'To Do']
         if not todo:
             logger.info("No To Do tasks found.")
             return
+        else:
+            logger.info(f"Task: {t['desc']}  Status: {STATUS_MAP[t['status_char']]}")
 
         self._process_one(todo[0], svc, self._file_lines)
-        logger.info("Completed one To Do task.")
+        logger.info("Completed one To Do task")
 
     def _get_token_count(self, text: str) -> int:
         try:
@@ -270,7 +272,7 @@ class TodoService:
         if focus_str.startswith('file='):
             raw_focus = focus_str[len('file='):]
 
-        logger.info("focus:" + raw_focus)
+        logger.info("focus:" + focus_str)
         knowledge = self._gather_include_knowledge(include, svc)
         tk = self._get_token_count(knowledge)
         logger.info(f"Include knowledge total tokens: {tk}")

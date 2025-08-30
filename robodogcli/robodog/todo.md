@@ -59,6 +59,8 @@ give me full drop in code file
 
 # todo fix counts
 - [x] change _get_token_count
+  - completed: 2025-08-30 12:38
+  - started: 2025-08-30 12:38
   - completed: 2025-08-30 12:33
   - started: 2025-08-30 12:32
   - completed: 2025-08-30 12:30
