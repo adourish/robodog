@@ -58,32 +58,38 @@ give me full drop in code file
 
 
 # todo fix counts
-- [x] change _get_token_count
+- [x] change _process_one
   - completed: 2025-08-30 12:38
   - started: 2025-08-30 12:38
   - completed: 2025-08-30 12:33
   - started: 2025-08-30 12:32
   - completed: 2025-08-30 12:30
-  - started: 2025-08-30 12:29
-  - started: 2025-08-30 12:24
-  - started: 2025-08-30 12:21
-  - completed: 2025-08-30 12:17
-  - started: 2025-08-30 12:16
-  - completed: 2025-08-30 11:49
-  - started: 2025-08-30 11:48
-  - started: 2025-08-30 11:47
-  - completed: 2025-08-30 11:39
-  - started: 2025-08-30 11:38
-  - completed: 2025-08-30 11:37
-  - started: 2025-08-30 11:36
-  - started: 2025-08-30 11:35
-  - completed: 2025-08-30 05:02
-  - started: 2025-08-30 05:01
-  - completed: 2025-08-30 05:00
-  - started: 2025-08-30 05:00
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\todo.log
 ```code
-change _get_token_count to do a basic word count using split
+1. Add concurrency to _process_one. 
+
+
+
+```
+# todo fix counts
+- [x] change svc ask
+  - completed: 2025-08-30 13:01
+  - started: 2025-08-30 13:01
+  - completed: 2025-08-30 12:58
+  - started: 2025-08-30 12:58
+  - completed: 2025-08-30 12:38
+  - started: 2025-08-30 12:38
+  - completed: 2025-08-30 12:33
+  - started: 2025-08-30 12:32
+  - completed: 2025-08-30 12:30
+  - include: pattern=*robodog*.md|*robodog*.py  recursive`
+  - focus: file=c:\projects\robodog\robodogcli\temp\service.log
+```code
+1. change def ask(self, prompt: str) -> str:
+2. change print(delta, end="", flush=True)
+3. i dont need to see all the text stream to stdout. 
+4. only show the latest line and some spinning emojis. use animals that are thinking
+
 
 ```

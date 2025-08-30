@@ -5,6 +5,7 @@ import json
 import shutil
 import fnmatch
 import hashlib
+import sys
 import threading
 import concurrent.futures
 import asyncio
@@ -55,7 +56,7 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # CORE LLM / CHAT
-    def ask(self, prompt: str) -> str:
+    def ask2(self, prompt: str) -> str:
         logger.debug(f"ask {prompt!r}")
         messages = [
             {"role":"user","content":prompt},
@@ -80,6 +81,41 @@ class RobodogService:
         else:
             answer = resp.choices[0].message.content.strip()
         return answer
+
+    # ————————————————————————————————————————————————————————————
+    # CORE LLM / CHAT
+    def ask(self, prompt: str) -> str:
+        logger.debug(f"ask {prompt!r}")
+        messages = [{"role":"user","content":prompt}]
+        resp = self.client.chat.completions.create(
+            model=self.cur_model,
+            messages=messages,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
+            stream=self.stream,
+        )
+        # spinner sequence of thinking animals
+        spinner = ["🐶", "🐱", "🦊", "🐵", "🦄"]
+        idx = 0
+        answer = ""
+        if self.stream:
+            for chunk in resp:
+                delta = getattr(chunk.choices[0].delta, "content", None)
+                if delta:
+                    answer += delta
+                # display latest line + spinner
+                last_line = answer.splitlines()[-1] if "\n" in answer else answer
+                sys.stdout.write(f"\r{spinner[idx % len(spinner)]} {last_line[:60]}{'…' if len(last_line)>60 else ''}")
+                sys.stdout.flush()
+                idx += 1
+            # final newline
+            sys.stdout.write("\n")
+        else:
+            answer = resp.choices[0].message.content.strip()
+        return answer
+
 
     # ————————————————————————————————————————————————————————————
     # MODEL / KEY MANAGEMENT

@@ -124,7 +124,7 @@ def interact(svc: RobodogService):
                         ptext = " ".join(parts[brk:]) or ""
                         knowledge = svc.include(spec) or ""
                         answer = svc.ask(f"{ptext} {knowledge}".strip())
-                        logging.info("%s", answer)
+                    return answer
 
                 elif cmd == "curl":
                     svc.curl(args)
