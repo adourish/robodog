@@ -26,27 +26,6 @@ SUB_RE  = re.compile(
 STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
 REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
 
-if sys.platform.startswith("win"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
-    except AttributeError:
-        import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-
-
-class Change(BaseModel):
-    path: str
-    start_line: int
-    end_line: Optional[int]
-    new_content: str
-
-
-class ChangesList(RootModel[List[Change]]):
-    pass
-
-
 class TodoService:
     FILENAME = 'todo.md'
 
@@ -60,10 +39,8 @@ class TodoService:
 
         self._load_all()
         for fn in self._find_files():
-            try:
-                self._mtimes[fn] = os.path.getmtime(fn)
-            except Exception:
-                pass
+            try: self._mtimes[fn] = os.path.getmtime(fn)
+            except: pass
 
         threading.Thread(target=self._watch_loop, daemon=True).start()
 
@@ -78,7 +55,6 @@ class TodoService:
     def _load_all(self):
         self._file_lines.clear()
         self._tasks.clear()
-
         for fn in self._find_files():
             lines = Path(fn).read_text(encoding='utf-8').splitlines(keepends=True)
             self._file_lines[fn] = lines
@@ -86,12 +62,10 @@ class TodoService:
             while i < len(lines):
                 m = TASK_RE.match(lines[i])
                 if not m:
-                    i += 1
-                    continue
+                    i += 1; continue
                 indent = m.group(1)
                 status = m.group('status')
                 desc   = m.group('desc').strip()
-
                 task = {
                     'file': fn,
                     'line_no': i,
@@ -102,7 +76,6 @@ class TodoService:
                     'focus': None,
                     'code': None,
                 }
-
                 j = i + 1
                 while j < len(lines) and lines[j].startswith(indent + '  '):
                     ms = SUB_RE.match(lines[j])
@@ -112,16 +85,13 @@ class TodoService:
                         rec = bool(ms.group('rec'))
                         task[key] = {'pattern': pat, 'recursive': rec}
                     j += 1
-
+                # code block?
                 if j < len(lines) and lines[j].lstrip().startswith('```'):
-                    k = j + 1
-                    code_lines = []
+                    k = j + 1; code_lines = []
                     while k < len(lines) and not lines[k].lstrip().startswith('```'):
-                        code_lines.append(lines[k])
-                        k += 1
+                        code_lines.append(lines[k]); k += 1
                     task['code'] = ''.join(code_lines).rstrip('\n')
                     j = k + 1
-
                 self._tasks.append(task)
                 i = j
 
@@ -130,24 +100,17 @@ class TodoService:
             for fn in self._find_files():
                 try:
                     mtime = os.path.getmtime(fn)
-                except Exception:
+                except:
                     continue
-
                 last   = self._mtimes.get(fn)
                 ignore = self._watch_ignore.get(fn)
-
                 if ignore and abs(mtime - ignore) < 0.001:
                     self._watch_ignore.pop(fn, None)
                 elif last and mtime > last:
                     logger.info(f"Detected external change in {fn}, running /todo")
-                    try:
-                        if self._svc:
-                            self.run_next_task(self._svc)
-                    except Exception as e:
-                        logger.error(f"watch loop error: {e}")
-
+                    if self._svc:
+                        self.run_next_task(self._svc)
                 self._mtimes[fn] = mtime
-
             time.sleep(1)
 
     @staticmethod
@@ -161,10 +124,9 @@ class TodoService:
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
         new_char = REVERSE_STATUS['Doing']
-
         file_lines_map[fn][ln] = f"{indent}- [{new_char}] {desc}\n"
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        file_lines_map[fn].insert(ln + 1, f"{indent}  - started: {stamp}\n")
+        file_lines_map[fn].insert(ln+1, f"{indent}  - started: {stamp}\n")
         TodoService._write_file(fn, file_lines_map[fn])
         task['status_char'] = new_char
 
@@ -175,39 +137,32 @@ class TodoService:
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
         new_char = REVERSE_STATUS['Done']
-
         file_lines_map[fn][ln] = f"{indent}- [{new_char}] {desc}\n"
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        file_lines_map[fn].insert(ln + 1, f"{indent}  - completed: {stamp}\n")
+        file_lines_map[fn].insert(ln+1, f"{indent}  - completed: {stamp}\n")
         TodoService._write_file(fn, file_lines_map[fn])
         task['status_char'] = new_char
 
     def run_next_task(self, svc):
         self._svc = svc
-
         self._load_all()
         for t in self._tasks:
-            logger.info(f"Task: {t['desc']}  Status: {STATUS_MAP[t['status_char']]}")
-
+            logger.info(f"Task: {t['desc']} Status: {STATUS_MAP[t['status_char']]}")
         todo = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'To Do']
         if not todo:
-            logger.info("No To Do tasks found.")
+            logger.info("No To Do tasks.")
             return
-
         self._process_one(todo[0], svc, self._file_lines)
         logger.info("Completed one To Do task.")
 
     def _get_token_count(self, text: str, model: str) -> int:
-        try:
-            enc = tiktoken.encoding_for_model(model)
-        except Exception:
-            enc = tiktoken.get_encoding("gpt2")
+        try: enc = tiktoken.encoding_for_model(model)
+        except: enc = tiktoken.get_encoding("gpt2")
         return len(enc.encode(text))
 
     def _gather_include_knowledge(self, include: dict, svc) -> str:
-        raw = include.get('pattern', '').strip('"').strip('`')
-        if raw.startswith('pattern='):
-            raw = raw[len('pattern='):]
+        raw = include.get('pattern','').strip('"').strip('`')
+        if raw.startswith('pattern='): raw = raw[len('pattern='):]
         spec = f"pattern={raw}" + (" recursive" if include.get('recursive') else "")
         return svc.include(spec) or ""
 
@@ -226,15 +181,8 @@ class TodoService:
                     return os.path.join(dp, base)
         return None
 
-    def _apply_focus(self, raw_focus: str, ai_out: str, svc):
-        real = self._resolve_path(raw_focus) or (
-            raw_focus if os.path.isabs(raw_focus) else os.path.join(self._roots[0], raw_focus)
-        )
-        if not os.path.exists(real):
-            os.makedirs(os.path.dirname(real), exist_ok=True)
-            Path(real).write_text('', encoding='utf-8')
-            logger.info(f"Created new focus file: {real}")
-
+    def _apply_focus(self, real: str, content: str, svc):
+        # backup
         backup = getattr(svc, 'backup_folder', None)
         if backup and os.path.exists(real):
             os.makedirs(backup, exist_ok=True)
@@ -242,59 +190,20 @@ class TodoService:
             dest = os.path.join(backup, f"{Path(real).name}-{ts}")
             shutil.copy(real, dest)
             logger.info(f"Backup created: {dest}")
-
-        svc.call_mcp("UPDATE_FILE", {"path": real, "content": ai_out})
+        # write via MCP
+        svc.call_mcp("UPDATE_FILE", {"path": real, "content": content})
         logger.info(f"Updated focus file: {real}")
         try:
-            m_after = os.path.getmtime(real)
-            self._watch_ignore[real] = m_after
-        except OSError:
+            self._watch_ignore[real] = os.path.getmtime(real)
+        except:
             pass
 
-    def _process_oneb(self, task: dict, svc, file_lines_map: dict):
-        TodoService._start_task(task, file_lines_map)
-        logger.info("-> Starting task: %s", task['desc'])
-
-        svc.context   = ""
-        svc.knowledge = ""
-        if task.get('code'):
-            svc.knowledge += "\n" + task['code'] + "\n"
-
-        focus   = task.get("focus")   or {}
-        include = task.get("include") or {}
-
-        raw_focus = focus.get('pattern', '').strip('"').strip('`')
-        if raw_focus.startswith('file='):
-            raw_focus = raw_focus[len('file='):]
-
-        _ = self._gather_include_knowledge(include, svc)
-        tk = self._get_token_count(svc.knowledge, svc.cur_model)
-        logger.info(f"Include total tokens: {tk}")
-
-        prompt = (
-            "knowledge:\n" + svc.knowledge + "\n\n"
-            "task A1: " + task['desc'] + "\n\n"
-            "task A2: respond with full-file code fences tagged by a leading\n"
-            "task A3: tag each code fence with a leading line `# file: <path>`\n"
-            "task A4: No diffs, no extra explanation.\n"
-        )
-        t2 = self._get_token_count(prompt, svc.cur_model)
-        logger.info(f"Prompt token count: {t2}")
-
-        ai_out = svc.ask(prompt)
-
-        if raw_focus:
-            self._apply_focus(raw_focus, ai_out, svc)
-        else:
-            logger.info("No focus file pattern specified; skipping file update.")
-
-        TodoService._complete_task(task, file_lines_map)
-        logger.info(f"✔ Completed task: {task['desc']}")
-
     def _process_one(self, task: dict, svc, file_lines_map: dict):
+        # mark Doing
         TodoService._start_task(task, file_lines_map)
         logger.info("-> Starting task: %s", task['desc'])
 
+        # reset LLM
         svc.context   = ""
         svc.knowledge = ""
         if task.get('code'):
@@ -303,30 +212,42 @@ class TodoService:
         focus   = task.get("focus")   or {}
         include = task.get("include") or {}
 
-        raw_focus = focus.get('pattern', '').strip('"').strip('`')
-        if raw_focus.startswith('file='):
-            raw_focus = raw_focus[len('file='):]
-
+        # gather include
         _ = self._gather_include_knowledge(include, svc)
-        tk = self._get_token_count(svc.knowledge, svc.cur_model)
-        logger.info(f"Include total tokens: {tk}")
+        logger.info("Include tokens: %s", self._get_token_count(svc.knowledge, svc.cur_model))
 
-        prompt = (
-            "knowledge:\n" + svc.knowledge + "\n\n"
-            "task A1: " + task['desc'] + "\n\n"
-            "task A2: respond with full-file code fences tagged by a leading\n"
-            "task A3: tag each code fence with a leading line `# file: <path>`\n"
-            "task A4: No diffs, no extra explanation.\n"
-        )
-        t2 = self._get_token_count(prompt, svc.cur_model)
-        logger.info(f"Prompt token count: {t2}")
-
-        ai_out = svc.ask(prompt)
-
+        raw_focus = focus.get('pattern','').strip('"').strip('`')
+        # find all focus files
         if raw_focus:
-            self._apply_focus(raw_focus, ai_out, svc)
+            if '*' in raw_focus or '?' in raw_focus:
+                res = svc.call_mcp("SEARCH", {"pattern": raw_focus, "recursive": True})
+                matches = res.get("matches", [])
+            else:
+                matches = [ raw_focus ]
         else:
-            logger.info("No focus file pattern specified; skipping file update.")
+            matches = []
 
+        for fpath in matches:
+            real = self._resolve_path(fpath) or fpath
+            prompt = (
+                f"Processing file: {real}\n\n"
+                "knowledge:\n" + svc.knowledge + "\n\n"
+                "task A1: " + task['desc'] + "\n\n"
+                "task A2: respond with full-file code fences tagged by a leading\n"
+                "task A3: tag each code fence with a leading line `# file: <path>`\n"
+                "task A4: No diffs, no extra explanation.\n"
+            )
+            logger.info("Prompt tokens: %s", self._get_token_count(prompt, svc.cur_model))
+            ai_out = svc.ask(prompt)
+
+            # parse out each ```…``` fence
+            for m in re.finditer(r"```(?:\w*)\n(.*?)\n```", ai_out, flags=re.S):
+                block = m.group(1).splitlines()
+                if block and block[0].startswith("# file:"):
+                    target = block[0][len("# file:"):].strip()
+                    content = "\n".join(block[1:]).rstrip('\n')
+                    self._apply_focus(target, content, svc)
+
+        # mark Done
         TodoService._complete_task(task, file_lines_map)
-        logger.info(f"✔ Completed task: {task['desc']}")
+        logger.info("✔ Completed task: %s", task['desc'])

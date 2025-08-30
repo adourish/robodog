@@ -39,26 +39,25 @@ do not remove any features. only add the watch feature
 
 # todo fix counts
 - [x] change prints
-  - completed: 2025-08-30 00:24
-  - started: 2025-08-30 00:23
-  - completed: 2025-08-30 00:22
-  - started: 2025-08-30 00:21
-  - completed: 2025-08-30 00:17
-  - started: 2025-08-30 00:16
-  - completed: 2025-08-30 00:15
-  - started: 2025-08-30 00:14
-  - completed: 2025-08-30 00:13
-  - started: 2025-08-30 00:12
-  - completed: 2025-08-30 00:10
-  - started: 2025-08-30 00:09
-  - completed: 2025-08-30 00:04
-  - started: 2025-08-30 00:03
-  - started: 2025-08-30 00:02
-  - completed: 2025-08-30 00:01
-  - started: 2025-08-30 00:00
+  - completed: 2025-08-30 05:02
+  - started: 2025-08-30 05:01
+  - completed: 2025-08-30 05:00
+  - started: 2025-08-30 05:00
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\temp\todo.log
 ```code
-1. change to color logger
-2. give full drop in code file
+1. add support for focus file and patters below SUB_RE
+2. perform a foreach loop through each of the pattern files
+3. run the llm prompt for each file and apply each file seperately
+4. each prompt should state the current file  
+5. give a full drop in file
+  - focus: file=C:\projects\concepts\work\hrsa-bphc\bundles-v9.html
+  - focus: file=C:\projects\concepts\work\hrsa-bphc\bundles-v9.html
+  - focus: file="C:\projects\concepts\work\hrsa-bphc\bundles-v9.html"
+  - focus: file="C:\new projects\concepts\work\hrsa-bphc\bundles-v9.html"
+  - focus: pattern=*bundles-v9.html
+  - focus: pattern=*concepts*bundles-v9.html
+.
+
+
 ```
