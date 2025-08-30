@@ -181,6 +181,8 @@ Robodog’s `/todo` command scans one or more `todo.md` files in your configured
 
 You can have multiple `todo.md` files anywhere under your roots. `/todo` processes the earliest outstanding task, runs the AI with gathered knowledge, updates the focus file, stamps start/completion times, and advances to the next.
 
+![Robodog MCP File Service](screenshot-todo.png)
+
 ### Example `todo.md` File Formats
 
 

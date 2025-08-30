@@ -24,35 +24,15 @@ my knowledge
 my knowledge
 ```
 
-# watch
-- [~] change app prints in service logger.INFO
-  - started: 2025-08-30 05:41
-  - completed: 2025-08-30 05:40
-  - started: 2025-08-30 05:39
-  - started: 2025-08-30 05:38
-  - started: 2025-08-30 05:37
-  - completed: 2025-08-30 05:35
-  - started: 2025-08-30 05:34
-  - completed: 2025-08-30 05:28
-  - started: 2025-08-30 05:28
-  - started: 2025-08-30 05:16
-  - completed: 2025-08-30 05:14
-  - started: 2025-08-30 05:14
-  - completed: 2025-08-30 05:10
-  - started: 2025-08-30 05:09
-  - completed: 2025-08-30 05:07
-  - started: 2025-08-30 05:06
-  - completed: 2025-08-29 13:29
-  - started: 2025-08-29 13:28
-  - completed: 2025-08-29 13:27
-  - started: 2025-08-29 13:26
-  - completed: 2025-08-29 13:00
-  - started: 2025-08-29 12:59
+# fix logger
+- [x] change app prints in service logger
+  - completed: 2025-08-30 13:24
+  - started: 2025-08-30 13:24
+  - started: 2025-08-30 13:21
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus:   file=c:\projects\robodog\robodogcli\robodog\cli*3*.py
+  - focus:   file=c:\projects\robodog\robodogcli\robodog\service-out.py
 ```code
-do not remove any features.
-give me full drop in code file
+1. change all prints to logger.info
 ```
 
 
@@ -77,14 +57,6 @@ give me full drop in code file
   - completed: 2025-08-30 13:03
   - started: 2025-08-30 13:03
   - completed: 2025-08-30 13:01
-  - started: 2025-08-30 13:01
-  - completed: 2025-08-30 12:58
-  - started: 2025-08-30 12:58
-  - completed: 2025-08-30 12:38
-  - started: 2025-08-30 12:38
-  - completed: 2025-08-30 12:33
-  - started: 2025-08-30 12:32
-  - completed: 2025-08-30 12:30
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\service.log
 ```code
@@ -96,19 +68,6 @@ give me full drop in code file
 ```
 # todo readme
 - [x] readme
-  - completed: 2025-08-30 13:11
-  - started: 2025-08-30 13:10
-  - completed: 2025-08-30 13:03
-  - started: 2025-08-30 13:03
-  - completed: 2025-08-30 13:01
-  - started: 2025-08-30 13:01
-  - completed: 2025-08-30 12:58
-  - started: 2025-08-30 12:58
-  - completed: 2025-08-30 12:38
-  - started: 2025-08-30 12:38
-  - completed: 2025-08-30 12:33
-  - started: 2025-08-30 12:32
-  - completed: 2025-08-30 12:30
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\service.log
 ```code

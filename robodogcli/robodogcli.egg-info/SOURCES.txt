@@ -3,8 +3,8 @@ pyproject.toml
 setup.py
 robodog/__init__.py
 robodog/cli.py
-robodog/cli3.py
 robodog/mcphandler.py
+robodog/service-out.py
 robodog/service.py
 robodog/todo.py
 robodogcli.egg-info/PKG-INFO
