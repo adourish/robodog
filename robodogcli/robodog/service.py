@@ -20,8 +20,6 @@ logger = logging.getLogger('robodog.service')
 class RobodogService:
     def __init__(self, config_path: str, api_key: str = None):
         self._load_config(config_path)
-        self.context   = ""
-        self.knowledge = ""
         self.stashes   = {}
         self._init_llm(api_key)
 
@@ -60,9 +58,6 @@ class RobodogService:
     def ask(self, prompt: str) -> str:
         logger.debug(f"ask {prompt!r}")
         messages = [
-            {"role":"system","content":"You are Robodog, a helpful assistant."},
-            {"role":"system","content":"Chat History:\n"+self.context},
-            {"role":"system","content":"Knowledge Base:\n"+self.knowledge},
             {"role":"user","content":prompt},
         ]
         resp = self.client.chat.completions.create(
@@ -108,30 +103,30 @@ class RobodogService:
     # ————————————————————————————————————————————————————————————
     # STASH / POP / LIST / CLEAR / IMPORT / EXPORT
     def stash(self, name: str):
-        self.stashes[name] = (self.context, self.knowledge)
+        self.stashes[name] = str
 
     def pop(self, name: str):
         if name not in self.stashes:
             raise KeyError(f"No stash {name}")
-        self.context, self.knowledge = self.stashes[name]
+        return self.stashes[name]
 
     def list_stashes(self):
         return list(self.stashes.keys())
 
     def clear(self):
-        self.context = ""
-        self.knowledge = ""
+        ""
 
     def import_files(self, glob_pattern: str) -> int:
         count = 0
+        knowledge = ""
         for fn in __import__('glob').glob(glob_pattern, recursive=True):
             try:
                 txt = open(fn, 'r', encoding='utf-8', errors='ignore').read()
-                self.knowledge += f"\n\n--- {fn} ---\n{txt}"
+                knowledge += f"\n\n--- {fn} ---\n{txt}"
                 count += 1
             except:
                 pass
-        return count
+        return knowledge
 
     def export_snapshot(self, filename: str):
         with open(filename, 'w', encoding='utf-8') as f:
@@ -190,6 +185,7 @@ class RobodogService:
 
     def include(self, spec_text: str, prompt: str = None):
         inc = self.parse_include(spec_text)
+        knowledge = ""
         # build search payloads
         searches = []
         if inc["type"] == "dir":
@@ -226,9 +222,9 @@ class RobodogService:
                 print(f"Included: {path} ({wc} tokens)")
                 included_txts.append(txt)
                 combined = "\n".join(included_txts)
-                self.knowledge += "\n" + combined + "\n"
+                knowledge += "\n" + combined + "\n"
 
-        return None
+        return knowledge
     
     # ----------------------------------------------------------------
     DEFAULT_EXCLUDE_DIRS = {"node_modules", "dist"}
