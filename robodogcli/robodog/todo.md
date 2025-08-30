@@ -39,6 +39,10 @@ do not remove any features. only add the watch feature
 
 # todo fix counts
 - [x] change prints
+  - completed: 2025-08-30 00:24
+  - started: 2025-08-30 00:23
+  - completed: 2025-08-30 00:22
+  - started: 2025-08-30 00:21
   - completed: 2025-08-30 00:17
   - started: 2025-08-30 00:16
   - completed: 2025-08-30 00:15
@@ -53,8 +57,8 @@ do not remove any features. only add the watch feature
   - completed: 2025-08-30 00:01
   - started: 2025-08-30 00:00
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus:   file=c:\projects\robodog\robodogcli\temp\todo.txt
+  - focus:   file=c:\projects\robodog\robodogcli\temp\todo.log
 ```code
 1. change to color logger
-
+2. give full drop in code file
 ```
