@@ -66,7 +66,7 @@ my knowledge
 
 # todo readme
 - [x] readme
-  - started: 2025-08-31 12:50 | completed: 2025-08-31 12:51 | tokens: 124541
+  - started: 2025-08-31 13:47 | completed: 2025-08-31 13:48 | tokens: 0
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\todo.log
 ```code
@@ -74,4 +74,18 @@ my knowledge
 2. update _start_task and def _complete_task(task: dict, file_lines_map: dict):
 3. for the started and completed log. change it to be one line that is either insert or update. never append. add the started time and then give me one line summary of started, ended, how many tokens were used. 
 
+```
+
+
+# todo status
+- [x] readme
+  - started: 2025-08-31 14:02 | completed: 2025-08-31 14:02 | know_tokens: 45172 | prompt_tokens: 45282 | total_tokens: 90454
+  - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
+  - focus: file=c:\projects\robodog\robodogcli\temp\todo.log
+```code
+1. do not remove any content
+2. update _start_task and def _complete_task(task: dict, file_lines_map: dict):
+3. create a function to get the summary content. reuse it in both places.
+4. when starting, include the tokens found. it should log the total prompt tokens and knowledge tokens.
+5. only change the status information. do not change any other logic
 ```
