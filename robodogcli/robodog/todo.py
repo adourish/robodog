@@ -1,3 +1,4 @@
+# file: robodog/cli/todo.py
 #!/usr/bin/env python3
 import os
 import re
@@ -101,6 +102,9 @@ class TodoService:
                     'include': None,
                     'focus': None,
                     'code': None,
+                    # new fields to track
+                    '_start_stamp': None,
+                    '_token_count': 0,
                 }
 
                 j = i + 1
@@ -162,9 +166,18 @@ class TodoService:
         indent, desc = task['indent'], task['desc']
         new_char = REVERSE_STATUS['Doing']
 
+        # update status line
         file_lines_map[fn][ln] = f"{indent}- [{new_char}] {desc}\n"
+        # prepare or update single log line
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        file_lines_map[fn].insert(ln + 1, f"{indent}  - started: {stamp}\n")
+        task['_start_stamp'] = stamp
+        line_idx = ln + 1
+        line_text = f"{indent}  - started: {stamp}\n"
+        # replace existing started/completed line if present
+        if line_idx < len(file_lines_map[fn]) and file_lines_map[fn][line_idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][line_idx] = line_text
+        else:
+            file_lines_map[fn].insert(line_idx, line_text)
         TodoService._write_file(fn, file_lines_map[fn])
         task['status_char'] = new_char
 
@@ -176,9 +189,18 @@ class TodoService:
         indent, desc = task['indent'], task['desc']
         new_char = REVERSE_STATUS['Done']
 
+        # update status line
         file_lines_map[fn][ln] = f"{indent}- [{new_char}] {desc}\n"
+        # update the same log line to include completed time and token count
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        file_lines_map[fn].insert(ln + 1, f"{indent}  - completed: {stamp}\n")
+        start = task.get('_start_stamp', '')
+        tokens = task.get('_token_count', 0)
+        summary = f"{indent}  - started: {start} | completed: {stamp} | tokens: {tokens}\n"
+        line_idx = ln + 1
+        if line_idx < len(file_lines_map[fn]) and file_lines_map[fn][line_idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][line_idx] = summary
+        else:
+            file_lines_map[fn].insert(line_idx, summary)
         TodoService._write_file(fn, file_lines_map[fn])
         task['status_char'] = new_char
 
@@ -193,25 +215,24 @@ class TodoService:
         if not todo:
             logger.info("No To Do tasks found.")
             return
-        else:
-            logger.info(f"Task: {t['desc']}  Status: {STATUS_MAP[t['status_char']]}")
+        task = todo[0]
+        logger.info(f"Task: {task['desc']}  Status: {STATUS_MAP[task['status_char']]}")
 
-        self._process_one(todo[0], svc, self._file_lines)
+        self._process_one(task, svc, self._file_lines)
         logger.info("Completed one To Do task")
 
     def _get_token_count(self, text: str) -> int:
         try:
             return len(text.split())
-        except Exception:
+        except:
             return 0
-
 
     def _gather_include_knowledge(self, include: dict, svc) -> str:
         raw = include.get('pattern', '').strip('"').strip('`')
         if raw.startswith('pattern='):
             raw = raw[len('pattern='):]
         spec = f"pattern={raw}" + (" recursive" if include.get('recursive') else "")
-        logger.info("Gather include knowledge:" + spec)
+        logger.info("Gather include knowledge: " + spec)
         return svc.include(spec) or ""
 
     def _resolve_path(self, path: str) -> Optional[str]:
@@ -299,3 +320,44 @@ class TodoService:
 
         TodoService._complete_task(task, file_lines_map)
         logger.info(f"Completed task: {task['desc']}")
+        
+    def _process_oneB(self, task: dict, svc, file_lines_map: dict):
+        # start
+        TodoService._start_task(task, file_lines_map)
+
+        # gather include knowledge
+        include = task.get("include") or {}
+        knowledge = self._gather_include_knowledge(include, svc)
+        tk_know = self._get_token_count(knowledge)
+        logger.info(f"Include knowledge tokens: {tk_know}")
+
+        # build prompt and measure tokens
+        code = ("\n" + task['code'] + "\n") if task.get('code') else ""
+        prompt = (
+            "knowledge:\n" + knowledge + "\n\n"
+            "task: " + task['desc'] + "\n\n"
+            + code +
+            "\nPlease produce the full-file output."
+        )
+        tk_prompt = self._get_token_count(prompt)
+        total_tokens = tk_know + tk_prompt
+        task['_token_count'] = total_tokens
+        logger.info(f"Total tokens for prompt + knowledge: {total_tokens}")
+
+        # ask AI
+        ai_out = svc.ask(prompt)
+
+        # apply to focus file if any
+        focus_spec = task.get("focus") or {}
+        raw_focus = focus_spec.get('pattern', '') if isinstance(focus_spec, dict) else focus_spec or ''
+        if raw_focus.startswith('file='):
+            raw_focus = raw_focus[len('file='):]
+        if raw_focus:
+            self._apply_focus(raw_focus, ai_out, svc)
+        else:
+            logger.info("No focus file specified; skipping update.")
+
+        # complete
+        TodoService._complete_task(task, file_lines_map)
+
+# end of file

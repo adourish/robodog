@@ -10,30 +10,6 @@ my knowledge
 
 # add features to mchhandler.py
 - [x] ask: add mcp features
-  - completed: 2025-08-30 17:24
-  - started: 2025-08-30 17:24
-  - completed: 2025-08-30 17:23
-  - started: 2025-08-30 17:22
-  - completed: 2025-08-30 17:21
-  - started: 2025-08-30 17:21
-  - completed: 2025-08-30 17:13
-  - started: 2025-08-30 17:12
-  - completed: 2025-08-30 17:09
-  - started: 2025-08-30 17:08
-  - started: 2025-08-30 17:06
-  - started: 2025-08-30 17:02
-  - completed: 2025-08-30 17:01
-  - started: 2025-08-30 17:00
-  - completed: 2025-08-30 16:59
-  - started: 2025-08-30 16:58
-  - completed: 2025-08-30 05:59
-  - started: 2025-08-30 05:59
-  - completed: 2025-08-30 05:56
-  - started: 2025-08-30 05:56
-  - started: 2025-08-30 05:54
-  - started: 2025-08-30 05:53
-  - started: 2025-08-30 05:53
-  - completed: 2025-08-30 05:52
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\temp\service.log
 ```code
@@ -44,9 +20,6 @@ my knowledge
 
 # fix logger
 - [x] change app prints in service logger
-  - completed: 2025-08-30 13:24
-  - started: 2025-08-30 13:24
-  - started: 2025-08-30 13:21
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\robodog\service-out.py
 ```code
@@ -57,11 +30,6 @@ my knowledge
 
 # todo fix counts
 - [x] change _process_one
-  - completed: 2025-08-30 12:38
-  - started: 2025-08-30 12:38
-  - completed: 2025-08-30 12:33
-  - started: 2025-08-30 12:32
-  - completed: 2025-08-30 12:30
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\todo.log
 ```code
@@ -70,11 +38,9 @@ my knowledge
 
 
 ```
+
 # todo fix counts
 - [x] change svc ask
-  - completed: 2025-08-30 13:03
-  - started: 2025-08-30 13:03
-  - completed: 2025-08-30 13:01
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\service.log
 ```code
@@ -84,6 +50,7 @@ my knowledge
 4. only show the latest line and some spinning emojis. use animals that are thinking
 
 ```
+
 # todo readme
 - [x] readme
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
@@ -93,5 +60,18 @@ my knowledge
 2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
 3. give lots of exampkes of file formats
 
+
+```
+
+
+# todo readme
+- [x] readme
+  - started: 2025-08-31 12:50 | completed: 2025-08-31 12:51 | tokens: 124541
+  - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
+  - focus: file=c:\projects\robodog\robodogcli\temp\todo.log
+```code
+1. do not remove any content
+2. update _start_task and def _complete_task(task: dict, file_lines_map: dict):
+3. for the started and completed log. change it to be one line that is either insert or update. never append. add the started time and then give me one line summary of started, ended, how many tokens were used. 
 
 ```
