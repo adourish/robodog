@@ -74,18 +74,55 @@ class RobodogService:
             presence_penalty=self.presence_penalty,
             stream=self.stream,
         )
-        spinner = ["🐶", "🐱", "🦊", "🐵", "🦄"]
-        idx = 0
+        spinner = [
+        "🐆            ",
+        " 🐆           ",
+        "  🐆          ",
+        "   🐆         ",
+        "    🐆        ",
+        "     🐆       ",
+        "      🐆      ",
+        "       🐆     ",
+        "        🐆    ",
+        "         🐆   ",
+        "          🐆  ",
+        "           🐆 ",
+        "            🐆",
+        "           🐆 ",
+        "          🐆  ",
+        "         🐆   ",
+        "        🐆    ",
+        "       🐆     ",
+        "      🐆      ",
+        "     🐆       ",
+        "    🐆        ",
+        "   🐆         ",
+        "  🐆          ",
+        " 🐆           ",
+        ]
+        idx    = 0
         answer = ""
         if self.stream:
             for chunk in resp:
+                # accumulate the streamed text
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
                     answer += delta
+
+                # grab the last line (or everything if no newline yet)
                 last_line = answer.splitlines()[-1] if "\n" in answer else answer
-                sys.stdout.write(f"\r{spinner[idx % len(spinner)]} {last_line[:60]}{'…' if len(last_line) > 60 else ''}")
+
+                # pick our fighter‐vs‐fighter frame
+                frame = spinner[idx % len(spinner)]
+
+                # print: [fighters]  [up to 60 chars of last_line][… if truncated]
+                sys.stdout.write(
+                    f"\r{frame}  {last_line[:60]}{'…' if len(last_line) > 60 else ''}"
+                )
                 sys.stdout.flush()
                 idx += 1
+
+            # done streaming!
             sys.stdout.write("\n")
         else:
             answer = resp.choices[0].message.content.strip()

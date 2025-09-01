@@ -53,11 +53,12 @@ my knowledge
 
 # todo readme
 - [x] readme
+  - started: 2025-09-01 13:47 | completed: 2025-09-01 13:48 | know_tokens: 48459 | prompt_tokens: 48550 | total_tokens: 97009
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\service.log
 ```code
 1. do not remove any content
-2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
+2. add a update readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
 3. give lots of exampkes of file formats
 
 
