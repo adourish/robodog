@@ -329,64 +329,42 @@ class RobodogService:
     def play(self, instructions: str):
         pass
 
-    # -------------------------------------------------------------------------
-    # PATH SECURITY
-    def _validate_path(self, path: str) -> str:
-        return path
-    
-    # -------------------------------------------------------------------------
-    # FILE OPERATIONS (validate path)
+    # ————————————————————————————————————————————————————————————
+    # MCP-SERVER FILE-OPS
     def read_file(self, path: str):
-        fn = self._validate_path(path)
-        return open(fn, 'r', encoding='utf-8').read()
+        return open(path, 'r', encoding='utf-8').read()
 
     def update_file(self, path: str, content: str):
-        fn = self._validate_path(path)
-        open(fn, 'w', encoding='utf-8').write(content)
+        open(path, 'w', encoding='utf-8').write(content)
 
     def create_file(self, path: str, content: str = ""):
-        fn = self._validate_path(path)
-        os.makedirs(os.path.dirname(fn), exist_ok=True)
-        open(fn, 'w', encoding='utf-8').write(content)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        open(path, 'w', encoding='utf-8').write(content)
 
     def delete_file(self, path: str):
-        fn = self._validate_path(path)
-        os.remove(fn)
+        os.remove(path)
 
     def append_file(self, path: str, content: str):
-        fn = self._validate_path(path)
-        open(fn, 'a', encoding='utf-8').write(content)
+        open(path, 'a', encoding='utf-8').write(content)
 
     def create_dir(self, path: str, mode: int = 0o755):
-        fn = self._validate_path(path)
-        os.makedirs(fn, mode, exist_ok=True)
+        os.makedirs(path, mode, exist_ok=True)
 
     def delete_dir(self, path: str, recursive: bool = False):
-        fn = self._validate_path(path)
         if recursive:
-            shutil.rmtree(fn)
+            shutil.rmtree(path)
         else:
-            os.rmdir(fn)
+            os.rmdir(path)
 
     def rename(self, src: str, dst: str):
-        fn_src = self._validate_path(src)
-        fn_dst = self._validate_path(dst)
-        os.makedirs(os.path.dirname(fn_dst), exist_ok=True)
-        os.rename(fn_src, fn_dst)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        os.rename(src, dst)
 
     def copy_file(self, src: str, dst: str):
-        fn_src = self._validate_path(src)
-        fn_dst = self._validate_path(dst)
-        os.makedirs(os.path.dirname(fn_dst), exist_ok=True)
-        shutil.copy2(fn_src, fn_dst)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy2(src, dst)
 
     def checksum(self, path: str):
-        fn = self._validate_path(path)
-        h = hashlib.sha256()
-        with open(fn, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
-                h.update(chunk)
-        return h.hexdigest()
         h = hashlib.sha256()
         with open(path, 'rb') as f:
             for chunk in iter(lambda: f.read(8192), b''):

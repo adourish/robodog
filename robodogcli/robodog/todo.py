@@ -23,6 +23,11 @@ SUB_RE  = re.compile(
     r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
     r'(?:\s+(?P<rec>recursive))?'
 )
+FOC_RE  = re.compile(
+    r'^\s*-\s*(?P<key>focus):\s*'
+    r'(?:file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
+    r'(?:\s+(?P<rec>recursive))?'
+)
 
 STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
 REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
@@ -249,7 +254,56 @@ class TodoService:
         logger.info("Gather include knowledge: " + spec)
         return svc.include(spec) or ""
 
-    def _resolve_path(self, path: str) -> Optional[str]:
+    def _resolve_path(self, raw_focus: str) -> str | None:
+        """
+        Try to turn raw_focus into exactly one existing file path.
+        Returns absolute path or None if nothing found.
+        Raises ValueError if more than one bare‐filename match found.
+        """
+        p = Path(raw_focus)
+
+        # 1) Absolute path
+        if p.is_absolute():
+            return str(p) if p.exists() else None
+
+        # 2) Relative path with at least one directory component
+        if len(p.parts) > 1:
+            for root in self._roots:
+                candidate = Path(root) / p
+                if candidate.exists():
+                    return str(candidate)
+            return None
+
+        # 3) Bare filename: search all roots
+        matches = []
+        for root in self._roots:
+            for f in Path(root).rglob(p.name):
+                if f.is_file() and f.name == p.name:
+                    matches.append(f)
+
+        if not matches:
+            return None
+
+        if len(matches) > 1:
+            # Option A: pick the shallowest and warn
+            matches.sort(key=lambda f: len(f.parts))
+            chosen = matches[0]
+            logger.warning(
+                "Ambiguous focus '%s' matched multiple files: %s. "
+                "Defaulting to %s",
+                raw_focus,
+                [str(m) for m in matches],
+                chosen,
+            )
+            return str(chosen)
+
+            # Option B: instead of warning, raise an error
+            # raise ValueError(f"Ambiguous focus '{raw_focus}', found: {matches}")
+
+        return str(matches[0])
+
+
+    def _resolve_pathb(self, path: str) -> Optional[str]:
         p = path.strip('"').strip('`')
         if os.path.isabs(p) and os.path.isfile(p):
             return p
@@ -265,6 +319,94 @@ class TodoService:
         return None
 
     def _apply_focus(self, raw_focus: str, ai_out: str, svc):
+        """
+        Ensure the target file exists (creating dirs as needed),
+        back it up, then write ai_out via the service.
+        """
+        resolved = self._resolve_path(raw_focus)
+        if not resolved:
+            # If it did not exist at all, create it under the first root
+            resolved = os.path.join(self._roots[0], raw_focus)
+
+        # Ensure parent dir
+        parent = os.path.dirname(resolved)
+        os.makedirs(parent, exist_ok=True)
+
+        # Ensure file exists
+        if not os.path.exists(resolved):
+            Path(resolved).write_text("", encoding="utf-8")
+            logger.info("Created new focus file: %s", resolved)
+
+        # Backup if service has backup_folder
+        backup_folder = getattr(svc, "backup_folder", None)
+        if backup_folder:
+            os.makedirs(backup_folder, exist_ok=True)
+            timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+            dest = os.path.join(
+                backup_folder,
+                f"{Path(resolved).name}-{timestamp}"
+            )
+            shutil.copy(resolved, dest)
+            logger.info("Backup created: %s", dest)
+
+        # Push new content
+        svc.call_mcp("UPDATE_FILE", {"path": resolved, "content": ai_out})
+        logger.info("Updated focus file: %s", resolved)
+
+        # Update watch‐ignore
+        try:
+            m_after = os.path.getmtime(resolved)
+            self._watch_ignore[resolved] = m_after
+        except OSError:
+            pass
+        
+    def _apply_focusc(self, raw_focus: str, ai_out: str, svc):
+        # 1) resolve into an absolute path
+        real = (
+            self._resolve_path(raw_focus)
+            or (raw_focus if os.path.isabs(raw_focus) else os.path.join(self._roots[0], raw_focus))
+        )
+        real = os.path.abspath(raw_focus)
+        dirpath = os.path.dirname(real)
+
+        # 2) ensure the directory exists on the MCP side
+        try:
+            svc.call_mcp("CREATE_DIR", {"path": dirpath, "mode": 0o755})
+            logger.info(f"Ensured focus directory via MCP: {dirpath}")
+        except Exception as e:
+            # if it already existed, MCP may error—ignore that
+            logger.debug(f"CREATE_DIR on {dirpath} failed or already exists: {e}")
+
+        # 3) optionally back up the old content locally
+        backup_folder = getattr(svc, "backup_folder", None)
+        if backup_folder:
+            # attempt to READ_FILE via MCP; if it doesn't exist, skip backup
+            try:
+                resp = svc.call_mcp("READ_FILE", {"path": real})
+                old = resp.get("content", "")
+                if old:
+                    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+                    Path(backup_folder).mkdir(parents=True, exist_ok=True)
+                    bkname = f"{Path(real).name}-{ts}.bak"
+                    bkpath = os.path.join(backup_folder, bkname)
+                    with open(bkpath, "w", encoding="utf-8") as f:
+                        f.write(old)
+                    logger.info(f"Backed up old focus file to: {bkpath}")
+            except Exception:
+                logger.debug(f"No existing file at {real} to back up.")
+
+        # 4) push the new content
+        svc.call_mcp("UPDATE_FILE", {"path": real, "content": ai_out})
+        logger.info(f"Updated focus file via MCP: {real}")
+
+        # 5) ignore our own write in the watch loop
+        try:
+            m_after = os.path.getmtime(real)
+            self._watch_ignore[real] = m_after
+        except OSError:
+            pass
+
+    def _apply_focusb(self, raw_focus: str, ai_out: str, svc):
         real = self._resolve_path(raw_focus) or (
             raw_focus if os.path.isabs(raw_focus) else os.path.join(self._roots[0], raw_focus)
         )
@@ -288,6 +430,30 @@ class TodoService:
             self._watch_ignore[real] = m_after
         except OSError:
             pass
+
+    def _extract_focus(self, focus_spec) -> Optional[str]:
+            """
+            Turn the parsed focus‐spec (dict or raw string) into a clean path,
+            stripping any `file=` or `pattern=` prefixes and backticks/quotes.
+            """
+            if not focus_spec:
+                return None
+
+            # focus_spec is usually a dict with keys 'pattern' or 'file'
+            if isinstance(focus_spec, dict):
+                raw = focus_spec.get("file") or focus_spec.get("pattern") or ""
+            else:
+                raw = str(focus_spec)
+
+            # strip quotes or backticks
+            raw = raw.strip('"').strip("`")
+
+            # strip any leading prefix
+            for prefix in ("file=", "pattern="):
+                if raw.startswith(prefix):
+                    raw = raw[len(prefix):]
+
+            return raw or None
 
     def _process_one(self, task: dict, svc, file_lines_map: dict):
         include = task.get("include") or {}
@@ -316,17 +482,10 @@ class TodoService:
         TodoService._start_task(task, file_lines_map)
         logger.info("-> Starting task: %s", task['desc'])
         logger.info(f"Include knowledge tokens: {know_tokens}, Prompt tokens: {prompt_tokens}")
-
-        ai_out = svc.ask(prompt)
-
         focus_spec = task.get("focus")
-        raw_focus = ""
-        if isinstance(focus_spec, dict):
-            raw_focus = focus_spec.get('pattern', '')
-        else:
-            raw_focus = focus_spec or ''
-        if raw_focus.startswith('file='):
-            raw_focus = raw_focus[len('file='):]
+        raw_focus = self._extract_focus(focus_spec)
+        logger.info("Raw focus: %s", raw_focus)
+        ai_out = svc.ask(prompt)
 
         if raw_focus:
             self._apply_focus(raw_focus, ai_out, svc)
