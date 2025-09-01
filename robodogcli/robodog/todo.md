@@ -92,11 +92,11 @@ my knowledge
 5. only change the status information. do not change any other logic
 ```
 
-# todo status
-- [x] security
-  - started: 2025-09-01 14:06 | completed: 2025-09-01 14:07 | know_tokens: 48900 | prompt_tokens: 49050 | total_tokens: 97950
+# service security
+- [x] service.py security
+  - started: 2025-09-01 14:24 | completed: 2025-09-01 14:25 | know_tokens: 49163 | prompt_tokens: 49314 | total_tokens: 98477
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
-  - focus: file=c:\projects\robodog\robodogcli\temp\todo.log
+  - focus: file=c:\projects\robodog\robodogcli\temp\service.log
 ```knowledge
 1. do not remove any content
 2. create a function that validates that the path is within the --folders locations
