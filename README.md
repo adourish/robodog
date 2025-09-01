@@ -190,7 +190,7 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 - [ ] Revise API client
   - include: pattern=api/*.js recursive
   - focus: file=api/client.js
-```code
+```knowledge
 // existing stub
 ```
 
@@ -208,7 +208,7 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 - [ ] Generate changelog
   - include: pattern=CHANGELOG*.md
   - focus: file=CHANGELOG.md
-```code
+```knowledge
 
 ```
 
@@ -217,7 +217,7 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 - [x] readme
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
   - focus: file=c:\projects\robodog\robodogcli\temp\service.log
-```code
+```knowledge
 1. do not remove any content
 2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
 3. give lots of exampkes of file formats
@@ -229,7 +229,7 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 - [ ] change app prints in service logger.INFO
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus:   file=c:\projects\robodog\robodogcli\robodog\service.py
-```code
+```knowledge
 do not remove any features.
 give me full drop in code file
 ```
@@ -240,7 +240,7 @@ give me full drop in code file
 - [ ] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus: file=c:\projects\robodog\robodogcli\robodog\cli3.py
-```code
+```knowledge
 my knowledge
 ```
 
