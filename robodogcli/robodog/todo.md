@@ -91,3 +91,38 @@ my knowledge
 4. when starting, include the tokens found. it should log the total prompt tokens and knowledge tokens.
 5. only change the status information. do not change any other logic
 ```
+
+# todo status
+- [x] security
+  - started: 2025-09-01 14:06 | completed: 2025-09-01 14:07 | know_tokens: 48900 | prompt_tokens: 49050 | total_tokens: 97950
+  - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
+  - focus: file=c:\projects\robodog\robodogcli\temp\todo.log
+```knowledge
+1. do not remove any content
+2. create a function that validates that the path is within the --folders locations
+3. update search_files and and any file operations to validate the path is within the location
+4. dont change any other logic
+
+
+    def read_file(self, path: str):
+
+    def update_file(self, path: str, content: str):
+
+    def create_file(self, path: str, content: str = ""):
+
+    def delete_file(self, path: str):
+
+    def append_file(self, path: str, content: str):
+
+    def create_dir(self, path: str, mode: int = 0o755):
+
+    def delete_dir(self, path: str, recursive: bool = False):
+
+    def rename(self, src: str, dst: str):
+    
+
+    def copy_file(self, src: str, dst: str):
+        
+
+ 
+```

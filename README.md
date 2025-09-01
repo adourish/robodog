@@ -1,8 +1,11 @@
 # file: README.md
+# Robodog Code
 ![Robodog MCP File Service](screenshot-mcp.png)
 
 ## Overview  
-Robodog is a lightweight, zero-install, command-line style generative AI client that integrates multiple providers (OpenAI, OpenRouter, LlamaAI, DeepSeek, Anthropic, Sarvam AI, Google Search API, and more) into a unified interface. Key capabilities include:
+Robodog Code is a lightweight, zero-install, fast, command-line style generative AI client that integrates multiple providers (OpenAI, OpenRouter, LlamaAI, DeepSeek, Anthropic, Sarvam AI, Google Search API, and more) into a unified interface. Key capabilities include:
+
+NEVER TRUST A CODE SPEWING ROBOT!
 
 - Access to cutting-edge models: `o4-mini` (200k context), `gpt-4`, `gpt-4-turbo`, `dall-e-3`, Llama3-70b, Claude Opus/Sonnet, Mistral, Sarvam-M, Gemma 3n, etc.  
 - Massive context windows (up to 200k tokens) across different models.  
@@ -11,6 +14,7 @@ Robodog is a lightweight, zero-install, command-line style generative AI client 
 - In-chat file inclusion from a local MCP server.  
 - Built-in web search integration.  
 - Image generation & OCR pipelines.  
+- Limit scope of the context window using filter tagging pattern=*robodog*.py recursive
 - AI-driven web automation/testing via Playwright (`/play`).  
 - Raw MCP operations (`/mcp`).  
 - `/todo` feature: automate and track tasks defined in `todo.md`.  
