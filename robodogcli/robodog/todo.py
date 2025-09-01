@@ -101,7 +101,7 @@ class TodoService:
                     'desc': desc,
                     'include': None,
                     'focus': None,
-                    'code': None,
+                    'knowledge': None,
                     '_start_stamp': None,
                     '_know_tokens': 0,
                     '_prompt_tokens': 0,
@@ -124,7 +124,7 @@ class TodoService:
                     while k < len(lines) and not lines[k].lstrip().startswith('```'):
                         code_lines.append(lines[k])
                         k += 1
-                    task['code'] = ''.join(code_lines).rstrip('\n')
+                    task['knowledge'] = ''.join(code_lines).rstrip('\n')
                     j = k + 1
 
                 self._tasks.append(task)
@@ -294,11 +294,11 @@ class TodoService:
         knowledge = self._gather_include_knowledge(include, svc)
         know_tokens = self._get_token_count(knowledge)
 
-        code = ("\n" + task['code'] + "\n") if task.get('code') else ""
+        _knowledge = ("\n" + task['knowledge'] + "\n") if task.get('knowledge') else ""
         prompt = (
             "knowledge:\n" + knowledge + "\n\n:end knowledge:\n\n"
-            "task A0: " + task['desc'] + "\n\n"
-            "task A1: " + code + "\n\n"
+            "ask: " + task['desc'] + "\n\n"
+            "ask and knowledge: " + _knowledge + "\n\n"
             "task A2: Respond with full code full-file \n"
             "task A3: Tag each code file with a leading line `# file: <path>`\n"
             "task A4: No diffs.\n"
