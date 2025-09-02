@@ -1,13 +1,11 @@
-# file: robodog/cli/todo.py
+# file: c:\projects\robodog\robodogcli\temp\todo.py
 #!/usr/bin/env python3
-import re, os, fnmatch
-from typing import Optional
+import os
 import re
 import time
 import threading
 import logging
 import shutil
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -17,10 +15,9 @@ from pydantic import BaseModel, RootModel
 
 logger = logging.getLogger(__name__)
 
-# regexes for parsing markdown tasks
 TASK_RE = re.compile(r'^(\s*)-\s*\[(?P<status>[ x~])\]\s*(?P<desc>.+)$')
-SUB_RE  = re.compile(
-    r'^\s*-\s*(?P<key>include|focus):\s*'
+SUB_RE = re.compile(
+    r'^\s*-\s*(?P<key>include|out|in|focus):\s*'
     r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
     r'(?:\s+(?P<rec>recursive))?'
 )
@@ -28,28 +25,25 @@ SUB_RE  = re.compile(
 STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
 REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
 
-
 class Change(BaseModel):
     path: str
     start_line: int
     end_line: Optional[int]
     new_content: str
 
-
 class ChangesList(RootModel[List[Change]]):
     pass
-
 
 class TodoService:
     FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str]):
-        self._roots        = roots
-        self._file_lines   = {}
-        self._tasks        = []
-        self._mtimes       = {}
+        self._roots = roots
+        self._file_lines = {}
+        self._tasks = []
+        self._mtimes = {}
         self._watch_ignore = {}
-        self._svc          = None
+        self._svc = None
 
         self._load_all()
         for fn in self._find_files():
@@ -105,7 +99,10 @@ class TodoService:
                         key = ms.group('key')
                         pat = ms.group('pattern').strip('"').strip('`')
                         rec = bool(ms.group('rec'))
-                        task[key] = {'pattern': pat, 'recursive': rec}
+                        if key == 'focus':
+                            task['out'] = {'pattern': pat, 'recursive': rec}
+                        else:
+                            task[key] = {'pattern': pat, 'recursive': rec}
                     j += 1
                 self._tasks.append(task)
                 i = j
@@ -214,134 +211,83 @@ class TodoService:
         logger.info("Gather include knowledge: " + spec)
         return svc.include(spec) or ""
 
-    def _resolve_path(self, raw_focus: str, include: dict) -> Optional[Path]:
-        """
-        Locate (or if missing, create) the exact focus file by expecting a
-        full pathname fragment (dirs + filename).  If the file doesn’t exist
-        under any include‐root, create it in the first viable include‐root.
-        """
-        if not raw_focus or not raw_focus.strip():
+    def _resolve_path(self, frag: str) -> Optional[Path]:
+        if not frag:
             return None
-
-        # 1) Strip whitespace and any surrounding quotes/backticks
-        frag = raw_focus.strip().strip('"').strip("`")
-
-        # 2) Reject bare filenames (no directory separator anywhere)
+        frag = frag.strip('"').strip('`')
         if not any(sep in frag for sep in (os.sep, "/", "\\")):
-            logger.warning(
-                "Bare-filename focus '%s' is not supported; please include at least one subdirectory.",
-                raw_focus,
-            )
+            logger.warning("Bare-filename '%s' not supported; include a directory.", frag)
             return None
-
-        # 3) Build the include‐roots mapping
-        if isinstance(include, dict) and include and all(isinstance(v, str) for v in include.values()):
-            roots_mapping = include
-        else:
-            roots_mapping = {f"root_{i}": r for i, r in enumerate(self._roots)}
-
-        # 4) Try to find an existing file at root/frag
-        for inc_name, root in roots_mapping.items():
+        for root in self._roots:
             candidate = Path(root) / frag
             if candidate.is_file():
                 return candidate.resolve()
-
-        # 5) No existing match → create under the first viable include‐root
         p = Path(frag)
-        dir_fragment = p.parent     # e.g. Path("robodogcli/temp")
-        filename     = p.name       # e.g. "todo.py"
-
-        if not dir_fragment.parts or not filename:
-            # either no directory part or no filename
-            return None
-
-        for inc_name, root in roots_mapping.items():
-            base = Path(root)
+        dir_fragment, name = p.parent, p.name
+        for root in self._roots:
             try:
+                base = Path(root)
                 new_dir = (base / dir_fragment).resolve()
                 new_dir.mkdir(parents=True, exist_ok=True)
-                new_file = new_dir / filename
-                # create the file if it doesn’t already exist
+                new_file = new_dir / name
                 if not new_file.exists():
                     new_file.touch()
                 return new_file.resolve()
-            except OSError as e:
-                logger.debug("Could not create in %s: %s", root, e)
+            except:
                 continue
-
-        # if we got here, no include‐root was writable
         return None
-
-
-    def _apply_focus(self, raw_focus: str, ai_out: str, svc, include: dict, target: str):
-        
-        if not target:
-            target = Path(self._roots[0]) / raw_focus
-        target = target.resolve()
-        target.parent.mkdir(parents=True, exist_ok=True)
-
-        backup_folder = getattr(svc, 'backup_folder', None)
-        if backup_folder:
-            bf = Path(backup_folder)
-            bf.mkdir(parents=True, exist_ok=True)
-            if target.exists():
-                ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-                dest = bf / f"{target.name}-{ts}"
-                shutil.copy2(target, dest)
-                logger.info("Backup created: %s", dest)
-
-        svc.call_mcp("UPDATE_FILE", {"path": str(target), "content": ai_out})
-        logger.info("Updated focus file: %s", target)
-
-        try:
-            self._watch_ignore[str(target)] = os.path.getmtime(str(target))
-        except OSError:
-            pass
-
-    def _extract_focus(self, focus_spec) -> Optional[str]:
-        if not focus_spec:
-            return None
-        if isinstance(focus_spec, dict):
-            raw = focus_spec.get("file") or focus_spec.get("pattern") or ""
-        else:
-            raw = str(focus_spec)
-        raw = raw.strip('"').strip("`")
-        for pre in ("file=", "pattern="):
-            if raw.startswith(pre):
-                raw = raw[len(pre):]
-        return raw or None
 
     def _process_one(self, task: dict, svc, file_lines_map: dict):
         include = task.get("include") or {}
         knowledge = self._gather_include_knowledge(include, svc)
         kt = self._get_token_count(knowledge)
-        _kc = ("\n" + task.get('knowledge', '') + "\n") if task.get('knowledge') else ""
-        prompt = (
-            "knowledge:\n" + knowledge + "\n\n:end knowledge:\n\n"
-            "ask: " + task['desc'] + "\n\n"
-            "ask and knowledge: " + _kc + "\n\n"
-            "task A2: Respond with full code full-file \n"
-            "task A3: Tag each code file with a leading line `# file: <path>`\n"
-            "task A4: No diffs.\n"
-            "task A5: No extra explanation.\n"
-            "task A6: No code fences.\n"
-            "task A7: Ensure all tasks and sub tasks are completed.\n"
-        )
-        pt = self._get_token_count(prompt)
+
+        raw_in = task.get("in", {}).get("pattern") or None
+        input_content = ""
+        if raw_in:
+            inp_path = self._resolve_path(raw_in)
+            input_content = inp_path.read_text(encoding='utf-8') if inp_path else ""
+        pt = self._get_token_count(input_content + knowledge)
+
         total = kt + pt
         task['_know_tokens'] = kt
         task['_prompt_tokens'] = pt
         task['_token_count'] = total
 
         TodoService._start_task(task, file_lines_map)
-        raw_focus = self._extract_focus(task.get("focus"))
-        target = self._resolve_path(raw_focus, include)
-        logger.info("Focus file: %s", target)
+
+        prompt_parts = []
+        if input_content:
+            prompt_parts.append("input:\n" + input_content + "\n\n:end input:\n")
+        if knowledge:
+            prompt_parts.append("knowledge:\n" + knowledge + "\n\n:end knowledge:\n")
+        prompt_parts.append("ask: " + task['desc'])
+        prompt = "\n".join(prompt_parts)
+
+        raw_out = task.get("out", {}).get("pattern") or None
+        target = self._resolve_path(raw_out) if raw_out else None
+        logger.info("Focus output file: %s", target)
+
         ai_out = svc.ask(prompt)
-        if raw_focus:
-            self._apply_focus(raw_focus, ai_out, svc, include, target)
+        if target:
+            backup_folder = getattr(svc, 'backup_folder', None)
+            if backup_folder:
+                bf = Path(backup_folder)
+                bf.mkdir(parents=True, exist_ok=True)
+                if target.exists():
+                    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+                    dest = bf / f"{target.name}-{ts}"
+                    shutil.copy2(target, dest)
+                    logger.info("Backup: %s", dest)
+            svc.call_mcp("UPDATE_FILE", {"path": str(target), "content": ai_out})
+            try:
+                self._watch_ignore[str(target)] = os.path.getmtime(str(target))
+            except:
+                pass
+            logger.info("Updated: %s", target)
         else:
-            logger.info("No focus file specified; skipping update.")
+            logger.info("No output file specified; skipping write.")
+
         TodoService._complete_task(task, file_lines_map)
 
 __all_classes__ = ["Change", "ChangesList", "TodoService"]
