@@ -20,13 +20,21 @@ service.py
 ```
 
 # todo.py
-- [x] ask: enhance todo
-  - started: 2025-09-02 12:22 | completed: 2025-09-02 12:22 | know_tokens: 17576 | prompt_tokens: 17640 | total_tokens: 35216
-  - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus: c:\projects\robodog\robodogcli\temp\todo.py
+- [~] ask: enhance todo
+  - started: 2025-09-02 22:26 | know_tokens: 31946 | prompt_tokens: 32000 | total_tokens: 63946
+  - include: pattern=*robodog*.md|*robodogcli*robodog*.py  recursive`
+  - focus: robodogcli\temp\todo.py
 ```knowledge
-todo.py
-give me a list of all classes in todo
+1. change _resolve_path only
+2. loop through all of the include: pattern=*robodog*.md|*robodog*.py  recursive` files
+3. if focus includes the path in focus, use this full path.
+4. ensure to use the full path with wildcard. you should find the temp folder.
+
+
+  - include: pattern=*robodog*.md|*robodog*.py  recursive`
+  - focus: robodog\robodogcli\temp\todo.py
+
+  Ambiguous focus '*robodogcli\temp\todo.py' matched multiple files: ['c:\\projects\\robodog\\robodogcli\\robodog\\todo.py', 'c:\\projects\\robodog\\robodogcli\\temp\\todo.py']. Defaulting to c:\projects\robodog\robodogcli\robodog\todo.py
 
 ```
 
