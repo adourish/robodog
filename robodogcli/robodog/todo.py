@@ -218,6 +218,152 @@ class TodoService:
         Locate the exact focus file by running either a glob‐translated regex
         (if your focus contains *, ?, or [ ]) or a literal/regex match on the
         FULL path, scanning each include-root in turn. Bare filenames are rejected.
+        If no match is found, create the file in the nearest include-root that
+        best matches the focus path.
+        """
+        if not raw_focus or not raw_focus.strip():
+            return None
+
+        # 1) Strip whitespace and any surrounding quotes/backticks
+        frag = raw_focus.strip().strip('"').strip("`")
+
+        # 2) Reject plain filenames (no directory separator)
+        if not any(sep in frag for sep in (os.sep, "/", "\\")):
+            logger.warning(
+                "Bare-filename focus '%s' is not supported; please include a subpath or regex.",
+                raw_focus,
+            )
+            return None
+
+        # 3) Compile a regex from either a glob or a regex literal
+        glob_frag = frag.replace("\\", "/")
+        if any(c in glob_frag for c in ("*", "?", "[", "]")):
+            glob_re = fnmatch.translate(glob_frag)
+            pattern = re.compile(glob_re, re.IGNORECASE)
+        else:
+            escaped = frag.replace("\\", r"[\\/]")
+            try:
+                pattern = re.compile(escaped, re.IGNORECASE)
+            except re.error:
+                pattern = re.compile(re.escape(escaped), re.IGNORECASE)
+
+        # 4) Build the search-roots mapping
+        if isinstance(include, dict) and include and all(isinstance(v, str) for v in include.values()):
+            roots_mapping = include
+        else:
+            roots_mapping = {f"root_{i}": r for i, r in enumerate(self._roots)}
+
+        # 5) Walk each root in order and return on first match
+        for inc_name, root in roots_mapping.items():
+            root_path = Path(root)
+            if not root_path.is_dir():
+                continue
+            for f in root_path.rglob("*"):
+                if not f.is_file():
+                    continue
+                full_path = str(f.resolve()).replace("\\", "/")
+                if pattern.search(full_path):
+                    return f.resolve()
+
+        # 6) No existing match → try to create. But first pick the include-root
+        #    that best “owns” the leading fragment of your focus path.
+        normalized = frag.replace("\\", "/")
+        dir_fragment = Path(normalized).parent   # e.g. Path("robodogcli/temp")
+        filename     = Path(normalized).name     # e.g. "todo.py"
+
+        # gather roots in two passes: those whose path contains the first dir of frag,
+        # then the rest
+        candidates = []
+        if dir_fragment.parts:
+            primary = dir_fragment.parts[0].lower()
+            for root in roots_mapping.values():
+                if primary in str(root).lower():
+                    candidates.append(root)
+        # append any others we didn’t already pick
+        for root in roots_mapping.values():
+            if root not in candidates:
+                candidates.append(root)
+
+        # now attempt creation in priority order
+        for root in candidates:
+            base = Path(root)
+            try:
+                new_dir = (base / dir_fragment).resolve()
+                new_dir.mkdir(parents=True, exist_ok=True)
+                new_file = new_dir / filename
+                if not new_file.exists():
+                    new_file.touch()
+                return new_file.resolve()
+            except OSError:
+                # can’t write here? try the next root
+                continue
+
+        # nothing worked
+        return None
+    
+    def _resolve_path(self, raw_focus: str, include: dict) -> Optional[Path]:
+        """
+        Locate (or if missing, create) the exact focus file by expecting a
+        full pathname fragment (dirs + filename).  If the file doesn’t exist
+        under any include‐root, create it in the first viable include‐root.
+        """
+        if not raw_focus or not raw_focus.strip():
+            return None
+
+        # 1) Strip whitespace and any surrounding quotes/backticks
+        frag = raw_focus.strip().strip('"').strip("`")
+
+        # 2) Reject bare filenames (no directory separator anywhere)
+        if not any(sep in frag for sep in (os.sep, "/", "\\")):
+            logger.warning(
+                "Bare-filename focus '%s' is not supported; please include at least one subdirectory.",
+                raw_focus,
+            )
+            return None
+
+        # 3) Build the include‐roots mapping
+        if isinstance(include, dict) and include and all(isinstance(v, str) for v in include.values()):
+            roots_mapping = include
+        else:
+            roots_mapping = {f"root_{i}": r for i, r in enumerate(self._roots)}
+
+        # 4) Try to find an existing file at root/frag
+        for inc_name, root in roots_mapping.items():
+            candidate = Path(root) / frag
+            if candidate.is_file():
+                return candidate.resolve()
+
+        # 5) No existing match → create under the first viable include‐root
+        p = Path(frag)
+        dir_fragment = p.parent     # e.g. Path("robodogcli/temp")
+        filename     = p.name       # e.g. "todo.py"
+
+        if not dir_fragment.parts or not filename:
+            # either no directory part or no filename
+            return None
+
+        for inc_name, root in roots_mapping.items():
+            base = Path(root)
+            try:
+                new_dir = (base / dir_fragment).resolve()
+                new_dir.mkdir(parents=True, exist_ok=True)
+                new_file = new_dir / filename
+                # create the file if it doesn’t already exist
+                if not new_file.exists():
+                    new_file.touch()
+                return new_file.resolve()
+            except OSError as e:
+                logger.debug("Could not create in %s: %s", root, e)
+                continue
+
+        # if we got here, no include‐root was writable
+        return None
+
+    def _resolve_path(self, raw_focus: str, include: dict) -> Optional[Path]:
+        """
+        Locate the exact focus file by running either a glob‐translated regex
+        (if your focus contains *, ?, or [ ]) or a literal/regex match on the
+        FULL path, scanning each include-root in turn. Bare filenames are rejected.
         """
         if not raw_focus or not raw_focus.strip():
             return None

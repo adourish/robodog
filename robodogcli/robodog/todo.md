@@ -21,9 +21,9 @@ service.py
 
 # todo.py
 - [~] ask: enhance todo
-  - started: 2025-09-02 22:26 | know_tokens: 31946 | prompt_tokens: 32000 | total_tokens: 63946
+  - started: 2025-09-02 23:01 | know_tokens: 33891 | prompt_tokens: 33945 | total_tokens: 67836
   - include: pattern=*robodog*.md|*robodogcli*robodog*.py  recursive`
-  - focus: robodogcli\temp\todo.py
+  - focus:  c:\projects\robodog\robodogcli\temp\todo.py
 ```knowledge
 1. change _resolve_path only
 2. loop through all of the include: pattern=*robodog*.md|*robodog*.py  recursive` files
