@@ -272,6 +272,7 @@ class TodoService:
         # if we got here, no include‐root was writable
         return None
 
+
     def _apply_focus(self, raw_focus: str, ai_out: str, svc, include: dict, target: str):
         
         if not target:
