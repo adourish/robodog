@@ -1,4 +1,3 @@
-# file: c:\projects\robodog\robodogcli\temp\todo.py
 #!/usr/bin/env python3
 import os
 import re
@@ -12,6 +11,7 @@ from typing import List, Optional
 
 import tiktoken
 from pydantic import BaseModel, RootModel
+import yaml   # ensure PyYAML is installed
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +38,15 @@ class TodoService:
     FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str]):
-        self._roots = roots
-        self._file_lines = {}
-        self._tasks = []
-        self._mtimes = {}
+        self._roots       = roots
+        self._file_lines  = {}
+        self._tasks       = []
+        self._mtimes      = {}
         self._watch_ignore = {}
-        self._svc = None
+        self._svc         = None
+
+        # MVP: parse a `base:` directive from front-matter
+        self._base_dir = self._parse_base_dir()
 
         self._load_all()
         for fn in self._find_files():
@@ -53,6 +56,41 @@ class TodoService:
                 pass
 
         threading.Thread(target=self._watch_loop, daemon=True).start()
+
+
+    def _parse_base_dir(self) -> Optional[str]:
+        """
+        Look for a YAML front-matter block at the top of any todo.md,
+        scan it line-by-line for the first line starting with `base:`
+        and return its value.
+        """
+        for fn in self._find_files():
+            text = Path(fn).read_text(encoding='utf-8')
+            lines = text.splitlines()
+            # Must start a YAML block
+            if not lines or lines[0].strip() != '---':
+                continue
+
+            # Find end of that block
+            try:
+                end_idx = lines.index('---', 1)
+            except ValueError:
+                # no closing '---'
+                continue
+
+            # Scan only the lines inside the front-matter
+            for lm in lines[1:end_idx]:
+                stripped = lm.strip()
+                if stripped.startswith('base:'):
+                    # split on first colon, strip whitespace
+                    _, _, val = stripped.partition(':')
+                    base = val.strip()
+                    if base:
+                        return os.path.normpath(base)
+            # if we got here, front-matter existed but no base: line → try next file
+
+        return None
+
 
     def _find_files(self) -> List[str]:
         out = []
@@ -120,11 +158,11 @@ class TodoService:
                     self._watch_ignore.pop(fn, None)
                 elif last and mtime > last:
                     logger.info(f"Detected external change in {fn}, running /todo")
-                    try:
-                        if self._svc:
+                    if self._svc:
+                        try:
                             self.run_next_task(self._svc)
-                    except Exception as e:
-                        logger.error(f"watch loop error: {e}")
+                        except Exception as e:
+                            logger.error(f"watch loop error: {e}")
                 self._mtimes[fn] = mtime
             time.sleep(1)
 
@@ -134,7 +172,8 @@ class TodoService:
 
     @staticmethod
     def _format_summary(indent: str, start: str, end: Optional[str]=None,
-                        know: Optional[int]=None, prompt: Optional[int]=None, total: Optional[int]=None) -> str:
+                        know: Optional[int]=None, prompt: Optional[int]=None,
+                        total: Optional[int]=None) -> str:
         parts = [f"started: {start}"]
         if end:
             parts.append(f"completed: {end}")
@@ -155,12 +194,13 @@ class TodoService:
         file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Doing']}] {desc}\n"
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         task['_start_stamp'] = stamp
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        total = task.get('_token_count', 0)
-        summary = TodoService._format_summary(indent, stamp, None, know, prompt, total)
+        know, prompt, total = (task.get(k, 0) for k in
+                               ('_know_tokens','_prompt_tokens','_token_count'))
+        summary = TodoService._format_summary(indent, stamp, None,
+                                              know, prompt, total)
         idx = ln + 1
-        if idx < len(file_lines_map[fn]) and file_lines_map[fn][idx].lstrip().startswith('- started:'):
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
             file_lines_map[fn][idx] = summary
         else:
             file_lines_map[fn].insert(idx, summary)
@@ -175,13 +215,14 @@ class TodoService:
         indent, desc = task['indent'], task['desc']
         file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Done']}] {desc}\n"
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        start = task.get('_start_stamp', '')
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        total = task.get('_token_count', 0)
-        summary = TodoService._format_summary(indent, start, stamp, know, prompt, total)
+        start = task.get('_start_stamp','')
+        know, prompt, total = (task.get(k, 0) for k in
+                               ('_know_tokens','_prompt_tokens','_token_count'))
+        summary = TodoService._format_summary(indent, start,
+                                              stamp, know, prompt, total)
         idx = ln + 1
-        if idx < len(file_lines_map[fn]) and file_lines_map[fn][idx].lstrip().startswith('- started:'):
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
             file_lines_map[fn][idx] = summary
         else:
             file_lines_map[fn].insert(idx, summary)
@@ -191,103 +232,122 @@ class TodoService:
     def run_next_task(self, svc):
         self._svc = svc
         self._load_all()
-        todo = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'To Do']
+        todo = [t for t in self._tasks
+                if STATUS_MAP[t['status_char']] == 'To Do']
         if not todo:
             logger.info("No To Do tasks found.")
             return
-        task = todo[0]
-        self._process_one(task, svc, self._file_lines)
+        self._process_one(todo[0], svc, self._file_lines)
         logger.info("Completed one To Do task")
 
     def _get_token_count(self, text: str) -> int:
-        try:
-            return len(text.split())
-        except:
-            return 0
+        return len(text.split())
 
     def _gather_include_knowledge(self, include: dict, svc) -> str:
-        raw = include.get('pattern', '').strip('"').strip('`')
-        spec = f"pattern={raw}" + (" recursive" if include.get('recursive') else "")
-        logger.info("Gather include knowledge: " + spec)
+        raw = include.get('pattern','').strip('"').strip('`')
+        spec = f"pattern={raw}" + \
+               (" recursive" if include.get('recursive') else "")
+        logger.info("Gather include knowledge: %s", spec)
         return svc.include(spec) or ""
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
+        """
+        Resolve a fragment (pattern/file spec) to an absolute Path,
+        logging each step to help debug why base_dir may be skipped.
+        """
+        logger.info("-> _resolve_path called with frag=%r, base_dir=%r, roots=%s",
+                    frag, self._base_dir, self._roots)
         if not frag:
+            logger.info("   no fragment provided -> returning None")
             return None
-        frag = frag.strip('"').strip('`')
-        if not any(sep in frag for sep in (os.sep, "/", "\\")):
-            logger.warning("Bare-filename '%s' not supported; include a directory.", frag)
-            return None
-        for root in self._roots:
-            candidate = Path(root) / frag
-            if candidate.is_file():
-                return candidate.resolve()
-        p = Path(frag)
-        dir_fragment, name = p.parent, p.name
-        for root in self._roots:
-            try:
-                base = Path(root)
-                new_dir = (base / dir_fragment).resolve()
-                new_dir.mkdir(parents=True, exist_ok=True)
-                new_file = new_dir / name
-                if not new_file.exists():
-                    new_file.touch()
-                return new_file.resolve()
-            except:
-                continue
-        return None
 
+        # strip quotes/backticks
+        f = frag.strip('"').strip('`')
+        logger.info("   normalized fragment to %r", f)
+
+        # 1) bare filename under base_dir
+        if self._base_dir and not any(sep in f for sep in (os.sep, '/', '\\')):
+            candidate = Path(self._base_dir) / f
+            logger.info("   branch 1: treating as bare filename under base_dir -> %s", candidate)
+            return candidate.resolve()
+
+        # 2) any relative path under base_dir
+        if self._base_dir and any(sep in f for sep in ('/', '\\')):
+            candidate = Path(self._base_dir) / Path(f)
+            logger.info("   branch 2: treating as relative path under base_dir -> %s", candidate)
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            return candidate.resolve()
+
+        # 3) search under base_dir first, then all roots
+        search_roots = ([self._base_dir] if self._base_dir else []) + self._roots
+        logger.info("   branch 3: searching for existing file under roots -> %s", search_roots)
+        for root in search_roots:
+            cand = Path(root) / f
+            logger.info("      checking %s", cand)
+            if cand.is_file():
+                logger.info("      found existing file at %s", cand)
+                return cand.resolve()
+
+        # 4) not found: create under first configured root
+        p = Path(f)
+        base = Path(self._roots[0]) / p.parent
+        target = base / p.name
+        logger.info("   branch 4: not found, will create under first root -> %s", target)
+        base.mkdir(parents=True, exist_ok=True)
+        return target.resolve()
+    
     def _process_one(self, task: dict, svc, file_lines_map: dict):
-        include = task.get("include") or {}
-        knowledge = self._gather_include_knowledge(include, svc)
-        kt = self._get_token_count(knowledge)
+        know = self._gather_include_knowledge(task.get('include') or {}, svc)
+        task['_know_tokens'] = self._get_token_count(know)
 
-        raw_in = task.get("in", {}).get("pattern") or None
-        input_content = ""
-        if raw_in:
-            inp_path = self._resolve_path(raw_in)
-            input_content = inp_path.read_text(encoding='utf-8') if inp_path else ""
-        pt = self._get_token_count(input_content + knowledge)
-
-        total = kt + pt
-        task['_know_tokens'] = kt
-        task['_prompt_tokens'] = pt
-        task['_token_count'] = total
+        inp = task.get('in',{}).get('pattern')
+        content = ''
+        if inp:
+            pth = self._resolve_path(inp)
+            if pth and pth.is_file():
+                content = pth.read_text(encoding='utf-8')
+        task['_prompt_tokens'] = self._get_token_count(content + know)
+        task['_token_count']  = task['_know_tokens'] + task['_prompt_tokens']
 
         TodoService._start_task(task, file_lines_map)
 
-        prompt_parts = []
-        if input_content:
-            prompt_parts.append("input:\n" + input_content + "\n\n:end input:\n")
-        if knowledge:
-            prompt_parts.append("knowledge:\n" + knowledge + "\n\n:end knowledge:\n")
-        prompt_parts.append("ask: " + task['desc'])
-        prompt = "\n".join(prompt_parts)
+        # ===== new logging as requested =====
+        logger.info("Task in-pattern: %s", inp or "<none>")
+        outpat = task.get('out',{}).get('pattern')
+        logger.info("Task out-pattern: %s", outpat or "<none>")
+        # ====================================
 
-        raw_out = task.get("out", {}).get("pattern") or None
-        target = self._resolve_path(raw_out) if raw_out else None
-        logger.info("Focus output file: %s", target)
-        logger.info("Focus input file: %s", inp_path)
+        parts = []
+        if content:
+            parts.append(f"input:\n{content}\n\n:end input:")
+        if know:
+            parts.append(f"knowledge:\n{know}\n\n:end knowledge:")
+        parts.append("ask: " + task['desc'])
+        prompt = "\n\n".join(parts)
         ai_out = svc.ask(prompt)
-        if target:
-            backup_folder = getattr(svc, 'backup_folder', None)
-            if backup_folder:
-                bf = Path(backup_folder)
-                bf.mkdir(parents=True, exist_ok=True)
+
+        if outpat:
+            target = self._resolve_path(outpat)
+            bf = getattr(svc, 'backup_folder', None)
+            if bf:
+                backup = Path(bf)
+                backup.mkdir(parents=True, exist_ok=True)
                 if target.exists():
                     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-                    dest = bf / f"{target.name}-{ts}"
+                    dest = backup / f"{target.name}-{ts}"
                     shutil.copy2(target, dest)
-                    logger.info("Backup: %s", dest)
-            svc.call_mcp("UPDATE_FILE", {"path": str(target), "content": ai_out})
+                    logger.info("Backup created: %s", dest)
+            svc.call_mcp("UPDATE_FILE", {"path": str(target),
+                                         "content": ai_out})
             try:
-                self._watch_ignore[str(target)] = os.path.getmtime(str(target))
+                self._watch_ignore[str(target)] = \
+                    os.path.getmtime(str(target))
             except:
                 pass
-            logger.info("Updated: %s", target)
+            logger.info("Updated focus file: %s", target)
         else:
-            logger.info("No output file specified; skipping write.")
+            logger.info("No focus file specified; skipping write.")
 
         TodoService._complete_task(task, file_lines_map)
 
-__all_classes__ = ["Change", "ChangesList", "TodoService"]
+__all_classes__ = ["Change","ChangesList","TodoService"]
