@@ -187,56 +187,13 @@ You can have multiple `todo.md` files anywhere under your roots. `/todo` process
 
 ![Robodog MCP File Service](screenshot-todo.png)
 
-### 1. Front-Matter Base Directory
-- **`base:` directive**  
-  At the top of any `todo.md`, you can define a YAML front-matter block:
-  
-  ```yaml
-  ---
-  base: c:\projects\robodog
-  ---
-  ```
-  
-  `todo.py` will scan for the first `base:` entry and use it as the primary root for resolving file fragments.
-
-### 2. Task Parsing
-- Detects tasks matching:
-  
-    - `[ ]` To Do  
-    - `[~]` Doing  
-    - `[x]` Done
-
-- Supports indented subtasks with keys:
-  
-    - `include:`  — pull in knowledge by pattern  
-    - `in:`       — read input from files  
-    - `out:`      — write output to files  
-    - `focus:`    — alias for `out:`  
-    - `recursive` — flag for recursive pattern matching
-
-### 3. Path Resolution
-When you specify a fragment (e.g. `mcphandler.py` or `robodogcli\robodog\mcphandler.py`), `todo.py` logs and applies one of four resolution “branches”:
-
-1. **Bare filename under `base:`**  
-   If `base` is set and the fragment contains no path separators, it’s treated as `base/<filename>`.
-
-2. **Relative path under `base:`**  
-   If the fragment includes separators and `base` is set, it becomes `base/<fragment>`, creating parent directories as needed.
-
-3. **Search existing**  
-   Looks for an existing file by trying `base` (if any), then each configured root in turn. Returns the first match.
-
-4. **Create under first root**  
-   If not found, it creates the path under the first root in your roots list, ensuring parent directories exist.
-
 ### Example `todo.md` File Formats
 
 ```markdown
 # file: project1/todo.md
 - [ ] Revise API client
   - include: pattern=api/*.js recursive
-  - in: api/client.js
-  - out: api/client-v2.js
+  - focus: file=api/client.js
 ```knowledge
 // existing stub
 ```
@@ -245,8 +202,7 @@ When you specify a fragment (e.g. `mcphandler.py` or `robodogcli\robodog\mcphand
 ```markdown
 - [ ] Add unit tests
   - include: file=tests/template.spec.js
-  - out: tests/api.client.spec.js
-  - in: tests/api.client.spec.js
+  - focus: file=tests/api.client.spec.js
 ```
 
 ```markdown
@@ -255,7 +211,7 @@ When you specify a fragment (e.g. `mcphandler.py` or `robodogcli\robodog\mcphand
   - focus: file=README.md
 - [ ] Generate changelog
   - include: pattern=CHANGELOG*.md
-  - out: CHANGELOG.md
+  - focus: file=CHANGELOG.md
 ```knowledge
 
 ```
@@ -264,8 +220,7 @@ When you specify a fragment (e.g. `mcphandler.py` or `robodogcli\robodog\mcphand
 # todo readme
 - [x] readme
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
-  - out: c:\projects\robodog\robodogcli\temp\service-v2.py
-  - in: c:\projects\robodog\robodogcli\temp\service.py
+  - focus: file=c:\projects\robodog\robodogcli\temp\service.log
 ```knowledge
 1. do not remove any content
 2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
@@ -277,8 +232,7 @@ When you specify a fragment (e.g. `mcphandler.py` or `robodogcli\robodog\mcphand
 # watch
 - [ ] change app prints in service logger.INFO
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - out:   c:\projects\robodog\robodogcli\robodog\service.py
-  - out: c:\projects\robodog\robodogcli\robodog\service.py
+  - focus:   file=c:\projects\robodog\robodogcli\robodog\service.py
 ```knowledge
 do not remove any features.
 give me full drop in code file
@@ -289,8 +243,7 @@ give me full drop in code file
 # fix logging
 - [ ] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - in: c:\projects\robodog\robodogcli\robodog\cli.py
-  - out: c:\projects\robodog\robodogcli\robodog\cli-v3.py
+  - focus: file=c:\projects\robodog\robodogcli\robodog\cli3.py
 ```knowledge
 my knowledge
 ```

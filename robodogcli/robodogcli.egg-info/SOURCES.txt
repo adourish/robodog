@@ -5,6 +5,7 @@ robodog/__init__.py
 robodog/cli.py
 robodog/mcphandler.py
 robodog/service.py
+robodog/todo-v2.py
 robodog/todo.py
 robodogcli.egg-info/PKG-INFO
 robodogcli.egg-info/SOURCES.txt
