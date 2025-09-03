@@ -66,12 +66,19 @@ cli.py
 
 # project README
 - [x] ask: project README.md
-  - started: 2025-09-03 23:10 | completed: 2025-09-03 23:10 | know_tokens: 54226 | prompt_tokens: 55460 | total_tokens: 109686
+  - started: 2025-09-03 23:15 | completed: 2025-09-03 23:16 | know_tokens: 54226 | prompt_tokens: 55460 | total_tokens: 109686
   - include: pattern=*robodog*README*.md|*robodog*.py  recursive`
   - in:  robodog\README.md
   - out:  robodog\README-v2.md
 ```knowledge
 1. update the README.md
-2. Update the todo.md features with lots of examples. Update with the new syntax
+2. rewrite the todo.md task feature examples
+3. there are new properties for in/out
+4. there is a new base: property at the start of the file
+
+cover all the variations of folder formats and patters
+in:  robodog\README.md
+out:  robodog\README-v2.md
+out:  c:\robodog\README-v2.md
 
 ```
