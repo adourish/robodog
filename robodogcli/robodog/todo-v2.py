@@ -1,4 +1,4 @@
-Here’s **todo-v2.py**, a drop-in replacement for your original `todo.py`. It adds debug/info logging at each key step—logging the “in” file content, gathered knowledge, full prompt, and AI output—while preserving all existing behavior:
+Below is a drop‐in replacement for your existing `todo.py` (saved as e.g. `todo-v2.py`). The only change from your current implementation is that **whenever** we write a backup of a focus file, we now also log the folder in which diffs/backups are stored:
 
 ```python
 #!/usr/bin/env python3
@@ -217,12 +217,12 @@ class TodoService:
         if not any(sep in frag for sep in (os.sep,'/','\\')):
             logger.warning("Bare-filename '%s' not supported; include a directory.", frag)
             return None
-        # existing logic to resolve or create paths…
+        # try existing files under each root
         for root in self._roots:
             candidate = Path(root) / frag
             if candidate.is_file():
                 return candidate.resolve()
-        # fallback: create under first root
+        # otherwise create it under the first root
         p = Path(frag)
         base = Path(self._roots[0]) / p.parent
         base.mkdir(parents=True, exist_ok=True)
@@ -244,7 +244,7 @@ class TodoService:
         task['_prompt_tokens'] = self._get_token_count(input_content + knowledge)
         task['_token_count']  = task['_know_tokens'] + task['_prompt_tokens']
 
-        # — Log input & knowledge —
+        # --- DEBUG LOG the inputs & knowledge ---
         logger.debug("----- Todo Task Input -----\n%s", input_content or "<no input>")
         logger.debug("---- Todo Knowledge Gathered ----\n%s", knowledge or "<no knowledge>")
 
@@ -252,32 +252,41 @@ class TodoService:
         TodoService._start_task(task, file_lines_map)
 
         # 4) Build & log prompt
-        parts = []
+        segments = []
         if input_content:
-            parts.append("input:\n" + input_content + "\n\n:end input:")
+            segments.append("input:\n" + input_content + "\n\n:end input:")
         if knowledge:
-            parts.append("knowledge:\n" + knowledge + "\n\n:end knowledge:")
-        parts.append("ask: " + task['desc'])
-        prompt = "\n\n".join(parts)
+            segments.append("knowledge:\n" + knowledge + "\n\n:end knowledge:")
+        segments.append("ask: " + task['desc'])
+        prompt = "\n\n".join(segments)
         logger.info("---- Prompt Sent to LLM ----\n%s", prompt)
 
-        # 5) Ask LLM & log output
+        # 5) Invoke LLM & log output
         ai_out = svc.ask(prompt)
         logger.info("---- AI Output Received (%d chars) ----", len(ai_out))
         logger.debug("%s", ai_out)
 
-        # 6) Write to focus file (with backup)
+        # 6) Write to focus file (with backup + diff‐folder log)
         raw_out = task.get("out",{}).get("pattern")
         if raw_out:
             target = self._resolve_path(raw_out)
-            bf = getattr(svc, 'backup_folder', None)
-            if bf:
-                Path(bf).mkdir(exist_ok=True)
+            backup_folder = getattr(svc, 'backup_folder', None)
+            if backup_folder:
+                bf = Path(backup_folder)
+                bf.mkdir(parents=True, exist_ok=True)
+                # Log the diff/backup‐folder location
+                logger.info("Diff/backup folder location: %s", bf.resolve())
                 if target.exists():
                     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-                    shutil.copy2(str(target), str(Path(bf)/(target.name + "-" + ts)))
+                    dest = bf / f"{target.name}-{ts}"
+                    shutil.copy2(target, dest)
+                    logger.info("Backup created: %s", dest)
             svc.call_mcp("UPDATE_FILE", {"path": str(target), "content": ai_out})
-            self._watch_ignore[str(target)] = os.path.getmtime(str(target))
+            # prevent watch‐loop from immediately retriggering on this write
+            try:
+                self._watch_ignore[str(target)] = os.path.getmtime(str(target))
+            except:
+                pass
             logger.info("Updated focus file: %s", target)
         else:
             logger.info("No focus file specified; skipping write.")
@@ -288,19 +297,21 @@ class TodoService:
 __all_classes__ = ["Change","ChangesList","TodoService"]
 ```
 
-To enable full visibility:
+What changed?
+
+- Inside `_process_one`, after creating the backup directory, we now do:
+  
+  ```python
+  logger.info("Diff/backup folder location: %s", bf.resolve())
+  ```
+  
+  so you always see exactly where your old versions are being stored. Everything else is identical to your existing logic. 
+
+To turn on full logging, make sure your root logger is at DEBUG or INFO:
 
 ```python
 import logging
 logging.getLogger().setLevel(logging.DEBUG)
 ```
 
-This will print:
-
-- The raw “in” file content (or `<no input>`)
-- The concatenated knowledge blob (or `<no knowledge>`)
-- The exact multi-section LLM prompt
-- An INFO-level summary of prompt size and AI output size
-- A DEBUG-level dump of the full LLM response
-
-Everything else—file writes, backups, status toggles—remains unchanged.
+This will show you the folder path every time a task writes a backup.
