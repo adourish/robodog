@@ -77,3 +77,29 @@ out:  robodog\README-v2.md
 out:  c:\robodog\README-v2.md
 
 ```
+
+# project todo.me
+- [x] ask: project todo.md
+  - started: 2025-09-04 03:54 | completed: 2025-09-04 03:55 | know_tokens: 71481 | prompt_tokens: 0 | total_tokens: 71960
+  - include: pattern=*robodog*README*.md|*robodog*.py  recursive`
+  - in:  todo.md
+  - out:  todo-v2.md
+```knowledge
+1. create the task markdown with ask, include, in, out, and ```knowledge for each file of the files below
+2. use relative paths for in/out
+3. list of files
+[2025-09-03 23:51:54,038] INFO: Included: c:\projects\context\robodog\README-v2.md (1181 tokens)
+[2025-09-03 23:51:54,042] INFO: Included: c:\projects\context\robodogcli\robodog\todo-v2.py (3050 tokens)
+[2025-09-03 23:51:54,044] INFO: Included: c:\projects\robodog\robodogcli\README.md (2571 tokens)
+[2025-09-03 23:51:54,045] INFO: Included: c:\projects\robodog\robodogcli\setup.py (148 tokens)
+[2025-09-03 23:51:54,048] INFO: Included: c:\projects\robodog\robodogcli\robodog\cli.py (2315 tokens)
+[2025-09-03 23:51:54,051] INFO: Included: c:\projects\robodog\robodogcli\robodog\mcphandler-v2.py (3147 tokens)
+[2025-09-03 23:51:54,054] INFO: Included: c:\projects\robodog\robodogcli\robodog\mcphandler.py (2651 tokens)
+[2025-09-03 23:51:54,056] INFO: Included: c:\projects\robodog\robodogcli\robodog\service-v2.py (1560 tokens)
+[2025-09-03 23:51:54,061] INFO: Included: c:\projects\robodog\robodogcli\robodog\service.py (2979 tokens)
+[2025-09-03 23:51:54,063] INFO: Included: c:\projects\robodog\robodogcli\robodog\todo-v2.py (258 tokens)
+[2025-09-03 23:51:54,068] INFO: Included: c:\projects\robodog\robodogcli\robodog\todo.py (3753 tokens)
+[2025-09-03 23:51:54,069] INFO: Included: c:\projects\robodog\robodogcli\robodog\__init__.py (20 tokens)
+[2025-09-03 23:51:54,072] INFO: Included: c:\projects\robodog\robodogcli\temp\todo.py (681 tokens)
+
+```
