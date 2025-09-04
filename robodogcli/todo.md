@@ -6,8 +6,8 @@ base: c:\projects\robodog
 # mcphandler.py
 - [x] ask: enhance mcp
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - in:  robodogcli\robodog\mcphandler.py
-  - out:  robodogcli\robodog\mcphandler-v2.py
+  - in:  robodog\mcphandler.py
+  - out:  robodog\mcphandler-v2.py
 ```knowledge
 mcphandler.py
 
@@ -15,34 +15,23 @@ mcphandler.py
 
 
 # service.py
-- [x] ask: enhance service
+- [~] ask: enhance service
+  - started: 2025-09-04 00:59 | know_tokens: 84435 | prompt_tokens: 84435 | total_tokens: 168870
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - in:  robodog\robodogcli\robodog\service.py
-  - out:  robodog\robodogcli\robodog\service-v2.py
+  - in:  robodog\robodog\service.py
+  - out:  robodog\robodog\service-v2.py
 ```knowledge
-service.py
-
+1. change ask so that it changes the terminal so i can see it with the window minimized
 ```
 
 # todo.py
-- [x] ask: enhance todo
-  - started: 2025-09-04 00:47 | completed: 2025-09-04 00:47 | know_tokens: 54766 | prompt_tokens: 54766 | total_tokens: 109532
+- [x] ask: todo
+  - started: 2025-09-04 01:39 | completed: 2025-09-04 01:39 | know_tokens: 46848 | prompt_tokens: 1359 | total_tokens: 48207
   - include: pattern=*robodog*.md|*robodogcli*robodog*.py  recursive`
-  - in:  robodogcli\robodog\todo.py
-  - out:  robodogcli\robodog\todo-v2.py
+  - in:  robodog\todo.py
+  - out:  robodog\todo-v2.py
 ```knowledge
-
-2. each time process one runs, 
-2. find the base: from the current file that the task is part of
-3 set self._base_dir = base from the current task file
-
-4. do not make any other code change
-5. do not remove any comments
-6. do not refactor any existing code
-
----
-base: c:\projects\robodog
----
+list functions
 ```
 
 
@@ -50,8 +39,8 @@ base: c:\projects\robodog
 - [x] ask: enhance cli
   - started: 2025-09-01 20:05 | completed: 2025-09-01 20:06 | know_tokens: 24294 | prompt_tokens: 24349 | total_tokens: 48643
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - in:  robodogcli\robodog\cli.py
-  - out:  robodogcli\robodog\cli-v2.py
+  - in:  robodog\cli.py
+  - out:  robodog\cli-v2.py
 ```knowledge
 cli.py
 
@@ -61,8 +50,8 @@ cli.py
 - [x] ask: project features.md
   - started: 2025-09-01 22:40 | completed: 2025-09-01 22:41 | know_tokens: 25322 | prompt_tokens: 25407 | total_tokens: 50729
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - in:  robodogcli\robodog\features.md
-  - out:  robodogcli\robodog\features-v2.md
+  - in:  robodog\features.md
+  - out:  robodog\features-v2.md
 ```knowledge
 1. generate a features.md file. 
 2. it should create a section for each python file cli.py, service.py, todo.py, and mcphandler.

@@ -120,6 +120,8 @@ class RobodogService:
                     f"\r{frame}  {last_line[:60]}{'…' if len(last_line) > 60 else ''}"
                 )
                 sys.stdout.flush()
+                sys.stdout.write(f"\x1b]0;{last_line[:60].strip()}…\x07")
+                sys.stdout.flush()
                 idx += 1
 
             # done streaming!

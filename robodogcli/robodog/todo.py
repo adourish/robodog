@@ -100,7 +100,7 @@ class TodoService:
                     out.append(os.path.join(dp, self.FILENAME))
         return out
 
-    def _load_all(self):
+    def _load_allb(self):
         self._file_lines.clear()
         self._tasks.clear()
         for fn in self._find_files():
@@ -142,6 +142,65 @@ class TodoService:
                         else:
                             task[key] = {'pattern': pat, 'recursive': rec}
                     j += 1
+                self._tasks.append(task)
+                i = j
+
+    def _load_all(self):
+        """
+        Parse each todo.md into tasks, capturing any adjacent ```knowledge``` block.
+        """
+        self._file_lines.clear()
+        self._tasks.clear()
+        for fn in self._find_files():
+            lines = Path(fn).read_text(encoding='utf-8').splitlines(keepends=True)
+            self._file_lines[fn] = lines
+            i = 0
+            while i < len(lines):
+                m = TASK_RE.match(lines[i])
+                if not m:
+                    i += 1
+                    continue
+
+                indent = m.group(1)
+                status = m.group('status')
+                desc   = m.group('desc').strip()
+                task   = {
+                    'file': fn,
+                    'line_no': i,
+                    'indent': indent,
+                    'status_char': status,
+                    'desc': desc,
+                    'include': None,
+                    'in': None,
+                    'out': None,
+                    'knowledge': '',      # <- always present
+                    '_start_stamp': None,
+                    '_know_tokens': 0,
+                    '_in_tokens': 0,
+                    '_token_count': 0,
+                }
+
+                # scan sub‐entries (include, in, focus)
+                j = i + 1
+                while j < len(lines) and lines[j].startswith(indent + '  '):
+                    sub = SUB_RE.match(lines[j])
+                    if sub:
+                        key = sub.group('key')
+                        pat = sub.group('pattern').strip('"').strip('`')
+                        rec = bool(sub.group('rec'))
+                        task[key] = {'pattern': pat, 'recursive': rec}
+                    j += 1
+
+                # ——— NEW: capture ```knowledge``` fence immediately after task
+                if j < len(lines) and lines[j].lstrip().startswith('```knowledge'):
+                    fence = []
+                    j += 1
+                    while j < len(lines) and not lines[j].startswith('```'):
+                        fence.append(lines[j])
+                        j += 1
+                    task['knowledge'] = ''.join(fence)
+                    j += 1  # skip closing ``` line
+
                 self._tasks.append(task)
                 i = j
 
@@ -302,21 +361,28 @@ class TodoService:
         self._base_dir =_basedir
         know = self._gather_include_knowledge(task.get('include') or {}, svc)
         task['_know_tokens'] = self._get_token_count(know)
-
+        outpat = task.get('out',{}).get('pattern')
         inp = task.get('in',{}).get('pattern')
+        logger.info("Task in path: %s", self._resolve_path(inp))
+        logger.info("Task out path: %s", self._resolve_path(outpat))
         content = ''
         if inp:
             pth = self._resolve_path(inp)
             if pth and pth.is_file():
                 content = pth.read_text(encoding='utf-8')
-        task['_prompt_tokens'] = self._get_token_count(content + know)
-        task['_token_count']  = task['_know_tokens'] + task['_prompt_tokens']
+        task['_know_tokens'] = self._get_token_count(know)
+        task['_in_count']  = self._get_token_count(content)
+        task['_prompt_tokens']  = self._get_token_count(content)
 
+        task['_token_count'] = self._get_token_count(content + know)
+        logger.info("Task prompt count: %s", task['_prompt_tokens'])
+        logger.info("Task knowledge count: %s", task['_know_tokens'])
+        logger.info("Task token count: %s", task['_token_count'])
         TodoService._start_task(task, file_lines_map)
 
         # ===== new logging as requested =====
         logger.info("Task in-pattern: %s", inp or "<none>")
-        outpat = task.get('out',{}).get('pattern')
+        
         logger.info("Task out-pattern: %s", outpat or "<none>")
         # ====================================
 
