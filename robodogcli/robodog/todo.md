@@ -26,16 +26,23 @@ service.py
 
 # todo.py
 - [x] ask: enhance todo
-  - started: 2025-09-03 22:54 | completed: 2025-09-03 22:55 | know_tokens: 47323 | prompt_tokens: 48403 | total_tokens: 95726
+  - started: 2025-09-04 00:47 | completed: 2025-09-04 00:47 | know_tokens: 54766 | prompt_tokens: 54766 | total_tokens: 109532
   - include: pattern=*robodog*.md|*robodogcli*robodog*.py  recursive`
   - in:  robodogcli\robodog\todo.py
   - out:  robodogcli\robodog\todo-v2.py
 ```knowledge
-1. log both the inpat/outpath and the actual target paths for both
-2. give me a full drop in file
+
+2. each time process one runs, 
+2. find the base: from the current file that the task is part of
+3 set self._base_dir = base from the current task file
+
 4. do not make any other code change
 5. do not remove any comments
 6. do not refactor any existing code
+
+---
+base: c:\projects\robodog
+---
 ```
 
 

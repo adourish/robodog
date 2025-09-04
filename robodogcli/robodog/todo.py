@@ -297,6 +297,9 @@ class TodoService:
         return target.resolve()
     
     def _process_one(self, task: dict, svc, file_lines_map: dict):
+        _basedir = os.path.dirname(task['file']);
+        logger.info("Task todo file: %s", _basedir)
+        self._base_dir =_basedir
         know = self._gather_include_knowledge(task.get('include') or {}, svc)
         task['_know_tokens'] = self._get_token_count(know)
 
