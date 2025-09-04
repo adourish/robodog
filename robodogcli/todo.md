@@ -1,6 +1,3 @@
----
-base: c:\projects\robodog
----
 # Project To-Dos
   
 # mcphandler.py
@@ -26,7 +23,7 @@ mcphandler.py
 
 # todo.py
 - [x] ask: todo
-  - started: 2025-09-04 01:39 | completed: 2025-09-04 01:39 | know_tokens: 46848 | prompt_tokens: 1359 | total_tokens: 48207
+  - started: 2025-09-04 03:31 | completed: 2025-09-04 03:31 | know_tokens: 53367 | prompt_tokens: 0 | total_tokens: 54728
   - include: pattern=*robodog*.md|*robodogcli*robodog*.py  recursive`
   - in:  robodog\todo.py
   - out:  robodog\todo-v2.py

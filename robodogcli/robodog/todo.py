@@ -306,7 +306,7 @@ class TodoService:
         raw = include.get('pattern','').strip('"').strip('`')
         spec = f"pattern={raw}" + \
                (" recursive" if include.get('recursive') else "")
-        logger.info("Gather include knowledge: %s", spec)
+        logger.debug("Gather include knowledge: %s", spec)
         return svc.include(spec) or ""
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
@@ -314,7 +314,7 @@ class TodoService:
         Resolve a fragment (pattern/file spec) to an absolute Path,
         logging each step to help debug why base_dir may be skipped.
         """
-        logger.info("-> _resolve_path called with frag=%r, base_dir=%r, roots=%s",
+        logger.debug("-> _resolve_path called with frag=%r, base_dir=%r, roots=%s",
                     frag, self._base_dir, self._roots)
         if not frag:
             logger.info("   no fragment provided -> returning None")
@@ -322,36 +322,36 @@ class TodoService:
 
         # strip quotes/backticks
         f = frag.strip('"').strip('`')
-        logger.info("   normalized fragment to %r", f)
+        logger.debug("   normalized fragment to %r", f)
 
         # 1) bare filename under base_dir
         if self._base_dir and not any(sep in f for sep in (os.sep, '/', '\\')):
             candidate = Path(self._base_dir) / f
-            logger.info("   branch 1: treating as bare filename under base_dir -> %s", candidate)
+            logger.debug("   branch 1: treating as bare filename under base_dir -> %s", candidate)
             return candidate.resolve()
 
         # 2) any relative path under base_dir
         if self._base_dir and any(sep in f for sep in ('/', '\\')):
             candidate = Path(self._base_dir) / Path(f)
-            logger.info("   branch 2: treating as relative path under base_dir -> %s", candidate)
+            logger.debug("   branch 2: treating as relative path under base_dir -> %s", candidate)
             candidate.parent.mkdir(parents=True, exist_ok=True)
             return candidate.resolve()
 
         # 3) search under base_dir first, then all roots
         search_roots = ([self._base_dir] if self._base_dir else []) + self._roots
-        logger.info("   branch 3: searching for existing file under roots -> %s", search_roots)
+        logger.debug("   branch 3: searching for existing file under roots -> %s", search_roots)
         for root in search_roots:
             cand = Path(root) / f
-            logger.info("      checking %s", cand)
+            logger.debug("      checking %s", cand)
             if cand.is_file():
-                logger.info("      found existing file at %s", cand)
+                logger.debug("      found existing file at %s", cand)
                 return cand.resolve()
 
         # 4) not found: create under first configured root
         p = Path(f)
         base = Path(self._roots[0]) / p.parent
         target = base / p.name
-        logger.info("   branch 4: not found, will create under first root -> %s", target)
+        logger.debug("   branch 4: not found, will create under first root -> %s", target)
         base.mkdir(parents=True, exist_ok=True)
         return target.resolve()
     
@@ -359,38 +359,39 @@ class TodoService:
         _basedir = os.path.dirname(task['file']);
         logger.info("Task todo file: %s", _basedir)
         self._base_dir =_basedir
-        know = self._gather_include_knowledge(task.get('include') or {}, svc)
-        task['_know_tokens'] = self._get_token_count(know)
+        include = self._gather_include_knowledge(task.get('include') or {}, svc)
+        knowledge = task['knowledge']
+        task['_know_tokens'] = self._get_token_count(include)
         outpat = task.get('out',{}).get('pattern')
         inp = task.get('in',{}).get('pattern')
-        logger.info("Task in path: %s", self._resolve_path(inp))
-        logger.info("Task out path: %s", self._resolve_path(outpat))
-        content = ''
+
+        incontent = '# file: ' + inp
         if inp:
             pth = self._resolve_path(inp)
             if pth and pth.is_file():
-                content = pth.read_text(encoding='utf-8')
-        task['_know_tokens'] = self._get_token_count(know)
-        task['_in_count']  = self._get_token_count(content)
-        task['_prompt_tokens']  = self._get_token_count(content)
-
-        task['_token_count'] = self._get_token_count(content + know)
-        logger.info("Task prompt count: %s", task['_prompt_tokens'])
-        logger.info("Task knowledge count: %s", task['_know_tokens'])
+                incontent = pth.read_text(encoding='utf-8')
+        task['_include_tokens'] = self._get_token_count(include)
+        task['_in_count']  = self._get_token_count(incontent)
+        task['_knowledge_tokens'] = self._get_token_count(knowledge)
+        task['_token_count'] = self._get_token_count(incontent + include)
+        logger.info("Task include count: %s", task['_include_tokens'])
+        logger.info("Task in count: %s", task['_in_count'])
+        logger.info("Task knowledge count: %s", task['_knowledge_tokens'])
         logger.info("Task token count: %s", task['_token_count'])
         TodoService._start_task(task, file_lines_map)
 
         # ===== new logging as requested =====
-        logger.info("Task in-pattern: %s", inp or "<none>")
-        
-        logger.info("Task out-pattern: %s", outpat or "<none>")
+        logger.info("Task in path: %s", self._resolve_path(inp))
+        logger.info("Task out path: %s", self._resolve_path(outpat))
         # ====================================
 
         parts = []
-        if content:
-            parts.append(f"input:\n{content}\n\n:end input:")
-        if know:
-            parts.append(f"knowledge:\n{know}\n\n:end knowledge:")
+        if incontent:
+            parts.append(f"input:\n{incontent}\n\n")
+        if include:
+            parts.append(f"include knowledge:\n{include}\n\n")
+        if knowledge:
+            parts.append(f"knowledge:\n{knowledge}\n\n")
         parts.append("ask: " + task['desc'])
         prompt = "\n\n".join(parts)
         ai_out = svc.ask(prompt)

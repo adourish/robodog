@@ -211,9 +211,9 @@ def interact(svc: RobodogService):
                 logging.exception("Error processing command")
 
         else:
-            svc.context += f"\nUser: {line}"
-            resp = svc.ask(line)
-            svc.context += f"\nAI: {resp}"
+            _line = f"\nUser: {line}"
+            _resp = svc.ask(_line)
+            print( f"{_resp}")
 
 def main():
     parser = argparse.ArgumentParser(prog="robodog",
