@@ -2,6 +2,7 @@
   
 # mcphandler.py
 - [x] ask: enhance mcp
+  - started: 2025-09-04 03:43 | completed: 2025-09-04 03:44 | know_tokens: 74278 | prompt_tokens: 0 | total_tokens: 75186
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - in:  robodog\mcphandler.py
   - out:  robodog\mcphandler-v2.py
@@ -13,12 +14,13 @@ mcphandler.py
 
 # service.py
 - [~] ask: enhance service
-  - started: 2025-09-04 00:59 | know_tokens: 84435 | prompt_tokens: 84435 | total_tokens: 168870
+  - started: 2025-09-04 03:43 | know_tokens: 74318 | prompt_tokens: 0 | total_tokens: 75395
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - in:  robodog\robodog\service.py
-  - out:  robodog\robodog\service-v2.py
+  - in:  robodog\service.py
+  - out:  robodog\service-v2.py
 ```knowledge
 1. change ask so that it changes the terminal so i can see it with the window minimized
+2. change the spinner to be cylon from battle star themed
 ```
 
 # todo.py
@@ -28,7 +30,7 @@ mcphandler.py
   - in:  robodog\todo.py
   - out:  robodog\todo-v2.py
 ```knowledge
-list functions
+1. 
 ```
 
 
