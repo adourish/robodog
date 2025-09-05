@@ -25,12 +25,14 @@ mcphandler.py
 
 # todo.py
 - [x] ask: todo
-  - started: 2025-09-04 03:31 | completed: 2025-09-04 03:31 | know_tokens: 53367 | prompt_tokens: 0 | total_tokens: 54728
+  - started: 2025-09-05 00:13 | knowlege_tokens: 46 | include_tokens: 69265 | in_tokens: 1383 | prompt_tokens: 70694
   - include: pattern=*robodog*.md|*robodogcli*robodog*.py  recursive`
   - in:  robodog\todo.py
   - out:  robodog\todo-v2.py
 ```knowledge
-1. 
+1. recommend an approach to allow me to configure more than one agent in the todo.md file. e.g., agent1, agent2, etc.
+2. recommend how i can pick an agent in each task
+3. recommend how i can change the todo.py code to run multiple agents concurrently
 ```
 
 
@@ -47,14 +49,18 @@ cli.py
 
 # project features
 - [x] ask: project features.md
-  - started: 2025-09-01 22:40 | completed: 2025-09-01 22:41 | know_tokens: 25322 | prompt_tokens: 25407 | total_tokens: 50729
+  - started: 2025-09-04 23:46 | completed: 2025-09-04 23:47 | know_tokens: 60240 | prompt_tokens: 0 | total_tokens: 60243
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - in:  robodog\features.md
-  - out:  robodog\features-v2.md
+  - in:  features.md
+  - out:  features-v2.md
 ```knowledge
 1. generate a features.md file. 
-2. it should create a section for each python file cli.py, service.py, todo.py, and mcphandler.
-3. describe what each function does so you could recreate it.
+2. include all features and how they work for cli.py
+3. include all features and how they work for todo.py
+4. include all features and how they work for service.py
+5. include all features and how they work for mcphandler.py 
+6. features should be detailed so that you can recreate the application from the features.md file
+
 
 ```
 

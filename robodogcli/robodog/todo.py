@@ -231,17 +231,21 @@ class TodoService:
 
     @staticmethod
     def _format_summary(indent: str, start: str, end: Optional[str]=None,
-                        know: Optional[int]=None, prompt: Optional[int]=None,
-                        total: Optional[int]=None) -> str:
+                        know: Optional[int]=None, prompt: Optional[int]=None, incount: Optional[int]=None,
+                        include: Optional[int]=None) -> str:
+        # know, prompt, incount, include
         parts = [f"started: {start}"]
         if end:
             parts.append(f"completed: {end}")
         if know is not None:
-            parts.append(f"know_tokens: {know}")
+            parts.append(f"knowlege_tokens: {know}")
+        if include is not None:
+            parts.append(f"include_tokens: {include}")
+        if include is not None:
+            parts.append(f"in_tokens: {incount}")
         if prompt is not None:
             parts.append(f"prompt_tokens: {prompt}")
-        if total is not None:
-            parts.append(f"total_tokens: {total}")
+        
         return f"{indent}  - " + " | ".join(parts) + "\n"
 
     @staticmethod
@@ -253,10 +257,10 @@ class TodoService:
         file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Doing']}] {desc}\n"
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         task['_start_stamp'] = stamp
-        know, prompt, total = (task.get(k, 0) for k in
-                               ('_know_tokens','_prompt_tokens','_token_count'))
+        know, prompt, incount, include = (task.get(k, 0) for k in
+                               ('_knowledge_tokens','_prompt_tokens','_in_count', '_include_tokens'))
         summary = TodoService._format_summary(indent, stamp, None,
-                                              know, prompt, total)
+                                              know, prompt, incount, include)
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
            file_lines_map[fn][idx].lstrip().startswith('- started:'):
@@ -275,10 +279,10 @@ class TodoService:
         file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Done']}] {desc}\n"
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         start = task.get('_start_stamp','')
-        know, prompt, total = (task.get(k, 0) for k in
-                               ('_know_tokens','_prompt_tokens','_token_count'))
-        summary = TodoService._format_summary(indent, start,
-                                              stamp, know, prompt, total)
+        know, prompt, incount, include = (task.get(k, 0) for k in
+                               ('_knowledge_tokens','_prompt_tokens','_in_count', '_include_tokens'))
+        summary = TodoService._format_summary(indent, stamp, None,
+                                              know, prompt, incount, include)
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
            file_lines_map[fn][idx].lstrip().startswith('- started:'):
@@ -373,11 +377,11 @@ class TodoService:
         task['_include_tokens'] = self._get_token_count(include)
         task['_in_count']  = self._get_token_count(incontent)
         task['_knowledge_tokens'] = self._get_token_count(knowledge)
-        task['_token_count'] = self._get_token_count(incontent + include)
+        task['_prompt_tokens'] = self._get_token_count(incontent + include + knowledge)
         logger.info("Task include count: %s", task['_include_tokens'])
         logger.info("Task in count: %s", task['_in_count'])
         logger.info("Task knowledge count: %s", task['_knowledge_tokens'])
-        logger.info("Task token count: %s", task['_token_count'])
+        logger.info("Task prompt count: %s", task['_prompt_tokens'])
         TodoService._start_task(task, file_lines_map)
 
         # ===== new logging as requested =====

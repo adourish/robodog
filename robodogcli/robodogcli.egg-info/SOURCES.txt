@@ -3,7 +3,9 @@ pyproject.toml
 setup.py
 robodog/__init__.py
 robodog/cli.py
+robodog/mcphandler-v2.py
 robodog/mcphandler.py
+robodog/service-v2.py
 robodog/service.py
 robodog/todo-v2.py
 robodog/todo.py
