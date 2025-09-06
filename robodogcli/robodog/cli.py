@@ -76,7 +76,7 @@ def interact(svc: RobodogService):
                     print_help()
 
                 elif cmd == "models":
-                    for m in svc.list_models():
+                    for m in svc.list_models_about():
                         logging.info("  %s", m)
 
                 elif cmd == "model":

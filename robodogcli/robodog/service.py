@@ -165,6 +165,11 @@ class RobodogService:
     # MODEL / KEY MANAGEMENT
     def list_models(self):
         return [m["model"] for m in self.models]
+    
+    # ————————————————————————————————————————————————————————————
+    # MODEL / KEY MANAGEMENT
+    def list_models_about(self):
+        return [m["model"] + ": " + m["about"] for m in self.models]
 
     def set_model(self, model_name: str):
         if model_name not in self.list_models():
