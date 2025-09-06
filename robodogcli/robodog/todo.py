@@ -232,8 +232,9 @@ class TodoService:
     @staticmethod
     def _format_summary(indent: str, start: str, end: Optional[str]=None,
                         know: Optional[int]=None, prompt: Optional[int]=None, incount: Optional[int]=None,
-                        include: Optional[int]=None) -> str:
+                        include: Optional[int]=None, cur_model: str=None) -> str:
         # know, prompt, incount, include
+        _cur_model = cur_model
         parts = [f"started: {start}"]
         if end:
             parts.append(f"completed: {end}")
@@ -245,11 +246,13 @@ class TodoService:
             parts.append(f"in_tokens: {incount}")
         if prompt is not None:
             parts.append(f"prompt_tokens: {prompt}")
+        if prompt is not None:
+            parts.append(f"cur_model: {cur_model}")
         
         return f"{indent}  - " + " | ".join(parts) + "\n"
 
     @staticmethod
-    def _start_task(task: dict, file_lines_map: dict):
+    def _start_task(task: dict, file_lines_map: dict, cur_model: str):
         if STATUS_MAP[task['status_char']] != 'To Do':
             return
         fn, ln = task['file'], task['line_no']
@@ -260,7 +263,7 @@ class TodoService:
         know, prompt, incount, include = (task.get(k, 0) for k in
                                ('_knowledge_tokens','_prompt_tokens','_in_count', '_include_tokens'))
         summary = TodoService._format_summary(indent, stamp, None,
-                                              know, prompt, incount, include)
+                                              know, prompt, incount, include, cur_model)
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
            file_lines_map[fn][idx].lstrip().startswith('- started:'):
@@ -271,7 +274,7 @@ class TodoService:
         task['status_char'] = REVERSE_STATUS['Doing']
 
     @staticmethod
-    def _complete_task(task: dict, file_lines_map: dict):
+    def _complete_task(task: dict, file_lines_map: dict, cur_model: str):
         if STATUS_MAP[task['status_char']] != 'Doing':
             return
         fn, ln = task['file'], task['line_no']
@@ -282,7 +285,7 @@ class TodoService:
         know, prompt, incount, include = (task.get(k, 0) for k in
                                ('_knowledge_tokens','_prompt_tokens','_in_count', '_include_tokens'))
         summary = TodoService._format_summary(indent, stamp, None,
-                                              know, prompt, incount, include)
+                                              know, prompt, incount, include, cur_model)
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
            file_lines_map[fn][idx].lstrip().startswith('- started:'):
@@ -382,7 +385,8 @@ class TodoService:
         logger.info("Task in count: %s", task['_in_count'])
         logger.info("Task knowledge count: %s", task['_knowledge_tokens'])
         logger.info("Task prompt count: %s", task['_prompt_tokens'])
-        TodoService._start_task(task, file_lines_map)
+        _cur_model = svc.get_cur_model()
+        TodoService._start_task(task, file_lines_map, _cur_model)
 
         # ===== new logging as requested =====
         logger.info("Task in path: %s", self._resolve_path(inp))
@@ -422,6 +426,6 @@ class TodoService:
         else:
             logger.info("No focus file specified; skipping write.")
 
-        TodoService._complete_task(task, file_lines_map)
+        TodoService._complete_task(task, file_lines_map, _cur_model)
 
 __all_classes__ = ["Change","ChangesList","TodoService"]

@@ -70,6 +70,9 @@ class RobodogService:
             base_url=base_url  # Ensure proper v1 endpoint
         )
 
+    def get_cur_model(self):
+        return self.cur_model
+    
     def model_provider(self, model_name):
         for m in self.models:
             if m["model"] == model_name:
