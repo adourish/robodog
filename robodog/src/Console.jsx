@@ -265,10 +265,11 @@ function Console() {
 
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
+              modelsText += "\n";
               if (modelsText) {
-                modelsText += ", " + engine.model;
+                modelsText += ", " + engine.model + ": " + engine.about + "\n";
               } else {
-                modelsText += "Models: " + engine.model;
+                modelsText += "Models: " + engine.model + ": " + engine.about + "\n";
               }
             }
           }
