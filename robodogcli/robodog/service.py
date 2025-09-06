@@ -45,14 +45,36 @@ class RobodogService:
         self.presence_penalty = 0.0
 
     def _init_llm(self, api_key):
+        provider_name = self.model_provider(self.cur_model)
+        provider_cfg = self.providers.get(provider_name)
+
+        if not provider_cfg:
+            raise RuntimeError(f"No configuration found for provider: {provider_name}")
+
         self.api_key = (
             api_key
             or os.getenv("OPENAI_API_KEY")
-            or self.providers[self.model_provider(self.cur_model)]["apiKey"]
+            or provider_cfg.get("apiKey")
         )
+
         if not self.api_key:
             raise RuntimeError("Missing API key")
-        self.client = OpenAI(api_key=self.api_key)
+
+        base_url = provider_cfg.get("baseUrl")
+        if not base_url:
+            raise RuntimeError(f"Missing baseUrl for provider: {provider_name}")
+
+        # Initialize OpenAI client with provider's base URL
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=base_url  # Ensure proper v1 endpoint
+        )
+
+    def model_provider(self, model_name):
+        for m in self.models:
+            if m["model"] == model_name:
+                return m["provider"]
+        return None
 
     def model_provider(self, model_name):
         for m in self.models:
