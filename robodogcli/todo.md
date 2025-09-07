@@ -109,3 +109,14 @@ out:  c:\robodog\README-v2.md
 [2025-09-03 23:51:54,072] INFO: Included: c:\projects\robodog\robodogcli\temp\todo.py (681 tokens)
 
 ```
+
+# enhancements in robodoglib features
+- [x] ask: project features.md
+  - started: 2025-09-07 01:24 | knowlege_tokens: 11 | include_tokens: 20081 | in_tokens: 971 | prompt_tokens: 21063 | cur_model: x-ai/grok-code-fast-1
+  - include: pattern=*robodog*.md|*robodog*.js   recursive`
+  - in:  rd-features-v2.md
+  - out:  rd-features-v3.md
+```knowledge
+implement the features in v2. give me full drop in code
+
+```

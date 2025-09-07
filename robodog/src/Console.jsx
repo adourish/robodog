@@ -266,11 +266,7 @@ function Console() {
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
               modelsText += "\n";
-              if (modelsText) {
-                modelsText += ", " + engine.model + ": " + engine.about + "\n";
-              } else {
-                modelsText += "Models: " + engine.model + ": " + engine.about + "\n";
-              }
+              modelsText += "" + engine.model + ": " + engine.about + "\n";
             }
           }
           var item = formatService.getMessageWithTimestamp(modelsText, 'model')
