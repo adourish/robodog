@@ -7,6 +7,7 @@ const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
 const providerService = new RobodogLib.ProviderService();
+const mcpService = new RobodogLib.MCPService();
 const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
 const SettingsComponent = RobodogLib.SettingsComponent;
 
@@ -18,6 +19,98 @@ if (window) {
   build = version + " - " + buildNumber + " - " + buildInfo;
 }
 console.log(build, consoleService);
+
+// File Tree Node Component
+const FileTreeNode = ({ node, onSelect, onExpand, expandedNodes }) => {
+  const isExpanded = expandedNodes[node.path];
+  const isDir = node.type === 'directory';
+
+  return (
+    <div className="file-tree-node">
+      <div
+        className={`file-tree-item ${node.type}`}
+        onClick={() => isDir ? onExpand(node) : onSelect(node)}
+      >
+        {isDir && (
+          <span className="expand-icon">
+            {isExpanded ? '📂' : '📁'}
+          </span>
+        )}
+        {!isDir && <span className="file-icon">📄</span>}
+        <span className="file-name">{node.name}</span>
+      </div>
+      {isExpanded && node.children && (
+        <div className="file-children">
+          {node.children.map(child => (
+            <FileTreeNode
+              key={child.path}
+              node={child}
+              onSelect={onSelect}
+              onExpand={onExpand}
+              expandedNodes={expandedNodes}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Task Item Component
+const TaskItem = ({ task, onRun, runningTaskId }) => {
+  const getStatusEmoji = (status) => {
+    switch (status) {
+      case 'To Do': return '⬜';
+      case 'Doing': return '🔄';
+      case 'Done': return '✅';
+      default: return '⬜';
+    }
+  };
+
+  const getProgress = (task) => {
+    const tokens = task._token_count || 0;
+    const maxTokens = 4000; // Adjust based on your model limits
+    return Math.min(100, (tokens / maxTokens) * 100);
+  };
+
+  return (
+    <div className="task-item">
+      <div className="task-header">
+        <span className="task-status">{getStatusEmoji(task.status)}</span>
+        <span className="task-desc">{task.desc}</span>
+        {task.status === 'To Do' && (
+          <button
+            className="run-task-btn"
+            onClick={() => onRun(task)}
+            disabled={runningTaskId !== null}
+          >
+            {runningTaskId === task.id ? '⏳' : '▶️'}
+          </button>
+        )}
+      </div>
+
+      {task.status !== 'To Do' && (
+        <div className="task-progress">
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${getProgress(task)}%` }}
+            ></div>
+          </div>
+          <div className="token-count">
+            Tokens: {task._token_count || 0}
+          </div>
+        </div>
+      )}
+
+      {task.out && (
+        <div className="task-focus-file">
+          Focus: <code>{task.out.pattern}</code>
+        </div>
+      )}
+    </div>
+  );
+};
 
 function Console() {
 
@@ -60,6 +153,22 @@ function Console() {
   const [watch, setWatch] = useState('');
   const [file, setFile] = useState('');
   const [group, setGroup] = useState('');
+
+  // Todo Task Viewer States
+  const [tasks, setTasks] = useState([]);
+  const [runningTaskId, setRunningTaskId] = useState(null);
+  const [todoViewerVisible, setTodoViewerVisible] = useState(false);
+
+  // File Browser States
+  const [fileTree, setFileTree] = useState([]);
+  const [expandedNodes, setExpandedNodes] = useState({});
+  const [fileViewerVisible, setFileViewerVisible] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileContent, setFileContent] = useState('');
+
+  // Live Log Feed States
+  const [logFeedVisible, setLogFeedVisible] = useState(false);
+  const [logs, setLogs] = useState([]);
 
   // RUN THIS ONCE
   useEffect(() => {
@@ -280,10 +389,6 @@ function Console() {
           handleSetModel(_command.verb)
           break;
 
-          handleSetFile(_command.verb)
-          break;
-          handleGetGroups(_command.verb)
-          break;
         case '/search':
           if (search !== '') {
             setSearch('');
@@ -414,6 +519,7 @@ function Console() {
             }
           }
           break;
+        case '/gpt-4':
           setModel('gpt-4');
           handleSetModel('gpt-4')
           setMaxChars(8192);
@@ -429,6 +535,36 @@ function Console() {
           console.log('/reset')
           //window.location.reload();
           setContent([...content, formatService.getMessageWithTimestamp('reset', 'system')]);
+          break;
+        case '/todo':
+          loadTodoTasks();            // Load tasks immediately
+          message = 'Todo viewer opened. Run next or select a task.';
+          setContent([
+            ...content,
+            formatService.getMessageWithTimestamp(message, 'event')
+          ]);
+          break;
+
+        case '/list_todo_tasks':
+          loadTodoTasks();  // Reload and log
+          if (tasks.length > 0) {
+            message = 'Todo tasks: ' + tasks.map(t => `${t.desc} (${t.status})`).join(', ');
+          } else {
+            message = 'No todo tasks found.';
+          }
+          setContent([
+            ...content,
+            formatService.getMessageWithTimestamp(message, 'event')
+          ]);
+          break;
+
+        
+        case '/files':
+          setFileViewerVisible(true);
+          loadFileTree();
+          break;
+        case '/logs':
+          setLogFeedVisible(true);
           break;
         default:
           message = '🍄';
@@ -634,6 +770,107 @@ function Console() {
     }
   }, []);
 
+  // Todo Task Viewer Functions
+  const loadTodoTasks = async () => {
+    try {
+      const response = await mcpService.callMCP("LIST_TODO_TASKS", {});
+      setTasks(response.tasks || []);  // Assumes response.tasks is an array of { id, desc, status, ... }
+    } catch (error) {
+      console.error("Failed to load todo tasks:", error);
+      setTasks([]);  // Clear on error
+    }
+  };
+
+  const runNextTask = async () => {
+    try {
+      setRunningTaskId(-1);  // Indicate "running next"
+      await mcpService.callMCP("TODO", {});  // Runs the next To Do task via TodoService.run_next_task
+      await loadTodoTasks();  // Reload after running
+    } catch (error) {
+      console.error("Failed to run next task:", error);
+      setMessage("Error running next task: " + error.message);
+    } finally {
+      setRunningTaskId(null);
+    }
+  };
+
+  const runSpecificTask = async (task) => {
+    try {
+      setRunningTaskId(task.id);
+      // Optionally pass task details if your MCP server supports it (e.g., add to payload)
+      await mcpService.callMCP("TODO", { taskId: task.id });  // Extend server-side to handle specific IDs if needed
+      await loadTodoTasks();  // Reload after running
+    } catch (error) {
+      console.error("Failed to run task:", error.message);
+      setMessage("Error running task: " + error.message);
+    } finally {
+      setRunningTaskId(null);
+    }
+  };
+
+
+  // File Browser Functions
+  const loadFileTree = async () => {
+    try {
+      const response = await mcpService.callMCP("LIST_FILES", {});
+      setFileTree(response.files || []);
+    } catch (error) {
+      console.error("Failed to load file tree:", error);
+      setFileTree([]); // Set empty array on error
+    }
+  };
+
+  const handleFileSelect = async (node) => {
+    try {
+      setSelectedFile(node);
+      const response = await mcpService.callMCP("READ_FILE", { path: node.path });
+      setFileContent(response.content);
+    } catch (error) {
+      console.error("Failed to read file:", error);
+      setFileContent("Error reading file");
+    }
+  };
+
+  const handleNodeExpand = async (node) => {
+    if (node.type !== 'directory') return;
+
+    try {
+      // Toggle expanded state
+      setExpandedNodes(prev => ({
+        ...prev,
+        [node.path]: !prev[node.path]
+      }));
+
+      // If expanding and no children, load them
+      if (!prev[node.path] && !node.children) {
+        const response = await mcpService.callMCP("LIST_FILES", { path: node.path });
+        // Update the tree with children - this would need more complex state management
+        // For simplicity, we'll skip this in the mock
+      }
+    } catch (error) {
+      console.error("Failed to expand node:", error);
+    }
+  };
+
+  // Live Log Feed Functions
+  // In a real implementation, you would connect to a WebSocket or use long-polling
+  // For demonstration, we'll simulate log entries
+  useEffect(() => {
+    if (logFeedVisible) {
+      const interval = setInterval(() => {
+        // Simulate receiving log entries
+        const logEntry = {
+          timestamp: new Date().toISOString(),
+          level: ['info', 'warning', 'error'][Math.floor(Math.random() * 3)],
+          message: `Log entry ${logs.length + 1}`
+        };
+        setLogs(prev => [...prev, logEntry]);
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [logFeedVisible, logs.length]);
+
   return (
 
     <div className="console">
@@ -659,6 +896,73 @@ function Console() {
           ))}
         </select>
       </div>
+
+      {/* Todo Task Viewer */}
+      {todoViewerVisible && (
+        <div className="todo-viewer">
+          <div className="todo-header">
+            <h3>Todo Tasks</h3>
+            <button onClick={runNextTask} disabled={runningTaskId !== null}>
+              {runningTaskId === -1 ? '⏳ Running...' : '▶️ Run Next Task'}
+            </button>
+            <button onClick={() => setTodoViewerVisible(false)}>×</button>
+          </div>
+          <div className="task-list">
+            {tasks.map(task => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                onRun={runSpecificTask}
+                runningTaskId={runningTaskId}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* File Browser */}
+      {fileViewerVisible && (
+        <div className="file-browser">
+          <div className="file-tree-panel">
+            <h3>File Explorer</h3>
+            <button onClick={() => setFileViewerVisible(false)} className="close-button">×</button>
+            {fileTree.map(node => (
+              <FileTreeNode
+                key={node.path}
+                node={node}
+                onSelect={handleFileSelect}
+                onExpand={handleNodeExpand}
+                expandedNodes={expandedNodes}
+              />
+            ))}
+          </div>
+          {selectedFile && (
+            <div className="file-content-panel">
+              <h3>{selectedFile.name}</h3>
+              <button onClick={() => setSelectedFile(null)} className="close-button">×</button>
+              <pre className="file-content">{fileContent}</pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Live Log Feed */}
+      {logFeedVisible && (
+        <div className="log-feed">
+          <h3>Live Logs</h3>
+          <button onClick={() => setLogFeedVisible(false)} className="close-button">×</button>
+          <div className="log-messages">
+            {logs.map((log, index) => (
+              <div key={index} className={`log-entry ${log.level}`}>
+                <span className="log-timestamp">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                <span className="log-level">[{log.level.toUpperCase()}]</span>
+                <span className="log-message">{log.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <ConsoleContentComponent
         content={content}
         handleCopyToClipboard={copyToClipboard}

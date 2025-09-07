@@ -225,6 +225,11 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 SERVICE.todo.run_next_task(SERVICE)
                 return {"status":"ok"}
 
+            if op == "LIST_TODO_TASKS":
+                SERVICE.todo._load_all()  # Load tasks from todo.py's TodoService
+                tasks = SERVICE.todo._tasks  # Get the list of tasks
+                return {"status":"ok", "tasks": tasks}  # Return as a list of dicts
+        
             # --- include/ask ---
             if op == "INCLUDE":
                 spec   = p.get("spec","")
