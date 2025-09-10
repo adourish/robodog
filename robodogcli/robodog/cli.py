@@ -265,7 +265,7 @@ def main():
 
     svc = RobodogService(args.config)
     parser = ParseService()
-    svc.todo = TodoService(args.folders, parser)
+    svc.todo = TodoService(args.folders)
     svc.backup_folder = args.backupFolder
 
     server = run_robodogmcp(

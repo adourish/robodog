@@ -24,8 +24,8 @@ mcphandler.py
 ```
 
 # todo.py
-- [ ] ask: todo
-  - started: 2025-09-10 01:09 | knowlege_tokens: 96 | include_tokens: 37688 | in_tokens: 1434 | prompt_tokens: 39218 | cur_model: deepseek/deepseek-r1
+- [~] ask: todo
+  - started: 2025-09-10 01:36 | knowlege_tokens: 7 | include_tokens: 47174 | in_tokens: 1406 | prompt_tokens: 48587 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - in:  robodog\todo.py
   - out:  robodog\todo-v3.py
