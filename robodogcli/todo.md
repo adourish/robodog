@@ -24,27 +24,38 @@ mcphandler.py
 ```
 
 # todo.py
-- [~] ask: todo
-  - started: 2025-09-06 01:03 | knowlege_tokens: 46 | include_tokens: 69349 | in_tokens: 1383 | prompt_tokens: 70778
-  - include: pattern=*robodog*.md|*robodogcli*robodog*.py  recursive`
+- [ ] ask: todo
+  - started: 2025-09-10 01:09 | knowlege_tokens: 96 | include_tokens: 37688 | in_tokens: 1434 | prompt_tokens: 39218 | cur_model: deepseek/deepseek-r1
+  - include: pattern=*robodogcli*robodog*.py  recursive`
   - in:  robodog\todo.py
-  - out:  robodog\todo-v2.py
+  - out:  robodog\todo-v3.py
 ```knowledge
-1. recommend an approach to allow me to configure more than one agent in the todo.md file. e.g., agent1, agent2, etc.
-2. recommend how i can pick an agent in each task
-3. recommend how i can change the todo.py code to run multiple agents concurrently
+1. enhance todo
+2. add error handling
+
 ```
 
 
 # cli.py
 - [x] ask: enhance cli
-  - started: 2025-09-01 20:05 | completed: 2025-09-01 20:06 | know_tokens: 24294 | prompt_tokens: 24349 | total_tokens: 48643
-  - include: pattern=*robodog*.md|*robodog*.py  recursive`
+  - started: 2025-09-09 03:23 | knowlege_tokens: 5 | include_tokens: 26095 | in_tokens: 835 | prompt_tokens: 26935 | cur_model: x-ai/grok-code-fast-1
+  - include: pattern=*robodogcli*.py  recursive`
   - in:  robodog\cli.py
   - out:  robodog\cli-v2.py
 ```knowledge
-cli.py
+add exclude folders to cli
 
+```
+
+# parse.py
+- [x] ask: enhance parse service
+  - started: 2025-09-09 03:30 | knowlege_tokens: 16 | include_tokens: 37929 | in_tokens: 1009 | prompt_tokens: 38954 | cur_model: x-ai/grok-code-fast-1
+  - include: pattern=*robodogcli*.py  recursive`
+  - in:  robodog\parse_service.py
+  - out:  robodog\parse_service-v2.py
+```knowledge
+enhance parse service
+2. make it find the filename it could be in lots of places.
 ```
 
 # project features
@@ -66,8 +77,8 @@ cli.py
 
 
 # project README
-- [x] ask: project README.md
-  - started: 2025-09-03 23:15 | completed: 2025-09-03 23:16 | know_tokens: 54226 | prompt_tokens: 55460 | total_tokens: 109686
+- [~] ask: project README.md
+  - started: 2025-09-09 03:08 | knowlege_tokens: 46 | include_tokens: 117728 | in_tokens: 3 | prompt_tokens: 117777 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodog*README*.md|*robodog*.py  recursive`
   - in:  robodog\README.md
   - out:  robodog\README-v2.md

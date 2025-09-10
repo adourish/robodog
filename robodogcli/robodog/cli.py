@@ -17,10 +17,12 @@ try:
     from .service import RobodogService
     from .mcphandler import run_robodogmcp
     from .todo import TodoService
+    from .parse_service import ParseService
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
     from todo import TodoService
+    from parse_service import ParseService
 
 def print_help():
     cmds = {
@@ -262,7 +264,8 @@ def main():
     logging.info("Starting robodog")
 
     svc = RobodogService(args.config)
-    svc.todo = TodoService(args.folders)
+    parser = ParseService()
+    svc.todo = TodoService(args.folders, parser)
     svc.backup_folder = args.backupFolder
 
     server = run_robodogmcp(

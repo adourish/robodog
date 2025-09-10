@@ -16,7 +16,7 @@ import yaml
 from openai import OpenAI
 from playwright.async_api import async_playwright
 import logging
-
+from typing import List, Optional
 logger = logging.getLogger('robodog.service')
 
 class RobodogService:
@@ -402,6 +402,49 @@ class RobodogService:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(src, dst)
 
+    def _parse_base_dir(self) -> Optional[str]:
+            """
+            Look for a YAML front-matter block at the top of any todo.md,
+            scan it line-by-line for the first line starting with `base:`
+            and return its value.
+            """
+            for fn in self._find_files():
+                text = Path(fn).read_text(encoding='utf-8')
+                lines = text.splitlines()
+                # Must start a YAML block
+                if not lines or lines[0].strip() != '---':
+                    continue
+
+                # Find end of that block
+                try:
+                    end_idx = lines.index('---', 1)
+                except ValueError:
+                    # no closing '---'
+                    continue
+
+                # Scan only the lines inside the front-matter
+                for lm in lines[1:end_idx]:
+                    stripped = lm.strip()
+                    if stripped.startswith('base:'):
+                        # split on first colon, strip whitespace
+                        _, _, val = stripped.partition(':')
+                        base = val.strip()
+                        if base:
+                            return os.path.normpath(base)
+                # if we got here, front-matter existed but no base: line → try next file
+
+            return None
+
+
+    def _find_files(self) -> List[str]:
+        out = []
+        for r in self._roots:
+            for dp, _, fns in os.walk(r):
+                if self.FILENAME in fns:
+                    out.append(os.path.join(dp, self.FILENAME))
+        return out
+
+    
     def checksum(self, path: str):
         h = hashlib.sha256()
         with open(path, 'rb') as f:
