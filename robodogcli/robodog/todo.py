@@ -360,7 +360,7 @@ class TodoService:
         base.mkdir(parents=True, exist_ok=True)
         return target.resolve()
     
-    def _process_one(self, task: dict, svc, file_lines_map: dict):
+    def _process_oneb(self, task: dict, svc, file_lines_map: dict):
         _basedir = os.path.dirname(task['file']);
         logger.info("Task todo file: %s", _basedir)
         self._base_dir =_basedir
@@ -439,4 +439,166 @@ class TodoService:
 
         TodoService._complete_task(task, file_lines_map, _cur_model)
 
+    def _safe_read_file(self, path: Path) -> str:
+        """
+        Read a file as UTF-8, skip binary or undecodable content,
+        fall back to ignoring errors if necessary.
+        """
+        try:
+            # Quick binary check:
+            with open(path, 'rb') as bf:
+                if b'\x00' in bf.read(1024):
+                    raise UnicodeDecodeError("binary", b"", 0, 1, "null byte")
+            return path.read_text(encoding='utf-8')
+        except UnicodeDecodeError:
+            logger.warning(f"Skipping non-text or binary file: {path}")
+            try:
+                return path.read_text(encoding='utf-8', errors='ignore')
+            except Exception as e:
+                logger.error(f"Failed to read {path} with ignore: {e}")
+                return ""
+        except Exception as e:
+            logger.error(f"Failed to read file {path}: {e}")
+            return ""
+
+    def _gather_include_knowledge(self, task: dict, svc) -> str:
+        """
+        Use svc.include to gather all 'include' knowledge,
+        catch and log any errors.
+        """
+        inc = task.get('include') or {}
+        spec = inc.get('pattern', '')
+        if not spec:
+            return ""
+        rec = " recursive" if inc.get('recursive') else ""
+        full_spec = f"pattern={spec}{rec}"
+        logger.debug(f"Gathering include knowledge with spec: {full_spec}")
+        try:
+            know = svc.include(full_spec) or ""
+            logger.info(f"Included knowledge tokens: {len(know.split())}")
+            return know
+        except Exception as e:
+            logger.error(f"Include failed for spec='{full_spec}': {e}")
+            return ""
+
+    def _read_input(self, task: dict) -> str:
+        """
+        Resolve and read the 'in:' file for the task, if any.
+        """
+        inp = task.get('in', {}).get('pattern', '')
+        if not inp:
+            return ""
+        # resolve path using existing resolver
+        pth = self._resolve_path(inp)
+        if not pth or not pth.exists():
+            logger.warning(f"No input file found for pattern '{inp}'")
+            return ""
+        text = self._safe_read_file(pth)
+        logger.info(f"Read input file {pth} ({len(text.split())} words)")
+        return text
+
+    def _build_prompt(self, task: dict, include_text: str, input_text: str) -> str:
+        """
+        Build the LLM prompt in a structured way.
+        """
+        parts = [
+            "1. Generate output matching the following structure:",
+            "2. Each file should start with: # file: <filename>",
+            "3. Followed by the file content",
+            "4. Separate files with blank lines",
+            "",
+            f"Task description: {task['desc']}",
+            ""
+        ]
+        if input_text:
+            parts.append(f"Input file:\n{input_text}")
+        if include_text:
+            parts.append(f"Included knowledge:\n{include_text}")
+        if task.get('knowledge'):
+            parts.append(f"Task knowledge:\n{task['knowledge']}")
+        prompt = "\n".join(parts)
+        logger.debug(f"Built prompt ({len(prompt)} chars)")
+        return prompt
+
+    def _backup_and_write_output(self, svc, out_path: Path, content: str):
+        """
+        Back up the old focus file (if any), then write new content via MCP.
+        """
+        if not out_path:
+            logger.info("No focus file specified; skipping write.")
+            return
+        bf = getattr(svc, 'backup_folder', None)
+        if bf:
+            bak = Path(bf)
+            bak.mkdir(parents=True, exist_ok=True)
+            if out_path.exists():
+                ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+                dest = bak / f"{out_path.name}-{ts}"
+                try:
+                    shutil.copy2(out_path, dest)
+                    logger.info(f"Backup created: {dest}")
+                except Exception as e:
+                    logger.error(f"Failed to back up {out_path}: {e}")
+        # now write via MCP
+        try:
+            svc.call_mcp("UPDATE_FILE", {"path": str(out_path), "content": content})
+            # avoid triggering our own watcher
+            self._watch_ignore[str(out_path)] = out_path.stat().st_mtime
+            logger.info(f"Updated focus file: {out_path}")
+        except Exception as e:
+            logger.error(f"Failed to update focus file {out_path}: {e}")
+
+    def _process_one(self, task: dict, svc, file_lines_map: dict):
+        """
+        Refactored Task processor:
+          1) gather include
+          2) read input
+          3) build prompt
+          4) call LLM
+          5) backup & write output
+          6) finalize task in todo.md
+        """
+        # ensure base_dir is set correctly
+        basedir = Path(task['file']).parent
+        logger.info(f"Processing To Do '{task['desc']}' in {basedir}")
+        self._base_dir = str(basedir)
+
+        # 1) gather include knowledge
+        include_text = self._gather_include_knowledge(task, svc)
+        task['_include_tokens'] = len(include_text.split())
+
+        # 2) read input file
+        input_text = self._read_input(task)
+        task['_in_tokens'] = len(input_text.split())
+
+        # 3) existing fenced knowledge
+        knowledge_text = task.get('knowledge') or ""
+        task['_know_tokens'] = len(knowledge_text.split())
+
+        # 4) build prompt
+        prompt = self._build_prompt(task, include_text, input_text)
+        task['_prompt_tokens'] = len(prompt.split())
+
+        # 5) mark task as Doing
+        cur_model = svc.get_cur_model()
+        TodoService._start_task(task, file_lines_map, cur_model)
+
+        # 6) call LLM
+        try:
+            ai_out = svc.ask(prompt)
+        except Exception as e:
+            logger.error(f"LLM call failed: {e}")
+            ai_out = ""
+
+        # 7) resolve focus file
+        out_pat = task.get('out', {}).get('pattern', '')
+        out_path = self._resolve_path(out_pat)
+        logger.info(f"Resolved focus file to: {out_path}")
+
+        # 8) backup & write
+        self._backup_and_write_output(svc, out_path, ai_out)
+
+        # 9) mark task Done
+        TodoService._complete_task(task, file_lines_map, cur_model)
+        
 __all_classes__ = ["Change","ChangesList","TodoService"]
