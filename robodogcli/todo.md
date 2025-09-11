@@ -24,11 +24,11 @@ mcphandler.py
 ```
 
 # todo.py
-- [x] ask: todo
-  - started: 2025-09-10 01:48 | knowlege_tokens: 28 | include_tokens: 60756 | in_tokens: 1406 | prompt_tokens: 62190 | cur_model: x-ai/grok-code-fast-1
+- [~] ask: todo
+  - started: 2025-09-11 22:57 | knowlege_tokens: 28 | include_tokens: 20585 | in_tokens: 1447 | prompt_tokens: 22060 | cur_model: o4-mini
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - in:  robodog\todo.py
-  - out:  robodog\todo-v3.py
+  - out:  temp\todo.py
 ```knowledge
 1. enhance todo
 2. enhance the prompt to always give the filename and a format the parse service can understand. 

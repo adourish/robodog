@@ -57,7 +57,6 @@ class TodoService:
 
         threading.Thread(target=self._watch_loop, daemon=True).start()
 
-
     def _parse_base_dir(self) -> Optional[str]:
         """
         Look for a YAML front-matter block at the top of any todo.md,
@@ -90,7 +89,6 @@ class TodoService:
             # if we got here, front-matter existed but no base: line → try next file
 
         return None
-
 
     def _find_files(self) -> List[str]:
         out = []
@@ -369,10 +367,14 @@ class TodoService:
         include = self._gather_include_knowledge(task.get('include') or {}, svc)
         knowledge = task['knowledge']
         task['_know_tokens'] = self._get_token_count(include)
-        outpat = task.get('out',{}).get('pattern')
-        inp = task.get('in',{}).get('pattern')
+        inp = task.get('in', {}).get('pattern', '')
+        in_path = self._resolve_path(inp)
+        logger.info(f"Input path resolved to: {in_path}")        
+        out_pat = task.get('out', {}).get('pattern', '')
+        out_path = self._resolve_path(out_pat)
+        logger.info(f"Output path resolved to: {out_path}")
 
-        incontent = '# file: ' + inp
+        incontent = inp
         if inp:
             pth = self._resolve_path(inp)
             if pth and pth.is_file():
@@ -388,24 +390,33 @@ class TodoService:
         _cur_model = svc.get_cur_model()
         TodoService._start_task(task, file_lines_map, _cur_model)
 
-        # ===== new logging as requested =====
-        logger.info("Task in path: %s", self._resolve_path(inp))
-        logger.info("Task out path: %s", self._resolve_path(outpat))
-        # ====================================
+        prompt_sections = [
+            "1. Generate output matching the following structure:",
+            "2. Each file should start with: # file: <filename>",
+            "3. Followed by the file content",
+            "4. Separate files with blank lines",
+            "",
+            "Task description: " + task['desc'],
+            ""
+        ]
 
-        parts = []
-        if incontent:
-            parts.append(f"input:\n{incontent}\n\n")
-        if include:
-            parts.append(f"include knowledge:\n{include}\n\n")
-        if knowledge:
-            parts.append(f"knowledge:\n{knowledge}\n\n")
-        parts.append("ask: " + task['desc'])
-        prompt = "\n\n".join(parts)
+        if in_path and in_path.exists():
+            prompt_sections.append(f"Input file ({in_path}):\n" + incontent)
+        
+        if task.get('include'):
+            included = svc.include(task['include']['pattern'])
+            prompt_sections.append(f"Included knowledge:\n{included}")
+        
+        if task['knowledge']:
+            prompt_sections.append(f"Task knowledge:\n{task['knowledge']}")
+
+        prompt = "\n".join(prompt_sections)
+        logger.debug(f"Generated prompt:\n{prompt}")
+        
         ai_out = svc.ask(prompt)
 
-        if outpat:
-            target = self._resolve_path(outpat)
+        if out_path:
+            target = self._resolve_path(out_path)
             bf = getattr(svc, 'backup_folder', None)
             if bf:
                 backup = Path(bf)
