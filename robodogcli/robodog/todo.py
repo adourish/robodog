@@ -69,7 +69,6 @@ class TodoService:
         threading.Thread(target=self._watch_loop, daemon=True).start()
 
     def _parse_base_dir(self) -> Optional[str]:
-        # ... unchanged ...
         for fn in self._find_files():
             text = Path(fn).read_text(encoding='utf-8')
             lines = text.splitlines()
@@ -89,7 +88,6 @@ class TodoService:
         return None
 
     def _find_files(self) -> List[str]:
-        # ... unchanged ...
         out = []
         for r in self._roots:
             for dp, _, fns in os.walk(r):
@@ -188,23 +186,25 @@ class TodoService:
         """
         When a task is manually marked Done:
         - with write_flag '-', re-emit existing output to trigger downstream watches
-        - with any other write_flag, treat as a full re-run: reset to To Do, reprocess, and mark Done
         """
         self._load_all()
         for task in self._tasks:
             key = (task['file'], task['line_no'])
-            # Completed with write_flag '-', re-emit existing out-file
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ' and key not in self._processed:
                 out_pat = task.get('out', {}).get('pattern','')
                 if out_pat:
                     out_path = self._resolve_path(out_pat)
                     logger.info(f"Manual commit of task: {task['desc']}")
                     if out_path and out_path.exists():
-                        
                         content = self._safe_read_file(out_path)
+                        # Report on existing file
+                        try:
+                            parsed = [{'filename': out_path.name, 'content': content, 'tokens': len(content.split())}]
+                            self._report_parsed_files(parsed)
+                        except Exception as e:
+                            logger.error(f"Reporting manual file failed: {e}")
                         self._backup_and_write_output(svc, out_path, content)
                 self._processed.add(key)
-
 
     @staticmethod
     def _write_file(fn: str, file_lines: List[str]):
@@ -308,21 +308,45 @@ class TodoService:
             return ""
         return self._safe_read_file(pth)
 
+    def _report_parsed_files(self, parsed_files: List[dict]):
+        """
+        Log for each parsed file:
+        - original filename (basename)
+        - resolved new path
+        - tokens(original/new)
+        """
+        for parsed in parsed_files:
+            orig_name = Path(parsed['filename']).name
+            orig_tokens = parsed.get('tokens', 0)
+            try:
+                new_path = self._resolve_path(parsed['filename'])
+                if new_path and new_path.exists():
+                    content = self._safe_read_file(new_path)
+                    new_tokens = len(content.split())
+                else:
+                    new_tokens = 0
+                logger.info(
+                    f"Compare: '{orig_name}' -> {new_path} | ({orig_tokens}/{new_tokens} tokens)"
+                )
+            except Exception as e:
+                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
+
     def _build_prompt(self, task: dict, include_text: str, input_text: str) -> str:
         parts = [
-            "1. Generate output matching the following structure:",
-            "2. Each file should start with: # file: <filename>",
-            "3. Followed by the file content",
-            "4. Separate files with blank lines",
-            "5. You must give full drop in code files, do not remove any content from the output file",
-            "",
+            "Instructions:",
+            "A. Produce one or more complete, runnable code files.",
+            "B. For each file, begin with exactly:  # file: <filename>  (use only filenames provided in the task; do not guess or infer).",
+            "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run.",
+            "D. If multiple files are needed, separate them with a single blank line.",
+            "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
+            "G. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",
+            "H. Verify that every file is syntactically correct, self-contained, and immediately executable.",
+            "I. Add a comment with the original file length and the updated file length.",
             f"Task description: {task['desc']}",
             ""
         ]
-        if input_text:
-            parts.append(f"Input file:\n{input_text}")
         if include_text:
-            parts.append(f"Included knowledge:\n{include_text}")
+            parts.append(f"Included files knowledge:\n{include_text}")
         if task.get('knowledge'):
             parts.append(f"Task knowledge:\n{task['knowledge']}")
         return "\n".join(parts)
@@ -348,9 +372,6 @@ class TodoService:
             logger.error(f"Failed to update {out_path}: {e}")
 
     def _write_full_ai_output(self, svc, task, ai_out):
-
-        
-
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
             return
@@ -366,13 +387,10 @@ class TodoService:
         include_text = self._gather_include_knowledge(task, svc)
         task['_include_tokens'] = len(include_text.split())
 
-        input_text = self._read_input(task)
-        task['_in_tokens'] = len(input_text.split())
-
         knowledge_text = task.get('knowledge') or ""
         task['_know_tokens'] = len(knowledge_text.split())
 
-        prompt = self._build_prompt(task, include_text, input_text)
+        prompt = self._build_prompt(task, include_text, '')
         task['_prompt_tokens'] = len(prompt.split())
 
         cur_model = svc.get_cur_model()
@@ -384,10 +402,20 @@ class TodoService:
             logger.error(f"LLM call failed: {e}")
             ai_out = ""
 
-        self._write_full_ai_output(svc, task, ai_out)
+        # parse and report before writing
+        try:
+            parsed_files = self.parser.parse_llm_output(ai_out) if ai_out else []
+        except Exception as e:
+            logger.error(f"Parsing AI output failed: {e}")
+            parsed_files = []
 
+        if parsed_files:
+            self._report_parsed_files(parsed_files)
+        else:
+            logger.info("No parsed files to report.")
+
+        # write files if flagged
         if ai_out and task.get('write_flag') == '-':
-            parsed_files = self.parser.parse_llm_output(ai_out)
             for parsed in parsed_files:
                 lm_filename = parsed['filename']
                 file_path = self._resolve_path(lm_filename)
@@ -423,7 +451,7 @@ class TodoService:
         base.mkdir(parents=True, exist_ok=True)
         return (base / p.name).resolve()
 
-    def _safe_read_file(self, path: Path) -> str:
+    def _safe_read_fileb(self, path: Path) -> str:
         logger.info(f"Safe read of out: {path.absolute}")
         try:
             with open(path, 'rb') as bf:
@@ -438,4 +466,38 @@ class TodoService:
         except:
             return ""
 
+    def _safe_read_file(self, path: Path) -> str:
+        """
+        Read a file as UTF-8, skip binary or undecodable content,
+        fall back to ignoring errors if necessary.
+        """
+        # Log the actual path
+        logger.info("Read out: %s", path.resolve())
+
+        try:
+            # Quick binary check:
+            with open(path, 'rb') as bf:
+                head = bf.read(1024)
+                if b'\x00' in head:
+                    raise UnicodeDecodeError("binary", head, 0, 1, "null byte")
+
+            # Read as UTF-8 (will raise if undecodable)
+            return path.read_text(encoding='utf-8')
+
+        except UnicodeDecodeError:
+            logger.warning("Skipping non-text or binary file: %s", path.resolve())
+            try:
+                # Fallback: ignore errors
+                return path.read_text(encoding='utf-8', errors='ignore')
+            except Exception as e:
+                logger.error("Failed to read %s with ignore: %s", path.resolve(), e)
+                return ""
+
+        except Exception as e:
+            logger.error("Failed to read file %s: %s", path.resolve(), e)
+            return ""
+        
 __all_classes__ = ["Change","ChangesList","TodoService"]
+
+# original file length: 350 lines
+# updated file length: 358 lines
