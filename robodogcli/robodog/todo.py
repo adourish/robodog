@@ -1,4 +1,4 @@
-# file: c:\projects\robodog\robodogcli\robodog\todo.py
+# file: todo.py
 #!/usr/bin/env python3
 import os
 import re
@@ -13,6 +13,8 @@ from typing import List, Optional
 import tiktoken
 from pydantic import BaseModel, RootModel
 import yaml   # ensure PyYAML is installed
+
+from parse_service import ParseService  # Added import for ParseService
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ class TodoService:
         self._mtimes      = {}
         self._watch_ignore = {}
         self._svc         = None
+        self.parser       = ParseService()  # Initialize ParseService instance
 
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
@@ -555,7 +558,7 @@ class TodoService:
           2) read input
           3) build prompt
           4) call LLM
-          5) backup & write output
+          5) parse AI output and write multiple files
           6) finalize task in todo.md
         """
         # ensure base_dir is set correctly
@@ -590,15 +593,51 @@ class TodoService:
             logger.error(f"LLM call failed: {e}")
             ai_out = ""
 
-        # 7) resolve focus file
-        out_pat = task.get('out', {}).get('pattern', '')
-        out_path = self._resolve_path(out_pat)
-        logger.info(f"Resolved focus file to: {out_path}")
-
-        # 8) backup & write
-        self._backup_and_write_output(svc, out_path, ai_out)
+        # 7) parse AI output and process each file
+        if ai_out:
+            parsed_files = self.parser.parse_llm_output(ai_out)
+            for parsed in parsed_files:
+                # Find real filename by searching for matching files
+                lm_filename = parsed['filename']
+                file_path = self._resolve_path(lm_filename)
+                if file_path:
+                    logger.info(f"Matched LM filename '{lm_filename}' to real path: {file_path}")
+                    self._backup_and_write_output(svc, file_path, parsed['content'])
+                else:
+                    # If not found, create new file at default location
+                    # Assume under first root with the LM filename as relative path
+                    relative_path = Path(lm_filename)
+                    if self._base_dir:
+                        default_path = Path(self._base_dir) / relative_path
+                        default_path.parent.mkdir(parents=True, exist_ok=True)
+                        logger.warning(f"No matching file found for '{lm_filename}', creating at {default_path}")
+                        self._backup_and_write_output(svc, default_path, parsed['content'])
+                    else:
+                        logger.warning(f"No base_dir and no matching file for '{lm_filename}'")
 
         # 9) mark task Done
         TodoService._complete_task(task, file_lines_map, cur_model)
+
+    def _parse_ai_output(self, ai_out: str):
+        """
+        Parse the AI output into an array of objects with filename and content,
+        then find real filenames by searching matching files.
+        
+        Returns list of dicts: [{'filename': str, 'content': str, 'real_path': Path or None}]
+        """
+        # Use the parser to get initial objects
+        parsed_files = self.parser.parse_llm_output(ai_out)
+        enhanced = []
+        for parsed in parsed_files:
+            lm_filename = parsed['filename']
+            # Find real filename by resolving the path
+            real_path = self._resolve_path(lm_filename)
+            enhanced.append({
+                'filename': lm_filename,
+                'content': parsed['content'],
+                'real_path': real_path
+            })
+            logger.debug(f"Parsed file: {lm_filename}, resolved to: {real_path}")
+        return enhanced
         
 __all_classes__ = ["Change","ChangesList","TodoService"]
