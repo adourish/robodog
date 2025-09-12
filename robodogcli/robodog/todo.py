@@ -453,7 +453,7 @@ class TodoService:
         return (base / p.name).resolve()
 
     def _safe_read_file(self, path: Path) -> str:
-        logger.info(f"Safe read of out: {path.absolute}")
+        logger.debug(f"Safe read of out: {path.absolute()}")
         try:
             with open(path, 'rb') as bf:
                 if b'\x00' in bf.read(1024):
