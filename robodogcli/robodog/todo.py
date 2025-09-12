@@ -173,7 +173,7 @@ class TodoService:
                 if ignore and abs(mtime - ignore) < 0.001:
                     self._watch_ignore.pop(fn, None)
                 elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
-                    logger.info(f"Detected external change in {fn}, processing manual tasks")
+                    logger.debug(f"Detected external change in {fn}, processing manual tasks")
                     if self._svc:
                         try:
                             self._process_manual_done(self._svc)
