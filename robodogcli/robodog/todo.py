@@ -335,21 +335,6 @@ class TodoService:
         """
         Write entire AI output to 'out' file if write_flag == '-'
         """
-
-        out_pat = task.get('out', {}).get('pattern','')
-        if not out_pat:
-            return
-        out_path = self._resolve_path(out_pat)
-        if out_path:
-            self._backup_and_write_output(svc, out_path, ai_out)
-
-    def _write_full_ai_output_commit(self, svc, task, ai_out):
-        """
-        Write entire AI output to 'out' file if write_flag == '-'
-        """
-        if task.get('write_flag') != '-':
-            logger.info("Skipping full-AI-output write (write_flag!='-')")
-            return
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
             return
