@@ -326,7 +326,7 @@ class TodoService:
                 else:
                     new_tokens = 0
                 logger.info(
-                    f"Compare: '{orig_name}' -> {new_path} | ({orig_tokens}/{new_tokens} tokens)"
+                    f"REPORT: '{orig_name}' -> {new_path} | tokens(orig/new) = {orig_tokens}/{new_tokens}"
                 )
             except Exception as e:
                 logger.error(f"Error reporting parsed file '{orig_name}': {e}")
@@ -383,16 +383,16 @@ class TodoService:
     def _process_one(self, task: dict, svc, file_lines_map: dict):
         basedir = Path(task['file']).parent
         self._base_dir = str(basedir)
-
+        logger.info(f"Base dir: {self._base_dir}")
         include_text = self._gather_include_knowledge(task, svc)
         task['_include_tokens'] = len(include_text.split())
-
+        logger.info(f"Include tokens: {task['_include_tokens']}")
         knowledge_text = task.get('knowledge') or ""
         task['_know_tokens'] = len(knowledge_text.split())
-
+        logger.info(f"Knowledge tokens: {task['_know_tokens']}")
         prompt = self._build_prompt(task, include_text, '')
         task['_prompt_tokens'] = len(prompt.split())
-
+        logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
         cur_model = svc.get_cur_model()
         TodoService._start_task(task, file_lines_map, cur_model)
 
@@ -451,7 +451,7 @@ class TodoService:
         base.mkdir(parents=True, exist_ok=True)
         return (base / p.name).resolve()
 
-    def _safe_read_fileb(self, path: Path) -> str:
+    def _safe_read_file(self, path: Path) -> str:
         logger.info(f"Safe read of out: {path.absolute}")
         try:
             with open(path, 'rb') as bf:
@@ -466,37 +466,6 @@ class TodoService:
         except:
             return ""
 
-    def _safe_read_file(self, path: Path) -> str:
-        """
-        Read a file as UTF-8, skip binary or undecodable content,
-        fall back to ignoring errors if necessary.
-        """
-        # Log the actual path
-        logger.info("Read out: %s", path.resolve())
-
-        try:
-            # Quick binary check:
-            with open(path, 'rb') as bf:
-                head = bf.read(1024)
-                if b'\x00' in head:
-                    raise UnicodeDecodeError("binary", head, 0, 1, "null byte")
-
-            # Read as UTF-8 (will raise if undecodable)
-            return path.read_text(encoding='utf-8')
-
-        except UnicodeDecodeError:
-            logger.warning("Skipping non-text or binary file: %s", path.resolve())
-            try:
-                # Fallback: ignore errors
-                return path.read_text(encoding='utf-8', errors='ignore')
-            except Exception as e:
-                logger.error("Failed to read %s with ignore: %s", path.resolve(), e)
-                return ""
-
-        except Exception as e:
-            logger.error("Failed to read file %s: %s", path.resolve(), e)
-            return ""
-        
 __all_classes__ = ["Change","ChangesList","TodoService"]
 
 # original file length: 350 lines
