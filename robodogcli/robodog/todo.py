@@ -47,13 +47,14 @@ class TodoService:
     FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str]):
-        self._roots       = roots
-        self._file_lines  = {}
-        self._tasks       = []
-        self._mtimes      = {}
+        self._roots        = roots
+        self._file_lines   = {}
+        self._tasks        = []
+        self._mtimes       = {}
         self._watch_ignore = {}
-        self._svc         = None
-        self.parser       = ParseService()
+        self._svc          = None
+        self.parser        = ParseService()
+        self._processed    = set()  # track manually processed tasks
 
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
@@ -163,7 +164,7 @@ class TodoService:
                 i = j
 
     def _watch_loop(self):
-        # ... unchanged ...
+        # monitor external edits to todo.md
         while True:
             for fn in self._find_files():
                 try:
@@ -174,14 +175,33 @@ class TodoService:
                 if ignore and abs(mtime - ignore) < 0.001:
                     self._watch_ignore.pop(fn, None)
                 elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
-                    logger.info(f"Detected external change in {fn}, running /todo")
+                    logger.info(f"Detected external change in {fn}, processing manual tasks")
                     if self._svc:
                         try:
-                            self.run_next_task(self._svc)
+                            self._process_manual_done(self._svc)
                         except Exception as e:
                             logger.error(f"watch loop error: {e}")
                 self._mtimes[fn] = mtime
             time.sleep(1)
+
+    def _process_manual_done(self, svc):
+        """
+        When a task is manually marked Done with write_flag '-', process its 'out' target.
+        """
+        self._load_all()
+        for task in self._tasks:
+            key = (task['file'], task['line_no'])
+            if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == '-' and key not in self._processed:
+                # use the existing processing logic to write out AI output and parsed files
+                # here we skip LLM ask since AI output isn't stored; instead operate on existing out file
+                out_pat = task.get('out', {}).get('pattern','')
+                if out_pat:
+                    out_path = self._resolve_path(out_pat)
+                    if out_path and out_path.exists():
+                        content = self._safe_read_file(out_path)
+                        # write the content back to itself to trigger any downstream watches
+                        self._backup_and_write_output(svc, out_path, content)
+                self._processed.add(key)
 
     @staticmethod
     def _write_file(fn: str, file_lines: List[str]):
