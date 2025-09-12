@@ -319,14 +319,14 @@ class TodoService:
             orig_name = Path(parsed['filename']).name
             orig_tokens = parsed.get('tokens', 0)
             try:
-                new_path = self._resolve_path(parsed['filename'])
+                new_path = self._resolve_path(orig_name)
                 if new_path and new_path.exists():
                     content = self._safe_read_file(new_path)
                     new_tokens = len(content.split())
                 else:
                     new_tokens = 0
                 logger.info(
-                    f"REPORT: '{orig_name}' -> {new_path} | tokens(orig/new) = {orig_tokens}/{new_tokens}"
+                    f"Compare: '{orig_name}' -> {new_path} | tokens(orig/new) = {orig_tokens}/{new_tokens}"
                 )
             except Exception as e:
                 logger.error(f"Error reporting parsed file '{orig_name}': {e}")
@@ -342,6 +342,7 @@ class TodoService:
             "G. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",
             "H. Verify that every file is syntactically correct, self-contained, and immediately executable.",
             "I. Add a comment with the original file length and the updated file length.",
+            "J. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task."
             f"Task description: {task['desc']}",
             ""
         ]
