@@ -1,3 +1,4 @@
+# file: c:\projects\robodog\robodogcli\robodog\todo.py
 #!/usr/bin/env python3
 import os
 import re
@@ -231,20 +232,18 @@ class TodoService:
     def _format_summary(indent: str, start: str, end: Optional[str]=None,
                         know: Optional[int]=None, prompt: Optional[int]=None, incount: Optional[int]=None,
                         include: Optional[int]=None, cur_model: str=None) -> str:
-        # know, prompt, incount, include
-        _cur_model = cur_model
         parts = [f"started: {start}"]
         if end:
             parts.append(f"completed: {end}")
         if know is not None:
-            parts.append(f"knowlege_tokens: {know}")
+            parts.append(f"knowledge_tokens: {know}")  # Fixed typo here
         if include is not None:
             parts.append(f"include_tokens: {include}")
-        if include is not None:
-            parts.append(f"in_tokens: {incount}")
+        if incount is not None:
+            parts.append(f"in_tokens: {incount}")  # Fixed typo here
         if prompt is not None:
             parts.append(f"prompt_tokens: {prompt}")
-        if prompt is not None:
+        if cur_model:
             parts.append(f"cur_model: {cur_model}")
         
         return f"{indent}  - " + " | ".join(parts) + "\n"
@@ -259,7 +258,7 @@ class TodoService:
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         task['_start_stamp'] = stamp
         know, prompt, incount, include = (task.get(k, 0) for k in
-                               ('_knowledge_tokens','_prompt_tokens','_in_count', '_include_tokens'))
+                               ('_know_tokens','_prompt_tokens','_in_tokens', '_include_tokens'))  # Fixed keys here
         summary = TodoService._format_summary(indent, stamp, None,
                                               know, prompt, incount, include, cur_model)
         idx = ln + 1
@@ -281,9 +280,9 @@ class TodoService:
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         start = task.get('_start_stamp','')
         know, prompt, incount, include = (task.get(k, 0) for k in
-                               ('_knowledge_tokens','_prompt_tokens','_in_count', '_include_tokens'))
-        summary = TodoService._format_summary(indent, stamp, None,
-                                              know, prompt, incount, include, cur_model)
+                               ('_know_tokens','_prompt_tokens','_in_tokens', '_include_tokens'))  # Fixed keys here, and added start
+        summary = TodoService._format_summary(indent, start, stamp,
+                                              know, prompt, incount, include, cur_model)  # Fixed to include start and end
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
            file_lines_map[fn][idx].lstrip().startswith('- started:'):
@@ -359,7 +358,7 @@ class TodoService:
         logger.debug("   branch 4: not found, will create under first root -> %s", target)
         base.mkdir(parents=True, exist_ok=True)
         return target.resolve()
-    
+
     def _process_oneb(self, task: dict, svc, file_lines_map: dict):
         _basedir = os.path.dirname(task['file']);
         logger.info("Task todo file: %s", _basedir)
@@ -506,6 +505,7 @@ class TodoService:
             "2. Each file should start with: # file: <filename>",
             "3. Followed by the file content",
             "4. Separate files with blank lines",
+            "5. You must give full drop in code files, do not remove any content from the output file",
             "",
             f"Task description: {task['desc']}",
             ""

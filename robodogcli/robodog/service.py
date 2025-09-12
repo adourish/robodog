@@ -318,6 +318,7 @@ class RobodogService:
                 wc = len(txt.split())
                 tc = len(enc.encode(txt))
                 logger.info(f"Included: {path} ({tc} tokens)")
+                included_txts.append("# file: " + path)
                 included_txts.append(txt)
                 combined = "\n".join(included_txts)
                 knowledge += "\n" + combined + "\n"
