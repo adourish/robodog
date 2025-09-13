@@ -361,6 +361,7 @@ class TodoService:
         * if delta > 20%: log warning, return -1
         Otherwise return 0
         """
+        result = 0
         for parsed in parsed_files:
             orig_name = Path(parsed['filename']).name
             orig_tokens = parsed.get('tokens', 0)
@@ -375,18 +376,18 @@ class TodoService:
                 change = 0.0
                 if orig_tokens:
                     change = abs(new_tokens - orig_tokens) / orig_tokens * 100
-                msg = f"Compare: '{orig_name}' -> {new_path} | tokens(orig/new) = {orig_tokens}/{new_tokens} | delta={change:.1f}%"
+                msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
                 if change > 40.0:
                     logger.error(msg + " (delta > 40%)")
-                    return -2
+                    result = -2
                 elif change > 20.0:
                     logger.warning(msg + " (delta > 20%)")
-                    return -1
+                    result = -1
                 else:
                     logger.info(msg)
             except Exception as e:
                 logger.error(f"Error reporting parsed file '{orig_name}': {e}")
-        return 0
+        return result
 
     def _build_prompt(self, task: dict, include_text: str, input_text: str) -> str:
         parts = [
