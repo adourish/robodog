@@ -1,7 +1,3 @@
-Looking at the task description and code, I need to understand what the issue is with the todo functionality. The task mentions that "Manual commit of task: ask: todo should use the same code as _process_one it does not loop through the files".
-
-Looking at the `todo.py` file, I can see that `_process_manual_done` has logic for handling manually marked Done tasks, but it's not using the same code path as `_process_one`. The issue seems to be that the manual commit process should reuse the same logic as the automated task processing.
-
 # file: robodog/todo.py
 #!/usr/bin/env python3
 import os
@@ -253,7 +249,7 @@ class TodoService:
                     logger.debug(f"Detected external change in {fn}, processing manual tasks")
                     if self._svc:
                         try:
-                            logger.info("Procress commit.")
+                            logger.info("Process commit.")
                             self._process_manual_done(self._svc)
                             # Add call to run_next_task based on task knowledge checklist
                             todo_list = [t for t in self._tasks if STATUS_MAP.get(t.get('status_char')) == 'To Do']
@@ -264,13 +260,15 @@ class TodoService:
                 self._mtimes[fn] = mtime
             time.sleep(1)
 
-    def _process_manual_done(self, svc):
+    def _process_manual_done(self, svc, fn=None):
         """
         When a task is manually marked Done:
         - Use the same processing logic as _process_one for consistency
         """
         self._load_all()
-        for task in self._tasks:
+        # Filter tasks based on fn if provided to fix: does not loop through the files
+        filtered_tasks = [t for t in self._tasks if fn is None or t['file'] == fn]
+        for task in filtered_tasks:
             key = (task['file'], task['line_no'])
             if key in self._processed:
                 continue
@@ -544,22 +542,4 @@ class TodoService:
         base.mkdir(parents=True, exist_ok=True)
         return (base / p.name).resolve()
 
-    def _safe_read_file(self, path: Path) -> str:
-        logger.debug(f"Safe read of out: {path.absolute()}")
-        try:
-            with open(path, 'rb') as bf:
-                if b'\x00' in bf.read(1024):
-                    raise UnicodeDecodeError("binary", b"", 0, 1, "null")
-            return path.read_text(encoding='utf-8')
-        except UnicodeDecodeError:
-            try:
-                return path.read_text(encoding='utf-8', errors='ignore')
-            except:
-                return ""
-        except:
-            return ""
-
-__all_classes__ = ["Change","ChangesList","TodoService"]
-
-# original file length: 360 lines
-# updated file length: 357 lines
+    def _safe
