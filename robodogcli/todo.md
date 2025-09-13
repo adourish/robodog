@@ -2,12 +2,11 @@
 
 
 # todo.py
-- [x][ ] ask: todo
-  - started: 2025-09-13 14:00 | completed: 2025-09-13 14:01 | knowledge_tokens: 20 | include_tokens: 53076 | prompt_tokens: 53262 | cur_model: openai/o4-mini
+- [~][-] ask: todo
+  - started: 2025-09-13 14:16 | knowledge_tokens: 10 | include_tokens: 53188 | prompt_tokens: 53364 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
-1. call start_commit_task and end_commit_task from _process_manual_done
-2. we need to show [x][~] for in progress and [x][x] for done
+1. improve logging in todo and file service. add debugging
 ```
 

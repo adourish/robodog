@@ -281,19 +281,19 @@ class TodoService:
                 self.complete_commit_task(task, self._file_lines, cur_model)
 
 
-        def write_file(self, filepath: str, file_lines: List[str]):
-            """Write file and update watcher."""
-            Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
-            if self._file_watcher:
-                self._file_watcher.ignore_next_change(filepath)
+    def write_file(self, filepath: str, file_lines: List[str]):
+        """Write file and update watcher."""
+        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+        if self._file_watcher:
+            self._file_watcher.ignore_next_change(filepath)
 
-        def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
-            st = self._task_manager.start_task(task, file_lines_map, cur_model)
-            return st
-            
-        def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
-            ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
-            return ct
+    def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        st = self._task_manager.start_task(task, file_lines_map, cur_model)
+        return st
+        
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
+        return ct
             
     def run_next_task(self, svc):
         self._svc = svc
