@@ -401,6 +401,7 @@ class TodoService:
             if task and task.get('include'):
                 new_path = self._find_matching_file(orig_name, task['include'])
             try:
+                new_content = parsed['content']
                 if new_path and new_path.exists():
                     content = self.safe_read_file(new_path)
                     new_tokens = len(content.split())
@@ -409,15 +410,15 @@ class TodoService:
                     change = abs(new_tokens - orig_tokens) / orig_tokens * 100
                 msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
                 if change > 40.0:
-                    self._write_full_parsed_ai_output(self._svc, new_path, content)
+                    self._write_full_parsed_ai_output(self._svc, new_path, new_content)
                     logger.error(msg + " (delta > 40%)")
                     result = -2
                 elif change > 20.0:
-                    self._write_full_parsed_ai_output(self._svc, new_path, content)
+                    self._write_full_parsed_ai_output(self._svc, new_path, new_content)
                     logger.warning(msg + " (delta > 20%)")
                     result = -1
                 else:
-                    self._write_full_parsed_ai_output(self._svc, new_path, content)
+                    self._write_full_parsed_ai_output(self._svc, new_path, new_content)
                     logger.info(msg)
                     result = 1
             except Exception as e:

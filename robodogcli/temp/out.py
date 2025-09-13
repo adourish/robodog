@@ -1,199 +1,132 @@
-# file: robodog/task_manager.py
-# Written on 2025-09-13 18:41:40 UTC
-
+# file: robodog/task_parser.py
 #!/usr/bin/env python3
-"""Task management functionality."""
-import os
+"""Task parsing functionality extracted from TodoService."""
+import re
 import logging
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-class TaskBase:
-    """Base class for task-related functionality."""
+# Regex patterns for parsing tasks
+TASK_RE = re.compile(
+    r'^(\s*)-\s*'                  # indent + "- "
+    r'\[(?P<status>[ x~])\]'       # first [status]
+    r'(?:\s*\[(?P<write>[ x~-])\])?'  # optional [write_flag], whitespace allowed
+    r'\s*(?P<desc>.+)$'            # space + desc
+)
 
-    STATUS_MAP = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
-    REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
+SUB_RE = re.compile(
+    r'^\s*-\s*(?P<key>include|out|in|focus):\s*'
+    r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
+    r'(?:\s+(?P<rec>recursive))?'
+)
 
-    @staticmethod
-    def format_summary(indent: str, start: str, end: Optional[str] = None,
-                      know: Optional[int] = None, prompt: Optional[int] = None,
-                      incount: Optional[int] = None, include: Optional[int] = None,
-                      cur_model: str = None,
-                      delta_median: Optional[float] = None,
-                      delta_avg: Optional[float] = None,
-                      delta_peak: Optional[float] = None,
-                      commited: float = 0) -> str:
-        """Format a task summary line, now including delta stats."""
-        parts = [f"started: {start}"]
-        if end:
-            parts.append(f"completed: {end}")
-        if know is not None:
-            parts.append(f"knowledge_tokens: {know}")
-        if incount is not None:
-            parts.append(f"include_tokens: {incount}")
-        if prompt is not None:
-            parts.append(f"prompt_tokens: {prompt}")
-        if cur_model:
-            parts.append(f"cur_model: {cur_model}")
-        if commited <= -1:
-            parts.append(f"commit: warning")
-        if commited <= -1:
-            parts.append(f"commit: error")
-        if commited >= 1:
-            parts.append(f"commit: success")
-        if delta_median is not None:
-            parts.append(f"delta_median: {delta_median:.1f}%")
-        if delta_avg is not None:
-            parts.append(f"delta_avg: {delta_avg:.1f}%")
-        if delta_peak is not None:
-            parts.append(f"delta_peak: {delta_peak:.1f}%")
-        return f"{indent}  - " + " | ".join(parts) + "\n"
 
-class TaskManager(TaskBase):
-    """Manages task lifecycle and status updates."""
+class TaskParser:
+    """Handles parsing of todo.md files into task objects."""
+    
+    def parse_base_dir(self, file_paths: List[str]) -> str:
+        """Parse base directory from YAML front-matter."""
+        logger.debug("parse_base_dir called with file_paths: %s", file_paths)
+        for fn in file_paths:
+            logger.debug("Parsing base dir from file: %s", fn)
+            try:
+                text = Path(fn).read_text(encoding='utf-8')
+                lines = text.splitlines()
+                if not lines or lines[0].strip() != '---':
+                    continue
+                
+                try:
+                    end_idx = lines.index('---', 1)
+                except ValueError:
+                    continue
+                
+                for lm in lines[1:end_idx]:
+                    stripped = lm.strip()
+                    if stripped.startswith('base:'):
+                        _, _, val = stripped.partition(':')
+                        base = val.strip()
+                        if base:
+                            logger.debug("Found base directory: %s", base)
+                            return os.path.normpath(base)
+            except Exception as e:
+                logger.warning(f"Error parsing base dir from {fn}: {e}")
+        
+        logger.debug("No base directory found")
+        return None
+    
+    def parse_tasks_from_file(self, filepath: str) -> tuple[List[str], List[Dict[Any, Any]]]:
+        """Parse tasks from a single todo.md file."""
+        logger.debug("Parsing tasks from file: %s", filepath)
+        lines = Path(filepath).read_text(encoding='utf-8').splitlines(keepends=True)
+        tasks = []
+        
+        i = 0
+        while i < len(lines):
+            logger.debug("Processing line %d: %r", i, lines[i].strip())
+            m = TASK_RE.match(lines[i])
+            if not m:
+                i += 1
+                continue
+            
+            indent = m.group(1)
+            status = m.group('status')
+            write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
+            desc = m.group('desc').strip()
+            
+            task = {
+                'file': filepath,
+                'line_no': i,
+                'indent': indent,
+                'status_char': status,
+                'write_flag': write_flag,
+                'desc': desc,
+                'include': None,
+                'in': None,
+                'out': None,
+                'knowledge': '',
+                '_start_stamp': None,
+                '_know_tokens': 0,
+                '_in_tokens': 0,
+                '_prompt_tokens': 0,
+                '_include_tokens': 0,
+            }
+            
+            # Scan sub-entries (include, in, focus)
+            j = i + 1
+            logger.debug("Scanning sub-entries starting from line %d", j)
+            while j < len(lines) and lines[j].startswith(indent + '  '):
+                sub = SUB_RE.match(lines[j])
+                if sub:
+                    key = sub.group('key')
+                    pat = sub.group('pattern').strip('"').strip('`')
+                    rec = bool(sub.group('rec'))
+                    if key == 'focus':
+                        task['out'] = {'pattern': pat, 'recursive': rec}
+                    else:
+                        task[key] = {'pattern': pat, 'recursive': rec}
+                    logger.debug("Found sub-entry key: %s, pattern: %s, recursive: %s", key, pat, rec)
+                j += 1
+            
+            # Capture ```knowledge``` fence immediately after task
+            if j < len(lines) and lines[j].lstrip().startswith('```knowledge'):
+                logger.debug("Found knowledge fence at line %d", j)
+                fence = []
+                j += 1
+                while j < len(lines) and not lines[j].startswith('```'):
+                    fence.append(lines[j])
+                    j += 1
+                task['knowledge'] = ''.join(fence)
+                j += 1  # skip closing ``` line
+                logger.debug("Captured knowledge block with %d lines", len(fence))
+            
+            tasks.append(task)
+            logger.debug("Added task: %s", task['desc'])
+            i = j
+        
+        logger.debug("Total tasks parsed from file %s: %d", filepath, len(tasks))
+        return lines, tasks
 
-    def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None):
-        self.parser = task_parser
-        self.watcher = file_watcher
-
-    def write_file(self, filepath: str, file_lines: List[str]):
-        """Write file and update watcher."""
-        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
-        if self.watcher:
-            self.watcher.ignore_next_change(filepath)
-
-    def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        """Mark a task as started (To Do -> Doing)."""
-        if self.STATUS_MAP[task['status_char']] != 'To Do':
-            return
-
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][-] {desc}\n"
-
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        task['_start_stamp'] = stamp
-
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        incount = task.get('_include_tokens', 0)
-
-        # delta stats not yet available at start
-        summary = self.format_summary(indent, stamp, None,
-                                      know, prompt, incount, None, cur_model)
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-
-        self.write_file(fn, file_lines_map[fn])
-        task['status_char'] = self.REVERSE_STATUS['Doing']
-
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        """Mark a task as completed (Doing -> Done), now including delta stats."""
-        if self.STATUS_MAP[task['status_char']] != 'Doing':
-            return
-
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][-] {desc}\n"
-
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        start = task.get('_start_stamp', '')
-
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        incount = task.get('_include_tokens', 0)
-        # retrieve delta stats computed earlier
-        delta_median = task.get('_delta_median')
-        delta_avg = task.get('_delta_avg')
-        delta_peak = task.get('_delta_peak')
-
-        summary = self.format_summary(indent, start, stamp,
-                                      know, prompt, incount, None, cur_model,
-                                      delta_median, delta_avg, delta_peak)
-
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-
-        self.write_file(fn, file_lines_map[fn])
-        task['status_char'] = self.REVERSE_STATUS['Done']
-
-    def start_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        """Mark a task as started (To Do -> Doing)."""
-        if self.STATUS_MAP[task['status_char']] != 'To Do':
-            return
-
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][~] {desc}\n"
-
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        task['_start_stamp'] = stamp
-
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        incount = task.get('_include_tokens', 0)
-
-        # delta stats not yet available at start
-        summary = self.format_summary(indent, stamp, None,
-                                      know, prompt, incount, None, cur_model)
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-
-        self.write_file(fn, file_lines_map[fn])
-        task['status_char'] = self.REVERSE_STATUS['Doing']
-
-    def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str, commited: float):
-        """Mark a task as completed (Doing -> Done), now including delta stats."""
-        if self.STATUS_MAP[task['status_char']] != 'Doing':
-            return
-
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        # Set first_status based on success
-        first_status = 'x' if commited >= 1 else '~'
-        # Set second_status based on success
-        second_status = 'x' if commited >= 1 else '~'
-        file_lines_map[fn][ln] = f"{indent}- [{first_status}][{second_status}] {desc}\n"
-
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        start = task.get('_start_stamp', '')
-
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        incount = task.get('_include_tokens', 0)
-        # retrieve delta stats computed earlier
-        delta_median = task.get('_delta_median')
-        delta_avg = task.get('_delta_avg')
-        delta_peak = task.get('_delta_peak')
-
-        summary = self.format_summary(indent, start, stamp,
-                                      know, prompt, incount, None, cur_model,
-                                      delta_median, delta_avg, delta_peak, commited)
-
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-
-        self.write_file(fn, file_lines_map[fn])
-        task['status_char'] = self.REVERSE_STATUS['Done']
-
-# original file length: 94 lines
-# updated file length: 96 lines
+# original file length: 95 lines
+# updated file length: 115 lines
