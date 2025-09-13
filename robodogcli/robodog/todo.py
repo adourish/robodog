@@ -272,13 +272,14 @@ class TodoService:
                     logger.error(f"Parsing AI output failed: {e}")
                     parsed_files = []
 
+                commited = 0;
                 if parsed_files:
-                        self._report_parsed_files(parsed_files, task)
-                        self._write_full_ai_output(svc, task, ai_out)
+                        commited = self._write_parsed_files(parsed_files, task)
                 else:
                     logger.info("No parsed files to report.")
 
-                self.complete_commit_task(task, self._file_lines, cur_model)
+
+                self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
 
 
     def write_file(self, filepath: str, file_lines: List[str]):
@@ -320,7 +321,7 @@ class TodoService:
             logger.error(f"Include failed for spec='{full_spec}': {e}")
             return ""
 
-    def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
+    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
         """
         Log for each parsed file:
         - original filename (basename)
@@ -348,13 +349,17 @@ class TodoService:
                     change = abs(new_tokens - orig_tokens) / orig_tokens * 100
                 msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
                 if change > 40.0:
+                    self._write_full_parsed_ai_output(self._svc, task, new_path, content)
                     logger.error(msg + " (delta > 40%)")
                     result = -2
                 elif change > 20.0:
+                    self._write_full_parsed_ai_output(self._svc, task, new_path, content)
                     logger.warning(msg + " (delta > 20%)")
                     result = -1
                 else:
+                    self._write_full_parsed_ai_output(self._svc, task, new_path, content)
                     logger.info(msg)
+                    result = 1
             except Exception as e:
                 logger.error(f"Error reporting parsed file '{orig_name}': {e}")
         return result
@@ -409,6 +414,12 @@ class TodoService:
         logger.info(f"Write: {out_path} ({len(ai_out.split())} tokens)")
         if out_path:
             self._backup_and_write_output(svc, out_path, ai_out)
+    
+    def _write_full_parsed_ai_output(self, svc, path, ai_out):
+        
+        logger.info(f"Write: {path} ({len(ai_out.split())} tokens)")
+        if path:
+            self._backup_and_write_output(svc, path, ai_out)
 
     def _process_one(self, task: dict, svc, file_lines_map: dict):
         basedir = Path(task['file']).parent

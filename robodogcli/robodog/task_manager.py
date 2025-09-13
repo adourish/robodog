@@ -22,7 +22,8 @@ class TaskBase:
                       cur_model: str = None,
                       delta_median: Optional[float] = None,
                       delta_avg: Optional[float] = None,
-                      delta_peak: Optional[float] = None) -> str:
+                      delta_peak: Optional[float] = None,
+                      commited: float = 0) -> str:
         """Format a task summary line, now including delta stats."""
         parts = [f"started: {start}"]
         if end:
@@ -35,6 +36,12 @@ class TaskBase:
             parts.append(f"prompt_tokens: {prompt}")
         if cur_model:
             parts.append(f"cur_model: {cur_model}")
+        if commited <= -1:
+            parts.append(f"commit: warning")
+        if commited <= -1:
+            parts.append(f"commit: error")
+        if commited >= 1:
+            parts.append(f"commit: success")
         if delta_median is not None:
             parts.append(f"delta_median: {delta_median:.1f}%")
         if delta_avg is not None:
@@ -148,7 +155,7 @@ class TaskManager(TaskBase):
         self.write_file(fn, file_lines_map[fn])
         task['status_char'] = self.REVERSE_STATUS['Doing']
 
-    def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
+    def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str, commited: float):
         """Mark a task as completed (Doing -> Done), now including delta stats."""
         if self.STATUS_MAP[task['status_char']] != 'Doing':
             return
@@ -170,7 +177,7 @@ class TaskManager(TaskBase):
 
         summary = self.format_summary(indent, start, stamp,
                                       know, prompt, incount, None, cur_model,
-                                      delta_median, delta_avg, delta_peak)
+                                      delta_median, delta_avg, delta_peak, commited)
 
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \

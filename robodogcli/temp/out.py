@@ -379,7 +379,7 @@ class TodoService:
                             write_flag = task.get('write_flag') or ' '
                             if STATUS_MAP.get(status) == 'Done' and STATUS_MAP.get(write_flag) == 'To Do':
                                 desc = task.get('desc', '<no desc>')
-                                logger.info(f"Re‐emitting output for task: {desc}")
+                               
                                 # call your own process routine
                                 self._process_manual_done(task, self._svc, self._file_lines)
 
@@ -424,7 +424,7 @@ class TodoService:
                     return
                 out_path = self._resolve_path(out_pat)
                 ai_out = self._file_service.safe_read_file(out_path)
-                logger.info(f"Read: {out_path} ({len(ai_out.split())} tokens)")
+                logger.info(f"Read out file: {out_path} ({len(ai_out.split())} tokens)")
                 cur_model = svc.get_cur_model()
                 self._task_manager.start_commit_task(task, self._file_lines, cur_model)
 
