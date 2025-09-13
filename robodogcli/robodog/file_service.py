@@ -99,5 +99,12 @@ class FileService:
         except Exception as e:
             logger.error(f"FileService.write_file failed for {path}: {e}")
 
+    def write_file_lines(self, filepath: str, file_lines: List[str]):
+        """Write file and update watcher."""
+        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+
+    def write_file_text (self, filepath: str, content: str):
+        """Write file and update watcher."""
+        Path(filepath).write_text(content, encoding='utf-8')
 # original file length: 82 lines
 # updated file length: 89 lines
