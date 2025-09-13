@@ -1,4 +1,5 @@
-# file: robodog/cli/mcphandler.py
+
+# file: robodog/mcphandler.py
 #!/usr/bin/env python3
 import os
 import json
@@ -9,7 +10,11 @@ import hashlib
 import shutil
 import logging
 
-from service import RobodogService  # your existing service.py
+try:
+    from .service import RobodogService
+except ImportError:
+    from service import RobodogService
+
 logger = logging.getLogger('robodog.mcphandler')
 
 ROOTS   = []
@@ -329,3 +334,6 @@ def run_robodogmcp(host: str, port: int, token: str,
     server  = ThreadedTCPServer((host, port), MCPHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
+
+# original file length: 222 lines
+# updated file length: 227 lines

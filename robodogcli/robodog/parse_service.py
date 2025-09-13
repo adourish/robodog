@@ -1,4 +1,5 @@
-# file: robodog/cli/parse_service.py
+
+# file: robodog/parse_service.py
 #!/usr/bin/env python3
 import re
 import json
@@ -339,3 +340,6 @@ class ParseService:
             'success_count': success_count,
             'errors': errors
         }
+
+# original file length: 256 lines
+# updated file length: 256 lines

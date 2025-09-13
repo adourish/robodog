@@ -2,16 +2,14 @@
 
 
 # todo.py
-- [~] [ ] ask: todo
-  - started: 2025-09-13 01:35 | knowledge_tokens: 45 | include_tokens: 21711 | prompt_tokens: 21923 | cur_model: openai/o4-mini
+- [x][ ] ask: todo
+  - started: 2025-09-13 03:58 | completed: 2025-09-13 04:02 | knowledge_tokens: 24 | include_tokens: 49232 | prompt_tokens: 49421 | cur_model: anthropic/claude-sonnet-4
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
 0. in todo.py 
-1. in report _report_parsed_files detect the percentage delt for each file
-2. if the delta is more than 20%, use a warn logger and return -1
-3. if the delta is more than 40% use an error delta and return -2
-4. 
+2. use the modesls and other services to reduce the service size. 
+3. change cli to pass these services and models
 
 ```
 
