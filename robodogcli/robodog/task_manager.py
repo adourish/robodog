@@ -24,7 +24,7 @@ class TaskBase:
                       delta_median: Optional[float] = None,
                       delta_avg: Optional[float] = None,
                       delta_peak: Optional[float] = None,
-                      commited: float = 0) -> str:
+                      commited: float = 0, truncation: float = 0) -> str:
         """Format a task summary line, now including delta stats."""
         parts = [f"started: {start}"]
         if end:
@@ -37,9 +37,13 @@ class TaskBase:
             parts.append(f"prompt_tokens: {prompt}")
         if cur_model:
             parts.append(f"cur_model: {cur_model}")
+        if truncation <= -1:
+            parts.append(f"truncation: warning")
+        if truncation <= -2:
+            parts.append(f"truncation: error")
         if commited <= -1:
             parts.append(f"commit: warning")
-        if commited <= -1:
+        if commited <= -2:
             parts.append(f"commit: error")
         if commited >= 1:
             parts.append(f"commit: success")
@@ -81,8 +85,11 @@ class TaskManager(TaskBase):
         incount = task.get('_include_tokens', 0)
 
         # delta stats not yet available at start
+
         summary = self.format_summary(indent, stamp, None,
-                                      know, prompt, incount, None, cur_model)
+                                      know, prompt, incount, None, cur_model,
+                                      0, 0, 0, 0, 0)
+        
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
            file_lines_map[fn][idx].lstrip().startswith('- started:'):
@@ -109,13 +116,10 @@ class TaskManager(TaskBase):
         prompt = task.get('_prompt_tokens', 0)
         incount = task.get('_include_tokens', 0)
         # retrieve delta stats computed earlier
-        delta_median = task.get('_delta_median')
-        delta_avg = task.get('_delta_avg')
-        delta_peak = task.get('_delta_peak')
 
-        summary = self.format_summary(indent, start, stamp,
+        summary = self.format_summary(indent, stamp, None,
                                       know, prompt, incount, None, cur_model,
-                                      delta_median, delta_avg, delta_peak)
+                                      0, 0, 0, 0, 0)
 
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
@@ -144,8 +148,11 @@ class TaskManager(TaskBase):
         incount = task.get('_include_tokens', 0)
 
         # delta stats not yet available at start
+     
         summary = self.format_summary(indent, stamp, None,
-                                      know, prompt, incount, None, cur_model)
+                                      know, prompt, incount, None, cur_model,
+                                      0, 0, 0, 0, 0)
+        
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
            file_lines_map[fn][idx].lstrip().startswith('- started:'):
@@ -177,7 +184,7 @@ class TaskManager(TaskBase):
 
         summary = self.format_summary(indent, start, stamp,
                                       know, prompt, incount, None, cur_model,
-                                      delta_median, delta_avg, delta_peak, commited)
+                                      delta_median, delta_avg, delta_peak, commited, 0)
 
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \

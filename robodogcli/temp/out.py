@@ -1,6 +1,4 @@
-# file: c:\projects\robodog\robodogcli\robodog\todo.py
-# Written on 2024-09-13 18:39:11 UTC
-
+# file: robodog/todo.py
 #!/usr/bin/env python3
 """
 Todo management service for robodog.
@@ -208,7 +206,7 @@ class TodoService:
                 self._tasks.append(task)
                 task_count += 1
                 i = j
-            logger.info(f"Loaded {task_count} tasks from {fn}")
+            logger.debug(f"Loaded {task_count} tasks from {fn}")
 
     def _watch_loop(self):
         """
@@ -450,6 +448,9 @@ class TodoService:
             else:
                 new_path = None
             # write content
+            if new_path is None and task:
+                new_path = Path(task['file']).parent / parsed['filename']
+       
             if new_path:
                 self._file_service.write_file(new_path, content)
                 new_txt = self._file_service.safe_read_file(new_path)
@@ -549,61 +550,23 @@ class TodoService:
         logger.debug(f"Safe reading file: {path}")
         srf = self._file_service.safe_read_file(path)
         return srf
-
-    # New methods for handling /include and /plan commands
-    
-    def set_default_include(self, pattern: str):
-        """Create or update include.txt with the default pattern."""
-        include_path = Path(self._roots[0]) / 'include.txt' if self._roots else Path('include.txt')
-        include_path.write_text(pattern)
-        logger.info(f"Default include pattern set to: {pattern}")
-
-    def get_default_include(self) -> Optional[str]:
-        """Retrieve the default pattern from include.txt."""
-        include_path = Path(self._roots[0]) / 'include.txt' if self._roots else Path('include.txt')
-        if include_path.exists():
-            return include_path.read_text().strip()
-        return None
-
-    def create_plan_todo(self, folder: str, plan: str):
-        """Create a todo.md file in the specified folder using the default include pattern."""
-        if not plan.strip():
-            logger.error("Plan cannot be empty")
-            return
-        subtasks = self._break_into_tasks(plan)
-        content = self._generate_todo_content(subtasks)
-        todo_path = Path(folder) / 'todo.md'
-        todo_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            todo_path.write_text(content)
-            logger.info(f"Created todo.md in {folder} with {len(subtasks)} tasks")
-        except Exception as e:
-            logger.error(f"Failed to create todo.md: {e}")
-
-    def _break_into_tasks(self, plan: str) -> List[str]:
-        """Break the plan into subtasks based on grouping (e.g., split on semicolons or commas)."""
-        # Simple grouping: split on ';' assuming subtasks are separated by ';'
-        subtasks = [t.strip() for t in plan.split(';') if t.strip()]
-        if not subtasks:
-            subtasks = [plan.strip()]  # Fallback to single task
-        return subtasks
-
-    def _generate_todo_content(self, subtasks: List[str]) -> str:
-        """Generate the content for todo.md with disabled tasks [-][-], includes, outs, and knowledge blocks."""
-        content = """---
-base: .
----
-
-"""
-        default_include = self.get_default_include() or "*robodogcli*robodog*.py"
-        for i, task_desc in enumerate(subtasks, 1):
-            out_file = f"task_{i}.out"  # Assign a unique out file per task
-            knowledge = f"Additional details and context for task: {task_desc}"
-            content += f"- [-][-] {task_desc}\n"
-            content += f"  - include: pattern={default_include} recursive\n"
-            content += f"  - out: {out_file}\n"
-            content += f"```knowledge\n{knowledge}\n```\n\n"
-        return content
-
+        
 # original file length: 497 lines
-# updated file length: 655 lines
+# updated file length: 637 lines
+
+
+# file: robodog/truncation_phrases.txt
+rest of class unchanged
+rest of method unchanged
+rest of the function is unchanged
+the rest of the code is the same
+...rest of code...
+...rest of method...
+...rest of class...
+...unchanged...
+rest of class remains unchanged
+rest of method remains unchanged
+# original file length: 35 lines
+# updated file length: 60 lines
+# original file length: 497 lines
+# updated file length: 637 lines
