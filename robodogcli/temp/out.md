@@ -1,127 +1,49 @@
 # file: todo.md
-# original file length: 0 lines
-# updated file length: 45 lines
 ---
-base: /path/to/robodogcli
+base: c:\projects\robodog
 ---
 
-- [-][-] Refactor base.py: Extract common utilities into separate service classes for better modularity
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: base_refactored.py
-  ```knowledge
-  This task involves splitting the current BaseService and TaskBase classes into more granular services.
-  Remove unused imports like Dict, Any from typing if not needed after refactoring.
-  Ensure backward compatibility by maintaining the same interfaces.
-  Update any references in other files that use BaseService properties.
-  ```
+- [-][-] Identify and analyze the current robodog UI structure to determine where and how to integrate a new /todo command for generating todo.md project plans.
+  - include pattern=*robodogcli*robodog*.py recursive
+  - out: ui_analysis.md
+```knowledge
+This task involves inspecting the UI code to understand the command handling system, like how other slash commands are implemented in the robodogcli/robodog codebase. Focus on files like main.py or ui.py that handle user inputs and commands. The output should detail integration points, such as hooking into the command parser or UI event handlers.
+```
 
-- [-][-] Refactor cli.py: Separate command handling logic from main interaction loop
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: cli_refactored.py
-  ```knowledge
-  Extract the command parsing and execution into a dedicated CommandHandler class.
-  Move service initialization into a separate function for better organization.
-  Reduce the complexity of the main() function by delegating setup to sub-functions.
-  Update logging integration to use the new handler structure.
-  ```
+- [-][-] Design the /todo command syntax and behavior, specifying how "something" translates into a structured todo.md plan with multiple tasks.
+  - include pattern=*robodogcli*robodog*.py recursive
+  - out: command_design.md
+```knowledge
+Design phase: Define the command as /todo <description>, where <description> is parsed to break into tasks, assign out files (e.g., code files to modify), and include knowledge blocks. Group tasks logically, such as UI changes, processing logic, and output formatting. Ensure it aligns with the todoh.py system for handling task status and flags.
+```
 
-- [-][-] Refactor service.py: Break down the large RobodogService class into smaller, focused services
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: service_refactored.py
-  ```knowledge
-  Split into separate classes like ModelManager, ConfigManager, and ApiClient.
-  Move file operations to a dedicated FileOpsService.
-  Keep the core ask method intact but delegate other responsibilities.
-  Ensure all existing parameters and methods remain functional.
-  ```
+- [-][-] Implement the UI handler for the /todo command, updating the robodog UI to accept and process the command input.
+  - include pattern=*robodogcli*robodog*.py recursive
+  - out: ui_handler.py
+```knowledge
+Modify UI files (like ui.py in robodogcli/robodog) to add a new method that listens for /todo commands. When parsed, trigger the plan generation, passing the description to a new service method. Ensure it integrates with existing todo.md loading/reloading logic in todo.py.
+```
 
-- [-][-] Refactor file_service.py: Optimize path resolution and file reading performance
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: file_service_refactored.py
-  ```knowledge
-  Add caching for resolved paths to reduce repeated filesystem calls.
-  Improve error handling for binary files and expand safe_read_file capabilities.
-  Implement asynchronous file operations where possible using ThreadPoolExecutor.
-  Update logging to include more granular debug information.
-  ```
+- [-][-] Develop the plan generation logic that takes user input from /todo and converts it into a structured todo.md format with tasks, includes, outs, and knowledge blocks.
+  - include pattern=*robodogcli*robodog*.py recursive
+  - out: plan_generator.py
+```knowledge
+Extend todo.py with a new method to generate the plan: parse the input description into multiple tasks based on grouping (e.g., split by keywords like 'design', 'implement'). For each task, auto-assign out files (like modifying existing code files), include the recursive pattern, and populate knowledge blocks with AI-suggested details. Output as a new todo.md or append to existing.
+```
 
-- [-][-] Refactor file_watcher.py: Implement more robust file change detection
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: file_watcher_refactored.py
-  ```knowledge
-  Add support for watching multiple directories.
-  Improve ignore mechanism to handle more complex cases.
-  Use polling less frequently for better performance.
-  Integrate better with the file_service for callbacks.
-  ```
+- [-][-] Test the /todo command integration by running sample inputs and verifying the generated todo.md matches the required format (disabled tasks, includes, outs, knowledge).
+  - include pattern=*robodogcli*robodog*.py recursive
+  - out: integration_test.py
+```knowledge
+Testing phase: Create unit tests or manual tests in robodogcli/robodog/test_ui.py to simulate /todo inputs. Validate that tasks are created with [-][-] status, appropriate includes, out files (e.g., pointing to code changes in rododogcli), and knowledge blocks contain relevant details based on include pattern matches.
+```
 
-- [-][-] Refactor mcphandler.py: Modularize HTTP and raw MCP command handling
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: mcphandler_refactored.py
-  ```knowledge
-  Separate HTTP request handling from raw MCP dispatch logic.
-  Create dedicated classes like HttpHandler and McpDispatcher.
-  Improve error responses and authentication checks.
-  Ensure CORS and token validation remain secure.
-  ```
+- [-][-] Document and finalize the complete process for generating project plans via /todo, ensuring all tasks are disabled by default and follow the specified structure.
+  - include pattern=*robodogcli*robodog*.py recursive
+  - out: documentation.md
+```knowledge
+Final documentation: Summarize the steps, including code changes in files like todo.py for plan generation, UI integration in ui.py for command handling, and examples of /todo usage. Ensure the generated plans always use [-][-] or [x][x] for disabled tasks, with recursive includes on *robodogcli*robodog*.py patterns, and detailed knowledge blocks for each task's purpose.
+```
 
-- [-][-] Refactor models.py: Add validation schemas and improve data models
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: models_refactored.py
-  ```knowledge
-  Extend BaseModel classes with additional validation rules.
-  Add new models for tasks, configs, and responses as needed.
-  Implement custom validators for common patterns.
-  Keep TaskModel and Change models backward-compatible.
-  ```
-
-- [-][-] Refactor parse_service.py: Enhance LLM output parsing with more formats
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: parse_service_refactored.py
-  ```knowledge
-  Add support for additional formats like CSV or custom structured text.
-  Improve error handling and fallback mechanisms.
-  Optimize parsing performance for larger outputs.
-  Add methods for validating parsed content syntactically.
-  ```
-
-- [-][-] Refactor prompt_builder.py: Create template-based prompt building
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: prompt_builder_refactored.py
-  ```knowledge
-  Implement a template system for different types of prompts.
-  Add dynamic variable substitution for task-specific data.
-  Separate static guide text into configurable templates.
-  Maintain the current build_task_prompt method signature.
-  ```
-
-- [-][-] Refactor task_manager.py: Improve task state management and concurrency
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: task_manager_refactored.py
-  ```knowledge
-  Add support for task dependencies and parallel execution where safe.
-  Enhance task summary formatting with more metrics.
-  Implement better error handling during task transitions.
-  Integrate with threading for non-blocking operations.
-  ```
-
-- [-][-] Refactor task_parser.py: Add advanced task dependency resolution
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: task_parser_refactored.py
-  ```knowledge
-  Implement dependency checking based on task descriptions.
-  Add support for parsing nested sub-tasks.
-  Improve front-matter base directory parsing.
-  Cache parsed tasks for faster reloading.
-  ```
-
-- [-][-] Refactor todo.py: Implement user-defined scripts and custom task types
-  include: pattern=*robodogcli*robodog*.py recursive
-  out: todo_refactored.py
-  ```knowledge
-  Add custom task types beyond standard To Do/Doing/Done.
-  Implement script execution for certain tasks.
-  Enhance watch loop with user-definable callbacks.
-  Improve base directory parsing and path resolution.
-  Update token comparisons and completeness checks to be more flexible.
-  ```
+# original file length: 0
+# updated file length: 32

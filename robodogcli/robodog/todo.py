@@ -207,7 +207,7 @@ class TodoService:
                 self._tasks.append(task)
                 task_count += 1
                 i = j
-            logger.info(f"Loaded {task_count} tasks from {fn}")
+            logger.debug(f"Loaded {task_count} tasks from {fn}")
 
     def _watch_loop(self):
         """
@@ -449,6 +449,9 @@ class TodoService:
             else:
                 new_path = None
             # write content
+            if new_path is None and task:
+                new_path = Path(task['file']).parent / parsed['filename']
+       
             if new_path:
                 self._file_service.write_file(new_path, content)
                 new_txt = self._file_service.safe_read_file(new_path)
