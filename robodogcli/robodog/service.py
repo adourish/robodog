@@ -156,7 +156,7 @@ class RobodogService:
                 idx += 1
 
             # done streaming!
-            sys.stdout.write("\n")
+            sys.stdout.write("\n\n")
         else:
             answer = resp.choices[0].message.content.strip()
         return answer

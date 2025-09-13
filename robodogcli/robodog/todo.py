@@ -241,57 +241,6 @@ class TodoService:
 
             time.sleep(1)
 
-    def _watch_loopb(bself):
-        # monitor external edits to todo.md
-        while True:
-            for fn in self._find_files():
-                try:
-                    mtime = os.path.getmtime(fn)
-                except OSError:
-                    continue
-
-                # ignore our own writes
-                ignore_time = self._watch_ignore.get(fn)
-                if ignore_time and abs(mtime - ignore_time) < 0.001:
-                    self._watch_ignore.pop(fn, None)
-                # new external change?
-                elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
-                    logger.debug(f"Detected external change in {fn}, reloading tasks")
-                    if not self._svc:
-                        continue
-
-                    try:
-                        # re-parse all todo.md into self._tasks
-                        self._load_all()
-
-                        # 1) tasks to "write": Done + write_flag == To Do
-                        write_list = [
-                            t for t in self._tasks
-                            if STATUS_MAP.get(t['status_char']) == 'Done'
-                            and STATUS_MAP.get(t.get('write_flag',' ')) == 'To Do'
-                        ]
-                        for task in write_list:
-                            logger.info(f"Re-emitting output for task: {task['desc']}")
-                            # Use the same code as _process_one for consistency
-                            self._process_one(task, self._svc, self._file_lines)
-
-                        # 2) tasks still To Do
-                        todo_list = [
-                            t for t in self._tasks
-                            if STATUS_MAP.get(t['status_char']) == 'To Do'
-                        ]
-                        if todo_list:
-                            logger.info("New To Do tasks found, running next")
-                            self.run_next_task(self._svc)
-
-                    except Exception as e:
-                        logger.error(f"watch loop error: {e}")
-
-                # update stored mtime
-                self._mtimes[fn] = mtime
-
-            time.sleep(1)
-
     def _process_manual_done(self, svc, fn=None):
         """
         When a task is manually marked Done:
@@ -308,23 +257,44 @@ class TodoService:
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
                 logger.info(f"Manual commit of task: {task['desc']}")
                 # Use the same code as _process_one for consistency
-                self._process_one(task, svc, self._file_lines)
-                self._processed.add(key)
+                out_pat = task.get('out', {}).get('pattern','')
+                if not out_pat:
+                    return
+                out_path = self._resolve_path(out_pat)
+                ai_out = self._file_service.safe_read_file(out_path)
+                logger.info(f"Read: {out_path} ({len(ai_out.split())} tokens)")
+                cur_model = svc.get_cur_model()
+                self._task_manager.start_commit_task(task, self._file_lines, cur_model)
 
-    def write_file(self, filepath: str, file_lines: List[str]):
-        """Write file and update watcher."""
-        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
-        if self._file_watcher:
-            self._file_watcher.ignore_next_change(filepath)
+                try:
+                    parsed_files = self.parser.parse_llm_output(ai_out) if ai_out else []
+                except Exception as e:
+                    logger.error(f"Parsing AI output failed: {e}")
+                    parsed_files = []
 
-    def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        st = self._task_manager.start_task(task, file_lines_map, cur_model)
-        return st
-        
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
-        return ct
-        
+                if parsed_files:
+                        self._report_parsed_files(parsed_files, task)
+                        self._write_full_ai_output(svc, task, ai_out)
+                else:
+                    logger.info("No parsed files to report.")
+
+                self.complete_commit_task(task, self._file_lines, cur_model)
+
+
+        def write_file(self, filepath: str, file_lines: List[str]):
+            """Write file and update watcher."""
+            Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+            if self._file_watcher:
+                self._file_watcher.ignore_next_change(filepath)
+
+        def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
+            st = self._task_manager.start_task(task, file_lines_map, cur_model)
+            return st
+            
+        def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+            ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
+            return ct
+            
     def run_next_task(self, svc):
         self._svc = svc
         self._load_all()
@@ -431,6 +401,7 @@ class TodoService:
             logger.error(f"Failed to update {out_path}: {e}")
 
     def _write_full_ai_output(self, svc, task, ai_out):
+        
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
             return

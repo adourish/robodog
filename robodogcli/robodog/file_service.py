@@ -1,4 +1,3 @@
-
 # file: robodog/file_service.py
 #!/usr/bin/env python3
 """File operations and path resolution service."""
@@ -91,5 +90,14 @@ class FileService:
         except:
             return ""
 
+    def write_file(self, path: Path, content: str):
+        """Write content to the given path, creating directories as needed."""
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding='utf-8')
+            logger.info(f"Written file via FileService: {path} ({len(content.split())} tokens)")
+        except Exception as e:
+            logger.error(f"FileService.write_file failed for {path}: {e}")
+
 # original file length: 82 lines
-# updated file length: 82 lines
+# updated file length: 89 lines

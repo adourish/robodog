@@ -119,5 +119,69 @@ class TaskManager(TaskBase):
         self.write_file(fn, file_lines_map[fn])
         task['status_char'] = self.REVERSE_STATUS['Done']
 
+    def start_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as started (To Do -> Doing)."""
+        if self.STATUS_MAP[task['status_char']] != 'To Do':
+            return
+
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][-] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        task['_start_stamp'] = stamp
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+
+        # delta stats not yet available at start
+        summary = self.format_summary(indent, stamp, None,
+                                      know, prompt, incount, None, cur_model)
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Doing']
+
+    def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as completed (Doing -> Done), now including delta stats."""
+        if self.STATUS_MAP[task['status_char']] != 'Doing':
+            return
+
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][x] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        start = task.get('_start_stamp', '')
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+        # retrieve delta stats computed earlier
+        delta_median = task.get('_delta_median')
+        delta_avg = task.get('_delta_avg')
+        delta_peak = task.get('_delta_peak')
+
+        summary = self.format_summary(indent, start, stamp,
+                                      know, prompt, incount, None, cur_model,
+                                      delta_median, delta_avg, delta_peak)
+
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Done']
+
+
 # original file length: 77 lines
 # updated file length: 94 lines
