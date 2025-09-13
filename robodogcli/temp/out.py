@@ -1,5 +1,7 @@
 # file: robodog/todo.py
-#!/usr/bin/env python3
+"""
+Todo management service for robodog.
+"""
 import os
 import re
 import time
@@ -8,7 +10,7 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import tiktoken
 from pydantic import BaseModel, RootModel
@@ -233,33 +235,6 @@ class TodoService:
 
             time.sleep(1)
 
-
-    def _watch_loopb(self):
-        # monitor external edits to todo.md
-        while True:
-            for fn in self._find_files():
-                try:
-                    mtime = os.path.getmtime(fn)
-                except:
-                    continue
-                ignore = self._watch_ignore.get(fn)
-                if ignore and abs(mtime - ignore) < 0.001:
-                    self._watch_ignore.pop(fn, None)
-                elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
-                    logger.debug(f"Detected external change in {fn}, processing manual tasks")
-                    if self._svc:
-                        try:
-                            logger.info("Process commit.")
-                            self._process_manual_done(self._svc)
-                            # Add call to run_next_task based on task knowledge checklist
-                            todo_list = [t for t in self._tasks if STATUS_MAP.get(t.get('status_char')) == 'To Do']
-                            if todo_list:
-                                self.run_next_task(self._svc)
-                        except Exception as e:
-                            logger.error(f"watch loop error: {e}")
-                self._mtimes[fn] = mtime
-            time.sleep(1)
-
     def _process_manual_done(self, svc, fn=None):
         """
         When a task is manually marked Done:
@@ -279,15 +254,73 @@ class TodoService:
                 self._process_one(task, svc, self._file_lines)
                 self._processed.add(key)
 
-    @staticmethod
-    def _write_file(fn: str, file_lines: List[str]):
-        Path(fn).write_text(''.join(file_lines), encoding='utf-8')
+    def write_file(self, filepath: str, file_lines: List[str]):
+        """Write file and update watcher."""
+        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+        if self._file_watcher:
+            self._file_watcher.ignore_next_change(filepath)
+
+    def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as started (To Do -> Doing)."""
+        if STATUS_MAP[task['status_char']] != 'To Do':
+            return
+        
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Doing']}] {desc}\n"
+        
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        task['_start_stamp'] = stamp
+        
+        know, prompt, incount, include = (task.get(k, 0) for k in
+                                          ('_know_tokens','_prompt_tokens','_in_tokens','_include_tokens'))
+        
+        summary = self.format_summary(indent, stamp, None,
+                                     know, prompt, incount, include, cur_model)
+        
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('  - started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+        
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = REVERSE_STATUS['Doing']
+    
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as completed (Doing -> Done)."""
+        if STATUS_MAP[task['status_char']] != 'Doing':
+            return
+        
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Done']}] {desc}\n"
+        
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        start = task.get('_start_stamp','')
+        
+        know, prompt, incount, include = (task.get(k, 0) for k in
+                                          ('_know_tokens','_prompt_tokens','_in_tokens','_include_tokens'))
+        
+        summary = self.format_summary(indent, start, stamp,
+                                     know, prompt, incount, include, cur_model)
+        
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('  - started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+        
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = REVERSE_STATUS['Done']
 
     @staticmethod
-    def _format_summary(indent: str, start: str, end: Optional[str]=None,
-                        know: Optional[int]=None, prompt: Optional[int]=None,
-                        incount: Optional[int]=None, include: Optional[int]=None,
-                        cur_model: str=None) -> str:
+    def format_summary(indent: str, start: str, end: Optional[str] = None,
+                      know: Optional[int] = None, prompt: Optional[int] = None,
+                      incount: Optional[int] = None, include: Optional[int] = None,
+                      cur_model: str = None) -> str:
         parts = [f"started: {start}"]
         if end:
             parts.append(f"completed: {end}")
@@ -300,50 +333,6 @@ class TodoService:
         if cur_model:
             parts.append(f"cur_model: {cur_model}")
         return f"{indent}  - " + " | ".join(parts) + "\n"
-
-    @staticmethod
-    def _start_task(task: dict, file_lines_map: dict, cur_model: str):
-        if STATUS_MAP[task['status_char']] != 'To Do':
-            return
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Doing']}] {desc}\n"
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        task['_start_stamp'] = stamp
-        know, prompt, incount, include = (task.get(k, 0) for k in
-                                          ('_know_tokens','_prompt_tokens','_in_tokens','_include_tokens'))
-        summary = TodoService._format_summary(indent, stamp, None,
-                                              know, prompt, incount, include, cur_model)
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-        TodoService._write_file(fn, file_lines_map[fn])
-        task['status_char'] = REVERSE_STATUS['Doing']
-
-    @staticmethod
-    def _complete_task(task: dict, file_lines_map: dict, cur_model: str):
-        if STATUS_MAP[task['status_char']] != 'Doing':
-            return
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Done']}] {desc}\n"
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        start = task.get('_start_stamp','')
-        know, prompt, incount, include = (task.get(k, 0) for k in
-                                          ('_know_tokens','_prompt_tokens','_in_tokens','_include_tokens'))
-        summary = TodoService._format_summary(indent, start, stamp,
-                                              know, prompt, incount, include, cur_model)
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-        TodoService._write_file(fn, file_lines_map[fn])
-        task['status_char'] = REVERSE_STATUS['Done']
 
     def run_next_task(self, svc):
         self._svc = svc
@@ -390,7 +379,7 @@ class TodoService:
                 new_path = self._find_matching_file(orig_name, task['include'])
             try:
                 if new_path and new_path.exists():
-                    content = self._safe_read_file(new_path)
+                    content = self.safe_read_file(new_path)
                     new_tokens = len(content.split())
                 change = 0.0
                 if orig_tokens:
@@ -407,32 +396,6 @@ class TodoService:
             except Exception as e:
                 logger.error(f"Error reporting parsed file '{orig_name}': {e}")
         return 0
-
-
-    def _report_parsed_filesb(self, parsed_files: List[dict], task: dict = None):
-        """
-        Log for each parsed file:
-        - original filename (basename)
-        - resolved new path
-        - tokens(original/new)
-        """
-        for parsed in parsed_files:
-            orig_name = Path(parsed['filename']).name
-            orig_tokens = parsed.get('tokens', 0)
-            new_path = None
-            if task and task.get('include'):
-                new_path = self._find_matching_file(orig_name, task['include'])
-            try:
-                if new_path and new_path.exists():
-                    content = self._safe_read_file(new_path)
-                    new_tokens = len(content.split())
-                else:
-                    new_tokens = 0
-                logger.info(
-                    f"Compare: '{orig_name}' -> {new_path} | tokens(orig/new) = {orig_tokens}/{new_tokens}"
-                )
-            except Exception as e:
-                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
 
     def _build_prompt(self, task: dict, include_text: str, input_text: str) -> str:
         parts = [
@@ -498,7 +461,7 @@ class TodoService:
         task['_prompt_tokens'] = len(prompt.split())
         logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
         cur_model = svc.get_cur_model()
-        TodoService._start_task(task, file_lines_map, cur_model)
+        self.start_task(task, file_lines_map, cur_model)
 
         try:
             ai_out = svc.ask(prompt)
@@ -519,7 +482,7 @@ class TodoService:
         else:
             logger.info("No parsed files to report.")
 
-        TodoService._complete_task(task, file_lines_map, cur_model)
+        self.complete_task(task, file_lines_map, cur_model)
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         if not frag:
@@ -542,4 +505,133 @@ class TodoService:
         base.mkdir(parents=True, exist_ok=True)
         return (base / p.name).resolve()
 
-    def _safe
+    def safe_read_file(self, path: Path) -> str:
+        """Safely read a file, handling binary files and encoding issues."""
+        logger.debug(f"Safe read of: {path.absolute()}")
+        try:
+            # Check for binary content
+            with open(path, 'rb') as bf:
+                if b'\x00' in bf.read(1024):
+                    raise UnicodeDecodeError("binary", b"", 0, 1, "null")
+            return path.read_text(encoding='utf-8')
+        except UnicodeDecodeError:
+            try:
+                return path.read_text(encoding='utf-8', errors='ignore')
+            except Exception:
+                return ""
+        except Exception:
+            return ""
+
+# original file length: 497 lines
+# updated file length: 497 lines
+# file: robodog/task_manager.py
+#!/usr/bin/env python3
+"""Task management functionality."""
+import os
+import logging
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
+
+
+class TaskBase:
+    """Base class for task-related functionality."""
+    
+    STATUS_MAP = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
+    REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
+    
+    @staticmethod
+    def format_summary(indent: str, start: str, end: Optional[str] = None,
+                      know: Optional[int] = None, prompt: Optional[int] = None,
+                      incount: Optional[int] = None, include: Optional[int] = None,
+                      cur_model: str = None) -> str:
+        """Format a task summary line."""
+        parts = [f"started: {start}"]
+        if end:
+            parts.append(f"completed: {end}")
+        if know is not None:
+            parts.append(f"knowledge_tokens: {know}")
+        if include is not None:
+            parts.append(f"include_tokens: {include}")
+        if prompt is not None:
+            parts.append(f"prompt_tokens: {prompt}")
+        if cur_model:
+            parts.append(f"cur_model: {cur_model}")
+        return f"{indent}  - " + " | ".join(parts) + "\n"
+
+
+class TaskManager(TaskBase):
+    """Manages task lifecycle and status updates."""
+
+    def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None):
+        self.parser = task_parser
+        self.watcher = file_watcher
+        
+    
+    def write_file(self, filepath: str, file_lines: List[str]):
+        """Write file and update watcher."""
+        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+        if self.watcher:
+            self.watcher.ignore_next_change(filepath)
+    
+    def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as started (To Do -> Doing)."""
+        if self.STATUS_MAP[task['status_char']] != 'To Do':
+            return
+        
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}] {desc}\n"
+        
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        task['_start_stamp'] = stamp
+        
+        know, prompt, incount, include = (task.get(k, 0) for k in
+                                          ('_know_tokens','_prompt_tokens','_in_tokens','_include_tokens'))
+        
+        summary = self.format_summary(indent, stamp, None,
+                                     know, prompt, incount, include, cur_model)
+        
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('  - started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+        
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Doing']
+    
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as completed (Doing -> Done)."""
+        if self.STATUS_MAP[task['status_char']] != 'Doing':
+            return
+        
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}] {desc}\n"
+        
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        start = task.get('_start_stamp','')
+        
+        know, prompt, incount, include = (task.get(k, 0) for k in
+                                          ('_know_tokens','_prompt_tokens','_in_tokens','_include_tokens'))
+        
+        summary = self.format_summary(indent, start, stamp,
+                                     know, prompt, incount, include, cur_model)
+        
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('  - started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+        
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Done']
+
+# original file length: 77 lines
+# updated file length: 77 lines
