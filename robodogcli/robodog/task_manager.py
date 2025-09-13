@@ -77,7 +77,7 @@ class TaskManager(TaskBase):
                                       know, prompt, incount, None, cur_model)
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('  - started:'):
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
             file_lines_map[fn][idx] = summary
         else:
             file_lines_map[fn].insert(idx, summary)
@@ -111,7 +111,7 @@ class TaskManager(TaskBase):
 
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('  - started:'):
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
             file_lines_map[fn][idx] = summary
         else:
             file_lines_map[fn].insert(idx, summary)

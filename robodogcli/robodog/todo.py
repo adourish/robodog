@@ -185,6 +185,63 @@ class TodoService:
                 i = j
 
     def _watch_loop(self):
+        """
+        Watch all todo.md files under self._roots.
+        On external change, re‐parse tasks, re‐emit any manually Done tasks
+        with write_flag=' ' and then run the next To Do.
+        """
+        while True:
+            for fn in self._find_files():
+                try:
+                    mtime = os.path.getmtime(fn)
+                except OSError:
+                    # file might have been deleted
+                    continue
+
+                # 1) ignore our own writes
+                ignore_time = self._watch_ignore.get(fn)
+                if ignore_time and abs(mtime - ignore_time) < 1e-3:
+                    self._watch_ignore.pop(fn, None)
+
+                # 2) external change?
+                elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
+                    logger.debug(f"Detected external change in {fn}, reloading tasks")
+                    if not self._svc:
+                        # nothing to do if service not hooked up
+                        continue
+
+                    try:
+                        # re‐parse all todo.md files into self._tasks
+                        self._load_all()
+
+                        # a) re‐emit any tasks that were marked Done + write_flag → To Do
+                        for task in self._tasks:
+                            status     = task.get('status_char') or ' '
+                            write_flag = task.get('write_flag') or ' '
+                            if STATUS_MAP.get(status) == 'Done' and STATUS_MAP.get(write_flag) == 'To Do':
+                                desc = task.get('desc', '<no desc>')
+                                logger.info(f"Re‐emitting output for task: {desc}")
+                                # call your own process routine
+                                self._process_one(task, self._svc, self._file_lines)
+
+                        # b) then run the next To Do task, if any remain
+                        next_todos = [
+                            t for t in self._tasks
+                            if STATUS_MAP.get(t.get('status_char') or ' ') == 'To Do'
+                        ]
+                        if next_todos:
+                            logger.info("New To Do tasks found, running next")
+                            self.run_next_task(self._svc)
+
+                    except Exception as e:
+                        logger.error(f"watch loop error: {e}")
+
+                # 3) update our stored mtime
+                self._mtimes[fn] = mtime
+
+            time.sleep(1)
+
+    def _watch_loopb(bself):
         # monitor external edits to todo.md
         while True:
             for fn in self._find_files():
