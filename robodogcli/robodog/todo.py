@@ -143,7 +143,7 @@ class TodoService:
         Parse each todo.md into tasks, capturing optional second‐bracket
         write‐flag and any adjacent ```knowledge``` block.
         """
-        logger.info("_load_all called: Reloading all tasks from files")
+        logger.debug("_load_all called: Reloading all tasks from files")
         self._file_lines.clear()
         self._tasks.clear()
         for fn in self._find_files():
@@ -340,16 +340,53 @@ class TodoService:
             logger.error(f"Include failed for spec='{full_spec}': {e}")
             return ""
 
+    # --- new helper methods for token comparison and completeness checks ---
+    def _compare_token_delta(self, orig_name: str, orig_tokens: int, new_tokens: int, new_path: Path) -> int:
+        change = 0.0
+        if orig_tokens:
+            change = abs(new_tokens - orig_tokens) / orig_tokens * 100
+        msg = f"Compare: '{orig_name}' -> {new_path} (orig/new tokens: {orig_tokens}/{new_tokens}) delta={change:.1f}%"
+        if change > 40.0:
+            logger.error(msg + " (delta > 40%)")
+            return -2
+        if change > 20.0:
+            logger.warning(msg + " (delta > 20%)")
+            return -1
+        logger.info(msg)
+        return 0
+  
+    def _check_content_completeness(self, content: str, orig_name: str) -> int:
+        """
+        Check if AI output appears complete.
+        - Too few lines (under 3) → error -3
+        - Detect truncation phrases → error -4
+        """
+        lines = content.splitlines()
+        if len(lines) < 3:
+            logger.error(f"Incomplete output for {orig_name}: only {len(lines)} lines")
+            return -3
+
+        truncation_phrases = [
+            "rest of class unchanged",
+            "rest of file unchanged",
+            "remaining lines omitted",
+            "remaining code omitted",
+            "truncated",
+            "continues below",
+            "see above for rest"
+        ]
+        lower = content.lower()
+        for phrase in truncation_phrases:
+            if phrase in lower:
+                logger.error(f"Truncation indication found for {orig_name}: '{phrase}'")
+                return -4
+
+        return 0
+    
+    # --- modified report method ---
     def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
         """
-        Log for each parsed file:
-        - original filename (basename)
-        - resolved new path
-        - tokens(original/new)
-        Detect percentage delta and:
-        * if delta > 40%: log error, return -2
-        * if delta > 20%: log warning, return -1
-        Otherwise return 0
+        Log for each parsed file: compare tokens; return error code
         """
         logger.debug("_report_parsed_files called")
         result = 0
@@ -360,92 +397,49 @@ class TodoService:
             new_tokens = 0
             if task and task.get('include'):
                 new_path = self._find_matching_file(orig_name, task['include'])
-            try:
-                if new_path and new_path.exists():
-                    content = self.safe_read_file(new_path)
-                    new_tokens = len(content.split())
-                change = 0.0
-                if orig_tokens:
-                    change = abs(new_tokens - orig_tokens) / orig_tokens * 100
-                msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
-                if change > 40.0:
-                    logger.error(msg + " (delta > 40%)")
-                    result = -2
-                elif change > 20.0:
-                    logger.warning(msg + " (delta > 20%)")
-                    result = -1
-                else:
-                    logger.info(msg)
-            except Exception as e:
-                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
+            if new_path and new_path.exists():
+                txt = self._file_service.safe_read_file(new_path)
+                new_tokens = len(txt.split())
+            code = self._compare_token_delta(orig_name, orig_tokens, new_tokens, new_path)
+            if code < result or result == 0:
+                result = code
         return result
-    
+
+    # --- modified write-and-report method ---
     def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
         """
-        Log for each parsed file:
-        - original filename (basename)
-        - resolved new path
-        - tokens(original/new)
-        Detect percentage delta and:
-        * if delta > 40%: log error, return -2
-        * if delta > 20%: log warning, return -1
-        Otherwise return 0
+        Write parsed files and compare tokens, with completeness check.
         """
-        logger.debug("Writing parsed files")
+        logger.debug("_write_parsed_files called")
         result = 0
         for parsed in parsed_files:
             orig_name = Path(parsed['filename']).name
-            orig_tokens = parsed.get('tokens', 0)
-            new_path = None
-            new_tokens = 0
+            content = parsed['content']
+            # completeness check
+            comp = self._check_content_completeness(content, orig_name)
+            if comp < 0:
+                result = comp
+                continue
+            # determine tokens after write
             if task and task.get('include'):
                 new_path = self._find_matching_file(orig_name, task['include'])
-            try:
-                new_content = parsed['content']
-                if new_path and new_path.exists():
-                    content = self.safe_read_file(new_path)
-                    new_tokens = len(content.split())
-                change = 0.0
-                if orig_tokens:
-                    change = abs(new_tokens - orig_tokens) / orig_tokens * 100
-                msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
-                if change > 40.0:
-                    self._write_full_parsed_ai_output(self._svc, new_path, new_content)
-                    logger.error(msg + " (delta > 40%)")
-                    result = -2
-                elif change > 20.0:
-                    self._write_full_parsed_ai_output(self._svc, new_path, new_content)
-                    logger.warning(msg + " (delta > 20%)")
-                    result = -1
-                else:
-                    self._write_full_parsed_ai_output(self._svc, new_path, new_content)
-                    logger.info(msg)
-                    result = 1
-            except Exception as e:
-                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
+            else:
+                new_path = None
+            # write content
+            if new_path:
+                self._file_service.write_file(new_path, content)
+                new_txt = self._file_service.safe_read_file(new_path)
+                new_tokens = len(new_txt.split())
+            else:
+                new_tokens = 0
+            orig_tokens = parsed.get('tokens', 0)
+            code = self._compare_token_delta(orig_name, orig_tokens, new_tokens, new_path)
+            # use positive code as success indicator 1
+            if code >= 0:
+                result = 1
+            else:
+                result = code
         return result
-
-    def _build_prompt(self, task: dict, include_text: str, input_text: str) -> str:
-        logger.debug("Building prompt")
-        parts = [
-            "Instructions:",
-            "A. Produce one or more complete, runnable code files.",
-            "B. For each file, begin with exactly:  # file: <filename>  (use only filenames provided in the task; do not guess or infer).",
-            "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run.",
-            "D. If multiple files are needed, separate them with a single blank line.",
-            "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
-            "G. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",
-            "H. Verify that every file is syntactically correct, self-contained, and immediately executable.",
-            "I. Add a comment with the original file length and the updated file length.",
-            "J. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task.",
-            f"Task description: {task['desc']}",
-            ""
-        ]
-        if include_text:
-            parts.append(f"Included files knowledge:\n{include_text}")
-        if task.get('knowledge'):
-            parts.append(f"Task knowledge:\n{task['knowledge']}")
-        return "\n".join(parts)
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
         logger.debug(f"Backing up and writing to {out_path}")
@@ -495,7 +489,7 @@ class TodoService:
         knowledge_text = task.get('knowledge') or ""
         task['_know_tokens'] = len(knowledge_text.split())
         logger.info(f"Knowledge tokens: {task['_know_tokens']}")
-        prompt = self._build_prompt(task, include_text, '')
+        prompt = self._prompt_builder.build_task_prompt(task, include_text, '')
         task['_prompt_tokens'] = len(prompt.split())
         logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
         cur_model = svc.get_cur_model()
