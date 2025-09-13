@@ -1,3 +1,4 @@
+# file: c:\projects\robodog\robodogcli\robodog\cli.py
 #!/usr/bin/env python3
 import os
 import sys
@@ -9,7 +10,6 @@ from pprint import pprint
 # pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain setuptools
 # support both “python -m robodog.cli” and “python cli.py” invocations:
 # third-party for colored logs
-# pip install colorlog
 import colorlog
 
 # support both “python -m robodog.cli” and “python cli.py” invocations:
@@ -126,7 +126,7 @@ def interact(svc: RobodogService):
                         ptext = " ".join(parts[brk:]) or ""
                         knowledge = svc.include(spec) or ""
                         answer = svc.ask(f"{ptext} {knowledge}".strip())
-                    return answer
+                        print(answer)
 
                 elif cmd == "curl":
                     svc.curl(args)
@@ -209,13 +209,13 @@ def interact(svc: RobodogService):
                 else:
                     logging.error("unknown /cmd: %s", cmd)
 
-            except Exception as err:
+            except Exception:
                 logging.exception("Error processing command")
 
         else:
             _line = f"\nUser: {line}"
             _resp = svc.ask(_line)
-            print( f"{_resp}")
+            print(f"{_resp}")
 
 def main():
     parser = argparse.ArgumentParser(prog="robodog",
@@ -265,7 +265,7 @@ def main():
 
     svc = RobodogService(args.config)
     parser = ParseService()
-    svc.todo = TodoService(args.folders)
+    svc.todo = TodoService(args.folders, svc)
     svc.backup_folder = args.backupFolder
 
     server = run_robodogmcp(
@@ -292,3 +292,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# original file length: 217 lines
+# updated file length: 217 lines

@@ -1,4 +1,4 @@
-# file: robodog/cli/todo.py
+# file: c:\projects\robodog\robodogcli\robodog\todo.py
 #!/usr/bin/env python3
 import os
 import re
@@ -46,13 +46,13 @@ class ChangesList(RootModel[List[Change]]):
 class TodoService:
     FILENAME = 'todo.md'
 
-    def __init__(self, roots: List[str]):
+    def __init__(self, roots: List[str], svc=None):
         self._roots        = roots
         self._file_lines   = {}
         self._tasks        = []
         self._mtimes       = {}
         self._watch_ignore = {}
-        self._svc          = None
+        self._svc          = svc
         self.parser        = ParseService()
         self._processed    = set()  # track manually processed tasks
 
@@ -94,6 +94,20 @@ class TodoService:
                 if self.FILENAME in fns:
                     out.append(os.path.join(dp, self.FILENAME))
         return out
+
+    def _find_files_by_pattern(self, pattern: str, recursive: bool) -> List[str]:
+        """Find files matching the given glob pattern."""
+        if self._svc:
+            return self._svc.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
+        return []
+
+    def _find_matching_file(self, filename: str, include_spec: dict) -> Optional[Path]:
+        """Find a file by name based on the include pattern."""
+        files = self._find_files_by_pattern(include_spec['pattern'], include_spec.get('recursive', False))
+        for f in files:
+            if Path(f).name == filename:
+                return Path(f)
+        return None
 
     def _load_all(self):
         """
@@ -177,6 +191,10 @@ class TodoService:
                     if self._svc:
                         try:
                             self._process_manual_done(self._svc)
+                            # Add call to run_next_task based on task knowledge checklist
+                            todo_list = [t for t in self._tasks if STATUS_MAP.get(t.get('status_char')) == 'To Do']
+                            if todo_list:
+                                self.run_next_task(self._svc)
                         except Exception as e:
                             logger.error(f"watch loop error: {e}")
                 self._mtimes[fn] = mtime
@@ -200,7 +218,7 @@ class TodoService:
                         # Report on existing file
                         try:
                             parsed = [{'filename': out_path.name, 'content': content, 'tokens': len(content.split())}]
-                            self._report_parsed_files(parsed)
+                            self._report_parsed_files(parsed, task)
                         except Exception as e:
                             logger.error(f"Reporting manual file failed: {e}")
                         self._backup_and_write_output(svc, out_path, content)
@@ -299,16 +317,46 @@ class TodoService:
             logger.error(f"Include failed for spec='{full_spec}': {e}")
             return ""
 
-    def _read_input(self, task: dict) -> str:
-        inp = task.get('in', {}).get('pattern','')
-        if not inp:
-            return ""
-        pth = self._resolve_path(inp)
-        if not pth or not pth.exists():
-            return ""
-        return self._safe_read_file(pth)
+    def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
+        """
+        Log for each parsed file:
+        - original filename (basename)
+        - resolved new path
+        - tokens(original/new)
+        Detect percentage delta and:
+        * if delta > 40%: log error, return -2
+        * if delta > 20%: log warning, return -1
+        Otherwise return 0
+        """
+        for parsed in parsed_files:
+            orig_name = Path(parsed['filename']).name
+            orig_tokens = parsed.get('tokens', 0)
+            new_path = None
+            new_tokens = 0
+            if task and task.get('include'):
+                new_path = self._find_matching_file(orig_name, task['include'])
+            try:
+                if new_path and new_path.exists():
+                    content = self._safe_read_file(new_path)
+                    new_tokens = len(content.split())
+                change = 0.0
+                if orig_tokens:
+                    change = abs(new_tokens - orig_tokens) / orig_tokens * 100
+                msg = f"Compare: '{orig_name}' -> {new_path} | tokens(orig/new) = {orig_tokens}/{new_tokens} | delta={change:.1f}%"
+                if change > 40.0:
+                    logger.error(msg + " (delta > 40%)")
+                    return -2
+                elif change > 20.0:
+                    logger.warning(msg + " (delta > 20%)")
+                    return -1
+                else:
+                    logger.info(msg)
+            except Exception as e:
+                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
+        return 0
 
-    def _report_parsed_files(self, parsed_files: List[dict]):
+
+    def _report_parsed_filesb(self, parsed_files: List[dict], task: dict = None):
         """
         Log for each parsed file:
         - original filename (basename)
@@ -318,8 +366,10 @@ class TodoService:
         for parsed in parsed_files:
             orig_name = Path(parsed['filename']).name
             orig_tokens = parsed.get('tokens', 0)
+            new_path = None
+            if task and task.get('include'):
+                new_path = self._find_matching_file(orig_name, task['include'])
             try:
-                new_path = self._resolve_path(orig_name)
                 if new_path and new_path.exists():
                     content = self._safe_read_file(new_path)
                     new_tokens = len(content.split())
@@ -377,7 +427,7 @@ class TodoService:
         if not out_pat:
             return
         out_path = self._resolve_path(out_pat)
-        logger.info(f"Do full-AI-output write {out_path}")
+        logger.info(f"Write: {out_path} ({len(ai_out.split())} tokens)")
         if out_path:
             self._backup_and_write_output(svc, out_path, ai_out)
 
@@ -411,23 +461,10 @@ class TodoService:
             parsed_files = []
 
         if parsed_files:
-            self._report_parsed_files(parsed_files)
+            self._report_parsed_files(parsed_files, task)
+            self._write_full_ai_output(svc, task, ai_out)
         else:
             logger.info("No parsed files to report.")
-
-        # write files if flagged
-        if ai_out and task.get('write_flag') == '-':
-            for parsed in parsed_files:
-                lm_filename = parsed['filename']
-                file_path = self._resolve_path(lm_filename)
-                if file_path:
-                    self._backup_and_write_output(svc, file_path, parsed['content'])
-                else:
-                    default_path = Path(self._base_dir) / Path(lm_filename)
-                    default_path.parent.mkdir(parents=True, exist_ok=True)
-                    self._backup_and_write_output(svc, default_path, parsed['content'])
-        else:
-            logger.info("Skipping parsed-file writes (write_flag!='-')")
 
         TodoService._complete_task(task, file_lines_map, cur_model)
 
@@ -470,4 +507,4 @@ class TodoService:
 __all_classes__ = ["Change","ChangesList","TodoService"]
 
 # original file length: 350 lines
-# updated file length: 358 lines
+# updated file length: 360 lines
