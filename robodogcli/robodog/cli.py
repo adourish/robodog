@@ -10,6 +10,7 @@ from pprint import pprint
 # pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain setuptools
 # support both “python -m robodog.cli” and “python cli.py” invocations:
 # third-party for colored logs
+# pip install colorlog
 import colorlog
 
 # support both “python -m robodog.cli” and “python cli.py” invocations:
@@ -126,7 +127,7 @@ def interact(svc: RobodogService):
                         ptext = " ".join(parts[brk:]) or ""
                         knowledge = svc.include(spec) or ""
                         answer = svc.ask(f"{ptext} {knowledge}".strip())
-                        print(answer)
+                    return answer
 
                 elif cmd == "curl":
                     svc.curl(args)
@@ -294,4 +295,4 @@ if __name__ == '__main__':
     main()
 
 # original file length: 217 lines
-# updated file length: 217 lines
+# updated file length: 218 lines

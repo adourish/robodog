@@ -1,3 +1,4 @@
+
 # file: robodog/todo.py
 #!/usr/bin/env python3
 import os
@@ -14,12 +15,15 @@ import tiktoken
 from pydantic import BaseModel, RootModel
 import yaml   # ensure PyYAML is installed
 
-from parse_service import ParseService  # Added import for ParseService
+try:
+    from .parse_service import ParseService
+except ImportError:
+    from parse_service import ParseService
 
 logger = logging.getLogger(__name__)
 
 # Updated TASK_RE to capture optional second‐bracket 'write' flag,
-# allowing “[x][ ]” or “[x] [ ]” with optional whitespace between brackets
+# allowing "[x][ ]" or "[x] [ ]" with optional whitespace between brackets
 TASK_RE = re.compile(
     r'^(\s*)-\s*'                  # indent + "- "
     r'\[(?P<status>[ x~])\]'       # first [status]
@@ -199,7 +203,7 @@ class TodoService:
                         # re-parse all todo.md into self._tasks
                         self._load_all()
 
-                        # 1) tasks to “write”: Done + write_flag == To Do
+                        # 1) tasks to "write": Done + write_flag == To Do
                         write_list = [
                             t for t in self._tasks
                             if STATUS_MAP.get(t['status_char']) == 'Done'
@@ -444,7 +448,7 @@ class TodoService:
             "G. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",
             "H. Verify that every file is syntactically correct, self-contained, and immediately executable.",
             "I. Add a comment with the original file length and the updated file length.",
-            "J. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task."
+            "J. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task.",
             f"Task description: {task['desc']}",
             ""
         ]
