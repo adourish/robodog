@@ -36,7 +36,7 @@ SUB_RE = re.compile(
     r'(?:\s+(?P<rec>recursive))?'
 )
 
-STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
+STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done', '-': 'Ignore'}
 REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
 
 class Change(BaseModel):
@@ -222,7 +222,7 @@ class TodoService:
                                 desc = task.get('desc', '<no desc>')
                                 logger.info(f"Re‐emitting output for task: {desc}")
                                 # call your own process routine
-                                self._process_one(task, self._svc, self._file_lines)
+                                self._process_manual_done(task, self._svc, self._file_lines)
 
                         # b) then run the next To Do task, if any remain
                         next_todos = [
