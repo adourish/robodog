@@ -1,4 +1,5 @@
-# file: c:\projects\robodog\robodogcli\robodog\cli.py
+
+# file: robodog/cli.py
 #!/usr/bin/env python3
 import os
 import sys
@@ -8,22 +9,34 @@ import json
 from pprint import pprint
 
 # pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain setuptools
-# support both “python -m robodog.cli” and “python cli.py” invocations:
+# support both "python -m robodog.cli" and "python cli.py" invocations:
 # third-party for colored logs
 # pip install colorlog
 import colorlog
 
-# support both “python -m robodog.cli” and “python cli.py” invocations:
+# support both "python -m robodog.cli" and "python cli.py" invocations:
 try:
     from .service import RobodogService
     from .mcphandler import run_robodogmcp
     from .todo import TodoService
     from .parse_service import ParseService
+    from .models import TaskModel, Change, ChangesList, IncludeSpec
+    from .file_service import FileService
+    from .file_watcher import FileWatcher
+    from .task_manager import TaskManager
+    from .task_parser import TaskParser
+    from .prompt_builder import PromptBuilder
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
     from todo import TodoService
     from parse_service import ParseService
+    from models import TaskModel, Change, ChangesList, IncludeSpec
+    from file_service import FileService
+    from file_watcher import FileWatcher
+    from task_manager import TaskManager
+    from task_parser import TaskParser
+    from prompt_builder import PromptBuilder
 
 def print_help():
     cmds = {
@@ -295,4 +308,4 @@ if __name__ == '__main__':
     main()
 
 # original file length: 217 lines
-# updated file length: 218 lines
+# updated file length: 228 lines

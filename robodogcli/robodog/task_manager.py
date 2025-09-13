@@ -7,19 +7,18 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from .base import TaskBase
-from .file_watcher import FileWatcher
-from .task_parser import TaskParser
 
 logger = logging.getLogger(__name__)
 
 
-class TaskManager(TaskBase):
+class TaskManager():
     """Manages task lifecycle and status updates."""
-    
-    def __init__(self):
-        self.parser = TaskParser()
-        self.watcher = FileWatcher()
+
+
+    def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None):
+        self.parser = task_parser
+        self.watcher = file_watcher
+        
     
     def write_file(self, filepath: str, file_lines: List[str]):
         """Write file and update watcher."""

@@ -12,3 +12,4 @@
 /robodogmcp/config.yaml
 /robodogcli/config.yaml
 *.log
+*.pyc
