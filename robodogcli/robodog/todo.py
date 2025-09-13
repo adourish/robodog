@@ -51,7 +51,7 @@ class ChangesList(RootModel[List[Change]]):
 class TodoService:
     FILENAME = 'todo.md'
 
-    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None):
+    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None):
         self._roots        = roots
         self._file_lines   = {}
         self._tasks        = []
@@ -64,6 +64,7 @@ class TodoService:
         self._task_manager = task_manager
         self._task_parser = task_parser
         self._file_watcher = file_watcher
+        self._file_service = file_service
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
 
@@ -260,56 +261,13 @@ class TodoService:
             self._file_watcher.ignore_next_change(filepath)
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        """Mark a task as started (To Do -> Doing)."""
-        if STATUS_MAP[task['status_char']] != 'To Do':
-            return
+        st = self._task_manager.start_task(task, file_lines_map, cur_model)
+        return st
         
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{REVERSE_STATUS['Doing']}] {desc}\n"
-        
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        task['_start_stamp'] = stamp
-        
-        know, prompt, incount, include = (task.get(k, 0) for k in
-                                          ('_know_tokens','_prompt_tokens','_in_tokens','_include_tokens'))
-        
-        summary = self.format_summary(indent, stamp, None,
-                                     know, prompt, incount, include, cur_model)
-        
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and \
-           file_lines_map[fn][idx].lstrip().startswith('  - started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-        
-        self.write_file(fn, file_lines_map[fn])
-        task['status_char'] = REVERSE_STATUS['Doing']
-    
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
         ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
         return ct
         
-
-    @staticmethod
-    def format_summary(indent: str, start: str, end: Optional[str] = None,
-                      know: Optional[int] = None, prompt: Optional[int] = None,
-                      incount: Optional[int] = None, include: Optional[int] = None,
-                      cur_model: str = None) -> str:
-        parts = [f"started: {start}"]
-        if end:
-            parts.append(f"completed: {end}")
-        if know is not None:
-            parts.append(f"knowledge_tokens: {know}")
-        if include is not None:
-            parts.append(f"include_tokens: {include}")
-        if prompt is not None:
-            parts.append(f"prompt_tokens: {prompt}")
-        if cur_model:
-            parts.append(f"cur_model: {cur_model}")
-        return f"{indent}  - " + " | ".join(parts) + "\n"
-
     def run_next_task(self, svc):
         self._svc = svc
         self._load_all()
@@ -461,42 +419,12 @@ class TodoService:
         self.complete_task(task, file_lines_map, cur_model)
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
-        if not frag:
-            return None
-        f = frag.strip('"').strip('`')
-        if self._base_dir and not any(sep in f for sep in (os.sep,'/','\\')):
-            candidate = Path(self._base_dir) / f
-            return candidate.resolve()
-        if self._base_dir and any(sep in f for sep in ('/','\\')):
-            candidate = Path(self._base_dir) / Path(f)
-            candidate.parent.mkdir(parents=True, exist_ok=True)
-            return candidate.resolve()
-        search_roots = ([self._base_dir] if self._base_dir else []) + self._roots
-        for root in search_roots:
-            cand = Path(root) / f
-            if cand.is_file():
-                return cand.resolve()
-        p = Path(f)
-        base = Path(self._roots[0]) / p.parent
-        base.mkdir(parents=True, exist_ok=True)
-        return (base / p.name).resolve()
+        srf = self._file_service.resolve_path(frag)
+        return srf
 
     def safe_read_file(self, path: Path) -> str:
-        """Safely read a file, handling binary files and encoding issues."""
-        logger.debug(f"Safe read of: {path.absolute()}")
-        try:
-            # Check for binary content
-            with open(path, 'rb') as bf:
-                if b'\x00' in bf.read(1024):
-                    raise UnicodeDecodeError("binary", b"", 0, 1, "null")
-            return path.read_text(encoding='utf-8')
-        except UnicodeDecodeError:
-            try:
-                return path.read_text(encoding='utf-8', errors='ignore')
-            except Exception:
-                return ""
-        except Exception:
-            return ""
-
+        srf = self._file_service.safe_read_file(path)
+        return srf
+        
 # original file length: 497 lines
 # updated file length: 497 lines
