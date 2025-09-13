@@ -355,15 +355,22 @@ class TodoService:
         logger.info(msg)
         return 0
   
+    
     def _check_content_completeness(self, content: str, orig_name: str) -> int:
         """
         Check if AI output appears complete.
         - Too few lines (under 3) → error -3
-        - Detect truncation phrases → error -4
+        - Detect added truncation phrases → error -4
+        - Skip check for todo.md to avoid false positives
         """
+        # Skip completeness check for todo.md as it's not AI-generated content
+        if orig_name.lower() == 'todo.md':
+            return 0
+        
         lines = content.splitlines()
         if len(lines) < 3:
-            logger.error(f"Incomplete output for {orig_name}: only {len(lines)} lines")
+            logger.error("Incomplete output for {orig_name}: only {len_lines} lines".format(
+                orig_name=orig_name, len_lines=len(lines)))
             return -3
 
         truncation_phrases = [
@@ -373,12 +380,22 @@ class TodoService:
             "remaining code omitted",
             "truncated",
             "continues below",
-            "see above for rest"
+            "see above for rest",
+            "code continues",
+            "rest of the code",
+            "additional code omitted",
+            "file truncated",
+            "remaining parts unchanged",
+            "see rest below",
+            "code omitted for brevity",
+            "file continues elsewhere",
+            "other methods unchanged"
         ]
         lower = content.lower()
         for phrase in truncation_phrases:
             if phrase in lower:
-                logger.error(f"Truncation indication found for {orig_name}: '{phrase}'")
+                logger.error("Truncation indication found for {orig_name}: '{phrase}'".format(
+                    orig_name=orig_name, phrase=phrase))
                 return -4
 
         return 0
