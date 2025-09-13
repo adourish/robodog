@@ -1,3 +1,6 @@
+# Written on 2025-09-13 18:36:00 UTC
+
+#!/usr/bin/env python3
 """
 Todo management service for robodog.
 # test
@@ -53,6 +56,8 @@ class TodoService:
     FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None):
+        logger.info(f"Initializing TodoService with roots: {roots}")
+        logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
         self._roots        = roots
         self._file_lines   = {}
         self._tasks        = []
@@ -67,18 +72,24 @@ class TodoService:
         self._file_service = file_service
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
+        logger.info(f"Base directory parsed: {self._base_dir}")
 
         self._load_all()
         for fn in self._find_files():
             try:
                 self._mtimes[fn] = os.path.getmtime(fn)
-            except:
+                logger.debug(f"Initial mtime for {fn}: {self._mtimes[fn]}")
+            except Exception as e:
+                logger.warning(f"Could not get mtime for {fn}: {e}")
                 pass
 
         threading.Thread(target=self._watch_loop, daemon=True).start()
+        logger.info("TodoService initialized successfully")
 
     def _parse_base_dir(self) -> Optional[str]:
+        logger.debug("_parse_base_dir called")
         for fn in self._find_files():
+            logger.debug(f"Parsing front-matter from {fn}")
             text = Path(fn).read_text(encoding='utf-8')
             lines = text.splitlines()
             if not lines or lines[0].strip() != '---':
@@ -93,29 +104,38 @@ class TodoService:
                     _, _, val = stripped.partition(':')
                     base = val.strip()
                     if base:
+                        logger.debug(f"Found base dir: {base}")
                         return os.path.normpath(base)
+        logger.debug("No base dir found")
         return None
 
     def _find_files(self) -> List[str]:
+        logger.debug("_find_files called")
         out = []
         for r in self._roots:
             for dp, _, fns in os.walk(r):
                 if self.FILENAME in fns:
                     out.append(os.path.join(dp, self.FILENAME))
+        logger.debug(f"Found files: {out}")
         return out
 
     def _find_files_by_pattern(self, pattern: str, recursive: bool) -> List[str]:
         """Find files matching the given glob pattern."""
+        logger.debug(f"_find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
         if self._svc:
             return self._svc.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
+        logger.warning("Svc not available for file search")
         return []
 
     def _find_matching_file(self, filename: str, include_spec: dict) -> Optional[Path]:
         """Find a file by name based on the include pattern."""
+        logger.debug(f"_find_matching_file called for {filename}")
         files = self._find_files_by_pattern(include_spec['pattern'], include_spec.get('recursive', False))
         for f in files:
             if Path(f).name == filename:
+                logger.debug(f"Matching file found: {f}")
                 return Path(f)
+        logger.debug("No matching file found")
         return None
 
     def _load_all(self):
@@ -123,12 +143,15 @@ class TodoService:
         Parse each todo.md into tasks, capturing optional second‐bracket
         write‐flag and any adjacent ```knowledge``` block.
         """
+        logger.info("_load_all called: Reloading all tasks from files")
         self._file_lines.clear()
         self._tasks.clear()
         for fn in self._find_files():
+            logger.debug(f"Parsing tasks from {fn}")
             lines = Path(fn).read_text(encoding='utf-8').splitlines(keepends=True)
             self._file_lines[fn] = lines
             i = 0
+            task_count = 0
             while i < len(lines):
                 m = TASK_RE.match(lines[i])
                 if not m:
@@ -182,7 +205,9 @@ class TodoService:
                     j += 1  # skip closing ``` line
 
                 self._tasks.append(task)
+                task_count += 1
                 i = j
+            logger.info(f"Loaded {task_count} tasks from {fn}")
 
     def _watch_loop(self):
         """
@@ -190,11 +215,13 @@ class TodoService:
         On external change, re‐parse tasks, re‐emit any manually Done tasks
         with write_flag=' ' and then run the next To Do.
         """
+        logger.debug("_watch_loop started")
         while True:
             for fn in self._find_files():
                 try:
                     mtime = os.path.getmtime(fn)
                 except OSError:
+                    logger.warning(f"File {fn} not found, skipping")
                     # file might have been deleted
                     continue
 
@@ -202,11 +229,13 @@ class TodoService:
                 ignore_time = self._watch_ignore.get(fn)
                 if ignore_time and abs(mtime - ignore_time) < 1e-3:
                     self._watch_ignore.pop(fn, None)
+                    logger.debug(f"Skipped our own write for {fn}")
 
                 # 2) external change?
                 elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
                     logger.debug(f"Detected external change in {fn}, reloading tasks")
                     if not self._svc:
+                        logger.warning("Svc not available, skipping change processing")
                         # nothing to do if service not hooked up
                         continue
 
@@ -239,12 +268,14 @@ class TodoService:
         When a task is manually marked Done:
         - Use the same processing logic as _process_one for consistency
         """
+        logger.debug(f"_process_manual_done called with {len(todo)} tasks")
         for task in todo:
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
-                logger.info(f"Manual commit of task:")
+                logger.info(f"Manual commit of task: {task['desc']}")
                 # Use the same code as _process_one for consistency
                 out_pat = task.get('out', {}).get('pattern','')
                 if not out_pat:
+                    logger.warning("No output pattern for task")
                     return
                 out_path = self._resolve_path(out_pat)
                 ai_out = self._file_service.safe_read_file(out_path)
@@ -266,18 +297,21 @@ class TodoService:
 
                 self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
             else:
-                logger.info("No tasks to commit.")
+                logger.debug("No tasks to commit.")
 
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        logger.debug(f"Starting task: {task['desc']}")
         st = self._task_manager.start_task(task, file_lines_map, cur_model)
         return st
         
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        logger.debug(f"Completing task: {task['desc']}")
         ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
         return ct
             
     def run_next_task(self, svc):
+        logger.info("run_next_task called")
         self._svc = svc
         self._load_all()
         todo = [t for t in self._tasks
@@ -289,6 +323,7 @@ class TodoService:
         logger.info("Completed one To Do task")
 
     def _gather_include_knowledge(self, task: dict, svc) -> str:
+        logger.debug("Gathering include knowledge")
         inc = task.get('include') or {}
         spec = inc.get('pattern','')
         if not spec:
@@ -297,6 +332,7 @@ class TodoService:
         full_spec = f"pattern={spec}{rec}"
         try:
             know = svc.include(full_spec) or ""
+            logger.debug(f"Gathered {len(know.split())} tokens from include")
             return know
         except Exception as e:
             logger.error(f"Include failed for spec='{full_spec}': {e}")
@@ -342,61 +378,7 @@ class TodoService:
                 logger.error(f"Error reporting parsed file '{orig_name}': {e}")
         return result
     
-    def _write_parsed_files(self, parsed_files: list, task: dict = None) -> int:
-        """
-        Write each parsed file's content to disk, prepending a timestamp comment.
-        Returns:
-        1  if all writes succeeded,
-        -1  if at least one warning-level issue,
-        -2  if at least one error occurred.
-        """
-        status = 1
-        for parsed in parsed_files:
-            filename = parsed.get("filename")
-            content  = parsed.get("content", "")
-            if not filename:
-                logger.error("Parsed file missing 'filename'; skipping.")
-                status = -2
-                continue
-
-            # 1) resolve target path
-            target: Path = None
-            if task and task.get("include"):
-                # try to match under the same include spec
-                target = self._find_matching_file(Path(filename).name, task["include"])
-            if not target and self._file_service:
-                # fallback: resolve by full filename (base_dir or roots)
-                target = self._file_service.resolve_path(filename)
-
-            if not target:
-                logger.error(f"Could not resolve path for parsed file '{filename}'")
-                status = -2
-                continue
-
-            # 2) build timestamp comment
-            ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-            ext = target.suffix.lower()
-            if ext in (".py", ".sh", ".yaml", ".yml", ".md"):
-                prefix = "#"
-            elif ext in (".js", ".ts", ".java", ".c", ".cpp", ".h", ".cs"):
-                prefix = "//"
-            else:
-                prefix = "#"
-            header = f"{prefix} Written on {ts}\n\n"
-
-            # 3) write out
-            try:
-                full_text = header + content
-                # use your FileService which also updates the watcher
-                self._file_service.write_file(target, full_text)
-                logger.info(f"Wrote parsed file: {target}")
-            except Exception as e:
-                logger.error(f"Failed to write parsed file '{target}': {e}")
-                status = -2
-
-        return status
-    
-    def _write_parsed_filesb(self, parsed_files: List[dict], task: dict = None) -> int:
+    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
         """
         Log for each parsed file:
         - original filename (basename)
@@ -407,6 +389,7 @@ class TodoService:
         * if delta > 20%: log warning, return -1
         Otherwise return 0
         """
+        logger.debug("Writing parsed files")
         result = 0
         for parsed in parsed_files:
             orig_name = Path(parsed['filename']).name
@@ -440,6 +423,7 @@ class TodoService:
         return result
 
     def _build_prompt(self, task: dict, include_text: str, input_text: str) -> str:
+        logger.debug("Building prompt")
         parts = [
             "Instructions:",
             "A. Produce one or more complete, runnable code files.",
@@ -461,6 +445,7 @@ class TodoService:
         return "\n".join(parts)
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
+        logger.debug(f"Backing up and writing to {out_path}")
         if not out_path:
             return
         bf = getattr(svc, 'backup_folder', None)
@@ -497,9 +482,10 @@ class TodoService:
             self._file_service.write_file(path, ai_out)
 
     def _process_one(self, task: dict, svc, file_lines_map: dict):
+        logger.info(f"Processing task: {task['desc']}")
         basedir = Path(task['file']).parent
         self._base_dir = str(basedir)
-        logger.info(f"Base dir: {self._base_dir}")
+        logger.debug(f"Base dir: {self._base_dir}")
         include_text = self._gather_include_knowledge(task, svc)
         task['_include_tokens'] = len(include_text.split())
         logger.info(f"Include tokens: {task['_include_tokens']}")
@@ -534,12 +520,14 @@ class TodoService:
         self.complete_task(task, file_lines_map, cur_model)
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
+        logger.debug(f"Resolving path: {frag}")
         srf = self._file_service.resolve_path(frag)
         return srf
 
     def safe_read_file(self, path: Path) -> str:
+        logger.debug(f"Safe reading file: {path}")
         srf = self._file_service.safe_read_file(path)
         return srf
         
 # original file length: 497 lines
-# updated file length: 497 lines
+# updated file length: 637 lines
