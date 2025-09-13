@@ -13,7 +13,15 @@ from pprint import pprint
 # third-party for colored logs
 # pip install colorlog
 import colorlog
-
+# cli.py (somewhere near the top)
+from service        import RobodogService
+from parse_service  import ParseService
+from file_service   import FileService
+from file_watcher   import FileWatcher
+from task_parser    import TaskParser
+from task_manager   import TaskManager
+from prompt_builder import PromptBuilder
+from todo           import TodoService
 # support both "python -m robodog.cli" and "python cli.py" invocations:
 try:
     from .service import RobodogService
@@ -37,6 +45,8 @@ except ImportError:
     from task_manager import TaskManager
     from task_parser import TaskParser
     from prompt_builder import PromptBuilder
+
+
 
 def print_help():
     cmds = {
@@ -72,6 +82,43 @@ def print_help():
 def parse_cmd(line):
     parts = line.strip().split()
     return parts[0][1:], parts[1:]
+
+
+def _init_services(args):
+    # 1) core Robodog service + parser
+    svc    = RobodogService(args.config)
+    parser = ParseService()
+    svc.parse_service = parser
+
+    # 2) file‐service (for ad hoc file lookups and reads)
+    svc.file_service = FileService(roots=args.folders, base_dir=None)
+
+    # 3) file‐watcher (used by TaskManager / TodoService to ignore self‐writes)
+    watcher = FileWatcher()
+    watcher.start()
+    svc.file_watcher = watcher
+
+    # 4) task‐parsing + task‐manager (status updates in todo.md)
+    task_parser  = TaskParser()
+    svc.task_parser = task_parser
+    task_manager = TaskManager(
+        base=None,
+        file_watcher=watcher,
+        task_parser=task_parser,
+        svc=svc
+    )
+    svc.task_manager = task_manager
+
+    # 5) prompt builder for formalizing AI prompts
+    svc.prompt_builder = PromptBuilder()
+
+    # 6) todo runner / watcher
+    svc.todo = TodoService(args.folders, svc)
+
+    # 7) where to stash old focus‐file backups
+    svc.backup_folder = args.backupFolder
+
+    return svc, parser
 
 def interact(svc: RobodogService):
     prompt_symbol = lambda: f"[{svc.cur_model}]{'»' if svc.stream else '>'} "
@@ -277,10 +324,7 @@ def main():
 
     logging.info("Starting robodog")
 
-    svc = RobodogService(args.config)
-    parser = ParseService()
-    svc.todo = TodoService(args.folders, svc)
-    svc.backup_folder = args.backupFolder
+    svc, parser = _init_services(args)
 
     server = run_robodogmcp(
         host    = args.host,
