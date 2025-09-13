@@ -241,7 +241,7 @@ class TodoService:
 
             time.sleep(1)
 
-    def _process_manual_done(self, svc, fn=None):
+    def _process_manual_done(self, svc=None, fn=None, file_lines_map: dict=None):
         """
         When a task is manually marked Done:
         - Use the same processing logic as _process_one for consistency
