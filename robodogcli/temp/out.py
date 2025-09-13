@@ -1,4 +1,6 @@
 # file: robodog/task_manager.py
+# Written on 2025-09-13 18:41:40 UTC
+
 #!/usr/bin/env python3
 """Task management functionality."""
 import os
@@ -133,7 +135,7 @@ class TaskManager(TaskBase):
 
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][-] {desc}\n"
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][~] {desc}\n"
 
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         task['_start_stamp'] = stamp
@@ -162,9 +164,11 @@ class TaskManager(TaskBase):
 
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
-        # Set to [x][x] only if successful, else [x][ ]
-        second_status = 'x' if commited >= 1 else ' '
-        file_lines_map[fn][ln] = f"{indent}- [x][{second_status}] {desc}\n"
+        # Set first_status based on success
+        first_status = 'x' if commited >= 1 else '~'
+        # Set second_status based on success
+        second_status = 'x' if commited >= 1 else '~'
+        file_lines_map[fn][ln] = f"{indent}- [{first_status}][{second_status}] {desc}\n"
 
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         start = task.get('_start_stamp', '')
@@ -192,4 +196,4 @@ class TaskManager(TaskBase):
         task['status_char'] = self.REVERSE_STATUS['Done']
 
 # original file length: 94 lines
-# updated file length: 98 lines
+# updated file length: 96 lines

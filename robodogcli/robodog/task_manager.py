@@ -157,9 +157,6 @@ class TaskManager(TaskBase):
         task['status_char'] = self.REVERSE_STATUS['Doing']
 
     def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str, commited: float):
-        """Mark a task as completed (Doing -> Done), now including delta stats."""
-        if self.STATUS_MAP[task['status_char']] != 'Doing':
-            return
 
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
