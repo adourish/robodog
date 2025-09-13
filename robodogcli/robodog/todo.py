@@ -302,6 +302,46 @@ class TodoService:
             logger.error(f"Include failed for spec='{full_spec}': {e}")
             return ""
 
+    def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
+        """
+        Log for each parsed file:
+        - original filename (basename)
+        - resolved new path
+        - tokens(original/new)
+        Detect percentage delta and:
+        * if delta > 40%: log error, return -2
+        * if delta > 20%: log warning, return -1
+        Otherwise return 0
+        """
+        logger.debug("_report_parsed_files called")
+        result = 0
+        for parsed in parsed_files:
+            orig_name = Path(parsed['filename']).name
+            orig_tokens = parsed.get('tokens', 0)
+            new_path = None
+            new_tokens = 0
+            if task and task.get('include'):
+                new_path = self._find_matching_file(orig_name, task['include'])
+            try:
+                if new_path and new_path.exists():
+                    content = self.safe_read_file(new_path)
+                    new_tokens = len(content.split())
+                change = 0.0
+                if orig_tokens:
+                    change = abs(new_tokens - orig_tokens) / orig_tokens * 100
+                msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
+                if change > 40.0:
+                    logger.error(msg + " (delta > 40%)")
+                    result = -2
+                elif change > 20.0:
+                    logger.warning(msg + " (delta > 20%)")
+                    result = -1
+                else:
+                    logger.info(msg)
+            except Exception as e:
+                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
+        return result
+    
     def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
         """
         Log for each parsed file:
