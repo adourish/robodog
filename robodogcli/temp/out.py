@@ -1,666 +1,195 @@
-# file: robodog/todo.py
+# file: robodog/task_manager.py
 #!/usr/bin/env python3
-"""
-Todo management service for robodog.
-# test
-"""
+"""Task management functionality."""
 import os
-import re
-import time
-import threading
 import logging
-import shutil
 from datetime import datetime
+from typing import List, Dict, Any, Optional
 from pathlib import Path
-from typing import List, Optional, Dict
-
-import tiktoken
-from pydantic import BaseModel, RootModel
-import yaml   # ensure PyYAML is installed
-
-try:
-    from .parse_service import ParseService
-except ImportError:
-    from parse_service import ParseService
 
 logger = logging.getLogger(__name__)
 
-# Updated TASK_RE to capture optional second‐bracket 'write' flag,
-# allowing "[x][ ]" or "[x] [ ]" with optional whitespace between brackets
-TASK_RE = re.compile(
-    r'^(\s*)-\s*'                  # indent + "- "
-    r'\[(?P<status>[ x~])\]'       # first [status]
-    r'(?:\s*\[(?P<write>[ x~-])\])?'  # optional [write_flag], whitespace allowed
-    r'\s*(?P<desc>.+)$'            # space + desc
-)
-SUB_RE = re.compile(
-    r'^\s*-\s*(?P<key>include|out|in|focus):\s*'
-    r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
-    r'(?:\s+(?P<rec>recursive))?'
-)
+class TaskBase:
+    """Base class for task-related functionality."""
 
-STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done', '-': 'Ignore'}
-REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
+    STATUS_MAP = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
+    REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
 
-class Change(BaseModel):
-    path: str
-    start_line: int
-    end_line: Optional[int]
-    new_content: str
+    @staticmethod
+    def format_summary(indent: str, start: str, end: Optional[str] = None,
+                      know: Optional[int] = None, prompt: Optional[int] = None,
+                      incount: Optional[int] = None, include: Optional[int] = None,
+                      cur_model: str = None,
+                      delta_median: Optional[float] = None,
+                      delta_avg: Optional[float] = None,
+                      delta_peak: Optional[float] = None,
+                      commited: float = 0) -> str:
+        """Format a task summary line, now including delta stats."""
+        parts = [f"started: {start}"]
+        if end:
+            parts.append(f"completed: {end}")
+        if know is not None:
+            parts.append(f"knowledge_tokens: {know}")
+        if incount is not None:
+            parts.append(f"include_tokens: {incount}")
+        if prompt is not None:
+            parts.append(f"prompt_tokens: {prompt}")
+        if cur_model:
+            parts.append(f"cur_model: {cur_model}")
+        if commited <= -1:
+            parts.append(f"commit: warning")
+        if commited <= -1:
+            parts.append(f"commit: error")
+        if commited >= 1:
+            parts.append(f"commit: success")
+        if delta_median is not None:
+            parts.append(f"delta_median: {delta_median:.1f}%")
+        if delta_avg is not None:
+            parts.append(f"delta_avg: {delta_avg:.1f}%")
+        if delta_peak is not None:
+            parts.append(f"delta_peak: {delta_peak:.1f}%")
+        return f"{indent}  - " + " | ".join(parts) + "\n"
 
-class ChangesList(RootModel[List[Change]]):
-    pass
+class TaskManager(TaskBase):
+    """Manages task lifecycle and status updates."""
 
-class TodoService:
-    FILENAME = 'todo.md'
+    def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None):
+        self.parser = task_parser
+        self.watcher = file_watcher
 
-    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None):
-        logger.info(f"Initializing TodoService with roots: {roots}")
-        logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
-        self._roots        = roots
-        self._file_lines   = {}
-        self._tasks        = []
-        self._mtimes       = {}
-        self._watch_ignore = {}
-        self._svc          = svc
-        self.parser        = ParseService()
-        self._prompt_builder = prompt_builder
-        self._task_manager = task_manager
-        self._task_parser = task_parser
-        self._file_watcher = file_watcher
-        self._file_service = file_service
-        # MVP: parse a `base:` directive from front-matter
-        self._base_dir = self._parse_base_dir()
-        logger.info(f"Base directory parsed: {self._base_dir}")
-
-        self._load_all()
-        for fn in self._find_files():
-            try:
-                self._mtimes[fn] = os.path.getmtime(fn)
-                logger.debug(f"Initial mtime for {fn}: {self._mtimes[fn]}")
-            except Exception as e:
-                logger.warning(f"Could not get mtime for {fn}: {e}")
-                pass
-
-        threading.Thread(target=self._watch_loop, daemon=True).start()
-        logger.info("TodoService initialized successfully")
-
-    def _parse_base_dir(self) -> Optional[str]:
-        logger.debug("_parse_base_dir called")
-        for fn in self._find_files():
-            logger.debug(f"Parsing front-matter from {fn}")
-            text = Path(fn).read_text(encoding='utf-8')
-            lines = text.splitlines()
-            if not lines or lines[0].strip() != '---':
-                continue
-            try:
-                end_idx = lines.index('---', 1)
-            except ValueError:
-                continue
-            for lm in lines[1:end_idx]:
-                stripped = lm.strip()
-                if stripped.startswith('base:'):
-                    _, _, val = stripped.partition(':')
-                    base = val.strip()
-                    if base:
-                        logger.debug(f"Found base dir: {base}")
-                        return os.path.normpath(base)
-        logger.debug("No base dir found")
-        return None
-
-    def _find_files(self) -> List[str]:
-        logger.debug("_find_files called")
-        out = []
-        for r in self._roots:
-            for dp, _, fns in os.walk(r):
-                if self.FILENAME in fns:
-                    out.append(os.path.join(dp, self.FILENAME))
-        logger.debug(f"Found files: {out}")
-        return out
-
-    def _find_files_by_pattern(self, pattern: str, recursive: bool) -> List[str]:
-        """Find files matching the given glob pattern."""
-        logger.debug(f"_find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
-        if self._svc:
-            return self._svc.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
-        logger.warning("Svc not available for file search")
-        return []
-
-    def _find_matching_file(self, filename: str, include_spec: dict) -> Optional[Path]:
-        """Find a file by name based on the include pattern."""
-        logger.debug(f"_find_matching_file called for {filename}")
-        files = self._find_files_by_pattern(include_spec['pattern'], include_spec.get('recursive', False))
-        for f in files:
-            if Path(f).name == filename:
-                logger.debug(f"Matching file found: {f}")
-                return Path(f)
-        logger.debug("No matching file found")
-        return None
-
-    def _load_all(self):
-        """
-        Parse each todo.md into tasks, capturing optional second‐bracket
-        write‐flag and any adjacent ```knowledge``` block.
-        """
-        logger.info("_load_all called: Reloading all tasks from files")
-        self._file_lines.clear()
-        self._tasks.clear()
-        for fn in self._find_files():
-            logger.debug(f"Parsing tasks from {fn}")
-            lines = Path(fn).read_text(encoding='utf-8').splitlines(keepends=True)
-            self._file_lines[fn] = lines
-            i = 0
-            task_count = 0
-            while i < len(lines):
-                m = TASK_RE.match(lines[i])
-                if not m:
-                    i += 1
-                    continue
-
-                indent     = m.group(1)
-                status     = m.group('status')
-                write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
-                desc       = m.group('desc').strip()
-                task       = {
-                    'file': fn,
-                    'line_no': i,
-                    'indent': indent,
-                    'status_char': status,
-                    'write_flag': write_flag,
-                    'desc': desc,
-                    'include': None,
-                    'in': None,
-                    'out': None,
-                    'knowledge': '',
-                    '_start_stamp': None,
-                    '_know_tokens': 0,
-                    '_in_tokens': 0,
-                    '_prompt_tokens': 0,
-                    '_include_tokens': 0,
-                }
-
-                # scan sub‐entries (include, in, focus)
-                j = i + 1
-                while j < len(lines) and lines[j].startswith(indent + '  '):
-                    sub = SUB_RE.match(lines[j])
-                    if sub:
-                        key = sub.group('key')
-                        pat = sub.group('pattern').strip('"').strip('`')
-                        rec = bool(sub.group('rec'))
-                        if key == 'focus':
-                            task['out'] = {'pattern': pat, 'recursive': rec}
-                        else:
-                            task[key] = {'pattern': pat, 'recursive': rec}
-                    j += 1
-
-                # capture ```knowledge``` fence immediately after task
-                if j < len(lines) and lines[j].lstrip().startswith('```knowledge'):
-                    fence = []
-                    j += 1
-                    while j < len(lines) and not lines[j].startswith('```'):
-                        fence.append(lines[j])
-                        j += 1
-                    task['knowledge'] = ''.join(fence)
-                    j += 1  # skip closing ``` line
-
-                self._tasks.append(task)
-                task_count += 1
-                i = j
-            logger.info(f"Loaded {task_count} tasks from {fn}")
-
-    def _watch_loop(self):
-        """
-        Watch all todo.md files under self._roots.
-        On external change, re‐parse tasks, re‐emit any manually Done tasks
-        with write_flag=' ' and then run the next To Do.
-        """
-        logger.debug("_watch_loop started")
-        while True:
-            for fn in self._find_files():
-                try:
-                    mtime = os.path.getmtime(fn)
-                except OSError:
-                    logger.warning(f"File {fn} not found, skipping")
-                    # file might have been deleted
-                    continue
-
-                # 1) ignore our own writes
-                ignore_time = self._watch_ignore.get(fn)
-                if ignore_time and abs(mtime - ignore_time) < 1e-3:
-                    self._watch_ignore.pop(fn, None)
-                    logger.debug(f"Skipped our own write for {fn}")
-
-                # 2) external change?
-                elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
-                    logger.debug(f"Detected external change in {fn}, reloading tasks")
-                    if not self._svc:
-                        logger.warning("Svc not available, skipping change processing")
-                        # nothing to do if service not hooked up
-                        continue
-
-                    try:
-                        # re‐parse all todo.md files into self._tasks
-                        self._load_all()
-                        todo = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'Done']
-                                         
-                        self._process_manual_done(todo)
-
-                        # b) then run the next To Do task, if any remain
-                        next_todos = [
-                            t for t in self._tasks
-                            if STATUS_MAP.get(t.get('status_char') or ' ') == 'To Do'
-                        ]
-                        if next_todos:
-                            logger.info("New To Do tasks found, running next")
-                            self.run_next_task(self._svc)
-
-                    except Exception as e:
-                        logger.error(f"watch loop error: {e}")
-
-                # 3) update our stored mtime
-                self._mtimes[fn] = mtime
-
-            time.sleep(1)
-
-    def _process_manual_done(self, todo: list):
-        """
-        When a task is manually marked Done:
-        - Use the same processing logic as _process_one for consistency
-        """
-        logger.debug(f"_process_manual_done called with {len(todo)} tasks")
-        for task in todo:
-            if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
-                logger.info(f"Manual commit of task: {task['desc']}")
-                # Use the same code as _process_one for consistency
-                out_pat = task.get('out', {}).get('pattern','')
-                if not out_pat:
-                    logger.warning("No output pattern for task")
-                    return
-                out_path = self._resolve_path(out_pat)
-                ai_out = self._file_service.safe_read_file(out_path)
-                logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
-                cur_model = self._svc.get_cur_model()
-                self._task_manager.start_commit_task(task, self._file_lines, cur_model)
-
-                try:
-                    parsed_files = self.parser.parse_llm_output(ai_out) if ai_out else []
-                except Exception as e:
-                    logger.error(f"Parsing AI output failed: {e}")
-                    parsed_files = []
-
-                commited = 0;
-                if parsed_files:
-                    commited = self._write_parsed_files(parsed_files, task)
-                else:
-                    logger.info("No parsed files to report.")
-
-                self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
-            else:
-                logger.debug("No tasks to commit.")
-
+    def write_file(self, filepath: str, file_lines: List[str]):
+        """Write file and update watcher."""
+        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+        if self.watcher:
+            self.watcher.ignore_next_change(filepath)
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        logger.debug(f"Starting task: {task['desc']}")
-        st = self._task_manager.start_task(task, file_lines_map, cur_model)
-        return st
-        
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        logger.debug(f"Completing task: {task['desc']}")
-        ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
-        return ct
-            
-    def run_next_task(self, svc):
-        logger.info("run_next_task called")
-        self._svc = svc
-        self._load_all()
-        todo = [t for t in self._tasks
-                if STATUS_MAP[t['status_char']] == 'To Do']
-        if not todo:
-            logger.info("No To Do tasks found.")
+        """Mark a task as started (To Do -> Doing)."""
+        if self.STATUS_MAP[task['status_char']] != 'To Do':
             return
-        self._process_one(todo[0], svc, self._file_lines)
-        logger.info("Completed one To Do task")
 
-    def _gather_include_knowledge(self, task: dict, svc) -> str:
-        logger.debug("Gathering include knowledge")
-        inc = task.get('include') or {}
-        spec = inc.get('pattern','')
-        if not spec:
-            return ""
-        rec = " recursive" if inc.get('recursive') else ""
-        full_spec = f"pattern={spec}{rec}"
-        try:
-            know = svc.include(full_spec) or ""
-            logger.debug(f"Gathered {len(know.split())} tokens from include")
-            return know
-        except Exception as e:
-            logger.error(f"Include failed for spec='{full_spec}': {e}")
-            return ""
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][-] {desc}\n"
 
-    def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
-        """
-        Log for each parsed file:
-        - original filename (basename)
-        - resolved new path
-        - tokens(original/new)
-        Detect percentage delta and:
-        * if delta > 40%: log error, return -2
-        * if delta > 20%: log warning, return -1
-        Otherwise return 0
-        """
-        logger.debug("_report_parsed_files called")
-        result = 0
-        for parsed in parsed_files:
-            orig_name = Path(parsed['filename']).name
-            orig_tokens = parsed.get('tokens', 0)
-            new_path = None
-            new_tokens = 0
-            if task and task.get('include'):
-                new_path = self._find_matching_file(orig_name, task['include'])
-            try:
-                if new_path and new_path.exists():
-                    content = self.safe_read_file(new_path)
-                    new_tokens = len(content.split())
-                change = 0.0
-                if orig_tokens:
-                    change = abs(new_tokens - orig_tokens) / orig_tokens * 100
-                msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
-                if change > 40.0:
-                    logger.error(msg + " (delta > 40%)")
-                    result = -2
-                elif change > 20.0:
-                    logger.warning(msg + " (delta > 20%)")
-                    result = -1
-                else:
-                    logger.info(msg)
-            except Exception as e:
-                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
-        return result
-    
-    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
-        """
-        Log for each parsed file:
-        - original filename (basename)
-        - resolved new path
-        - tokens(original/new)
-        Detect percentage delta and:
-        * if delta > 40%: log error, return -2
-        * if delta > 20%: log warning, return -1
-        Otherwise return 0
-        """
-        logger.debug("Writing parsed files")
-        result = 0
-        for parsed in parsed_files:
-            orig_name = Path(parsed['filename']).name
-            orig_tokens = parsed.get('tokens', 0)
-            new_path = None
-            new_tokens = 0
-            if task and task.get('include'):
-                new_path = self._find_matching_file(orig_name, task['include'])
-            try:
-                if new_path and new_path.exists():
-                    content = self.safe_read_file(new_path)
-                    new_tokens = len(content.split())
-                change = 0.0
-                if orig_tokens:
-                    change = abs(new_tokens - orig_tokens) / orig_tokens * 100
-                msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
-                if change > 40.0:
-                    self._write_full_parsed_ai_output(self._svc, new_path, content)
-                    logger.error(msg + " (delta > 40%)")
-                    result = -2
-                elif change > 20.0:
-                    self._write_full_parsed_ai_output(self._svc, new_path, content)
-                    logger.warning(msg + " (delta > 20%)")
-                    result = -1
-                else:
-                    self._write_full_parsed_ai_output(self._svc, new_path, content)
-                    logger.info(msg)
-                    result = 1
-            except Exception as e:
-                logger.error(f"Error reporting parsed file '{orig_name}': {e}")
-        return result
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        task['_start_stamp'] = stamp
 
-    def _build_prompt(self, task: dict, include_text: str, input_text: str) -> str:
-        logger.debug("Building prompt")
-        parts = [
-            "Instructions:",
-            "A. Produce one or more complete, runnable code files.",
-            "B. For each file, begin with exactly:  # file: <filename>  (use only filenames provided in the task; do not guess or infer).",
-            "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run.",
-            "D. If multiple files are needed, separate them with a single blank line.",
-            "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
-            "G. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",
-            "H. Verify that every file is syntactically correct, self-contained, and immediately executable.",
-            "I. Add a comment with the original file length and the updated file length.",
-            "J. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task.",
-            f"Task description: {task['desc']}",
-            ""
-        ]
-        if include_text:
-            parts.append(f"Included files knowledge:\n{include_text}")
-        if task.get('knowledge'):
-            parts.append(f"Task knowledge:\n{task['knowledge']}")
-        return "\n".join(parts)
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
 
-    def _backup_and_write_output(self, svc, out_path: Path, content: str):
-        logger.debug(f"Backing up and writing to {out_path}")
-        if not out_path:
-            return
-        bf = getattr(svc, 'backup_folder', None)
-        if bf:
-            bak = Path(bf)
-            bak.mkdir(parents=True, exist_ok=True)
-            if out_path.exists():
-                ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-                dest = bak / f"{out_path.name}-{ts}"
-                try:
-                    shutil.copy2(out_path, dest)
-                except Exception:
-                    pass
-        try:
-            svc.call_mcp("UPDATE_FILE", {"path": str(out_path), "content": content})
-            self._watch_ignore[str(out_path)] = out_path.stat().st_mtime
-        except Exception as e:
-            logger.error(f"Failed to update {out_path}: {e}")
-
-    def _write_full_ai_output(self, svc, task, ai_out):
-        
-        out_pat = task.get('out', {}).get('pattern','')
-        if not out_pat:
-            return
-        out_path = self._resolve_path(out_pat)
-        logger.info(f"Write: {out_path} ({len(ai_out.split())} tokens)")
-        if out_path:
-            self._backup_and_write_output(svc, out_path, ai_out)
-    
-    def _write_full_parsed_ai_output(self, svc, path, ai_out):
-        
-        logger.info(f"Write: {path} ({len(ai_out.split())} tokens)")
-        if path:
-            self._file_service.write_file(path, ai_out)
-
-    def _process_one(self, task: dict, svc, file_lines_map: dict):
-        logger.info(f"Processing task: {task['desc']}")
-        basedir = Path(task['file']).parent
-        self._base_dir = str(basedir)
-        logger.debug(f"Base dir: {self._base_dir}")
-        include_text = self._gather_include_knowledge(task, svc)
-        task['_include_tokens'] = len(include_text.split())
-        logger.info(f"Include tokens: {task['_include_tokens']}")
-        knowledge_text = task.get('knowledge') or ""
-        task['_know_tokens'] = len(knowledge_text.split())
-        logger.info(f"Knowledge tokens: {task['_know_tokens']}")
-        prompt = self._build_prompt(task, include_text, '')
-        task['_prompt_tokens'] = len(prompt.split())
-        logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
-        cur_model = svc.get_cur_model()
-        self.start_task(task, file_lines_map, cur_model)
-
-        try:
-            ai_out = svc.ask(prompt)
-        except Exception as e:
-            logger.error(f"LLM call failed: {e}")
-            ai_out = ""
-
-        # parse and report before writing
-        try:
-            parsed_files = self.parser.parse_llm_output(ai_out) if ai_out else []
-        except Exception as e:
-            logger.error(f"Parsing AI output failed: {e}")
-            parsed_files = []
-
-        if parsed_files:
-            self._report_parsed_files(parsed_files, task)
-            self._write_full_ai_output(svc, task, ai_out)
+        # delta stats not yet available at start
+        summary = self.format_summary(indent, stamp, None,
+                                      know, prompt, incount, None, cur_model)
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
         else:
-            logger.info("No parsed files to report.")
+            file_lines_map[fn].insert(idx, summary)
 
-        self.complete_task(task, file_lines_map, cur_model)
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Doing']
 
-    def _resolve_path(self, frag: str) -> Optional[Path]:
-        logger.debug(f"Resolving path: {frag}")
-        srf = self._file_service.resolve_path(frag)
-        return srf
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as completed (Doing -> Done), now including delta stats."""
+        if self.STATUS_MAP[task['status_char']] != 'Doing':
+            return
 
-    def safe_read_file(self, path: Path) -> str:
-        logger.debug(f"Safe reading file: {path}")
-        srf = self._file_service.safe_read_file(path)
-        return srf
-        
-# original file length: 497 lines
-# updated file length: 637 lines
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][-] {desc}\n"
 
-# file: robodog/file_service.py
-#!/usr/bin/env python3
-"""File operations and path resolution service."""
-import os
-import logging
-from typing import List, Optional
-from pathlib import Path
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        start = task.get('_start_stamp', '')
 
-logger = logging.getLogger(__name__)
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+        # retrieve delta stats computed earlier
+        delta_median = task.get('_delta_median')
+        delta_avg = task.get('_delta_avg')
+        delta_peak = task.get('_delta_peak')
 
+        summary = self.format_summary(indent, start, stamp,
+                                      know, prompt, incount, None, cur_model,
+                                      delta_median, delta_avg, delta_peak)
 
-class FileService:
-    """Handles file operations and path resolution."""
-    
-    def __init__(self, roots: List[str], base_dir: str = None):
-        logger.info(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}")
-        self._roots = roots
-        self._base_dir = base_dir
-    
-    @property
-    def base_dir(self) -> Optional[str]:
-        return self._base_dir
-    
-    @base_dir.setter
-    def base_dir(self, value: str):
-        logger.debug(f"Setting base_dir to: {value}")
-        self._base_dir = value
-    
-    def find_files_by_pattern(self, pattern: str, recursive: bool, svc=None) -> List[str]:
-        """Find files matching the given glob pattern."""
-        logger.debug(f"find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
-        if svc:
-            return svc.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
-        logger.warning("Svc not provided, returning empty list")
-        return []
-    
-    def find_matching_file(self, filename: str, include_spec: dict, svc=None) -> Optional[Path]:
-        """Find a file by name based on the include pattern."""
-        logger.debug(f"find_matching_file called for {filename}")
-        files = self.find_files_by_pattern(
-            include_spec['pattern'], 
-            include_spec.get('recursive', False),
-            svc
-        )
-        for f in files:
-            if Path(f).name == filename:
-                logger.debug(f"Matching file found: {f}")
-                return Path(f)
-        logger.debug("No matching file found")
-        return None
-    
-    def resolve_path(self, frag: str) -> Optional[Path]:
-        """Resolve a file fragment to an absolute path."""
-        logger.debug(f"Resolving path for frag: {frag}")
-        if not frag:
-            return None
-        
-        f = frag.strip('"').strip('`')
-        
-        # Simple filename in base_dir
-        if self._base_dir and not any(sep in f for sep in (os.sep,'/','\\')):
-            candidate = Path(self._base_dir) / f
-            logger.debug(f"Resolved to base_dir candidate: {candidate}")
-            return candidate.resolve()
-        
-        # Path with separators in base_dir
-        if self._base_dir and any(sep in f for sep in ('/','\\')):
-            candidate = Path(self._base_dir) / Path(f)
-            candidate.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Resolved to base_dir path candidate: {candidate}")
-            return candidate.resolve()
-        
-        # Search in roots
-        search_roots = ([self._base_dir] if self._base_dir else []) + self._roots
-        for root in search_roots:
-            cand = Path(root) / f
-            if cand.is_file():
-                logger.debug(f"Found in roots: {cand}")
-                return cand.resolve()
-        
-        # Create in first root
-        p = Path(f)
-        base = Path(self._roots[0]) / p.parent
-        base.mkdir(parents=True, exist_ok=True)
-        created = (base / p.name).resolve()
-        logger.debug(f"Created new path: {created}")
-        return created
-    
-    def safe_read_file(self, path: Path) -> str:
-        """Safely read a file, handling binary files and encoding issues."""
-        logger.debug(f"Safe read of: {path.absolute()}")
-        try:
-            # Check for binary content
-            with open(path, 'rb') as bf:
-                if b'\x00' in bf.read(1024):
-                    raise UnicodeDecodeError("binary", b"", 0, 1, "null")
-            content = path.read_text(encoding='utf-8')
-            logger.debug(f"Successfully read file, {len(content.split())} tokens")
-            return content
-        except UnicodeDecodeError:
-            logger.warning(f"Binary content detected for {path}, trying with ignore")
-            try:
-                content = path.read_text(encoding='utf-8', errors='ignore')
-                logger.debug(f"Read with ignore, {len(content.split())} tokens")
-                return content
-            except Exception as e:
-                logger.error(f"Failed to read {path}: {e}")
-                return ""
-        except Exception as e:
-            logger.error(f"Failed to read {path}: {e}")
-            return ""
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
 
-    def write_file(self, path: Path, content: str):
-        """Write content to the given path, creating directories as needed."""
-        logger.debug(f"Writing file: {path}")
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding='utf-8')
-            logger.info(f"Written file via FileService: {path} ({len(content.split())} tokens)")
-        except Exception as e:
-            logger.error(f"FileService.write_file failed for {path}: {e}")
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Done']
 
-    def write_file_lines(self, filepath: str, file_lines: List[str]):
-        """Write file and update watcher."""
-        logger.debug(f"Writing file lines to: {filepath}")
-        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+    def start_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as started (To Do -> Doing)."""
+        if self.STATUS_MAP[task['status_char']] != 'To Do':
+            return
 
-    def write_file_text (self, filepath: str, content: str):
-        """Write file and update watcher."""
-        logger.debug(f"Writing text to: {filepath}")
-        Path(filepath).write_text(content, encoding='utf-8')
-# original file length: 82 lines
-# updated file length: 102 lines
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][-] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        task['_start_stamp'] = stamp
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+
+        # delta stats not yet available at start
+        summary = self.format_summary(indent, stamp, None,
+                                      know, prompt, incount, None, cur_model)
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Doing']
+
+    def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str, commited: float):
+        """Mark a task as completed (Doing -> Done), now including delta stats."""
+        if self.STATUS_MAP[task['status_char']] != 'Doing':
+            return
+
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        # Set to [x][x] only if successful, else [x][ ]
+        second_status = 'x' if commited >= 1 else ' '
+        file_lines_map[fn][ln] = f"{indent}- [x][{second_status}] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        start = task.get('_start_stamp', '')
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+        # retrieve delta stats computed earlier
+        delta_median = task.get('_delta_median')
+        delta_avg = task.get('_delta_avg')
+        delta_peak = task.get('_delta_peak')
+
+        summary = self.format_summary(indent, start, stamp,
+                                      know, prompt, incount, None, cur_model,
+                                      delta_median, delta_avg, delta_peak, commited)
+
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Done']
+
+# original file length: 94 lines
+# updated file length: 98 lines
