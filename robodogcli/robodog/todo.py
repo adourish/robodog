@@ -342,7 +342,61 @@ class TodoService:
                 logger.error(f"Error reporting parsed file '{orig_name}': {e}")
         return result
     
-    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
+    def _write_parsed_files(self, parsed_files: list, task: dict = None) -> int:
+        """
+        Write each parsed file's content to disk, prepending a timestamp comment.
+        Returns:
+        1  if all writes succeeded,
+        -1  if at least one warning-level issue,
+        -2  if at least one error occurred.
+        """
+        status = 1
+        for parsed in parsed_files:
+            filename = parsed.get("filename")
+            content  = parsed.get("content", "")
+            if not filename:
+                logger.error("Parsed file missing 'filename'; skipping.")
+                status = -2
+                continue
+
+            # 1) resolve target path
+            target: Path = None
+            if task and task.get("include"):
+                # try to match under the same include spec
+                target = self._find_matching_file(Path(filename).name, task["include"])
+            if not target and self._file_service:
+                # fallback: resolve by full filename (base_dir or roots)
+                target = self._file_service.resolve_path(filename)
+
+            if not target:
+                logger.error(f"Could not resolve path for parsed file '{filename}'")
+                status = -2
+                continue
+
+            # 2) build timestamp comment
+            ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+            ext = target.suffix.lower()
+            if ext in (".py", ".sh", ".yaml", ".yml", ".md"):
+                prefix = "#"
+            elif ext in (".js", ".ts", ".java", ".c", ".cpp", ".h", ".cs"):
+                prefix = "//"
+            else:
+                prefix = "#"
+            header = f"{prefix} Written on {ts}\n\n"
+
+            # 3) write out
+            try:
+                full_text = header + content
+                # use your FileService which also updates the watcher
+                self._file_service.write_file(target, full_text)
+                logger.info(f"Wrote parsed file: {target}")
+            except Exception as e:
+                logger.error(f"Failed to write parsed file '{target}': {e}")
+                status = -2
+
+        return status
+    
+    def _write_parsed_filesb(self, parsed_files: List[dict], task: dict = None) -> int:
         """
         Log for each parsed file:
         - original filename (basename)
