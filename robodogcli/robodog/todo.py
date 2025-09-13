@@ -240,8 +240,6 @@ class TodoService:
             parts.append(f"knowledge_tokens: {know}")
         if include is not None:
             parts.append(f"include_tokens: {include}")
-        if incount is not None:
-            parts.append(f"in_tokens: {incount}")
         if prompt is not None:
             parts.append(f"prompt_tokens: {prompt}")
         if cur_model:
