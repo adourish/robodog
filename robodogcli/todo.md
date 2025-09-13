@@ -2,12 +2,11 @@
 
 
 # todo.py
-- [x][-] ask: todo changes
-  - started: 2025-09-13 21:15 | completed: 2025-09-13 21:15 | knowledge_tokens: 16 | include_tokens: 55519 | prompt_tokens: 55702 | cur_model: openai/o4-mini
+- [~][-] ask: todo changes
+  - started: 2025-09-13 21:41 | knowledge_tokens: 8 | include_tokens: 55818 | prompt_tokens: 56035 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
-2. enhance _check_content_completeness
-4. verify and that todo.py doesnt trigger the _check_content_completeness truncation error when scanning
+1. pass exclude folders down into the service
 ```
 

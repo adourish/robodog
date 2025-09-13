@@ -145,8 +145,6 @@ class RobodogService:
 
                 # pick our fighter‐vs‐fighter frame
                 frame = spinner[idx % len(spinner)]
-
-                # print: [fighters]  [up to 60 chars of last_line][… if truncated]
                 sys.stdout.write(
                     f"\r{frame}  {last_line[:60]}{'…' if len(last_line) > 60 else ''}"
                 )

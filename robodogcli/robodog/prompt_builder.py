@@ -25,16 +25,18 @@ class PromptBuilder:
             "H. Verify that every file is syntactically correct, self-contained, and immediately executable.",
             "I. Add a comment with the original file length and the updated file length.",
             "J. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task.",
-            f"Task description: {task['desc']}",
+            "K. Review the task description and task knowledge "
+            f"L. Task description: {task['desc']}",
             ""
         ]
         
         if include_text:
-            parts.append(f"Included files knowledge:\n{include_text}")
+            parts.append(f"M. Review included files knowledge:\n{include_text}")
         
         if task.get('knowledge'):
-            parts.append(f"Task knowledge:\n{task['knowledge']}")
+            parts.append(f"N. Complete all tasks in task knowledge:\n{task['knowledge']}")
         
+        parts.append("O. review your answer from M with each of the rules and requirements in A, B, C, D, E, F, G, H, I, J, and K. ")
         return "\n".join(parts)
 
 # original file length: 29 lines

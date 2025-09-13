@@ -355,12 +355,30 @@ class TodoService:
         logger.info(msg)
         return 0
   
+    def _load_truncation_phrases(self) -> List[str]:
+
+        phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
+        if not phrases_file.exists():
+            logger.warning("Truncation phrases file not found, using default set")
+            return [
+                "rest of class unchanged",
+                     ]
+        try:
+            with open(phrases_file, 'r', encoding='utf-8') as f:
+                phrases = [line.strip() for line in f if line.strip()]
+            logger.debug(f"Loaded {len(phrases)} truncation phrases from {phrases_file}")
+            return phrases
+        except Exception as e:
+            logger.error(f"Failed to load truncation phrases: {e}")
+            return []
+    
+  
     
     def _check_content_completeness(self, content: str, orig_name: str) -> int:
         """
-        Check if AI output appears complete.
+        Enhanced check if AI output appears complete, with phrases loaded from file to avoid triggering the function.
         - Too few lines (under 3) → error -3
-        - Detect added truncation phrases → error -4
+        - Detect added truncation phrases from external file → error -4
         - Skip check for todo.md to avoid false positives
         """
         # Skip completeness check for todo.md as it's not AI-generated content
@@ -369,36 +387,18 @@ class TodoService:
         
         lines = content.splitlines()
         if len(lines) < 3:
-            logger.error("Incomplete output for {orig_name}: only {len_lines} lines".format(
-                orig_name=orig_name, len_lines=len(lines)))
+            logger.error(f"Incomplete output for {orig_name}: only {len(lines)} lines")
             return -3
 
-        truncation_phrases = [
-            "rest of class unchanged",
-            "rest of file unchanged",
-            "remaining lines omitted",
-            "remaining code omitted",
-            "truncated",
-            "continues below",
-            "see above for rest",
-            "code continues",
-            "rest of the code",
-            "additional code omitted",
-            "file truncated",
-            "remaining parts unchanged",
-            "see rest below",
-            "code omitted for brevity",
-            "file continues elsewhere",
-            "other methods unchanged"
-        ]
+        # Load truncation phrases from file
+        truncation_phrases = self._load_truncation_phrases()
         lower = content.lower()
         for phrase in truncation_phrases:
-            if phrase in lower:
-                logger.error("Truncation indication found for {orig_name}: '{phrase}'".format(
-                    orig_name=orig_name, phrase=phrase))
+            if phrase.lower() in lower:
+                logger.error(f"Truncation indication found for {orig_name}: '{phrase}'")
                 return -4
 
-        return 0
+        return 0    
     
     # --- modified report method ---
     def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
@@ -412,6 +412,7 @@ class TodoService:
             orig_tokens = parsed.get('tokens', 0)
             new_path = None
             new_tokens = 0
+            
             if task and task.get('include'):
                 new_path = self._find_matching_file(orig_name, task['include'])
             if new_path and new_path.exists():
@@ -420,6 +421,11 @@ class TodoService:
             code = self._compare_token_delta(orig_name, orig_tokens, new_tokens, new_path)
             if code < result or result == 0:
                 result = code
+            content = parsed['content']
+            comp = self._check_content_completeness(content, orig_name)
+            if comp < 0:
+                result = comp
+                continue
         return result
 
     # --- modified write-and-report method ---
