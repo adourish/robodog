@@ -51,7 +51,7 @@ class ChangesList(RootModel[List[Change]]):
 class TodoService:
     FILENAME = 'todo.md'
 
-    def __init__(self, roots: List[str], svc=None):
+    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None):
         self._roots        = roots
         self._file_lines   = {}
         self._tasks        = []
@@ -60,7 +60,10 @@ class TodoService:
         self._svc          = svc
         self.parser        = ParseService()
         self._processed    = set()  # track manually processed tasks
-
+        self._prompt_builder = prompt_builder
+        self._task_manager = task_manager
+        self._task_parser = task_parser
+        self._file_watcher = file_watcher
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
 

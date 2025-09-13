@@ -113,7 +113,7 @@ def _init_services(args):
     svc.prompt_builder = PromptBuilder()
 
     # 6) todo runner / watcher
-    svc.todo = TodoService(args.folders, svc)
+    svc.todo = TodoService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher)
 
     # 7) where to stash old focus‐file backups
     svc.backup_folder = args.backupFolder
