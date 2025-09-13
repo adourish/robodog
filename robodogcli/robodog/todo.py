@@ -128,7 +128,7 @@ class TodoService:
 
                 indent     = m.group(1)
                 status     = m.group('status')
-                write_flag = m.group('write')  # may be None, ' ', '-', or 'x'
+                write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
                 desc       = m.group('desc').strip()
                 task       = {
                     'file': fn,
@@ -181,6 +181,58 @@ class TodoService:
             for fn in self._find_files():
                 try:
                     mtime = os.path.getmtime(fn)
+                except OSError:
+                    continue
+
+                # ignore our own writes
+                ignore_time = self._watch_ignore.get(fn)
+                if ignore_time and abs(mtime - ignore_time) < 0.001:
+                    self._watch_ignore.pop(fn, None)
+                # new external change?
+                elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
+                    logger.debug(f"Detected external change in {fn}, reloading tasks")
+                    if not self._svc:
+                        continue
+
+                    try:
+                        # re-parse all todo.md into self._tasks
+                        self._load_all()
+
+                        # 1) tasks to “write”: Done + write_flag == To Do
+                        write_list = [
+                            t for t in self._tasks
+                            if STATUS_MAP.get(t['status_char']) == 'Done'
+                            and STATUS_MAP.get(t.get('write_flag',' ')) == 'To Do'
+                        ]
+                        for task in write_list:
+                            logger.info(f"Re-emitting output for task: {task['desc']}")
+                            # reuse your manual-done handler to re-emit existing file
+                            self._process_manual_done(self._svc)
+
+                        # 2) tasks still To Do
+                        todo_list = [
+                            t for t in self._tasks
+                            if STATUS_MAP.get(t['status_char']) == 'To Do'
+                        ]
+                        if todo_list:
+                            logger.info("New To Do tasks found, running next")
+                            self.run_next_task(self._svc)
+
+                    except Exception as e:
+                        logger.error(f"watch loop error: {e}")
+
+                # update stored mtime
+                self._mtimes[fn] = mtime
+
+            time.sleep(1)
+
+
+    def _watch_loopb(self):
+        # monitor external edits to todo.md
+        while True:
+            for fn in self._find_files():
+                try:
+                    mtime = os.path.getmtime(fn)
                 except:
                     continue
                 ignore = self._watch_ignore.get(fn)
@@ -190,6 +242,7 @@ class TodoService:
                     logger.debug(f"Detected external change in {fn}, processing manual tasks")
                     if self._svc:
                         try:
+                            logger.info("Procress commit.")
                             self._process_manual_done(self._svc)
                             # Add call to run_next_task based on task knowledge checklist
                             todo_list = [t for t in self._tasks if STATUS_MAP.get(t.get('status_char')) == 'To Do']
@@ -208,7 +261,7 @@ class TodoService:
         self._load_all()
         for task in self._tasks:
             key = (task['file'], task['line_no'])
-            if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ' and key not in self._processed:
+            if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
                 out_pat = task.get('out', {}).get('pattern','')
                 if out_pat:
                     out_path = self._resolve_path(out_pat)
