@@ -273,7 +273,9 @@ class TodoService:
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
                 logger.info(f"Manual commit of task: {task['desc']}")
                 # Use the same code as _process_one for consistency
-                out_pat = task.get('out', {}).get('pattern','')
+                #out_pat = task.get('out', {}).get('pattern','')
+                out_spec = task.get('out') or {}
+                out_pat   = out_spec.get('pattern', '')
                 if not out_pat:
                     logger.warning("No output pattern for task")
                     return
