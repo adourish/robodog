@@ -1,4 +1,3 @@
-
 # file: robodog/todo.py
 #!/usr/bin/env python3
 import os
@@ -214,8 +213,8 @@ class TodoService:
                         ]
                         for task in write_list:
                             logger.info(f"Re-emitting output for task: {task['desc']}")
-                            # reuse your manual-done handler to re-emit existing file
-                            self._process_manual_done(self._svc)
+                            # Use the same code as _process_one for consistency
+                            self._process_one(task, self._svc, self._file_lines)
 
                         # 2) tasks still To Do
                         todo_list = [
@@ -264,25 +263,18 @@ class TodoService:
     def _process_manual_done(self, svc):
         """
         When a task is manually marked Done:
-        - with write_flag '-', re-emit existing output to trigger downstream watches
+        - Use the same processing logic as _process_one for consistency
         """
         self._load_all()
         for task in self._tasks:
             key = (task['file'], task['line_no'])
+            if key in self._processed:
+                continue
+                
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
-                out_pat = task.get('out', {}).get('pattern','')
-                if out_pat:
-                    out_path = self._resolve_path(out_pat)
-                    logger.info(f"Manual commit of task: {task['desc']}")
-                    if out_path and out_path.exists():
-                        content = self._safe_read_file(out_path)
-                        # Report on existing file
-                        try:
-                            parsed = [{'filename': out_path.name, 'content': content, 'tokens': len(content.split())}]
-                            self._report_parsed_files(parsed, task)
-                        except Exception as e:
-                            logger.error(f"Reporting manual file failed: {e}")
-                        self._backup_and_write_output(svc, out_path, content)
+                logger.info(f"Manual commit of task: {task['desc']}")
+                # Use the same code as _process_one for consistency
+                self._process_one(task, svc, self._file_lines)
                 self._processed.add(key)
 
     @staticmethod
@@ -565,5 +557,5 @@ class TodoService:
 
 __all_classes__ = ["Change","ChangesList","TodoService"]
 
-# original file length: 350 lines
-# updated file length: 360 lines
+# original file length: 360 lines
+# updated file length: 357 lines
