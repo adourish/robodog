@@ -307,9 +307,9 @@ class TodoService:
         st = self._task_manager.start_task(task, file_lines_map, cur_model)
         return st
         
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float):
         logger.debug(f"Completing task: {task['desc']}")
-        ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
+        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation)
         return ct
             
     def run_next_task(self, svc):
@@ -488,7 +488,7 @@ class TodoService:
         except Exception as e:
             logger.error(f"Failed to update {out_path}: {e}")
 
-    def _write_full_ai_output(self, svc, task, ai_out):
+    def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
@@ -534,13 +534,14 @@ class TodoService:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
 
+        trunc_code = 0
         if parsed_files:
-            self._report_parsed_files(parsed_files, task)
-            self._write_full_ai_output(svc, task, ai_out)
+            trunc_code = self._report_parsed_files(parsed_files, task)
+            self._write_full_ai_output(svc, task, ai_out, trunc_code)
         else:
             logger.info("No parsed files to report.")
 
-        self.complete_task(task, file_lines_map, cur_model)
+        self.complete_task(task, file_lines_map, cur_model, trunc_code)
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")

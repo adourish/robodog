@@ -1,5 +1,4 @@
-# Written on 2025-09-13 18:41:40 UTC
-
+# file: robodog/task_manager.py
 #!/usr/bin/env python3
 """Task management functionality."""
 import os
@@ -30,11 +29,11 @@ class TaskBase:
         if end:
             parts.append(f"completed: {end}")
         if know is not None:
-            parts.append(f"knowledge_tokens: {know}")
+            parts.append(f"knowledge: {know}")
         if incount is not None:
-            parts.append(f"include_tokens: {incount}")
+            parts.append(f"include: {incount}")
         if prompt is not None:
-            parts.append(f"prompt_tokens: {prompt}")
+            parts.append(f"prompt: {prompt}")
         if cur_model:
             parts.append(f"cur_model: {cur_model}")
         if truncation <= -1:
@@ -47,12 +46,6 @@ class TaskBase:
             parts.append(f"commit: error")
         if commited >= 1:
             parts.append(f"commit: success")
-        if delta_median is not None:
-            parts.append(f"delta_median: {delta_median:.1f}%")
-        if delta_avg is not None:
-            parts.append(f"delta_avg: {delta_avg:.1f}%")
-        if delta_peak is not None:
-            parts.append(f"delta_peak: {delta_peak:.1f}%")
         return f"{indent}  - " + " | ".join(parts) + "\n"
 
 class TaskManager(TaskBase):
@@ -85,7 +78,6 @@ class TaskManager(TaskBase):
         incount = task.get('_include_tokens', 0)
 
         # delta stats not yet available at start
-
         summary = self.format_summary(indent, stamp, None,
                                       know, prompt, incount, None, cur_model,
                                       0, 0, 0, 0, 0)
@@ -100,8 +92,8 @@ class TaskManager(TaskBase):
         self.write_file(fn, file_lines_map[fn])
         task['status_char'] = self.REVERSE_STATUS['Doing']
 
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        """Mark a task as completed (Doing -> Done), now including delta stats."""
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float = 0):
+        """Mark a task as completed (Doing -> Done), now including truncation status."""
         if self.STATUS_MAP[task['status_char']] != 'Doing':
             return
 
@@ -115,11 +107,11 @@ class TaskManager(TaskBase):
         know = task.get('_know_tokens', 0)
         prompt = task.get('_prompt_tokens', 0)
         incount = task.get('_include_tokens', 0)
-        # retrieve delta stats computed earlier
 
+        # delta stats not tracked here
         summary = self.format_summary(indent, stamp, None,
                                       know, prompt, incount, None, cur_model,
-                                      0, 0, 0, 0, 0)
+                                      0, 0, 0, 0, truncation)
 
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \
@@ -132,7 +124,7 @@ class TaskManager(TaskBase):
         task['status_char'] = self.REVERSE_STATUS['Done']
 
     def start_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        """Mark a task as started (To Do -> Doing)."""
+        """Mark a task as started (To Do -> Doing) with commit flag."""
         if self.STATUS_MAP[task['status_char']] != 'To Do':
             return
 
@@ -147,8 +139,6 @@ class TaskManager(TaskBase):
         prompt = task.get('_prompt_tokens', 0)
         incount = task.get('_include_tokens', 0)
 
-        # delta stats not yet available at start
-     
         summary = self.format_summary(indent, stamp, None,
                                       know, prompt, incount, None, cur_model,
                                       0, 0, 0, 0, 0)
@@ -164,10 +154,9 @@ class TaskManager(TaskBase):
         task['status_char'] = self.REVERSE_STATUS['Doing']
 
     def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str, commited: float):
-
+        """Mark a commit-task as completed with commit status and delta stats."""
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
-        # Set to [x][x] only if successful, else [x][ ]
         second_status = 'x' if commited >= 1 else '~'
         file_lines_map[fn][ln] = f"{indent}- [x][{second_status}] {desc}\n"
 
@@ -177,7 +166,6 @@ class TaskManager(TaskBase):
         know = task.get('_know_tokens', 0)
         prompt = task.get('_prompt_tokens', 0)
         incount = task.get('_include_tokens', 0)
-        # retrieve delta stats computed earlier
         delta_median = task.get('_delta_median')
         delta_avg = task.get('_delta_avg')
         delta_peak = task.get('_delta_peak')
@@ -196,5 +184,5 @@ class TaskManager(TaskBase):
         self.write_file(fn, file_lines_map[fn])
         task['status_char'] = self.REVERSE_STATUS['Done']
 
-# original file length: 94 lines
-# updated file length: 98 lines
+# original file length: 98 lines
+# updated file length: 101 lines

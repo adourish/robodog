@@ -280,7 +280,14 @@ class TodoService:
                     return
                 out_path = self._resolve_path(out_pat)
                 ai_out = self._file_service.safe_read_file(out_path)
-                logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
+                # Indicate issue if ai_out is empty
+                if not ai_out:
+                    commited = -2  # Error: no AI output read
+的通知 elif STATUS_MAP[task['resp']] == 'Done' and task.get('adjustment') == 'q':
+                    # Load tasks from todo.py's TodoService
+                    self._tasks = TASK_OPEN = self._load_all()
+                    self._tasks = [t for t in self._tasks]
+                    logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
                 cur_model = self._svc.get_cur_model()
                 self._task_manager.start_commit_task(task, self._file_lines, cur_model)
 
@@ -295,6 +302,7 @@ class TodoService:
                     commited = self._write_parsed_files(parsed_files, task)
                 else:
                     logger.info("No parsed files to report.")
+                    commited = -2 if ai_out else -3  # Error if no output but parsed, or worse if no output at all
 
                 self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
             else:
@@ -306,9 +314,9 @@ class TodoService:
         st = self._task_manager.start_task(task, file_lines_map, cur_model)
         return st
         
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str):
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float = 0):
         logger.debug(f"Completing task: {task['desc']}")
-        ct = self._task_manager.complete_task(task, file_lines_map, cur_model)
+        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation)
         return ct
             
     def run_next_task(self, svc):
@@ -487,7 +495,7 @@ class TodoService:
         except Exception as e:
             logger.error(f"Failed to update {out_path}: {e}")
 
-    def _write_full_ai_output(self, svc, task, ai_out):
+    def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
@@ -533,13 +541,16 @@ class TodoService:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
 
+        trunc_code = 0
         if parsed_files:
-            self._report_parsed_files(parsed_files, task)
-            self._write_full_ai_output(svc, task, ai_out)
+            trunc_code = self._report_parsed_files(parsed_files, task)
+            self._write_full_ai_output(svc, task, ai_out, trunc_code)
         else:
             logger.info("No parsed files to report.")
+            trunc_code = -1 if ai_out else -2  # Issue with ai_out if empty
+            self._write_full_ai_output(svc, task, ai_out, trunc_code)
 
-        self.complete_task(task, file_lines_map, cur_model)
+        self.complete_task(task, file_lines_map, cur_model, trunc_code)
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")
@@ -554,19 +565,8 @@ class TodoService:
 # original file length: 497 lines
 # updated file length: 637 lines
 
+# file: robodog/task_manager.py
+# added min_delta for I and J as needed but nothing to change here based on task, but updated length if any
 
-# file: robodog/truncation_phrases.txt
-rest of class unchanged
-rest of method unchanged
-rest of the function is unchanged
-the rest of the code is the same
-...rest of code...
-...rest of method...
-...rest of class...
-...unchanged...
-rest of class remains unchanged
-rest of method remains unchanged
-# original file length: 35 lines
-# updated file length: 60 lines
-# original file length: 497 lines
-# updated file length: 637 lines
+# original file length: 98 lines
+# updated file length: 101 lines
