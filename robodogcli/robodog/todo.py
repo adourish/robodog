@@ -59,7 +59,6 @@ class TodoService:
         self._watch_ignore = {}
         self._svc          = svc
         self.parser        = ParseService()
-        self._processed    = set()  # track manually processed tasks
         self._prompt_builder = prompt_builder
         self._task_manager = task_manager
         self._task_parser = task_parser
@@ -213,16 +212,9 @@ class TodoService:
                     try:
                         # re‐parse all todo.md files into self._tasks
                         self._load_all()
-
-                        # a) re‐emit any tasks that were marked Done + write_flag → To Do
-                        for task in self._tasks:
-                            status     = task.get('status_char') or ' '
-                            write_flag = task.get('write_flag') or ' '
-                            if STATUS_MAP.get(status) == 'Done' and STATUS_MAP.get(write_flag) == 'To Do':
-                                desc = task.get('desc', '<no desc>')
-                                logger.info(f"Re‐emitting output for task: {desc}")
-                                # call your own process routine
-                                self._process_manual_done(task, self._svc, self._file_lines)
+                        todo = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'Done']
+                                         
+                        self._process_manual_done(todo)
 
                         # b) then run the next To Do task, if any remain
                         next_todos = [
@@ -241,21 +233,14 @@ class TodoService:
 
             time.sleep(1)
 
-    def _process_manual_done(self, svc=None, fn=None, file_lines_map: dict=None):
+    def _process_manual_done(self, todo: list):
         """
         When a task is manually marked Done:
         - Use the same processing logic as _process_one for consistency
         """
-        self._load_all()
-        # Filter tasks based on fn if provided to fix: does not loop through the files
-        filtered_tasks = [t for t in self._tasks if fn is None or t['file'] == fn]
-        for task in filtered_tasks:
-            key = (task['file'], task['line_no'])
-            if key in self._processed:
-                continue
-                
+        for task in todo:
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
-                logger.info(f"Manual commit of task: {task['desc']}")
+                logger.info(f"Manual commit of task:")
                 # Use the same code as _process_one for consistency
                 out_pat = task.get('out', {}).get('pattern','')
                 if not out_pat:
@@ -263,7 +248,7 @@ class TodoService:
                 out_path = self._resolve_path(out_pat)
                 ai_out = self._file_service.safe_read_file(out_path)
                 logger.info(f"Read: {out_path} ({len(ai_out.split())} tokens)")
-                cur_model = svc.get_cur_model()
+                cur_model = self._svc.get_cur_model()
                 self._task_manager.start_commit_task(task, self._file_lines, cur_model)
 
                 try:
@@ -278,9 +263,9 @@ class TodoService:
                 else:
                     logger.info("No parsed files to report.")
 
-
                 self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
-
+            else:
+                logger.info("No tasks to commit.")
 
     def write_file(self, filepath: str, file_lines: List[str]):
         """Write file and update watcher."""
@@ -349,15 +334,15 @@ class TodoService:
                     change = abs(new_tokens - orig_tokens) / orig_tokens * 100
                 msg = f"Compare: '{orig_name}' -> {new_path} (orig/new)({orig_tokens}/{new_tokens} tokens) delta={change:.1f}%"
                 if change > 40.0:
-                    self._write_full_parsed_ai_output(self._svc, task, new_path, content)
+                    self._write_full_parsed_ai_output(self._svc, new_path, content)
                     logger.error(msg + " (delta > 40%)")
                     result = -2
                 elif change > 20.0:
-                    self._write_full_parsed_ai_output(self._svc, task, new_path, content)
+                    self._write_full_parsed_ai_output(self._svc, new_path, content)
                     logger.warning(msg + " (delta > 20%)")
                     result = -1
                 else:
-                    self._write_full_parsed_ai_output(self._svc, task, new_path, content)
+                    self._write_full_parsed_ai_output(self._svc, new_path, content)
                     logger.info(msg)
                     result = 1
             except Exception as e:
