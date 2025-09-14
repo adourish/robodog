@@ -1,3 +1,13 @@
+# filename:         robodog/todo.py
+# originalfilename: robodog/todo.py
+# matchedfilename:  C:\Projects\robodog\robodogcli\robodog\todo.py
+# original file length: 557 lines
+# updated file length:  564 lines
+# filename:         c:\projects\robodog\robodogcli\robodog\todo.py
+# originalfilename: c:\projects\robodog\robodogcli\robodog\todo.py
+# matchedfilename:  C:\Projects\robodog\robodogcli\robodog\todo.py
+# original file length: 497 lines
+# updated file length:  510 lines
 import os
 import re
 import time
@@ -280,7 +290,7 @@ class TodoService:
 
                 try:
                     basedir = Path(task['file']).parent
-                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir)) if ai_out else []
+                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service) if ai_out else []
                 except Exception as e:
                     logger.error(f"Parsing AI output failed: {e}")
                     parsed_files = []
@@ -334,16 +344,17 @@ class TodoService:
             return ""
 
     # --- new helper methods for token comparison and completeness checks ---
-    def _compare_token_delta(self, orig_name: str, orig_tokens: int, new_tokens: int, new_path: Path) -> int:
-        change = 0.0
-        if orig_tokens:
-            change = abs(new_tokens - orig_tokens) / orig_tokens * 100
-        msg = f"Compare: '{orig_name}' -> {new_path} (orig/new tokens: {orig_tokens}/{new_tokens}) delta={change:.1f}%"
+    def _compare_token_delta(self, orig_name: str, new_tokens: int, original_tokens: int, delta: int, new_path: Path) -> int:
+        if original_tokens == 0:
+            change = 0.0
+        else:
+            change = abs(delta) / original_tokens * 100
+        msg = f"Compare: '{orig_name}' -> {new_path} (original/new/delta tokens: {original_tokens}/{new_tokens}/{delta}) change={change:.1f}%"
         if change > 40.0:
-            logger.error(msg + " (delta > 40%)")
+            logger.error(msg + " (change > 40%)")
             return -2
         if change > 20.0:
-            logger.warning(msg + " (delta > 20%)")
+            logger.warning(msg + " (change > 20%)")
             return -1
         logger.info(msg)
         return 0
@@ -394,22 +405,22 @@ class TodoService:
     # --- modified report method ---
     def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
         """
-        Log for each parsed file: compare tokens; return error code
+        Log for each parsed file: compare tokens using parse_service object properties
         """
         logger.debug("_report_parsed_files called")
         result = 0
         for parsed in parsed_files:
             orig_name = Path(parsed['filename']).name
-            orig_tokens = parsed.get('tokens', 0)
+            new_tokens = parsed.get('new_tokens', 0)
+            original_tokens = parsed.get('original_tokens', 0)
+            delta_tokens = parsed.get('delta_tokens', 0)
             new_path = None
-            new_tokens = 0
-            
             if task and task.get('include'):
                 new_path = self._find_matching_file(orig_name, task['include'])
             if new_path and new_path.exists():
                 txt = self._file_service.safe_read_file(new_path)
                 new_tokens = len(txt.split())
-            code = self._compare_token_delta(orig_name, orig_tokens, new_tokens, new_path)
+            code = self._compare_token_delta(orig_name, new_tokens, original_tokens, delta_tokens, new_path)
             if code < result or result == 0:
                 result = code
             content = parsed['content']
@@ -422,7 +433,7 @@ class TodoService:
     # --- modified write-and-report method ---
     def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
         """
-        Write parsed files and compare tokens, with completeness check.
+        Write parsed files and compare tokens using parse_service object properties
         """
         logger.debug("_write_parsed_files called")
         result = 0
@@ -435,6 +446,9 @@ class TodoService:
                 result = comp
                 continue
             # determine tokens after write
+            new_tokens = parsed.get('new_tokens', 0)
+            original_tokens = parsed.get('original_tokens', 0)
+            delta_tokens = parsed.get('delta_tokens', 0)
             if task and task.get('include'):
                 new_path = self._find_matching_file(orig_name, task['include'])
             else:
@@ -449,8 +463,7 @@ class TodoService:
                 new_tokens = len(new_txt.split())
             else:
                 new_tokens = 0
-            orig_tokens = parsed.get('tokens', 0)
-            code = self._compare_token_delta(orig_name, orig_tokens, new_tokens, new_path)
+            code = self._compare_token_delta(orig_name, new_tokens, original_tokens, delta_tokens, new_path)
             # use positive code as success indicator 1
             if code >= 0:
                 result = 1
@@ -526,7 +539,7 @@ class TodoService:
 
         # parse and report before writing
         try:
-            parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir)) if ai_out else []
+            parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service) if ai_out else []
         except Exception as e:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
@@ -553,5 +566,4 @@ class TodoService:
 # original file length: 497 lines
 # updated file length: 499 lines
 
-# original file length: 637 lines
-# updated file length: 639 lines
+# original file

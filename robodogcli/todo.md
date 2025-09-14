@@ -2,14 +2,13 @@
 
 
 # tasks and todo
-- [x][x] changes to tasks and todo
-  - started: None | completed: 2025-09-14 13:28 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: x-ai/grok-code-fast-1 | commit: success
+- [x][-] changes to tasks and todo
+  - started: 2025-09-14 15:32 | completed: 2025-09-14 15:33 | knowledge: 12 | include: 56675 | prompt: 56917 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
-1. in todo.py and task manager
-2. make sure the truncation param is populated when calling format_summary in complete_task
-3. the update should tell me if there was an issue with the ai_out 
+1. use the from/to/delta counts from parse service
+4. consume in todo.py
 ```
 
 
@@ -26,7 +25,7 @@
 2. break into multiple tasks based on grouping
 3. each task needs a 'out: tmp\file.ext' 
 4. each task needs an 'include: pattern=*robodogcli*robodog*.py  recursive` or appropriate matching pattern
-5. use the ```knowledge block to store more details
+5. use the ```knowledge block to store more details. ensure that ``` is at the start of each line
 6. ensure that each task is disabled [-][-] 
 7. ensure the tasks are disabled like this [-][-] or [x][x] 
 ```

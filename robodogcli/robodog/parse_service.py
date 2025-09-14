@@ -1,7 +1,13 @@
-# original file length: 399 lines
-# updated file length: 395 lines
-# original file length: 0 lines
-# updated file length: 397 lines
+# filename:         robodog/parse_service.py
+# originalfilename: robodog/parse_service.py
+# matchedfilename:  C:\Projects\robodog\robodogcli\robodog\parse_service.py
+# original file length: 295 lines
+# updated file length:  309 lines
+# filename:         c:\projects\robodog\robodogcli\robodog\parse_service.py
+# originalfilename: c:\projects\robodog\robodogcli\robodog\parse_service.py
+# matchedfilename:  C:\Projects\robodog\robodogcli\robodog\parse_service.py
+# original file length: 292 lines
+# updated file length:  450 lines
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
 import re
@@ -24,35 +30,26 @@ class ParseService:
     
     def __init__(self):
         """Initialize the ParseService with regex patterns for parsing."""
-        # Regex patterns for different formats
         self.section_pattern = re.compile(r'^#\s*file:\s*(.+)$', re.MULTILINE | re.IGNORECASE)
         self.md_fenced_pattern = re.compile(r'```([^\n]*)\n(.*?)\n```', re.DOTALL)
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
 
-    def parse_llm_output(self, llm_output: str, base_dir: Optional[str] = None) -> List[Dict[str, Union[str, int]]]:
+    def parse_llm_output(
+        self,
+        llm_output: str,
+        base_dir: Optional[str] = None,
+        file_service: Optional[object] = None
+    ) -> List[Dict[str, Union[str, int]]]:
         """
-        Parse LLM output into a list of objects, each with enhanced 'filename', 'originalfilename', 'matchedfilename', 'content', 'originalcontent', unified diff, 'tokens', and file lengths.
-        
-        Supports multiple formats with error handling.
-        
-        Returns:
-            List of dicts: [{
-                'filename': str,
-                'originalfilename': str,
-                'matchedfilename': Optional[str],  # Full path to the matched original file if found
-                'content': str,  # New content with length comments added
-                'originalcontent': str, 
-                'diff': str,  # Unified diff between original and new content
-                'tokens': int
-            }]
-            
-        Raises:
-            ParsingError: If no valid content could be parsed
+        Parse LLM output into objects with metadata:
+            'filename', 'originalfilename', 'matchedfilename',
+            'content', 'originalcontent', 'diff', 'tokens'
+        Parse LLM output into objects with metadata:
+            'filename', 'originalfilename', 'matchedfilename',
+            'content', 'originalcontent', 'diff', 'new_tokens', 'original_tokens', 'delta_tokens'
         """
         logger.info(f"Starting parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir}")
-
         try:
-            # Try formats in order of most common/reliable
             if self._is_section_format(llm_output):
                 logger.debug("Detected section format")
                 parsed_objects = self._parse_section_format(llm_output)
@@ -73,325 +70,238 @@ class ParseService:
                 parsed_objects = self._parse_generic_format(llm_output)
         except Exception as e:
             logger.error(f"Parsing error: {e}")
-            # Fallback to best-effort parsing
             try:
                 parsed_objects = self._parse_fallback(llm_output)
             except Exception as fallback_e:
                 logger.error(f"Fallback parsing also failed: {fallback_e}")
                 raise ParsingError(f"Could not parse LLM output: {e}")
 
-        # Enhance each parsed object with original content, diff, and length comments
         for obj in parsed_objects:
-            self._enhance_parsed_object(obj, base_dir)
+            self._enhance_parsed_object(obj, base_dir, file_service)
 
         return parsed_objects
 
-    def _enhance_parsed_object(self, obj: Dict[str, Union[str, int]], base_dir: Optional[str]):
-        """Enhance a parsed object with additional metadata including originalfilename, matchedfilename, diffs, and length comments."""
-        filename = obj['filename']
-        new_content = obj['content']
-        original_content = ""
-        diff = ""
-        original_lines = 0
-        matchedfilename = None
+    def _enhance_parsed_object(
+        self,
+        obj: Dict[str, Union[str, int]],
+        base_dir: Optional[str],
+        file_service: Optional[object]
+    ):
+        """
+        Enhance the parsed object with:
+          - originalfilename
+          - matchedfilename (via file_service.resolve_path validation)
+          - originalcontent
+          - diff (comparing new content with content from matchedfilename)
+        """
+        filename    = obj.get('filename', '')
+        new_content = obj.get('content', '')
+        matched     = None
+        original    = ''
+        diff_text   = ''
 
-        if base_dir:
-            original_path = Path(base_dir) / filename
+        # Resolve the filename using file_service.resolve_path to validate and find real location
+        if file_service:
             try:
-                if original_path.exists():
-                    original_content = original_path.read_text(encoding='utf-8')
-                    original_lines = len(original_content.splitlines())
-                    diff = "\n".join(difflib.unified_diff(
-                        original_content.splitlines(keepends=True),
-                        new_content.splitlines(keepends=True),
-                        fromfile=f'original/{filename}',
-                        tofile=f'updated/{filename}',
-                        lineterm=''
-                    ))
-                    matchedfilename = str(original_path)
+                candidate = file_service.resolve_path(filename)
+                if candidate and candidate.exists():
+                    matched = str(candidate.resolve())  # Set matchedfilename to the resolved full path
+                    original = candidate.read_text(encoding='utf-8', errors='ignore')  # Read content from matchedfilename for comparison
+                    # Compare new content with original content from matchedfilename
+                    diff_text = '\n'.join(
+                        difflib.unified_diff(
+                            original.splitlines(keepends=True),
+                            new_content.splitlines(keepends=True),
+                            fromfile=f'original/{filename}',
+                            tofile=f'updated/{Path(matched).name}',
+                            lineterm=''
+                        )
+                    )
             except Exception as e:
-                logger.debug(f"Could not read original file {original_path}: {e}")
+                logger.debug(f"resolve_path failed for {filename}: {e}")
 
-        new_lines = len(new_content.splitlines())
-        
-        # Add length comments to the beginning of new content
-        length_comment = f"# original file length: {original_lines} lines\n# updated file length: {new_lines} lines\n"
-        obj['content'] = length_comment + new_content
-        obj['originalcontent'] = original_content
-        obj['diff'] = diff
-        obj['originalfilename'] = filename  # The filename as provided in the LLM output
-        obj['matchedfilename'] = matchedfilename  # Full path to the matched original file if it exists (for verification and diff generation)
+        # Fallback to base_dir lookup if resolve_path didn't find it
+        if matched is None and base_dir:
+            try:
+                candidate = Path(base_dir) / filename
+                if candidate.exists():
+                    matched = str(candidate.resolve())
+                    original = candidate.read_text(encoding='utf-8', errors='ignore')
+                    diff_text = '\n'.join(
+                        difflib.unified_diff(
+                            original.splitlines(keepends=True),
+                            new_content.splitlines(keepends=True),
+                            fromfile=f'original/{filename}',
+                            tofile=f'updated/{filename}',
+                            lineterm=''
+                        )
+                    )
+            except Exception as e:
+                logger.debug(f"Base_dir lookup failed for {filename}: {e}")
+
+        # Compute line-counts for metadata
+        orig_lines = original.count('\n') + (1 if original else 0)
+        new_lines  = new_content.count('\n') + (1 if new_content else 0)
+
+        # Compute word counts and delta word counts
+        new_word_count = len(new_content.split())
+        original_word_count = len(original.split()) if original else 0
+        delta_word_count = new_word_count - original_word_count
+
+        # Build metadata comments including filename resolution
+        length_comment = (
+            f"# original file length: {orig_lines} lines\n"
+            f"# updated file length:  {new_lines} lines\n"
+        )
+        filename_meta = (
+            f"# filename:         {filename}\n"  # Includes filename
+            f"# originalfilename: {filename}\n"  # Includes originalfilename
+            f"# matchedfilename:  {matched}\n"   # Includes matched filename (resolved real location)
+        )
+
+        # Overwrite object's content with metadata, length comments, and new content
+        obj['content']          = filename_meta + length_comment + new_content
+        obj['originalfilename'] = filename  # Includes originalfilename
+        obj['matchedfilename']  = matched   # Includes matchedfilename (real validated location)
+        obj['originalcontent']  = original  # Content for comparison
+        obj['diff']             = diff_text # Diff from comparison
+        obj['new_tokens']       = new_word_count
+        obj['original_tokens']  = original_word_count
+        obj['delta_tokens']     = delta_word_count
+        obj['_tokens']          = new_word_count  # Legacy 'tokens' for compatibility
 
     def _is_section_format(self, output: str) -> bool:
-        """Check if output follows # file: <filename> format."""
         return bool(self.section_pattern.search(output))
 
     def _is_json_format(self, output: str) -> bool:
-        """Check if output is valid JSON with expected structure."""
         stripped = output.strip()
         if not stripped.startswith('{') and not stripped.startswith('['):
             return False
         try:
             parsed = json.loads(stripped)
             return isinstance(parsed, dict) and 'files' in parsed
-        except (json.JSONDecodeError, TypeError):
+        except:
             return False
 
     def _is_yaml_format(self, output: str) -> bool:
-        """Check if output is valid YAML with expected structure."""
         try:
             parsed = yaml.safe_load(output)
             return isinstance(parsed, dict) and 'files' in parsed
-        except (yaml.YAMLError, TypeError):
+        except:
             return False
 
     def _is_xml_format(self, output: str) -> bool:
-        """Check if output is valid XML with files structure."""
         stripped = output.strip()
         if not stripped.startswith('<'):
             return False
         try:
             root = ET.fromstring(stripped)
             return root.tag == 'files' and len(root) > 0 and root[0].tag == 'file'
-        except ET.ParseError:
+        except:
             return False
 
     def _is_md_fenced_format(self, output: str) -> bool:
-        """Check if output contains Markdown fenced code blocks."""
         return bool(self.md_fenced_pattern.search(output))
 
     def _parse_section_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """Parse # file: <filename> format."""
         matches = list(self.section_pattern.finditer(output))
         parsed_objects = []
-        
         for i, match in enumerate(matches):
             filename = match.group(1).strip()
-            if not filename:
-                logger.warning(f"Empty filename at match {i}, skipping")
-                continue
-                
-            start_pos = match.end()
-            end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(output)
-            
-            content = output[start_pos:end_pos].strip()
-            
-            # Validate content
-            if not self._validate_filename(filename):
-                logger.warning(f"Invalid filename: {filename}, skipping")
-                continue
-            
-            # Only change code that must be changed: validate and parse but don't add extra fields yet
-            parsed_objects.append({
-                'filename': filename,
-                'content': content
-            })
-        
-        logger.info(f"Parsed {len(parsed_objects)} files from section format")
+            start = match.end()
+            end = matches[i+1].start() if i+1 < len(matches) else len(output)
+            content = output[start:end].strip()
+            parsed_objects.append({'filename': filename, 'content': content})
+        logger.info(f"Parsed {len(parsed_objects)} from section format")
         return parsed_objects
 
     def _parse_json_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """Parse JSON format: {"files": [...]}"""
-        parsed = json.loads(output.strip())
-        files = parsed.get('files', [])
-        
+        data = json.loads(output.strip())
+        files = data.get('files', [])
         if not isinstance(files, list):
-            raise ParsingError("JSON 'files' field must be an array")
-        
-        parsed_objects = []
+            raise ParsingError("JSON 'files' must be list")
+        parsed = []
         for item in files:
-            filename = item.get('filename', '').strip()
-            content = item.get('content', '').strip()
-            
-            if not self._validate_filename(filename):
-                logger.warning(f"Invalid filename: {filename}, skipping")
-                continue
-            
-            # Only change code that must be changed: validate and parse but don't add extra fields yet
-            parsed_objects.append({
-                'filename': filename,
-                'content': content
-            })
-        
-        logger.info(f"Parsed {len(parsed_objects)} files from JSON format")
-        return parsed_objects
+            fn = item.get('filename','').strip()
+            ct = item.get('content','').strip()
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': ct})
+        logger.info(f"Parsed {len(parsed)} from JSON")
+        return parsed
 
     def _parse_yaml_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """Parse YAML format: files:\n  - filename: ...\n    content: ..."""
-        parsed = yaml.safe_load(output)
-        files = parsed.get('files', [])
-        
+        data = yaml.safe_load(output)
+        files = data.get('files', [])
         if not isinstance(files, list):
-            raise ParsingError("YAML 'files' field must be a list")
-        
-        parsed_objects = []
+            raise ParsingError("YAML 'files' must be list")
+        parsed = []
         for item in files:
-            filename = item.get('filename', '').strip()
-            content = item.get('content', '').strip()
-            
-            if not self._validate_filename(filename):
-                logger.warning(f"Invalid filename: {filename}, skipping")
-                continue
-            
-            # Only change code that must be changed: validate and parse but don't add extra fields yet
-            parsed_objects.append({
-                'filename': filename,
-                'content': content
-            })
-        
-        logger.info(f"Parsed {len(parsed_objects)} files from YAML format")
-        return parsed_objects
+            fn = item.get('filename','').strip()
+            ct = item.get('content','').strip()
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': ct})
+        logger.info(f"Parsed {len(parsed)} from YAML")
+        return parsed
 
     def _parse_xml_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """Parse XML format: <files><file>...</file></files>"""
         root = ET.fromstring(output.strip())
-        
         if root.tag != 'files':
-            raise ParsingError("Root element must be 'files'")
-        
-        parsed_objects = []
-        for file_elem in root.findall('file'):
-            filename_elem = file_elem.find('filename')
-            content_elem = file_elem.find('content')
-            
-            if filename_elem is None or content_elem is None:
+            raise ParsingError("Root must be 'files'")
+        parsed = []
+        for fe in root.findall('file'):
+            fn_el = fe.find('filename')
+            ct_el = fe.find('content')
+            if fn_el is None or ct_el is None:
                 continue
-                
-            filename = filename_elem.text.strip() if filename_elem.text else ''
-            content = content_elem.text.strip() if content_elem.text else ''
-            
-            if not self._validate_filename(filename):
-                logger.warning(f"Invalid filename: {filename}, skipping")
-                continue
-            
-            # Only change code that must be changed: validate and parse but don't add extra fields yet
-            parsed_objects.append({
-                'filename': filename,
-                'content': content
-            })
-        
-        logger.info(f"Parsed {len(parsed_objects)} files from XML format")
-        return parsed_objects
+            fn = (fn_el.text or '').strip()
+            ct = (ct_el.text or '').strip()
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': ct})
+        logger.info(f"Parsed {len(parsed)} from XML")
+        return parsed
 
     def _parse_md_fenced_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """Parse Markdown fenced code blocks."""
         matches = self.md_fenced_pattern.findall(output)
-        parsed_objects = []
-        
+        parsed = []
         for info, content in matches:
-            filename = info.strip() if info else "unnamed"
-            
-            if not self._validate_filename(filename):
-                logger.warning(f"Invalid filename: {filename}, skipping")
-                continue
-            
-            # Only change code that must be changed: validate and parse but don't add extra fields yet
-            parsed_objects.append({
-                'filename': filename,
-                'content': content.strip()
-            })
-        
-        logger.info(f"Parsed {len(parsed_objects)} files from Markdown fenced format")
-        return parsed_objects
+            fn = info.strip() or "unnamed"
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': content.strip()})
+        logger.info(f"Parsed {len(parsed)} from Markdown fences")
+        return parsed
 
     def _parse_generic_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """Best-effort parsing for unrecognized formats."""
-        lines = output.split('\n')
-        parsed_objects = []
-        current_filename = None
-        content_lines = []
-        
+        lines = output.splitlines()
+        parsed = []
+        current_fn = None
+        buf = []
         for line in lines:
-            match = self.filename_pattern.match(line)
-            if match:
-                # Save previous file if exists
-                if current_filename and content_lines:
-                    content = '\n'.join(content_lines).strip()
-                    if self._validate_filename(current_filename):
-                        parsed_objects.append({
-                            'filename': current_filename,
-                            'content': content
-                        })
-                    content_lines = []
-                
-                current_filename = match.group(1).strip()
-                content_lines.append(match.group(2).strip())
-            elif current_filename and line.strip():
-                content_lines.append(line.strip())
-        
-        # Save last file
-        if current_filename and content_lines:
-            content = '\n'.join(content_lines).strip()
-            if self._validate_filename(current_filename):
-                parsed_objects.append({
-                    'filename': current_filename,
-                    'content': content
-                })
-        
-        if not parsed_objects:
-            raise ParsingError("No valid files found in generic parsing")
-        
-        logger.info("Parsed %d files from generic format", len(parsed_objects))
-        return parsed_objects
+            m = self.filename_pattern.match(line)
+            if m:
+                if current_fn and buf and self._validate_filename(current_fn):
+                    parsed.append({'filename': current_fn, 'content': '\n'.join(buf).strip()})
+                current_fn = m.group(1).strip()
+                buf = [m.group(2).strip()]
+            elif current_fn and line.strip():
+                buf.append(line.strip())
+        if current_fn and buf and self._validate_filename(current_fn):
+            parsed.append({'filename': current_fn, 'content': '\n'.join(buf).strip()})
+        if not parsed:
+            raise ParsingError("No valid files in generic parse")
+        logger.info(f"Parsed {len(parsed)} from generic format")
+        return parsed
 
     def _parse_fallback(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """Ultimate fallback: treat entire output as single file."""
-        logger.warning("Using fallback parser - treating output as single file")
-        return [{
-            'filename': 'generated.txt',
-            'content': output.strip()
-        }]
+        logger.warning("Using fallback parser")
+        return [{'filename': 'generated.txt', 'content': output.strip()}]
 
     def _validate_filename(self, filename: str) -> bool:
-        """Validate filename for safety."""
         if not filename or len(filename) > 255:
             return False
-        
-        # Check for invalid characters
-        invalid_chars = ['<>:"/\\|?*']
-        for char in invalid_chars:
-            if char in filename:
+        for c in '<>:"/\\|?*':
+            if c in filename:
                 return False
-        
-        # Check for path traversal attempts
         if '..' in filename or filename.startswith('/'):
             return False
-        
         return True
 
-    def write_parsed_files(self, parsed_objects: List[Dict[str, Union[str, int]]], base_dir: str = '.') -> Dict[str, Union[int, List[str]]]:
-        """
-        Write parsed files to disk.
-        
-        Args:
-            parsed_objects: List of enhanced file objects from parse_llm_output
-            base_dir: Base directory to write files to
-            
-        Returns:
-            Dict with success count and error list
-        """
-        success_count = 0
-        errors = []
-        base_path = Path(base_dir)
-        
-        for obj in parsed_objects:
-            try:
-                filepath = base_path / obj['filename']
-                filepath.parent.mkdir(parents=True, exist_ok=True)
-                # Write the content, which now includes length comments
-                filepath.write_text(obj['content'], encoding='utf-8')
-                success_count += 1
-                logger.info(f"Written file: {filepath} ({obj.get('tokens', 0)} tokens)")
-            except Exception as e:
-                error_msg = f"Failed to write {obj['filename']}: {e}"
-                logger.error(error_msg)
-                errors.append(error_msg)
-        
-        logger.info(f"Successfully wrote {success_count} files")
-        if errors:
-            logger.warning(f"Errors encountered: {len(errors)}")
-        
-        return {
-            'success_count': success_count,
-            'errors': errors
-        }
