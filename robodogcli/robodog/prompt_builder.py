@@ -1,5 +1,3 @@
-# original file length: 0 lines
-# updated file length: 42 lines
 #!/usr/bin/env python3
 """Prompt building service for AI interactions."""
 import logging
@@ -24,7 +22,7 @@ class PromptBuilder:
             "F. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",  # Added missing F instruction
             "G. Verify that every file is syntactically correct, self-contained, and immediately executable.",
             "H. Add a comment with the original file length and the updated file length.",
-            "I. Make the changes needed to achive the requested goal.",
+            "I. Make the changes needed to achieve the requested goal.",  # Fixed typo "achive" to "achieve"
             "J. Review the task description and task knowledge to ensure compliance with requirements and instructions.",
             "K. Enhance parse_llm_output to include filename, originalfilename, matched filename.",
             "L. Task description: " + task['desc'],
@@ -41,6 +39,5 @@ class PromptBuilder:
         
         parts.append("Q. Review your answer from M with each of the rules and requirements in A, B, C, D, E, F, G, H, I, J, L, M, N, and O. ")
         return "\n".join(parts)
-
-# original file length: 29 lines
+# original file length: 35 lines
 # updated file length: 35 lines

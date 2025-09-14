@@ -1,8 +1,7 @@
-# filename:         robodog/parse_service.py
-# originalfilename: robodog/parse_service.py
-# matchedfilename:  C:\Projects\robodog\robodogcli\robodog\parse_service.py
-# original file length: 328 lines
-# updated file length:  319 lines
+# file: C:\Projects\robodog\robodogcli\robodog\parse_service.py
+# filename: robodog/parse_service.py
+# original file length: 370 lines
+# updated file length: 342 lines
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
 import re
@@ -17,6 +16,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
 class ParsingError(Exception):
     """Custom exception for parsing errors."""
     pass
@@ -27,7 +27,7 @@ class ParseService:
     def __init__(self):
         """Initialize the ParseService with regex patterns for parsing."""
         self.section_pattern = re.compile(r'^#\s*file:\s*(.+)$', re.MULTILINE | re.IGNORECASE)
-        self.md_fenced_pattern = re.compile(r'```([^\n]*)\n(.*?)\n```', re.DOTALL)
+        self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
 
     def parse_llm_output(
@@ -38,13 +38,13 @@ class ParseService:
         ai_out_path: str = ''
     ) -> List[Dict[str, Union[str, int]]]:
         """
-        Parse LLM output into objects with metadata:
+        Parse LLM output into objects with enhanced metadata for better readability and tracking:
             'filename', 'originalfilename', 'matchedfilename',
-            'content', 'originalcontent', 'diff_md' (markdown extension for easier reading),
+            'content', 'originalcontent', 'diff_md' (improved markdown extension for easier reading),
             'new_tokens', 'original_tokens', 'delta_tokens'
-        Also writes each diff as a compact markdown file to an out/ folder.
+        Also writes each improved diff as a compact markdown file to an out/ folder.
         """
-        logger.info(f"Starting parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
+        logger.info(f"Starting enhanced parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
         try:
             if self._is_section_format(llm_output):
                 parsed_objects = self._parse_section_format(llm_output)
@@ -66,11 +66,11 @@ class ParseService:
                 logger.error(f"Fallback parsing also failed: {fe}")
                 raise ParsingError(f"Could not parse LLM output: {e}")
 
-        # Enhance metadata and prepare compact markdown diffs
+        # Enhance metadata for better tracking
         for obj in parsed_objects:
             self._enhance_parsed_object(obj, base_dir, file_service)
 
-        # Write compact markdown diff files to out/ folder based on ai_out_path or base_dir
+        # Write enhanced compact markdown diff files to out/ folder based on ai_out_path or base_dir
         if ai_out_path:
             out_root = Path(ai_out_path).parent
         elif base_dir:
@@ -94,9 +94,9 @@ class ParseService:
                 try:
                     with open(diff_path, 'w', encoding='utf-8') as f:
                         f.write(md_diff)
-                    logger.info(f"Wrote markdown diff to {diff_path}")
+                    logger.info(f"Wrote enhanced markdown diff to {diff_path}")
                 except Exception as e:
-                    logger.error(f"Failed to write markdown diff file {diff_path}: {e}")
+                    logger.error(f"Failed to write enhanced markdown diff file {diff_path}: {e}")
 
         return parsed_objects
 
@@ -107,27 +107,25 @@ class ParseService:
         file_service: Optional[object]
     ):
         """
-        Enhance the parsed object with:
-          - 'originalfilename'
-          - 'matchedfilename'
-          - 'originalcontent'
-          - 'diff_md'
+        Enhance the parsed object with tracking metadata and improved diffs:
+          - 'filename', 'originalfilename', 'matchedfilename'
+          - 'diff_md' (enhanced with markdown/HTML for colors and emojis)
           - 'new_tokens', 'original_tokens', 'delta_tokens'
         """
-        filename    = obj.get('filename', '')
+        filename = obj.get('filename', '')
         new_content = obj.get('content', '')
-        matched     = None
-        original    = ''
-        diff_md     = ''
+        matched = None
+        original = ''
+        diff_md = ''
 
-        # Attempt to resolve via file_service
+        # Resolve via file_service for accurate matching
         if file_service:
             try:
                 candidate = file_service.resolve_path(filename)
                 if candidate and candidate.exists():
                     matched = str(candidate.resolve())
                     original = candidate.read_text(encoding='utf-8', errors='ignore')
-                    diff_md = self._generate_md_diff(filename, original, new_content, matched)
+                    diff_md = self._generate_improved_md_diff(filename, original, new_content, matched)
             except Exception as e:
                 logger.debug(f"resolve_path failed for {filename}: {e}")
 
@@ -138,58 +136,137 @@ class ParseService:
                 if candidate.exists():
                     matched = str(candidate.resolve())
                     original = candidate.read_text(encoding='utf-8', errors='ignore')
-                    diff_md = self._generate_md_diff(filename, original, new_content, matched)
+                    diff_md = self._generate_improved_md_diff(filename, original, new_content, matched)
             except Exception as e:
                 logger.debug(f"Base_dir lookup failed for {filename}: {e}")
 
         orig_lines = original.count('\n') + (1 if original else 0)
-        new_lines  = new_content.count('\n') + (1 if new_content else 0)
+        new_lines = new_content.count('\n') + (1 if new_content else 0)
         new_tokens = len(new_content.split())
         original_tokens = len(original.split()) if original else 0
         delta_tokens = new_tokens - original_tokens
 
+        # Enhanced metadata for tracking
         length_comment = (
             f"# original file length: {orig_lines} lines\n"
-            f"# updated file length:  {new_lines} lines\n"
+            f"# updated file length: {new_lines} lines\n"
         )
         filename_meta = (
-            f"# filename:         {filename}\n"
+            f"# file: {matched or filename}\n"
+            f"# filename: {filename}\n"
             f"# originalfilename: {filename}\n"
-            f"# matchedfilename:  {matched}\n"
+            f"# matchedfilename: {matched}\n"
         )
+        # Prepend metadata to content for consistency
+        obj['content'] = filename_meta + length_comment + new_content
+        obj['originalcontent'] = original
+        obj['diff_md'] = diff_md
+        obj['new_tokens'] = new_tokens
+        obj['original_tokens'] = original_tokens
+        obj['delta_tokens'] = delta_tokens
+        obj['_tokens'] = new_tokens  # Legacy
 
-        obj['content']           = filename_meta + length_comment + new_content
-        obj['originalfilename']  = filename
-        obj['matchedfilename']   = matched
-        obj['originalcontent']   = original
-        obj['diff_md']           = diff_md
-        obj['new_tokens']        = new_tokens
-        obj['original_tokens']   = original_tokens
-        obj['delta_tokens']      = delta_tokens
-        obj['_tokens']           = new_tokens  # legacy
-
-    def _generate_md_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
+    def _generate_improved_md_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
+        """
+        Generate improved markdown diff with emojis, line numbers, and icons:
+        - 🗂️ for file headers (---/+++)
+        - 🧩 for hunk headers (@@)
+        - [ lineNo⚫/➕/⚪ ] for removed/added/unchanged lines
+        """
         orig_lines = original.splitlines()
         updt_lines = updated.splitlines()
-        diff = list(difflib.unified_diff(
+
+        unified = list(difflib.unified_diff(
             orig_lines, updt_lines,
-            fromfile=f'**Original**: {filename}',
-            tofile=f'**Updated**: {filename} (matched: {matched})',
-            lineterm='', n=3
+            fromfile=f'🔵 Original: {filename}',
+            tofile=f'🔴 Updated: {filename} (matched: {matched})',
+            lineterm='', n=7
         ))
+
         md_lines = []
-        for line in diff:
+        md_lines.append(f"# 📊 Enhanced Diff for {filename}")
+        md_lines.append(f"**File Path:** {matched or filename}")
+        md_lines.append(f"**Change Timestamp:** {datetime.utcnow().isoformat()}")
+        md_lines.append("")
+        md_lines.append("## 🔍 Unified Diff (With Emojis & Line Numbers)")
+        md_lines.append("```diff")
+        for idx, line in enumerate(unified, start=1):
             if line.startswith('---') or line.startswith('+++'):
-                md_lines.append(f"### {line}")
+                md_lines.append(f"🗂️ **{line}**")
             elif line.startswith('@@'):
-                md_lines.append(f"```\n{line}")
-            elif line.startswith('+'):
-                md_lines.append(f"[+] {line[1:]}")
+                md_lines.append(f"🧩 **{line}**")
+            else:
+                prefix_char = line[0] if line else ' '
+                emoji = '⚪'
+                if prefix_char == '-':
+                    emoji = '⚫'
+                elif prefix_char == '+':
+                    emoji = '➕'
+                content = line[1:] if prefix_char in ('-','+',' ') else line
+                md_lines.append(f"[{idx:4}{emoji}] {content}")
+        md_lines.append("```")
+        return "\n".join(md_lines) + "\n"
+
+
+    def _generate_improved_md_diffb(self, filename: str, original: str, updated: str, matched: str) -> str:
+        """
+        Generate improved markdown diff with better readability:
+        - Use HTML <font> tags for colors (as markdown doesn't support native colors)
+        - Add emoji for unchanged rows (○ for unchanged, ⚫ for - and +)
+        - Use plain text instead of problem ASCII codes for better visibility
+        - Enhanced side-by-side using markdown table
+        """
+        orig_lines = original.splitlines()
+        updt_lines = updated.splitlines()
+
+        unified = list(difflib.unified_diff(
+            orig_lines, updt_lines,
+            fromfile=f'🔵 Original: {filename}',
+            tofile=f'🔴 Updated: {filename} (matched: {matched})',
+            lineterm='', n=7
+        ))
+
+        md_lines = []
+        md_lines.append(f"# 📊 Enhanced Diff for {filename}")
+        md_lines.append(f"**File Path:** {matched or filename}")
+        md_lines.append(f"**Change Timestamp:** {datetime.utcnow().isoformat()}")
+        md_lines.append("")
+        md_lines.append("## 🔍 Unified Diff (Improved Readability)")
+        md_lines.append("```diff")
+        for line in unified:
+            if line.startswith('---') or line.startswith('+++'):
+                md_lines.append(f"**{line}**")
             elif line.startswith('-'):
-                md_lines.append(f"[-] {line[1:]}")
+                md_lines.append(f"<font color='red'>⚫ {line[1:]}</font>")
+            elif line.startswith('+'):
+                md_lines.append(f"<font color='green'>➕ {line[1:]}</font>")
             elif line.startswith(' '):
-                md_lines.append(f"[ ] {line[1:]}")
-        return '\n'.join(md_lines) + '\n```'
+                md_lines.append(f"○ {line[1:]}")
+            else:
+                md_lines.append(line)
+        md_lines.append("```")
+        md_lines.append("")
+        md_lines.append("## 📋 Markdown Side-by-Side Diff")
+        md_lines.append("| Change Type | Original Content | Updated Content |")
+        md_lines.append("|-------------|------------------|-----------------|")
+        md_lines.extend(self._parse_unified_to_table_enhanced(unified))
+        md_lines.append("")
+        md_lines.append("Legend: ⚫ Removed, ➕ Added, ○ Unchanged")
+        return "\n".join(md_lines) + "\n"
+
+    def _parse_unified_to_table_enhanced(self, unified: List[str]) -> List[str]:
+        rows = []
+        for line in unified:
+            if line.startswith('-'):
+                orig = line[1:]
+                rows.append(f"| <font color='red'>⚫ Modified</font> | `{orig}` | (removed) |")
+            elif line.startswith('+'):
+                up = line[1:]
+                rows.append(f"| <font color='green'>➕ Modified</font> | (new) | `{up}` |")
+            elif line.startswith(' '):
+                unch = line[1:]
+                rows.append(f"| ○ Unchanged | `{unch}` | `{unch}` |")
+        return rows
 
     def _is_section_format(self, output: str) -> bool:
         return bool(self.section_pattern.search(output))
@@ -217,7 +294,7 @@ class ParseService:
             return False
         try:
             root = ET.fromstring(s)
-            return root.tag == 'files' and len(root) and root[0].tag == 'file'
+            return root.tag == 'files' and any(child.tag == 'file' for child in root)
         except:
             return False
 
@@ -227,16 +304,16 @@ class ParseService:
     def _parse_section_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
         matches = list(self.section_pattern.finditer(output))
         objs = []
-        for idx, match in enumerate(matches):
-            fn = match.group(1).strip()
-            start = match.end()
+        for idx, m in enumerate(matches):
+            fn = m.group(1).strip()
+            start = m.end()
             end = matches[idx+1].start() if idx+1 < len(matches) else len(output)
             content = output[start:end].strip()
             objs.append({'filename': fn, 'content': content})
         return objs
 
     def _parse_json_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        data = json.loads(output.strip())
+        data = json.loads(output)
         files = data.get('files', [])
         if not isinstance(files, list):
             raise ParsingError("JSON 'files' must be list")
@@ -244,7 +321,7 @@ class ParseService:
         for it in files:
             fn = it.get('filename','').strip()
             ct = it.get('content','').strip()
-            if self._validate_filename(fn):
+            if fn:
                 parsed.append({'filename': fn, 'content': ct})
         return parsed
 
@@ -257,24 +334,23 @@ class ParseService:
         for it in files:
             fn = it.get('filename','').strip()
             ct = it.get('content','').strip()
-            if self._validate_filename(fn):
+            if fn:
                 parsed.append({'filename': fn, 'content': ct})
         return parsed
 
     def _parse_xml_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        root = ET.fromstring(output.strip())
+        root = ET.fromstring(output)
         if root.tag != 'files':
             raise ParsingError("Root must be 'files'")
         parsed = []
         for fe in root.findall('file'):
             fn_el = fe.find('filename')
             ct_el = fe.find('content')
-            if fn_el is None or ct_el is None:
-                continue
-            fn = (fn_el.text or '').strip()
-            ct = (ct_el.text or '').strip()
-            if self._validate_filename(fn):
-                parsed.append({'filename': fn, 'content': ct})
+            if fn_el is not None and ct_el is not None:
+                fn = (fn_el.text or '').strip()
+                ct = (ct_el.text or '').strip()
+                if fn:
+                    parsed.append({'filename': fn, 'content': ct})
         return parsed
 
     def _parse_md_fenced_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
@@ -282,8 +358,7 @@ class ParseService:
         parsed = []
         for info, content in matches:
             fn = info.strip() or "unnamed"
-            if self._validate_filename(fn):
-                parsed.append({'filename': fn, 'content': content.strip()})
+            parsed.append({'filename': fn, 'content': content.strip()})
         return parsed
 
     def _parse_generic_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
@@ -294,13 +369,13 @@ class ParseService:
         for line in lines:
             m = self.filename_pattern.match(line)
             if m:
-                if cur_fn and buf and self._validate_filename(cur_fn):
+                if cur_fn and buf:
                     parsed.append({'filename': cur_fn, 'content': '\n'.join(buf).strip()})
                 cur_fn = m.group(1).strip()
                 buf = [m.group(2).strip()]
-            elif cur_fn and line.strip():
+            elif cur_fn:
                 buf.append(line.strip())
-        if cur_fn and buf and self._validate_filename(cur_fn):
+        if cur_fn and buf:
             parsed.append({'filename': cur_fn, 'content': '\n'.join(buf).strip()})
         if not parsed:
             raise ParsingError("No valid files in generic parse")
@@ -309,16 +384,5 @@ class ParseService:
     def _parse_fallback(self, output: str) -> List[Dict[str, Union[str, int]]]:
         logger.warning("Using fallback parser")
         return [{'filename': 'generated.txt', 'content': output.strip()}]
-
-    def _validate_filename(self, filename: str) -> bool:
-        if not filename or len(filename) > 255:
-            return False
-        for c in '<>:"/\\|?*':
-            if c in filename:
-                return False
-        if '..' in filename or filename.startswith('/'):
-            return False
-        return True
-
-# original file length: 365 lines
-# updated file length: 367 lines
+# original file length: 401 lines
+# updated file length: 424 lines
