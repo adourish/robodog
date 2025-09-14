@@ -12,7 +12,7 @@ class PromptBuilder:
     """Builds prompts for AI interactions."""
     
     @staticmethod
-    def build_task_prompt(task: Dict[str, Any], include_text: str, input_text: str = "") -> str:
+    def build_task_prompt(task: Dict[str, Any], basedir: str = "", out_path: str = "", knowledge_text: str = "", include_text: str = "") -> str:
         """Build a prompt for a task execution."""
         parts = [
             "Instructions:",
@@ -24,20 +24,22 @@ class PromptBuilder:
             "F. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",  # Added missing F instruction
             "G. Verify that every file is syntactically correct, self-contained, and immediately executable.",
             "H. Add a comment with the original file length and the updated file length.",
-            "I. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task.",
+            "I. Make the changes needed to achive the requested goal.",
             "J. Review the task description and task knowledge to ensure compliance with requirements and instructions.",
             "K. Enhance parse_llm_output to include filename, originalfilename, matched filename.",
-            "L. Task description: Enhance parse_llm_output to include filename, originalfilename, matched filename",
+            "L. Task description: " + task['desc'],
+            "M. The base directory is " + basedir,
+            "N. The temp output file is here " + out_path + " we stash the ai_output here.",
             ""
         ]
         
         if include_text:
-            parts.append(f"M. Review included files knowledge:\n{include_text}")
+            parts.append(f"O. Review included files:\n{include_text}")
         
-        if task.get('knowledge'):
-            parts.append(f"N. Complete all tasks in task knowledge:\n{task['knowledge']}")
+        if knowledge_text:
+            parts.append(f"P. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
-        parts.append("O. review your answer from M with each of the rules and requirements in A, B, C, D, E, F, G, H, I, J, and K. ")
+        parts.append("Q. Review your answer from M with each of the rules and requirements in A, B, C, D, E, F, G, H, I, J, L, M, N, and O. ")
         return "\n".join(parts)
 
 # original file length: 29 lines

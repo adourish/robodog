@@ -2,14 +2,15 @@
 
 
 # tasks and todo
-- [~][-] changes to tasks and todo
-  - started: 2025-09-14 15:55 | knowledge: 7 | include: 56283 | prompt: 56520 | cur_model: openai/o4-mini
+- [x][-] changes to tasks and todo
+  - started: 2025-09-14 20:37 | completed: 2025-09-14 20:37 | knowledge: 29 | include: 56893 | prompt: 57161 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
-1. add debugging to parse service
-2. 
-
+0. enhance parse service
+1. improve the markdown readibility of the diff output. 
+2. include a side by side diff in the same file.
+3. hd = difflib.HtmlDiff(tabsize=4, wrapcolumn=80)
 
 ```
 

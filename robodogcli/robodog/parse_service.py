@@ -1,8 +1,8 @@
 # filename:         robodog/parse_service.py
 # originalfilename: robodog/parse_service.py
 # matchedfilename:  C:\Projects\robodog\robodogcli\robodog\parse_service.py
-# original file length: 288 lines
-# updated file length:  311 lines
+# original file length: 328 lines
+# updated file length:  319 lines
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
 import re
@@ -34,16 +34,17 @@ class ParseService:
         self,
         llm_output: str,
         base_dir: Optional[str] = None,
-        file_service: Optional[object] = None
+        file_service: Optional[object] = None,
+        ai_out_path: str = ''
     ) -> List[Dict[str, Union[str, int]]]:
         """
         Parse LLM output into objects with metadata:
             'filename', 'originalfilename', 'matchedfilename',
-            'content', 'originalcontent', 'diff',
+            'content', 'originalcontent', 'diff_md' (markdown extension for easier reading),
             'new_tokens', 'original_tokens', 'delta_tokens'
-        Also writes each diff to an out/ folder under base_dir (or cwd).
+        Also writes each diff as a compact markdown file to an out/ folder.
         """
-        logger.info(f"Starting parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir}")
+        logger.info(f"Starting parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
         try:
             if self._is_section_format(llm_output):
                 parsed_objects = self._parse_section_format(llm_output)
@@ -65,34 +66,37 @@ class ParseService:
                 logger.error(f"Fallback parsing also failed: {fe}")
                 raise ParsingError(f"Could not parse LLM output: {e}")
 
-        # Enhance metadata and prepare diffs
+        # Enhance metadata and prepare compact markdown diffs
         for obj in parsed_objects:
             self._enhance_parsed_object(obj, base_dir, file_service)
 
-        # Write diff outputs to out/ folder
-        out_root = Path(base_dir) if base_dir else Path.cwd()
-        out_dir = out_root / 'out'
+        # Write compact markdown diff files to out/ folder based on ai_out_path or base_dir
+        if ai_out_path:
+            out_root = Path(ai_out_path).parent
+        elif base_dir:
+            out_root = Path(base_dir)
+        else:
+            out_root = Path.cwd()
+        out_dir = out_root / 'diffoutput'
         try:
             out_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             logger.warning(f"Could not create out directory {out_dir}: {e}")
-        ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        ts = datetime.utcnow().strftime("%Y%m%d-%H%M-%S")
         for obj in parsed_objects:
-            diff_text = obj.get('diff', '')
-            if diff_text:
+            md_diff = obj.get('diff_md', '')
+            if md_diff:
                 orig_fn = obj.get('filename', 'file')
                 stem = Path(orig_fn).stem
                 suffix = Path(orig_fn).suffix or ''
-                diff_name = f"diff-{stem}-{ts}{suffix}"
+                diff_name = f"diff-{stem}-{ts}{suffix}.md"
                 diff_path = out_dir / diff_name
                 try:
-                    if file_service:
-                        file_service.write_file(diff_path, diff_text)
-                    else:
-                        diff_path.write_text(diff_text, encoding='utf-8')
-                    logger.info(f"Wrote diff to {diff_path}")
+                    with open(diff_path, 'w', encoding='utf-8') as f:
+                        f.write(md_diff)
+                    logger.info(f"Wrote markdown diff to {diff_path}")
                 except Exception as e:
-                    logger.error(f"Failed to write diff file {diff_path}: {e}")
+                    logger.error(f"Failed to write markdown diff file {diff_path}: {e}")
 
         return parsed_objects
 
@@ -107,14 +111,14 @@ class ParseService:
           - 'originalfilename'
           - 'matchedfilename'
           - 'originalcontent'
-          - 'diff'
+          - 'diff_md'
           - 'new_tokens', 'original_tokens', 'delta_tokens'
         """
         filename    = obj.get('filename', '')
         new_content = obj.get('content', '')
         matched     = None
         original    = ''
-        diff_text   = ''
+        diff_md     = ''
 
         # Attempt to resolve via file_service
         if file_service:
@@ -123,15 +127,7 @@ class ParseService:
                 if candidate and candidate.exists():
                     matched = str(candidate.resolve())
                     original = candidate.read_text(encoding='utf-8', errors='ignore')
-                    diff_text = '\n'.join(
-                        difflib.unified_diff(
-                            original.splitlines(keepends=True),
-                            new_content.splitlines(keepends=True),
-                            fromfile=f'original/{filename}',
-                            tofile=f'updated/{Path(matched).name}',
-                            lineterm=''
-                        )
-                    )
+                    diff_md = self._generate_md_diff(filename, original, new_content, matched)
             except Exception as e:
                 logger.debug(f"resolve_path failed for {filename}: {e}")
 
@@ -142,26 +138,16 @@ class ParseService:
                 if candidate.exists():
                     matched = str(candidate.resolve())
                     original = candidate.read_text(encoding='utf-8', errors='ignore')
-                    diff_text = '\n'.join(
-                        difflib.unified_diff(
-                            original.splitlines(keepends=True),
-                            new_content.splitlines(keepends=True),
-                            fromfile=f'original/{filename}',
-                            tofile=f'updated/{filename}',
-                            lineterm=''
-                        )
-                    )
+                    diff_md = self._generate_md_diff(filename, original, new_content, matched)
             except Exception as e:
                 logger.debug(f"Base_dir lookup failed for {filename}: {e}")
 
-        # Compute lines and tokens
         orig_lines = original.count('\n') + (1 if original else 0)
         new_lines  = new_content.count('\n') + (1 if new_content else 0)
         new_tokens = len(new_content.split())
         original_tokens = len(original.split()) if original else 0
         delta_tokens = new_tokens - original_tokens
 
-        # Build metadata comments
         length_comment = (
             f"# original file length: {orig_lines} lines\n"
             f"# updated file length:  {new_lines} lines\n"
@@ -172,16 +158,38 @@ class ParseService:
             f"# matchedfilename:  {matched}\n"
         )
 
-        # Overwrite content and attach metadata
         obj['content']           = filename_meta + length_comment + new_content
         obj['originalfilename']  = filename
         obj['matchedfilename']   = matched
         obj['originalcontent']   = original
-        obj['diff']              = diff_text
+        obj['diff_md']           = diff_md
         obj['new_tokens']        = new_tokens
         obj['original_tokens']   = original_tokens
         obj['delta_tokens']      = delta_tokens
         obj['_tokens']           = new_tokens  # legacy
+
+    def _generate_md_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
+        orig_lines = original.splitlines()
+        updt_lines = updated.splitlines()
+        diff = list(difflib.unified_diff(
+            orig_lines, updt_lines,
+            fromfile=f'**Original**: {filename}',
+            tofile=f'**Updated**: {filename} (matched: {matched})',
+            lineterm='', n=3
+        ))
+        md_lines = []
+        for line in diff:
+            if line.startswith('---') or line.startswith('+++'):
+                md_lines.append(f"### {line}")
+            elif line.startswith('@@'):
+                md_lines.append(f"```\n{line}")
+            elif line.startswith('+'):
+                md_lines.append(f"[+] {line[1:]}")
+            elif line.startswith('-'):
+                md_lines.append(f"[-] {line[1:]}")
+            elif line.startswith(' '):
+                md_lines.append(f"[ ] {line[1:]}")
+        return '\n'.join(md_lines) + '\n```'
 
     def _is_section_format(self, output: str) -> bool:
         return bool(self.section_pattern.search(output))
@@ -312,5 +320,5 @@ class ParseService:
             return False
         return True
 
-# original file length: 308 lines
-# updated file length: 335 lines
+# original file length: 365 lines
+# updated file length: 367 lines

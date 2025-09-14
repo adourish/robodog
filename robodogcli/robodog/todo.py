@@ -275,14 +275,7 @@ class TodoService:
         for task in todo:
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
                 logger.info(f"Manual commit of task: {task['desc']}")
-                # Use the same code as _process_one for consistency
-                #out_pat = task.get('out', {}).get('pattern','')
-                out_spec = task.get('out') or {}
-                out_pat   = out_spec.get('pattern', '')
-                if not out_pat:
-                    logger.warning("No output pattern for task")
-                    return
-                out_path = self._resolve_path(out_pat)
+                out_path = self._get_ai_out_path(task)
                 ai_out = self._file_service.safe_read_file(out_path)
                 logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
                 cur_model = self._svc.get_cur_model()
@@ -290,7 +283,7 @@ class TodoService:
 
                 try:
                     basedir = Path(task['file']).parent
-                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service) if ai_out else []
+                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path) if ai_out else []
                 except Exception as e:
                     logger.error(f"Parsing AI output failed: {e}")
                     parsed_files = []
@@ -493,14 +486,17 @@ class TodoService:
             logger.error(f"Failed to update {out_path}: {e}")
 
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
-        
+        out_path = self._get_ai_out_path(task)
+        logger.info(f"Write: {out_path} ({len(ai_out.split())} tokens)")
+        if out_path:
+            self._backup_and_write_output(svc, out_path, ai_out)
+    
+    def _get_ai_out_path(self, task):
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
             return
         out_path = self._resolve_path(out_pat)
-        logger.info(f"Write: {out_path} ({len(ai_out.split())} tokens)")
-        if out_path:
-            self._backup_and_write_output(svc, out_path, ai_out)
+        return out_path
     
     def _write_full_parsed_ai_output(self, svc, path, ai_out):
         
@@ -519,7 +515,8 @@ class TodoService:
         knowledge_text = task.get('knowledge') or ""
         task['_know_tokens'] = len(knowledge_text.split())
         logger.info(f"Knowledge tokens: {task['_know_tokens']}")
-        prompt = self._prompt_builder.build_task_prompt(task, include_text, '')
+        out_path = self._get_ai_out_path(task)
+        prompt = self._prompt_builder.build_task_prompt(task, self._base_dir, str(out_path), knowledge_text, include_text)
         task['_prompt_tokens'] = len(prompt.split())
         logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
         cur_model = svc.get_cur_model()
@@ -539,7 +536,7 @@ class TodoService:
 
         # parse and report before writing
         try:
-            parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service) if ai_out else []
+            parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path) if ai_out else []
         except Exception as e:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
