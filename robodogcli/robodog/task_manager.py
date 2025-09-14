@@ -1,4 +1,3 @@
-# file: robodog/task_manager.py
 #!/usr/bin/env python3
 """Task management functionality."""
 import os
@@ -108,10 +107,10 @@ class TaskManager(TaskBase):
         prompt = task.get('_prompt_tokens', 0)
         incount = task.get('_include_tokens', 0)
 
-        # delta stats not tracked here
-        summary = self.format_summary(indent, stamp, None,
+        # delta stats not tracked here, but truncation is populated
+        summary = self.format_summary(indent, start, stamp,
                                       know, prompt, incount, None, cur_model,
-                                      0, 0, 0, 0, truncation)
+                                      0, 0, 0, 0, truncation)  # truncation is now properly populated from the passed parameter
 
         idx = ln + 1
         if idx < len(file_lines_map[fn]) and \

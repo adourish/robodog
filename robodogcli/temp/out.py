@@ -280,14 +280,7 @@ class TodoService:
                     return
                 out_path = self._resolve_path(out_pat)
                 ai_out = self._file_service.safe_read_file(out_path)
-                # Indicate issue if ai_out is empty
-                if not ai_out:
-                    commited = -2  # Error: no AI output read
-的通知 elif STATUS_MAP[task['resp']] == 'Done' and task.get('adjustment') == 'q':
-                    # Load tasks from todo.py's TodoService
-                    self._tasks = TASK_OPEN = self._load_all()
-                    self._tasks = [t for t in self._tasks]
-                    logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
+                logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
                 cur_model = self._svc.get_cur_model()
                 self._task_manager.start_commit_task(task, self._file_lines, cur_model)
 
@@ -302,7 +295,6 @@ class TodoService:
                     commited = self._write_parsed_files(parsed_files, task)
                 else:
                     logger.info("No parsed files to report.")
-                    commited = -2 if ai_out else -3  # Error if no output but parsed, or worse if no output at all
 
                 self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
             else:
@@ -314,7 +306,7 @@ class TodoService:
         st = self._task_manager.start_task(task, file_lines_map, cur_model)
         return st
         
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float = 0):
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float):
         logger.debug(f"Completing task: {task['desc']}")
         ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation)
         return ct
@@ -366,10 +358,8 @@ class TodoService:
 
         phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
         if not phrases_file.exists():
-            logger.warning("Truncation phrases file not found, using default set")
-            return [
-                "rest of class unchanged",
-                     ]
+            logger.warning("Truncation phrases file not found. Create truncation_phrases.txt")
+            return []
         try:
             with open(phrases_file, 'r', encoding='utf-8') as f:
                 phrases = [line.strip() for line in f if line.strip()]
@@ -534,6 +524,12 @@ class TodoService:
             logger.error(f"LLM call failed: {e}")
             ai_out = ""
 
+        # Added check for ai_out issues
+        if not ai_out:
+            logger.warning("No AI output generated for task")
+        else:
+            logger.info(f"AI output length: {len(ai_out)} characters")
+
         # parse and report before writing
         try:
             parsed_files = self.parser.parse_llm_output(ai_out) if ai_out else []
@@ -547,8 +543,6 @@ class TodoService:
             self._write_full_ai_output(svc, task, ai_out, trunc_code)
         else:
             logger.info("No parsed files to report.")
-            trunc_code = -1 if ai_out else -2  # Issue with ai_out if empty
-            self._write_full_ai_output(svc, task, ai_out, trunc_code)
 
         self.complete_task(task, file_lines_map, cur_model, trunc_code)
 
@@ -566,7 +560,190 @@ class TodoService:
 # updated file length: 637 lines
 
 # file: robodog/task_manager.py
-# added min_delta for I and J as needed but nothing to change here based on task, but updated length if any
+#!/usr/bin/env python3
+"""Task management functionality."""
+import os
+import logging
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+class TaskBase:
+    """Base class for task-related functionality."""
+
+    STATUS_MAP = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
+    REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
+
+    @staticmethod
+    def format_summary(indent: str, start: str, end: Optional[str] = None,
+                      know: Optional[int] = None, prompt: Optional[int] = None,
+                      incount: Optional[int] = None, include: Optional[int] = None,
+                      cur_model: str = None,
+                      delta_median: Optional[float] = None,
+                      delta_avg: Optional[float] = None,
+                      delta_peak: Optional[float] = None,
+                      commited: float = 0, truncation: float = 0) -> str:
+        """Format a task summary line, now including delta stats."""
+        parts = [f"started: {start}"]
+        if end:
+            parts.append(f"completed: {end}")
+        if know is not None:
+            parts.append(f"knowledge: {know}")
+        if incount is not None:
+            parts.append(f"include: {incount}")
+        if prompt is not None:
+            parts.append(f"prompt: {prompt}")
+        if cur_model:
+            parts.append(f"cur_model: {cur_model}")
+        if truncation <= -1:
+            parts.append(f"truncation: warning")
+        if truncation <= -2:
+            parts.append(f"truncation: error")
+        if commited <= -1:
+            parts.append(f"commit: warning")
+        if commited <= -2:
+            parts.append(f"commit: error")
+        if commited >= 1:
+            parts.append(f"commit: success")
+        return f"{indent}  - " + " | ".join(parts) + "\n"
+
+class TaskManager(TaskBase):
+    """Manages task lifecycle and status updates."""
+
+    def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None):
+        self.parser = task_parser
+        self.watcher = file_watcher
+
+    def write_file(self, filepath: str, file_lines: List[str]):
+        """Write file and update watcher."""
+        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
+        if self.watcher:
+            self.watcher.ignore_next_change(filepath)
+
+    def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as started (To Do -> Doing)."""
+        if self.STATUS_MAP[task['status_char']] != 'To Do':
+            return
+
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][-] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        task['_start_stamp'] = stamp
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+
+        # delta stats not yet available at start
+        summary = self.format_summary(indent, stamp, None,
+                                      know, prompt, incount, None, cur_model,
+                                      0, 0, 0, 0, 0)
+        
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Doing']
+
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float = 0):
+        """Mark a task as completed (Doing -> Done), now including truncation status."""
+        if self.STATUS_MAP[task['status_char']] != 'Doing':
+            return
+
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][-] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        start = task.get('_start_stamp', '')
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+
+        # delta stats not tracked here, but truncation is populated
+        summary = self.format_summary(indent, start, stamp,
+                                      know, prompt, incount, None, cur_model,
+                                      0, 0, 0, 0, truncation)  # truncation is now properly populated from the passed parameter
+
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Done']
+
+    def start_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
+        """Mark a task as started (To Do -> Doing) with commit flag."""
+        if self.STATUS_MAP[task['status_char']] != 'To Do':
+            return
+
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Doing']}][~] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        task['_start_stamp'] = stamp
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+
+        summary = self.format_summary(indent, stamp, None,
+                                      know, prompt, incount, None, cur_model,
+                                      0, 0, 0, 0, 0)
+        
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Doing']
+
+    def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str, commited: float):
+        """Mark a commit-task as completed with commit status and delta stats."""
+        fn, ln = task['file'], task['line_no']
+        indent, desc = task['indent'], task['desc']
+        second_status = 'x' if commited >= 1 else '~'
+        file_lines_map[fn][ln] = f"{indent}- [x][{second_status}] {desc}\n"
+
+        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        start = task.get('_start_stamp', '')
+
+        know = task.get('_know_tokens', 0)
+        prompt = task.get('_prompt_tokens', 0)
+        incount = task.get('_include_tokens', 0)
+        delta_median = task.get('_delta_median')
+        delta_avg = task.get('_delta_avg')
+        delta_peak = task.get('_delta_peak')
+
+        summary = self.format_summary(indent, start, stamp,
+                                      know, prompt, incount, None, cur_model,
+                                      delta_median, delta_avg, delta_peak, commited, 0)
+
+        idx = ln + 1
+        if idx < len(file_lines_map[fn]) and \
+           file_lines_map[fn][idx].lstrip().startswith('- started:'):
+            file_lines_map[fn][idx] = summary
+        else:
+            file_lines_map[fn].insert(idx, summary)
+
+        self.write_file(fn, file_lines_map[fn])
+        task['status_char'] = self.REVERSE_STATUS['Done']
 
 # original file length: 98 lines
 # updated file length: 101 lines

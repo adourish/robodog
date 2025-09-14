@@ -1,5 +1,3 @@
-# Written on 2025-09-13 18:39:11 UTC
-
 #!/usr/bin/env python3
 """
 Todo management service for robodog.
@@ -359,10 +357,8 @@ class TodoService:
 
         phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
         if not phrases_file.exists():
-            logger.warning("Truncation phrases file not found, using default set")
-            return [
-                "rest of class unchanged",
-                     ]
+            logger.warning("Truncation phrases file not found. Create truncation_phrases.txt")
+            return []
         try:
             with open(phrases_file, 'r', encoding='utf-8') as f:
                 phrases = [line.strip() for line in f if line.strip()]
@@ -526,6 +522,12 @@ class TodoService:
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             ai_out = ""
+
+        # Added check for ai_out issues
+        if not ai_out:
+            logger.warning("No AI output generated for task")
+        else:
+            logger.info(f"AI output length: {len(ai_out)} characters")
 
         # parse and report before writing
         try:
