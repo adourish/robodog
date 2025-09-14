@@ -2,13 +2,15 @@
 
 
 # tasks and todo
-- [x][-] changes to tasks and todo
-  - started: 2025-09-14 15:32 | completed: 2025-09-14 15:33 | knowledge: 12 | include: 56675 | prompt: 56917 | cur_model: x-ai/grok-code-fast-1
+- [~][-] changes to tasks and todo
+  - started: 2025-09-14 15:55 | knowledge: 7 | include: 56283 | prompt: 56520 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
-1. use the from/to/delta counts from parse service
-4. consume in todo.py
+1. add debugging to parse service
+2. 
+
+
 ```
 
 
