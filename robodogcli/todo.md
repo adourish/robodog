@@ -30,13 +30,23 @@
 ```
 
 # parse service
-- [x][-] changes to tasks and todo
-  - started: 2025-09-14 23:11 | completed: 2025-09-14 23:11 | knowledge: 18 | include: 58111 | prompt: 58368 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error
+- [x][x] changes to tasks and todo
+  - started: None | completed: 2025-09-14 23:18 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
 1. add the compare information to the format_summary
-
+2. it should show up when completing a commit task or a single task. 
 e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> (o/n/d tokens:193/253/36) c=18.7%, 
 
+```
+# parse service
+- [x][-] changes to tasks and todo
+  - started: 2025-09-14 23:23 | completed: 2025-09-14 23:24 | knowledge: 54 | include: 57806 | prompt: 58099 | cur_model: openai/o4-mini | truncation: warning
+  - include: pattern=*robodogcli*robodog*.py  recursive`
+  - out:  temp\out.py
+```knowledge
+1. fix the start time when doing a commit
+2. make sure the compare is added to the status 
+3. it should look like this. "started: 2025-09-14 23:20 | completed: 2025-09-14 23:20 | knowledge: 9 | include: 57806 | prompt: 58054 | cur_model: x-ai/grok-code-fast-1 | compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> (o/n/d tokens:193/253/36) c=18.7%,  
 ```

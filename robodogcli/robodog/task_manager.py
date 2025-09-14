@@ -3,7 +3,7 @@
 # originalfilename: robodog/task_manager.py
 # matchedfilename: C:\Projects\robodog\robodogcli\robodog\task_manager.py
 # original file length: 185 lines
-# updated file length: 179 lines
+# updated file length: 174 lines
 #!/usr/bin/env python3
 """Task management functionality."""
 import os
@@ -37,7 +37,7 @@ class TaskBase:
             truncation: float = 0,
             compare: Optional[List[str]] = None
         ) -> str:
-        """Format a task summary line, now including delta stats and optional compare info."""
+        """Format a task summary line with inline compare info."""
         parts = [f"started: {start}"]
         if end:
             parts.append(f"completed: {end}")
@@ -49,23 +49,22 @@ class TaskBase:
             parts.append(f"prompt: {prompt}")
         if cur_model:
             parts.append(f"cur_model: {cur_model}")
+        # commit/truncation flags
         if truncation <= -1:
-            parts.append(f"truncation: warning")
+            parts.append("truncation: warning")
         if truncation <= -2:
-            parts.append(f"truncation: error")
+            parts.append("truncation: error")
         if committed <= -1:
-            parts.append(f"commit: warning")
+            parts.append("commit: warning")
         if committed <= -2:
-            parts.append(f"commit: error")
+            parts.append("commit: error")
         if committed >= 1:
-            parts.append(f"commit: success")
-        # Build the main summary line
-        line = f"{indent}  - " + " | ".join(parts) + "\n"
-        # Append compare section if provided
+            parts.append("commit: success")
+        # inline compare info
         if compare:
-            for cmp in compare:
-                line += f"{indent}    - compare: {cmp}\n"
-        return line
+            parts.append("compare: " + ", ".join(compare))
+        # single-line summary
+        return f"{indent}  - " + " | ".join(parts) + "\n"
 
 class TaskManager(TaskBase):
     """Manages task lifecycle and status updates."""
@@ -96,7 +95,6 @@ class TaskManager(TaskBase):
         prompt = task.get('_prompt_tokens', 0)
         incount = task.get('_include_tokens', 0)
 
-        # No compare at start
         summary = self.format_summary(indent, stamp, None,
                                       know, prompt, incount, None,
                                       cur_model, 0, 0, 0, 0, 0, compare=None)
@@ -112,7 +110,7 @@ class TaskManager(TaskBase):
 
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str,
                       truncation: float = 0, compare: Optional[List[str]] = None):
-        """Mark a task as completed (Doing -> Done), now including truncation status and compare info."""
+        """Mark a task as completed (Doing -> Done), including inline compare info."""
         if self.STATUS_MAP[task['status_char']] != 'Doing':
             return
 
@@ -143,14 +141,11 @@ class TaskManager(TaskBase):
 
     def start_commit_task(self, task: dict, file_lines_map: dict, cur_model: str):
         """Mark a task as started (To Do -> Doing) with commit flag."""
-        if self.STATUS_MAP[task['status_char']] != 'To Do':
-            return
-        # same as start_task
         self.start_task(task, file_lines_map, cur_model)
 
     def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str,
                               committed: float, compare: Optional[List[str]] = None):
-        """Mark a commit-task as completed with commit status, delta stats, and compare info."""
+        """Mark a commit-task as completed with commit status, inline compare info."""
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
         second_status = 'x' if committed >= 1 else '~'
@@ -182,4 +177,4 @@ class TaskManager(TaskBase):
         task['status_char'] = self.REVERSE_STATUS['Done']
 
 # original file length: 187 lines
-# updated file length: 179 lines
+# updated file length: 187 lines
