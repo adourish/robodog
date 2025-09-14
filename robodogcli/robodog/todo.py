@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Todo management service for robodog.
-# test
-"""
 import os
 import re
 import time
@@ -284,12 +279,13 @@ class TodoService:
                 self._task_manager.start_commit_task(task, self._file_lines, cur_model)
 
                 try:
-                    parsed_files = self.parser.parse_llm_output(ai_out) if ai_out else []
+                    basedir = Path(task['file']).parent
+                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir)) if ai_out else []
                 except Exception as e:
                     logger.error(f"Parsing AI output failed: {e}")
                     parsed_files = []
 
-                commited = 0;
+                commited = 0
                 if parsed_files:
                     commited = self._write_parsed_files(parsed_files, task)
                 else:
@@ -298,7 +294,6 @@ class TodoService:
                 self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
             else:
                 logger.debug("No tasks to commit.")
-
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
         logger.debug(f"Starting task: {task['desc']}")
@@ -531,7 +526,7 @@ class TodoService:
 
         # parse and report before writing
         try:
-            parsed_files = self.parser.parse_llm_output(ai_out) if ai_out else []
+            parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir)) if ai_out else []
         except Exception as e:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
@@ -556,4 +551,7 @@ class TodoService:
         return srf
         
 # original file length: 497 lines
-# updated file length: 637 lines
+# updated file length: 499 lines
+
+# original file length: 637 lines
+# updated file length: 639 lines

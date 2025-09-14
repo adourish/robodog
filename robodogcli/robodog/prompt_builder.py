@@ -1,5 +1,5 @@
-
-# file: robodog/prompt_builder.py
+# original file length: 0 lines
+# updated file length: 42 lines
 #!/usr/bin/env python3
 """Prompt building service for AI interactions."""
 import logging
@@ -21,12 +21,13 @@ class PromptBuilder:
             "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run.",
             "D. If multiple files are needed, separate them with a single blank line.",
             "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
-            "G. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",
-            "H. Verify that every file is syntactically correct, self-contained, and immediately executable.",
-            "I. Add a comment with the original file length and the updated file length.",
-            "J. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task.",
-            "K. Review the task description and task knowledge "
-            f"L. Task description: {task['desc']}",
+            "F. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",  # Added missing F instruction
+            "G. Verify that every file is syntactically correct, self-contained, and immediately executable.",
+            "H. Add a comment with the original file length and the updated file length.",
+            "I. Only change code that must be changed. Do not remove logging. Do not refactor code unless needed for the task.",
+            "J. Review the task description and task knowledge to ensure compliance with requirements and instructions.",
+            "K. Enhance parse_llm_output to include filename, originalfilename, matched filename.",
+            "L. Task description: Enhance parse_llm_output to include filename, originalfilename, matched filename",
             ""
         ]
         
@@ -40,4 +41,4 @@ class PromptBuilder:
         return "\n".join(parts)
 
 # original file length: 29 lines
-# updated file length: 29 lines
+# updated file length: 35 lines

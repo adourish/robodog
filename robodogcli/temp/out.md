@@ -1,49 +1,54 @@
 # file: todo.md
----
-base: c:\projects\robodog
----
 
-- [-][-] Identify and analyze the current robodog UI structure to determine where and how to integrate a new /todo command for generating todo.md project plans.
-  - include pattern=*robodogcli*robodog*.py recursive
-  - out: ui_analysis.md
-```knowledge
-This task involves inspecting the UI code to understand the command handling system, like how other slash commands are implemented in the robodogcli/robodog codebase. Focus on files like main.py or ui.py that handle user inputs and commands. The output should detail integration points, such as hooking into the command parser or UI event handlers.
-```
+# Project Plan: Enhance parse_llm_output in ParseService
+# This todo.md was generated on 2023-10-05 as part of planning mode only.
+# Sequencing details: Tasks are grouped by parsing enhancement steps, with dependencies noted.
+# Overview: This plan outlines the steps to enhance ParseService's parse_llm_output method to include filename, originalfilename, matchedfilename fields, using _file_service.resolve_path for smart matching, and adding a new_file indicator. All tasks start disabled to avoid accidental execution. Plan is in planning mode — no code changes yet.
 
-- [-][-] Design the /todo command syntax and behavior, specifying how "something" translates into a structured todo.md plan with multiple tasks.
-  - include pattern=*robodogcli*robodog*.py recursive
-  - out: command_design.md
-```knowledge
-Design phase: Define the command as /todo <description>, where <description> is parsed to break into tasks, assign out files (e.g., code files to modify), and include knowledge blocks. Group tasks logically, such as UI changes, processing logic, and output formatting. Ensure it aligns with the todoh.py system for handling task status and flags.
-```
+[-][-] Review current parse_llm_output implementation in parse_service.py
+  out: temp\out-parse_service_review.txt
+  include: pattern=*robodogcli*robodog*parse_service.py recursive
+  ```knowledge
+  Details: Analyze the existing parse_llm_output method. Note current inputs (ai_out, base_dir) and outputs (list of dicts with filename, content, tokens). Identify where to add new fields: filename (existing), originalfilename (copy of filename), matchedfilename (via resolve_path). Ensure no breaking changes.
+  ```
 
-- [-][-] Implement the UI handler for the /todo command, updating the robodog UI to accept and process the command input.
-  - include pattern=*robodogcli*robodog*.py recursive
-  - out: ui_handler.py
-```knowledge
-Modify UI files (like ui.py in robodogcli/robodog) to add a new method that listens for /todo commands. When parsed, trigger the plan generation, passing the description to a new service method. Ensure it integrates with existing todo.md loading/reloading logic in todo.py.
-```
+[-][-] Modify parse_llm_output to add originalfilename and matchedfilename fields
+  out: temp\out-modify_parse_fields.txt
+  include: pattern=*robodogcli*robodog*parse_service.py recursive
+  ```knowledge
+  Details: Update the method to copy filename to originalfilename. For matchedfilename, call self._file_service.resolve_path on filename (passed from TodoService). If no match, set matchedfilename to None and add a new_file boolean property explaining it might be a new file.
+  Dependency: Must first have access to _file_service (inject via TodoService).
+  ```
 
-- [-][-] Develop the plan generation logic that takes user input from /todo and converts it into a structured todo.md format with tasks, includes, outs, and knowledge blocks.
-  - include pattern=*robodogcli*robodog*.py recursive
-  - out: plan_generator.py
-```knowledge
-Extend todo.py with a new method to generate the plan: parse the input description into multiple tasks based on grouping (e.g., split by keywords like 'design', 'implement'). For each task, auto-assign out files (like modifying existing code files), include the recursive pattern, and populate knowledge blocks with AI-suggested details. Output as a new todo.md or append to existing.
-```
+[-][-] Handle injection of _file_service into ParseService for resolve_path access
+  out: temp\out-inject_file_service.txt
+  include: pattern=*robodogcli*robodog*parse_service.py recursive
+  ```knowledge
+  Details: Since ParseService doesn't have _file_service, modify ParseService init to accept file_service param. Update TodoService calls to parse_llm_output to pass self._file_service. This allows smart matching in parse_llm_output.
+  ```
 
-- [-][-] Test the /todo command integration by running sample inputs and verifying the generated todo.md matches the required format (disabled tasks, includes, outs, knowledge).
-  - include pattern=*robodogcli*robodog*.py recursive
-  - out: integration_test.py
-```knowledge
-Testing phase: Create unit tests or manual tests in robodogcli/robodog/test_ui.py to simulate /todo inputs. Validate that tasks are created with [-][-] status, appropriate includes, out files (e.g., pointing to code changes in rododogcli), and knowledge blocks contain relevant details based on include pattern matches.
-```
+[-][-] Test enhancement with sample LLM output
+  out: temp\out-test_parse_output.txt
+  include: pattern=*robodogcli*robodog*parse_service.py recursive
+  ```knowledge
+  Details: Create unit tests or manual checks with mock LLM output containing files. Verify matchedfilename matches via resolve_path, or new_file indicator when no match. Ensure output list includes all new fields without errors.
+  Dependency: After modifications to parse_llm_output and file_service injection.
+  ```
 
-- [-][-] Document and finalize the complete process for generating project plans via /todo, ensuring all tasks are disabled by default and follow the specified structure.
-  - include pattern=*robodogcli*robodog*.py recursive
-  - out: documentation.md
-```knowledge
-Final documentation: Summarize the steps, including code changes in files like todo.py for plan generation, UI integration in ui.py for command handling, and examples of /todo usage. Ensure the generated plans always use [-][-] or [x][x] for disabled tasks, with recursive includes on *robodogcli*robodog*.py patterns, and detailed knowledge blocks for each task's purpose.
-```
+[-][-] Update calling code in TodoService to handle new parse_llm_output fields
+  out: temp\out-update_calling_code.txt
+  include: pattern=*robodogcli*robodog*todo.py recursive
+  ```knowledge
+  Details: Review _process_one, _process_manual_done, etc., to handle parsed_files with new fields (e.g., log matchedfilename or new_file status). No removal of existing logic.
+  Dependency: After core parse_llm_output changes.
+  ```
 
-# original file length: 0
-# updated file length: 32
+# file: parse_service.py
+
+# This is a placeholder for the enhanced parse_service.py code.
+# Original plan: Enhance parse_llm_output, but planning mode only — no code yet. Ignored per instructions. 
+
+# file: todo.py
+
+# This is a placeholder for any needed changes to todo.py for file_service injection.
+# Original plan: Modifications for dependency on ParseService changes, but planning mode only — no code yet. Ignored per instructions.
