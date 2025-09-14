@@ -1,13 +1,9 @@
-# filename:         robodog/todo.py
+# file: C:\Projects\robodog\robodogcli\robodog\todo.py
+# filename: robodog/todo.py
 # originalfilename: robodog/todo.py
-# matchedfilename:  C:\Projects\robodog\robodogcli\robodog\todo.py
-# original file length: 557 lines
-# updated file length:  564 lines
-# filename:         c:\projects\robodog\robodogcli\robodog\todo.py
-# originalfilename: c:\projects\robodog\robodogcli\robodog\todo.py
-# matchedfilename:  C:\Projects\robodog\robodogcli\robodog\todo.py
-# original file length: 497 lines
-# updated file length:  510 lines
+# matchedfilename: C:\Projects\robodog\robodogcli\robodog\todo.py
+# original file length: 565 lines
+# updated file length: 559 lines
 import os
 import re
 import time
@@ -288,13 +284,13 @@ class TodoService:
                     logger.error(f"Parsing AI output failed: {e}")
                     parsed_files = []
 
-                commited = 0
+                commited, compare = 0, []
                 if parsed_files:
-                    commited = self._write_parsed_files(parsed_files, task)
+                    commited, compare = self._write_parsed_files(parsed_files, task)
                 else:
                     logger.info("No parsed files to report.")
 
-                self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited)
+                self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited, compare)
             else:
                 logger.debug("No tasks to commit.")
 
@@ -303,9 +299,9 @@ class TodoService:
         st = self._task_manager.start_task(task, file_lines_map, cur_model)
         return st
         
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float):
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None):
         logger.debug(f"Completing task: {task['desc']}")
-        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation)
+        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation, compare)
         return ct
             
     def run_next_task(self, svc):
@@ -424,12 +420,13 @@ class TodoService:
         return result
 
     # --- modified write-and-report method ---
-    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
+    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> tuple[int, List[str]]:
         """
-        Write parsed files and compare tokens using parse_service object properties
+        Write parsed files and compare tokens using parse_service object properties, return results and compare list
         """
         logger.debug("_write_parsed_files called")
         result = 0
+        compare: List[str] = []
         for parsed in parsed_files:
             orig_name = Path(parsed['filename']).name
             content = parsed['content']
@@ -457,12 +454,14 @@ class TodoService:
             else:
                 new_tokens = 0
             code = self._compare_token_delta(orig_name, new_tokens, original_tokens, delta_tokens, new_path)
+            change = abs(delta_tokens) / original_tokens * 100 if original_tokens > 0 else 0.0
+            compare.append(f"{orig_name} (o/n/d tokens:{original_tokens}/{new_tokens}/{delta_tokens}) c={change:.1f}%,")
             # use positive code as success indicator 1
             if code >= 0:
                 result = 1
             else:
                 result = code
-        return result
+        return result, compare
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
         logger.debug(f"Backing up and writing to {out_path}")
@@ -542,13 +541,15 @@ class TodoService:
             parsed_files = []
 
         trunc_code = 0
+        compare: List[str] = []
         if parsed_files:
-            trunc_code = self._report_parsed_files(parsed_files, task)
+            _trunc_code, compare = self._write_parsed_files(parsed_files, task)
+            trunc_code = _trunc_code
             self._write_full_ai_output(svc, task, ai_out, trunc_code)
         else:
             logger.info("No parsed files to report.")
 
-        self.complete_task(task, file_lines_map, cur_model, trunc_code)
+        self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")
@@ -561,6 +562,4 @@ class TodoService:
         return srf
         
 # original file length: 497 lines
-# updated file length: 499 lines
-
-# original file
+# updated file length: 503 lines

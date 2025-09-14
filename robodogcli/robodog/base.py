@@ -2,10 +2,8 @@
 # filename: robodog/base.py
 # originalfilename: robodog/base.py
 # matchedfilename: C:\Projects\robodog\robodogcli\robodog\base.py
-# original file length: 74 lines
-# updated file length: 66 lines
-#!/usr/bin/env python3
-"""Base classes and common utilities for robodog services."""
+# original file length: 57 lines
+# updated file length: 51 lines
 from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
 import os
@@ -15,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseService:
-    """Base class for all robodog services."""
+    """Base classes and common utilities for robodog services."""
     
     def __init__(self, roots: List[str] = None):
         self._roots = roots or [os.getcwd()]
@@ -56,17 +54,4 @@ class TaskBase:
         if know is not None:
             parts.append(f"knowledge_tokens: {know}")
         if include is not None:
-            parts.append(f"include_tokens: {include}")
-        if prompt is not None:
-            parts.append(f"prompt_tokens: {prompt}")
-        if cur_model:
-            parts.append(f"cur_model: {cur_model}")
-        if compare:
-            # Inline compare info, comma-separated
-            parts.append("compare: " + ", ".join(compare))
-        # Single-line summary
-        summary = f"{indent}  - " + " | ".join(parts) + "\n"
-        return summary
-
-# original file length: 73 lines
-# updated file length: 73 lines
+            parts.append(f"include_tokens

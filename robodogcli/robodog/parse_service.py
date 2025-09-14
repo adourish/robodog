@@ -3,7 +3,7 @@
 # originalfilename: robodog/parse_service.py
 # matchedfilename: C:\Projects\robodog\robodogcli\robodog\parse_service.py
 # original file length: 311 lines
-# updated file length: 305 lines
+# updated file length: 169 lines
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
 import re
@@ -151,15 +151,17 @@ class ParseService:
         delta_tokens = new_tokens - original_tokens
 
         # Enhanced metadata for tracking
+        obj['originalfilename'] = filename  # original input filename
+        obj['matchedfilename'] = matched or filename  # resolved/matched path
         length_comment = (
             f"# original file length: {orig_lines} lines\n"
             f"# updated file length: {new_lines} lines\n"
         )
         filename_meta = (
-            f"# file: {matched or filename}\n"
+            f"# file: {obj['matchedfilename']}\n"
             f"# filename: {filename}\n"
-            f"# originalfilename: {filename}\n"
-            f"# matchedfilename: {matched}\n"
+            f"# originalfilename: {obj['originalfilename']}\n"
+            f"# matchedfilename: {obj['matchedfilename']}\n"
         )
         # Prepend metadata to content for consistency
         obj['content'] = filename_meta + length_comment + new_content
@@ -246,6 +248,7 @@ class ParseService:
     # Minimal unchanged methods below
     def _is_section_format(self, output: str) -> bool:
         return bool(self.section_pattern.search(output))
+    
     def _is_json_format(self, output: str) -> bool:
         s = output.strip()
         if not (s.startswith('{') or s.startswith('[')): return False
@@ -307,5 +310,3 @@ class ParseService:
     def _parse_fallback(self, output: str):
         logger.warning("Using fallback parser"); return [{'filename':'generated.txt','content':output.strip()}]
 
-# original file length: 342 lines
-# updated file length: 342 lines

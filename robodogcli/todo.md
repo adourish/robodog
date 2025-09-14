@@ -42,11 +42,11 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 # parse service
 - [x][-] changes to tasks and todo
-  - started: 2025-09-14 23:23 | completed: 2025-09-14 23:24 | knowledge: 54 | include: 57806 | prompt: 58099 | cur_model: openai/o4-mini | truncation: warning
+  - started: 2025-09-14 23:34 | completed: 2025-09-14 23:34 | knowledge: 45 | include: 57076 | prompt: 57360 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error | compare: parse_service.py (o/n/d tokens:1175/650/-549) c=46.7%,
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
-1. fix the start time when doing a commit
+
 2. make sure the compare is added to the status 
 3. it should look like this. "started: 2025-09-14 23:20 | completed: 2025-09-14 23:20 | knowledge: 9 | include: 57806 | prompt: 58054 | cur_model: x-ai/grok-code-fast-1 | compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> (o/n/d tokens:193/253/36) c=18.7%,  
 ```
