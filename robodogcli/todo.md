@@ -12,8 +12,8 @@
 
 ```
 
-# tasks and todo
-- [x][-] changes to tasks and todo
+# parse service
+- [x][-] changes to parse service
   - started: 2025-09-14 21:50 | completed: 2025-09-14 21:51 | knowledge: 73 | include: 57347 | prompt: 57659 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
@@ -26,5 +26,17 @@
 🧩 @@ -196,24 +190,18 @@
 [ 190⚪]         md_lines.append("## 🔍 Unified Diff (With Emojis & File Line Numbers)")
 [ 191⚪]         md_lines.append("```diff")
+
+```
+
+# parse service
+- [x][-] changes to tasks and todo
+  - started: 2025-09-14 23:11 | completed: 2025-09-14 23:11 | knowledge: 18 | include: 58111 | prompt: 58368 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error
+  - include: pattern=*robodogcli*robodog*.py  recursive`
+  - out:  temp\out.py
+```knowledge
+1. add the compare information to the format_summary
+
+e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> (o/n/d tokens:193/253/36) c=18.7%, 
 
 ```

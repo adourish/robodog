@@ -1,7 +1,12 @@
-# file: robodog/base.py
+# file: C:\Projects\robodog\robodogcli\robodog\base.py
+# filename: robodog/base.py
+# originalfilename: robodog/base.py
+# matchedfilename: C:\Projects\robodog\robodogcli\robodog\base.py
+# original file length: 74 lines
+# updated file length: 68 lines
 #!/usr/bin/env python3
 """Base classes and common utilities for robodog services."""
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
 import os
 import logging
@@ -33,11 +38,18 @@ class TaskBase:
     REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
     
     @staticmethod
-    def format_summary(indent: str, start: str, end: Optional[str] = None,
-                      know: Optional[int] = None, prompt: Optional[int] = None,
-                      incount: Optional[int] = None, include: Optional[int] = None,
-                      cur_model: str = None) -> str:
-        """Format a task summary line."""
+    def format_summary(
+        indent: str,
+        start: str,
+        end: Optional[str] = None,
+        know: Optional[int] = None,
+        prompt: Optional[int] = None,
+        incount: Optional[int] = None,
+        include: Optional[int] = None,
+        cur_model: str = None,
+        compare: Optional[List[str]] = None
+    ) -> str:
+        """Format a task summary line, now including optional compare info."""
         parts = [f"started: {start}"]
         if end:
             parts.append(f"completed: {end}")
@@ -49,7 +61,14 @@ class TaskBase:
             parts.append(f"prompt_tokens: {prompt}")
         if cur_model:
             parts.append(f"cur_model: {cur_model}")
-        return f"{indent}  - " + " | ".join(parts) + "\n"
+        # Build the main summary line
+        summary = f"{indent}  - " + " | ".join(parts)
+        # Append compare info on separate lines for better readability
+        if compare:
+            for cmp in compare:
+                summary += f"\n{indent}    - compare: {cmp}"
+        summary += "\n"
+        return summary
 
-# original file length: 45 lines
-# updated file length: 45 lines
+# original file length: 73 lines
+# updated file length: 73 lines

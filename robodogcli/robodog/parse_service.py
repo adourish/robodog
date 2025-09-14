@@ -2,7 +2,7 @@
 # filename: robodog/parse_service.py
 # originalfilename: robodog/parse_service.py
 # matchedfilename: C:\Projects\robodog\robodogcli\robodog\parse_service.py
-# original file length: 301 lines
+# original file length: 311 lines
 # updated file length: 305 lines
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
@@ -111,7 +111,7 @@ class ParseService:
         file_service: Optional[object]
     ):
         """
-        Enhance the parsed object with tracking metadata and improved diffs:
+        Enhance the parsed object with tracking metadata:
           - 'filename', 'originalfilename', 'matchedfilename'
           - 'diff_md' (enhanced with markdown/HTML for colors and emojis)
           - 'new_tokens', 'original_tokens', 'delta_tokens'
@@ -308,4 +308,4 @@ class ParseService:
         logger.warning("Using fallback parser"); return [{'filename':'generated.txt','content':output.strip()}]
 
 # original file length: 342 lines
-# updated file length: 345 lines
+# updated file length: 342 lines
