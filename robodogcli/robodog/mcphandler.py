@@ -1,5 +1,9 @@
-
-# file: robodog/mcphandler.py
+# file: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
+# filename: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
+# originalfilename: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
+# matchedfilename: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
+# original file length: 340 lines
+# updated file length: 378 lines
 #!/usr/bin/env python3
 import os
 import json
@@ -20,6 +24,17 @@ logger = logging.getLogger('robodog.mcphandler')
 ROOTS   = []
 TOKEN   = None
 SERVICE = None
+
+def _is_path_allowed(path: str) -> bool:
+    """
+    Ensure the given path is within one of the allowed ROOTS.
+    """
+    abs_path = os.path.abspath(path)
+    for r in ROOTS:
+        r_abs = os.path.abspath(r)
+        if abs_path == r_abs or abs_path.startswith(r_abs + os.sep):
+            return True
+    return False
 
 class MCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
@@ -146,13 +161,19 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
             if op == "READ_FILE":
                 path = p.get("path") or ""
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 data = SERVICE.read_file(path)
                 return {"status":"ok","path":path,"content":data}
 
             if op == "UPDATE_FILE":
                 path = p.get("path") or ""
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 content = p.get("content","")
                 if not os.path.exists(path):
                     SERVICE.create_file(path, content)
@@ -163,34 +184,49 @@ class MCPHandler(socketserver.StreamRequestHandler):
             if op == "CREATE_FILE":
                 path = p.get("path") or ""
                 content = p.get("content","")
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 SERVICE.create_file(path, content)
                 return {"status":"ok","path":path}
 
             if op == "DELETE_FILE":
                 path = p.get("path") or ""
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 SERVICE.delete_file(path)
                 return {"status":"ok","path":path}
 
             if op == "APPEND_FILE":
                 path = p.get("path") or ""
                 content = p.get("content","")
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 SERVICE.append_file(path, content)
                 return {"status":"ok","path":path}
 
             if op == "CREATE_DIR":
                 path = p.get("path") or ""
                 mode = p.get("mode", 0o755)
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 SERVICE.create_dir(path, mode)
                 return {"status":"ok","path":path}
 
             if op == "DELETE_DIR":
                 path = p.get("path") or ""
                 rec  = bool(p.get("recursive", False))
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 SERVICE.delete_dir(path, rec)
                 return {"status":"ok","path":path}
 
@@ -199,6 +235,8 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 dst = p.get("dst") or p.get("dest")
                 if not src or not dst:
                     raise ValueError("Missing 'src' or 'dst'")
+                if not _is_path_allowed(src) or not _is_path_allowed(dst):
+                    raise PermissionError("Access denied")
                 SERVICE.rename(src, dst)
                 return {"status":"ok","src":src,"dst":dst}
 
@@ -207,6 +245,8 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 dst = p.get("dst")
                 if not src or not dst:
                     raise ValueError("Missing 'src' or 'dst'")
+                if not _is_path_allowed(src) or not _is_path_allowed(dst):
+                    raise PermissionError("Access denied")
                 SERVICE.copy_file(src, dst)
                 return {"status":"ok","src":src,"dst":dst}
 
@@ -221,7 +261,10 @@ class MCPHandler(socketserver.StreamRequestHandler):
 
             if op == "CHECKSUM":
                 path = p.get("path") or ""
-                if not path: raise ValueError("Missing 'path'")
+                if not path:
+                    raise ValueError("Missing 'path'")
+                if not _is_path_allowed(path):
+                    raise PermissionError("Access denied")
                 cs = SERVICE.checksum(path)
                 return {"status":"ok","path":path,"checksum":cs}
 
@@ -231,10 +274,10 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 return {"status":"ok"}
 
             if op == "LIST_TODO_TASKS":
-                SERVICE.todo._load_all()  # Load tasks from todo.py's TodoService
-                tasks = SERVICE.todo._tasks  # Get the list of tasks
-                return {"status":"ok", "tasks": tasks}  # Return as a list of dicts
-        
+                SERVICE.todo._load_all()
+                tasks = SERVICE.todo._tasks
+                return {"status":"ok","tasks":tasks}
+
             # --- include/ask ---
             if op == "INCLUDE":
                 spec   = p.get("spec","")
@@ -249,7 +292,8 @@ class MCPHandler(socketserver.StreamRequestHandler):
             # --- passthrough LLM/meta ---
             if op == "ASK":
                 prompt = p.get("prompt")
-                if prompt is None: raise ValueError("Missing 'prompt'")
+                if prompt is None:
+                    raise ValueError("Missing 'prompt'")
                 resp = SERVICE.ask(prompt)
                 return {"status":"ok","response":resp}
 
@@ -313,7 +357,8 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 return {"status":"ok","message":"Goodbye!"}
 
             raise ValueError(f"Unknown command '{op}'")
-
+        except PermissionError as pe:
+            return {"status":"error","error": str(pe)}
         except Exception as e:
             return {"status":"error","error": str(e)}
 
@@ -336,4 +381,4 @@ def run_robodogmcp(host: str, port: int, token: str,
     return server
 
 # original file length: 222 lines
-# updated file length: 227 lines
+# updated file length: 256 lines

@@ -69,8 +69,10 @@ class TodoService:
         self._task_parser = task_parser
         self._file_watcher = file_watcher
         self._file_service = file_service
+        self._exclude_dirs = exclude_dirs
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
+        
         logger.info(f"Base directory parsed: {self._base_dir}")
 
         self._load_all()
@@ -286,7 +288,7 @@ class TodoService:
 
                 commited, compare = 0, []
                 if parsed_files:
-                    commited, compare = self._write_parsed_files(parsed_files, task, False)
+                    commited, compare = self._write_parsed_files(parsed_files, task, True)
                 else:
                     logger.info("No parsed files to report.")
 
@@ -542,7 +544,7 @@ class TodoService:
         trunc_code = 0
         compare: List[str] = []
         if parsed_files:
-            _trunc_code, compare = self._write_parsed_files(parsed_files, task, True)
+            _trunc_code, compare = self._write_parsed_files(parsed_files, task, False)
             trunc_code = _trunc_code
             self._write_full_ai_output(svc, task, ai_out, trunc_code)
         else:

@@ -52,14 +52,15 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # cli to service
-- [x][-] changes cli and service for exclude
-  - started: 2025-09-15 00:45 | completed: 2025-09-15 00:46 | knowledge: 24 | include: 58135 | prompt: 58399 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error | compare: cli.py (o/n/d tokens:1093/1093/-24) c=2.2%,, service.py (o/n/d tokens:1344/113/-1255) c=93.4%,
+- [x][x] changes cli and service security
+  - started: None | completed: 2025-09-15 01:12 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. the default DEFAULT_EXCLUDE_DIRS is dist and node_modules
-2. pass excludedirs from the command line params
-3. set the updated exclude dirs in service
+1. set exclude dirs in the service
+2. make sure that the mcpserver/service cannot access files outside of the --folders location
+3. 
+
 
 ```
