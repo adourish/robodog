@@ -55,22 +55,22 @@ class ParseService:
         logger.info(f"Starting enhanced parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
         try:
             if self._is_section_format(llm_output):
-                logger.debug("Detected section format")
+                logger.info("Detected section format")
                 parsed_objects = self._parse_section_format(llm_output)
             elif self._is_json_format(llm_output):
-                logger.debug("Detected JSON format")
+                logger.info("Detected JSON format")
                 parsed_objects = self._parse_json_format(llm_output)
             elif self._is_yaml_format(llm_output):
-                logger.debug("Detected YAML format")
+                logger.info("Detected YAML format")
                 parsed_objects = self._parse_yaml_format(llm_output)
             elif self._is_xml_format(llm_output):
-                logger.debug("Detected XML format")
+                logger.info("Detected XML format")
                 parsed_objects = self._parse_xml_format(llm_output)
             elif self._is_md_fenced_format(llm_output):
-                logger.debug("Detected MD fenced format")
+                logger.info("Detected MD fenced format")
                 parsed_objects = self._parse_md_fenced_format(llm_output)
             else:
-                logger.debug("Using generic format")
+                logger.info("Using generic format")
                 parsed_objects = self._parse_generic_format(llm_output)
         except Exception as e:
             logger.error(f"Parsing error: {e}")
@@ -257,67 +257,131 @@ class ParseService:
         md_lines.append("```")
         return "\n".join(md_lines) + "\n"
 
-    # Minimal unchanged methods below
     def _is_section_format(self, output: str) -> bool:
         return bool(self.section_pattern.search(output))
-    
+
     def _is_json_format(self, output: str) -> bool:
         s = output.strip()
-        if not (s.startswith('{') or s.startswith('[')): return False
-        try: parsed = json.loads(s); return isinstance(parsed, dict) and 'files' in parsed
-        except: return False
+        if not (s.startswith('{') or s.startswith('[')):
+            return False
+        try:
+            parsed = json.loads(s)
+            return isinstance(parsed, dict) and 'files' in parsed
+        except:
+            return False
+
     def _is_yaml_format(self, output: str) -> bool:
-        try: parsed = yaml.safe_load(output); return isinstance(parsed, dict) and 'files' in parsed
-        except: return False
+        try:
+            parsed = yaml.safe_load(output)
+            return isinstance(parsed, dict) and 'files' in parsed
+        except:
+            return False
+
     def _is_xml_format(self, output: str) -> bool:
         s = output.strip()
-        if not s.startswith('<'): return False
-        try: root = ET.fromstring(s); return root.tag == 'files' and any(child.tag == 'file' for child in root)
-        except: return False
+        if not s.startswith('<'):
+            return False
+        try:
+            root = ET.fromstring(s)
+            return root.tag == 'files' and len(root) and root[0].tag == 'file'
+        except:
+            return False
+
     def _is_md_fenced_format(self, output: str) -> bool:
         return bool(self.md_fenced_pattern.search(output))
-    def _parse_section_format(self, output: str):
-        matches = list(self.section_pattern.finditer(output)); objs=[]
-        for idx,m in enumerate(matches):
-            fn = m.group(1).strip(); start=m.end(); end=matches[idx+1].start() if idx+1<len(matches) else len(output)
-            content = output[start:end].strip(); objs.append({'filename':fn,'content':content})
+
+    def _parse_section_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        matches = list(self.section_pattern.finditer(output))
+        objs = []
+        for idx, match in enumerate(matches):
+            fn = match.group(1).strip()
+            start = match.end()
+            end = matches[idx+1].start() if idx+1 < len(matches) else len(output)
+            content = output[start:end].strip()
+            objs.append({'filename': fn, 'content': content})
         return objs
-    def _parse_json_format(self, output: str):
-        data = json.loads(output); files=data.get('files',[]); parsed=[]
+
+    def _parse_json_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        data = json.loads(output.strip())
+        files = data.get('files', [])
+        if not isinstance(files, list):
+            raise ParsingError("JSON 'files' must be list")
+        parsed = []
         for it in files:
-            fn=it.get('filename','').strip(); ct=it.get('content','').strip()
-            if fn: parsed.append({'filename':fn,'content':ct})
+            fn = it.get('filename','').strip()
+            ct = it.get('content','').strip()
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': ct})
         return parsed
-    def _parse_yaml_format(self, output: str):
-        data=yaml.safe_load(output); files=data.get('files',[]); parsed=[]
+
+    def _parse_yaml_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        data = yaml.safe_load(output)
+        files = data.get('files', [])
+        if not isinstance(files, list):
+            raise ParsingError("YAML 'files' must be list")
+        parsed = []
         for it in files:
-            fn=it.get('filename','').strip(); ct=it.get('content','').strip()
-            if fn: parsed.append({'filename':fn,'content':ct})
+            fn = it.get('filename','').strip()
+            ct = it.get('content','').strip()
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': ct})
         return parsed
-    def _parse_xml_format(self, output: str):
-        root=ET.fromstring(output)
-        parsed=[]
+
+    def _parse_xml_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        root = ET.fromstring(output.strip())
+        if root.tag != 'files':
+            raise ParsingError("Root must be 'files'")
+        parsed = []
         for fe in root.findall('file'):
-            fn_el=fe.find('filename'); ct_el=fe.find('content')
-            if fn_el is not None and ct_el is not None:
-                fn=(fn_el.text or '').strip(); ct=(ct_el.text or '').strip()
-                if fn: parsed.append({'filename':fn,'content':ct})
+            fn_el = fe.find('filename')
+            ct_el = fe.find('content')
+            if fn_el is None or ct_el is None:
+                continue
+            fn = (fn_el.text or '').strip()
+            ct = (ct_el.text or '').strip()
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': ct})
         return parsed
-    def _parse_md_fenced_format(self, output: str):
-        matches=self.md_fenced_pattern.findall(output); parsed=[]
-        for info,content in matches:
-            fn=info.strip() or "unnamed"; parsed.append({'filename':fn,'content':content.strip()})
+
+    def _parse_md_fenced_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        matches = self.md_fenced_pattern.findall(output)
+        parsed = []
+        for info, content in matches:
+            fn = info.strip() or "unnamed"
+            if self._validate_filename(fn):
+                parsed.append({'filename': fn, 'content': content.strip()})
         return parsed
-    def _parse_generic_format(self, output: str):
-        lines=output.splitlines(); parsed=[]; cur_fn=None; buf=[]
+
+    def _parse_generic_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        lines = output.splitlines()
+        parsed = []
+        cur_fn = None
+        buf = []
         for line in lines:
-            m=self.filename_pattern.match(line)
+            m = self.filename_pattern.match(line)
             if m:
-                if cur_fn and buf: parsed.append({'filename':cur_fn,'content':'\n'.join(buf).strip()})
-                cur_fn=m.group(1).strip(); buf=[m.group(2).strip()]
-            elif cur_fn: buf.append(line.strip())
-        if cur_fn and buf: parsed.append({'filename':cur_fn,'content':'\n'.join(buf).strip()})
-        if not parsed: raise ParsingError("No valid files in generic parse")
+                if cur_fn and buf and self._validate_filename(cur_fn):
+                    parsed.append({'filename': cur_fn, 'content': '\n'.join(buf).strip()})
+                cur_fn = m.group(1).strip()
+                buf = [m.group(2).strip()]
+            elif cur_fn and line.strip():
+                buf.append(line.strip())
+        if cur_fn and buf and self._validate_filename(cur_fn):
+            parsed.append({'filename': cur_fn, 'content': '\n'.join(buf).strip()})
+        if not parsed:
+            raise ParsingError("No valid files in generic parse")
         return parsed
-    def _parse_fallback(self, output: str):
-        logger.warning("Using fallback parser"); return [{'filename':'generated.txt','content':output.strip()}]
+
+    def _parse_fallback(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        logger.warning("Using fallback parser")
+        return [{'filename': 'generated.txt', 'content': output.strip()}]
+
+    def _validate_filename(self, filename: str) -> bool:
+        if not filename or len(filename) > 255:
+            return False
+        for c in '<>:"/\\|?*':
+            if c in filename:
+                return False
+        if '..' in filename or filename.startswith('/'):
+            return False
+        return True

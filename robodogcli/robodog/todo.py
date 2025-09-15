@@ -536,7 +536,7 @@ class TodoService:
             ai_out = svc.ask(prompt)
             if not ai_out:
                 logger.error("No AI output generated for task. Failed.")
-            else
+            else:
                 logger.info(f"AI output length: {len(ai_out)} characters")
         else:
             logger.info(f"AI output length: {len(ai_out)} characters")
