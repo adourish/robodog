@@ -462,29 +462,18 @@ class TodoService:
         return result, compare
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
-        logger.debug(f"Backing up and writing to {out_path}")
+        
         if not out_path:
             return
         bf = getattr(svc, 'backup_folder', None)
+        self._file_service.write_file(out_path, content)
         if bf:
-            bak = Path(bf)
-            bak.mkdir(parents=True, exist_ok=True)
-            if out_path.exists():
-                ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-                dest = bak / f"{out_path.name}-{ts}"
-                try:
-                    shutil.copy2(out_path, dest)
-                except Exception:
-                    pass
-        try:
-            svc.call_mcp("UPDATE_FILE", {"path": str(out_path), "content": content})
-            self._watch_ignore[str(out_path)] = out_path.stat().st_mtime
-        except Exception as e:
-            logger.error(f"Failed to update {out_path}: {e}")
-
+            logger.debug(f"Backing up: {bf}")
+            self._file_service.write_file(bf, content)
+        
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         out_path = self._get_ai_out_path(task)
-        logger.info(f"Write: {out_path} ({len(ai_out.split())} tokens)")
+        logger.info(f"Write AI out: {out_path} ({len(ai_out.split())} tokens)")
         if out_path:
             self._backup_and_write_output(svc, out_path, ai_out)
     
@@ -495,11 +484,7 @@ class TodoService:
         out_path = self._resolve_path(out_pat)
         return out_path
     
-    def _write_full_parsed_ai_outputb(self, svc, path, ai_out):
-        
-        logger.info(f"Write: {path} ({len(ai_out.split())} tokens)")
-        if path:
-            self._file_service.write_file(path, ai_out)
+
 
     def _process_one(self, task: dict, svc, file_lines_map: dict):
         logger.info(f"Processing task: {task['desc']}")

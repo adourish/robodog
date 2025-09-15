@@ -6,7 +6,8 @@ import os
 import logging
 from typing import List, Optional
 from pathlib import Path
-
+import os
+import tempfile
 logger = logging.getLogger(__name__)
 
 
@@ -121,7 +122,7 @@ class FileService:
         except Exception as e:
             logger.error(f"FileService.write_file failed for {path}: {e}")
 
-    def write_file(self, path: Path, content: str):
+    def write_filed(self, path: Path, content: str):
         """
         Atomically write `content` to `path`, creating directories as needed.
         If `path` already exists it will be overwritten.
@@ -142,7 +143,108 @@ class FileService:
             logger.info(f"Written: {path} ({token_count} tokens)")
         except Exception as e:
             logger.error(f"FileService.write_file failed for {path}: {e}")
-            
+
+
+
+    def write_filee(self, path: Path, content: str):
+        """
+        Atomically write `content` to `path`, creating directories as needed.
+        If `path` already exists it will be overwritten.
+        """
+        logger.debug(f"Writing file {path} (atomic, with fsync)")
+        try:
+            # ensure parent directories exist
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            # create a real temp file in the same dir for atomic rename
+            dirpath = str(path.parent)
+            # prefix with target name to make debugging easier
+            fd, tmp_name = tempfile.mkstemp(
+                dir=dirpath,
+                prefix=path.name +".",
+                suffix=".tmp"
+            )
+            try:
+                # write, flush, fsync
+                with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+                    tmp_file.write(content)
+                    tmp_file.flush()
+                    os.fsync(tmp_file.fileno())
+
+                # atomic replace
+                os.replace(tmp_name, str(path))
+
+                token_count = len(content.split())
+                logger.info(f"Written: {path} ({token_count} tokens)")
+            except Exception:
+                # if write or rename fails, clean up temp file
+                try:
+                    os.remove(tmp_name)
+                except OSError:
+                    pass
+                raise
+        except Exception as e:
+            logger.error(f"FileService.write_file failed for {path}: {e}")
+
+    def write_file(self, path: Path, content: str):
+        """
+        Atomically write `content` to `path`, creating directories as needed.
+        If atomic replace fails, falls back to a simple write.
+        """
+        logger.debug(f"Writing file {path} (atomic, with fsync and fallback)")
+
+        # 1) ensure parent directories exist
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            logger.error(f"Failed to create parent dirs for {path}: {e}")
+            # Proceed anyway—if mkdir failed for reasons other than exists, write may still work
+
+        tmp_name = None
+        try:
+            # 2) create a real temp file in the same dir for atomic rename
+            dirpath = str(path.parent) or os.getcwd()
+            fd, tmp_name = tempfile.mkstemp(
+                dir=dirpath,
+                prefix=path.name + ".",
+                suffix=".tmp"
+            )
+
+            # 3) write, flush, fsync
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+                tmp_file.write(content)
+                tmp_file.flush()
+                os.fsync(tmp_file.fileno())
+
+            # 4) atomic replace (overwrites or creates)
+            os.replace(tmp_name, str(path))
+            tmp_name = None  # prevent cleanup in finally
+            token_count = len(content.split())
+            logger.info(f"Written (atomic): {path} ({token_count} tokens)")
+
+        except Exception as atomic_exc:
+            logger.warning(f"Atomic write failed for {path}: {atomic_exc}")
+            # fallback: simple write
+            try:
+                if tmp_name and os.path.exists(tmp_name):
+                    os.remove(tmp_name)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                    f.flush()
+                    os.fsync(f.fileno())
+                token_count = len(content.split())
+                logger.info(f"Written (fallback): {path} ({token_count} tokens)")
+            except Exception as fallback_exc:
+                logger.error(f"Fallback write also failed for {path}: {fallback_exc}")
+
+        finally:
+            # Cleanup stray temp file if something went wrong
+            if tmp_name and os.path.exists(tmp_name):
+                try:
+                    os.remove(tmp_name)
+                except Exception:
+                    pass
+                
     def write_file_lines(self, filepath: str, file_lines: List[str]):
         """Write file and update watcher."""
         logger.debug(f"Writing file lines to: {filepath}")

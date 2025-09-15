@@ -69,14 +69,16 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [~][-] changes todo
-  - started: 2025-09-15 04:47 | knowledge: 20 | include: 61535 | prompt: 61801 | cur_model: x-ai/grok-code-fast-1
-  - include: pattern=*robodogcli*robodog*.py  recursive`
+- [x][x] changes todo
+  - started: None | completed: 2025-09-15 13:36 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: parse_service.py (o/n/d tokens:0/844/841) c=0.0%,
+  - include: pattern=*robodogcli*robodog*service.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
 1. enhance _parse_section_format
-2. handle more possible file formats. sometimes its getting the wrong filename. we dont want the path
+2. ensure that you split the file by # file= 
+3. ensure that you find all of the content below # file=
+4. ensure that you remove the path from file=<filename.ext>  remove c:\bla\filename.md or bla\filename.ext  or bla/filename.ext   so its just the filename
 
 
 ```
