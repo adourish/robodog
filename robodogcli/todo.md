@@ -70,8 +70,8 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo 
 - [x][-] changes todo
-  - started: 2025-09-15 14:14 | completed: 2025-09-15 14:15 | knowledge: 17 | include: 7256 | prompt: 7519 | cur_model: openai/o4-mini | compare: file_service.py (o/n/d tokens:0/843/840) c=0.0%,, parse_service.py (o/n/d tokens:0/597/594) c=0.0%,
-  - include: pattern=*robodogcli*robodog*service.py  recursive`
+  - started: 2025-09-15 15:59 | completed: 2025-09-15 16:00 | knowledge: 17 | include: 13390 | prompt: 13653 | cur_model: openai/o4-mini | compare: Compare: 'file_service.py' -> None (o/n/d tokens: 0/867/867) c=0.0%, Compare: 'todo.py' -> None (o/n/d tokens: 0/288/288) c=0.0%
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py  recursive`
   - out:  temp\out.py
 ```knowledge
 

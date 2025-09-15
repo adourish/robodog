@@ -91,6 +91,7 @@ class ParseService:
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M-%S")
         for obj in parsed_objects:
             md_diff = obj.get('diff_md', '')
+            orig_fn = obj.get('filename', 'file')
             if md_diff:
                 orig_fn = obj.get('filename', 'file')
                 stem = Path(orig_fn).stem
@@ -106,6 +107,23 @@ class ParseService:
 
         return parsed_objects
 
+  
+    def _load_truncation_phrases(self) -> List[str]:
+
+        phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
+        if not phrases_file.exists():
+            logger.warning("Truncation phrases file not found. Create truncation_phrases.txt")
+            return []
+        try:
+            with open(phrases_file, 'r', encoding='utf-8') as f:
+                phrases = [line.strip() for line in f if line.strip()]
+            logger.debug(f"Loaded {len(phrases)} truncation phrases from {phrases_file}")
+            return phrases
+        except Exception as e:
+            logger.error(f"Failed to load truncation phrases: {e}")
+            return []
+    
+    
     def _enhance_parsed_object(
         self,
         obj: Dict[str, Union[str, int]],
@@ -191,22 +209,7 @@ class ParseService:
         obj['result'] = result
         
         return long_compare
-  
-    def _load_truncation_phrases(self) -> List[str]:
 
-        phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
-        if not phrases_file.exists():
-            logger.warning("Truncation phrases file not found. Create truncation_phrases.txt")
-            return []
-        try:
-            with open(phrases_file, 'r', encoding='utf-8') as f:
-                phrases = [line.strip() for line in f if line.strip()]
-            logger.debug(f"Loaded {len(phrases)} truncation phrases from {phrases_file}")
-            return phrases
-        except Exception as e:
-            logger.error(f"Failed to load truncation phrases: {e}")
-            return []
-    
     def _check_content_completeness(self, content: str, orig_name: str) -> int:
         """
         Enhanced check if AI output appears complete, with phrases loaded from file to avoid triggering the function.

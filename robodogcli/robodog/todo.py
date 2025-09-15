@@ -343,22 +343,13 @@ class TodoService:
             orig_name = Path(parsed['filename']).name
             content = parsed['content']
             # completeness check
-            comp = self._check_content_completeness(content, orig_name)
-            if comp < 0:
-                result = comp
-                continue
-            # determine tokens after write
+           
             new_tokens = parsed.get('new_tokens', 0)
             original_tokens = parsed.get('original_tokens', 0)
             delta_tokens = parsed.get('delta_tokens', 0)
-            if task and task.get('include'):
-                new_path = self._find_matching_file(orig_name, task['include'])
-            else:
-                new_path = None
-            # write content
-            if new_path is None and task:
-                new_path = Path(task['file']).parent / parsed['filename']
-       
+            matchedfilename = parsed.get('matchedfilename', '')
+            new_path = matchedfilename
+            
             if new_path:
                 if commit_file == True:
                     self._file_service.write_file(new_path, content)
