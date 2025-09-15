@@ -146,9 +146,11 @@ class ParseService:
         # Resolve via file_service for accurate matching
         if file_service:
             try:
+                logger.info(f"resolve_path for {filename}:")
                 candidate = file_service.resolve_path(filename)
                 if candidate and candidate.exists():
                     matched = str(candidate.resolve())
+                    logger.info(f"resolve_path for {filename} matched: {matched}")
                     original = candidate.read_text(encoding='utf-8', errors='ignore')
                     diff_md = self._generate_improved_md_diff(filename, original, new_content, matched)
             except Exception as e:
