@@ -23,7 +23,10 @@ class ParseService:
     def __init__(self):
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
-        self.section_pattern = re.compile(r'^#\s*file:\s*(.+)$', re.MULTILINE | re.IGNORECASE)
+        #self.section_pattern = re.compile(r'^#\s*file:\s*(.+)$', re.MULTILINE | re.IGNORECASE)
+        self.section_pattern = re.compile(r'^[ \t]*#\s*file:\s*(?:.*[\\/])?([^\\/])$',
+            re.MULTILINE | re.IGNORECASE
+        )
         self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
         # pattern to parse unified diff hunk headers
@@ -118,7 +121,7 @@ class ParseService:
           - 'new_tokens', 'original_tokens', 'delta_tokens'
         """
         filename = obj.get('filename', '')
-        logger.debug(f"Enhancing parsed object for filename: {filename}")
+        logger.info(f"Enhancing parsed object for filename: {filename}")
         new_content = obj.get('content', '')
         matched = None
         original = ''
