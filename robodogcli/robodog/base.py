@@ -1,9 +1,4 @@
-# file: C:\Projects\robodog\robodogcli\robodog\base.py
-# filename: robodog/base.py
-# originalfilename: robodog/base.py
-# matchedfilename: C:\Projects\robodog\robodogcli\robodog\base.py
-# original file length: 57 lines
-# updated file length: 51 lines
+
 from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
 import os

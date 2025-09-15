@@ -1,5 +1,4 @@
 
-# file: robodog/file_watcher.py
 #!/usr/bin/env python3
 """File watching service for monitoring todo.md changes."""
 import os

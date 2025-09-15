@@ -1,9 +1,3 @@
-# file: C:\Projects\robodog\robodogcli\robodog\task_manager.py
-# filename: robodog/task_manager.py
-# originalfilename: robodog/task_manager.py
-# matchedfilename: C:\Projects\robodog\robodogcli\robodog\task_manager.py
-# original file length: 185 lines
-# updated file length: 174 lines
 #!/usr/bin/env python3
 """Task management functionality."""
 import os

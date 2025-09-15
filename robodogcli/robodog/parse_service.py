@@ -1,12 +1,3 @@
-# file: C:\Projects\robodog\robodogcli\robodog\parse_service.py
-# filename: c:\projects\robodog\robodogcli\robodog\parse_service.py
-# originalfilename: c:\projects\robodog\robodogcli\robodog\parse_service.py
-# matchedfilename: C:\Projects\robodog\robodogcli\robodog\parse_service.py
-# original file length: 313 lines
-# updated file length: 317 lines
-# original file length: 169 lines
-# updated file length: 185 lines
-
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
 import re
@@ -164,18 +155,12 @@ class ParseService:
         # Enhanced metadata for tracking
         obj['originalfilename'] = filename  # original input filename
         obj['matchedfilename'] = matched or filename  # resolved/matched path
-        length_comment = (
-            f"# original file length: {orig_lines} lines\n"
-            f"# updated file length: {new_lines} lines\n"
-        )
+
         filename_meta = (
             f"# file: {obj['matchedfilename']}\n"
-            f"# filename: {filename}\n"
-            f"# originalfilename: {obj['originalfilename']}\n"
-            f"# matchedfilename: {obj['matchedfilename']}\n"
         )
         # Prepend metadata to content for consistency
-        obj['content'] = filename_meta + length_comment + new_content
+        obj['content'] = filename_meta + new_content
         obj['originalcontent'] = original
         obj['diff_md'] = diff_md
         obj['new_tokens'] = new_tokens

@@ -1,9 +1,3 @@
-# file: C:\Projects\robodog\robodogcli\robodog\service.py
-# filename: robodog/service.py
-# originalfilename: robodog/service.py
-# matchedfilename: C:\Projects\robodog\robodogcli\robodog\service.py
-# original file length: 452 lines
-# updated file length: 453 lines
 #!/usr/bin/env python3
 import os
 import re

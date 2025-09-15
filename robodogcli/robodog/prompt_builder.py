@@ -15,7 +15,7 @@ class PromptBuilder:
         parts = [
             "Instructions:",
             "A. Produce one or more complete, runnable code files.",
-            "B. For each file, begin with exactly:  # file: <filename>  (use only filenames provided in the task; do not guess or infer).",
+            "B. For each file, begin with exactly:  # file: <filename>  (use only filenames provided in the task; do not guess or infer). Do not include the file path.",
             "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run.",
             "D. If multiple files are needed, separate them with a single blank line.",
             "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",

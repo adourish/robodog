@@ -1,9 +1,3 @@
-# file: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
-# filename: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
-# originalfilename: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
-# matchedfilename: C:\Projects\robodog\robodogcli\robodog\mcphandler.py
-# original file length: 340 lines
-# updated file length: 378 lines
 #!/usr/bin/env python3
 import os
 import json

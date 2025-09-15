@@ -1,11 +1,3 @@
-# file: C:\Projects\robodog\robodogcli\robodog\cli.py
-# filename: c:\projects\robodog\robodogcli\robodog\cli.py
-# originalfilename: c:\projects\robodog\robodogcli\robodog\cli.py
-# matchedfilename: C:\Projects\robodog\robodogcli\robodog\cli.py
-# original file length: 364 lines
-# updated file length: 357 lines
-# original file length: 217 lines
-# updated file length: 237 lines
 #!/usr/bin/env python3
 import os
 import sys
