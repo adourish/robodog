@@ -111,7 +111,7 @@ class FileService:
             logger.error(f"Failed to read {path}: {e}")
             return ""
 
-    def write_file(self, path: Path, content: str):
+    def write_fileb(self, path: Path, content: str):
         """Write content to the given path, creating directories as needed."""
         logger.debug(f"Writing: {path}")
         try:
@@ -121,6 +121,28 @@ class FileService:
         except Exception as e:
             logger.error(f"FileService.write_file failed for {path}: {e}")
 
+    def write_file(self, path: Path, content: str):
+        """
+        Atomically write `content` to `path`, creating directories as needed.
+        If `path` already exists it will be overwritten.
+        """
+        logger.debug(f"Writing file {path}")
+        try:
+            # 1) ensure target directory exists
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            # 2) write to a temp file in the same directory
+            tmp = path.with_suffix(path.suffix + '.tmp')
+            tmp.write_text(content, encoding='utf-8')
+
+            # 3) atomically replace the old file (or create it if missing)
+            tmp.replace(path)
+
+            token_count = len(content.split())
+            logger.info(f"Written: {path} ({token_count} tokens)")
+        except Exception as e:
+            logger.error(f"FileService.write_file failed for {path}: {e}")
+            
     def write_file_lines(self, filepath: str, file_lines: List[str]):
         """Write file and update watcher."""
         logger.debug(f"Writing file lines to: {filepath}")
