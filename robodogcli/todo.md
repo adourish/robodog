@@ -69,8 +69,8 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][-] changes todo
-  - started: 2025-09-15 04:03 | completed: 2025-09-15 04:04 | knowledge: 20 | include: 60438 | prompt: 60694 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error | compare: parse_service.py (o/n/d tokens:1397/1439/18) c=1.3%,, task_manager.py (o/n/d tokens:625/646/-3) c=0.5%,, task_parser.py (o/n/d tokens:434/479/21) c=4.8%,, todo.py (o/n/d tokens:2012/24/-2012) c=100.0%,, todo.py (o/n/d tokens:2012/1188/-848) c=42.1%,
+- [~][-] changes todo
+  - started: 2025-09-15 04:18 | knowledge: 20 | include: 58791 | prompt: 59057 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge

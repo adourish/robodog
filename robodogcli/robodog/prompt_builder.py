@@ -26,7 +26,7 @@ class PromptBuilder:
             "J. Review the task description and task knowledge to ensure compliance with requirements and instructions.",
             "K. Enhance parse_llm_output to include filename, originalfilename, matched filename.",
             "L. Task description: " + task['desc'],
-            "M. The base directory is " + basedir,
+            "M. The # file: <filename> must not include the path",
             "N. The temp output file is here " + out_path + " we stash the ai_output here.",
             ""
         ]

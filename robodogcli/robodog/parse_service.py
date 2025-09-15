@@ -157,7 +157,7 @@ class ParseService:
         obj['matchedfilename'] = matched or filename  # resolved/matched path
 
         filename_meta = (
-            f"# file: {obj['matchedfilename']}\n"
+            f"# file: {obj['filename']}\n"
         )
         # Prepend metadata to content for consistency
         obj['content'] = filename_meta + new_content
