@@ -52,8 +52,8 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # cli to service
-- [x][-] changes cli and service security
-  - started: 2025-09-15 03:25 | completed: 2025-09-15 03:25 | knowledge: 40 | include: 59158 | prompt: 59437 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: task_manager.py (o/n/d tokens:625/507/-142) c=22.7%,, todo.py (o/n/d tokens:1988/125/-1887) c=94.9%,
+- [~][-] changes cli and service security
+  - started: 2025-09-15 03:37 | knowledge: 50 | include: 59146 | prompt: 59435 | cur_model: x-ai/grok-code-fast-1
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
@@ -62,6 +62,22 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 2. the complete works for commit flow compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
 3. in commit flowwe see 
 - started: None | completed: 2025-09-15 01:12 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
+
+
+```
+
+```
+
+# todo 
+- [x][-] changes todo
+  - started: 2025-09-15 03:40 | completed: 2025-09-15 03:41 | knowledge: 24 | include: 59146 | prompt: 59406 | cur_model: x-ai/grok-code-fast-1 | compare: parse_service.py (o/n/d tokens:1219/1219/-24) c=2.0%,, todo.py (o/n/d tokens:1989/1935/-78) c=3.9%,
+  - include: pattern=*robodogcli*robodog*.py  recursive`
+  - out:  temp\out.py
+```knowledge
+
+1. add error handling to todo.py
+2. we should always set the [x][x]
+3. if there is an error, you can use an emoji
 
 
 ```

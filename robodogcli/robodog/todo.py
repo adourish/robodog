@@ -532,7 +532,12 @@ class TodoService:
 
         # Added check for ai_out issues
         if not ai_out:
-            logger.warning("No AI output generated for task")
+            logger.warning("No AI output generated for task. Running one more time.")
+            ai_out = svc.ask(prompt)
+            if not ai_out:
+                logger.error("No AI output generated for task. Failed.")
+            else
+                logger.info(f"AI output length: {len(ai_out)} characters")
         else:
             logger.info(f"AI output length: {len(ai_out)} characters")
 
