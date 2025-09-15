@@ -24,9 +24,7 @@ class ParseService:
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
         #self.section_pattern = re.compile(r'^#\s*file:\s*(.+)$', re.MULTILINE | re.IGNORECASE)
-        self.section_pattern = re.compile(r'^[ \t]*#\s*file:\s*(?:.*[\\/])?([^\\/])$',
-            re.MULTILINE | re.IGNORECASE
-        )
+        self.section_pattern = re.compile(r'^\s*#\s*file:\s*["`]?(.+?)["`]?\s*$', re.IGNORECASE | re.MULTILINE)
         self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
         # pattern to parse unified diff hunk headers
@@ -278,7 +276,7 @@ class ParseService:
     def _is_md_fenced_format(self, output: str) -> bool:
         return bool(self.md_fenced_pattern.search(output))
 
-    def _parse_section_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+    def _parse_section_formatb(self, output: str) -> List[Dict[str, Union[str, int]]]:
         matches = list(self.section_pattern.finditer(output))
         objs = []
         for idx, match in enumerate(matches):
@@ -289,6 +287,68 @@ class ParseService:
             objs.append({'filename': fn, 'content': content})
         return objs
 
+    def _parse_section_formatc(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        """
+        Splits an LLM output into file‐sections by '# file: <filename>' markers.
+        Returns a list of {'filename': ..., 'content': ...}.
+        """
+        matches = list(self.section_pattern.finditer(output))
+        if not matches:
+            return []
+
+        sections: List[Dict[str, Union[str, int]]] = []
+        # Build skeleton entries
+        for m in matches:
+            raw = m.group(1).strip()
+            # strip any surrounding quotes/backticks
+            fn = raw.strip('"\'' '`')
+            sections.append({
+                'filename': fn,
+                'content': ''  # to be filled
+            })
+
+        # Now carve out the content between markers
+        for idx, m in enumerate(matches):
+            start = m.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(output)
+            chunk = output[start:end]
+            # trim leading/trailing blank lines
+            chunk = re.sub(r'^\s*\n+', '', chunk)
+            chunk = re.sub(r'\n+\s*$', '', chunk)
+            sections[idx]['content'] = chunk
+
+        return sections
+    
+    def _parse_section_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        """
+        Splits an LLM output into file‐sections by '# file: <filename>' markers,
+        but only keeps the basename of each file.
+        """
+        matches = list(self.section_pattern.finditer(output))
+        if not matches:
+            return []
+
+        sections: List[Dict[str, Union[str, int]]] = []
+        # Build skeleton entries with basename-only filenames
+        for m in matches:
+            raw = m.group(1).strip()
+            # strip surrounding quotes/backticks, then take only the final path component
+            clean = raw.strip('\'"`')
+            fn = Path(clean).name
+            sections.append({'filename': fn, 'content': ''})
+
+        # Carve out the content between markers
+        for idx, m in enumerate(matches):
+            start = m.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(output)
+            chunk = output[start:end]
+            # trim leading/trailing blank lines
+            chunk = re.sub(r'^\s*\n+', '', chunk)
+            chunk = re.sub(r'\n+\s*$', '', chunk)
+            sections[idx]['content'] = chunk
+
+        return sections
+    
     def _parse_json_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
         data = json.loads(output.strip())
         files = data.get('files', [])
