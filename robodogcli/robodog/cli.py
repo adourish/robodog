@@ -1,5 +1,9 @@
-
-# file: robodog/cli.py
+# file: C:\Projects\robodog\robodogcli\robodog\cli.py
+# filename: robodog/cli.py
+# originalfilename: robodog/cli.py
+# matchedfilename: C:\Projects\robodog\robodogcli\robodog\cli.py
+# original file length: 356 lines
+# updated file length: 358 lines
 #!/usr/bin/env python3
 import os
 import sys
@@ -85,8 +89,11 @@ def parse_cmd(line):
 
 
 def _init_services(args):
+    # Parse excludedirs from comma-separated string to set
+    exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist"}
+    
     # 1) core Robodog service + parser
-    svc    = RobodogService(args.config)
+    svc    = RobodogService(args.config, exclude_dirs=exclude_dirs)
     parser = ParseService()
     svc.parse_service = parser
 
@@ -113,7 +120,7 @@ def _init_services(args):
     svc.prompt_builder = PromptBuilder()
 
     # 6) todo runner / watcher
-    svc.todo = TodoService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher, svc.file_service)
+    svc.todo = TodoService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher, svc.file_service, exclude_dirs=exclude_dirs)
 
     # 7) where to stash old focus‐file backups
     svc.backup_folder = args.backupFolder
@@ -300,6 +307,8 @@ def main():
                         help='set root logging level')
     parser.add_argument('--backupFolder', default=r'c:\temp',
                         help='folder to store focus-file backups')
+    parser.add_argument('--excludeDirs', default='node_modules,dist',
+                        help='comma-separated list of directories to exclude')
     args = parser.parse_args()
 
     # configure colored logging
@@ -352,4 +361,4 @@ if __name__ == '__main__':
     main()
 
 # original file length: 217 lines
-# updated file length: 228 lines
+# updated file length: 237 lines

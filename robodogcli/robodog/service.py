@@ -1,4 +1,10 @@
-# file: robodog/cli/service.py
+# file: C:\Projects\robodog\robodogcli\robodog\service.py
+# filename: robodog/service.py
+# originalfilename: robodog/service.py
+# matchedfilename: C:\Projects\robodog\robodogcli\robodog\service.py
+# original file length: 452 lines
+# updated file length: 453 lines
+#!/usr/bin/env python3
 import os
 import re
 import json
@@ -20,13 +26,14 @@ from typing import List, Optional
 logger = logging.getLogger('robodog.service')
 
 class RobodogService:
-    def __init__(self, config_path: str, api_key: str = None):
+    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None):
         # --- load YAML config and LLM setup ---
         self._load_config(config_path)
         # --- ensure we always have a _roots attribute ---
         #    If svc.todo is set later by the CLI, include() will pick up svc.todo._roots.
         #    Otherwise we default to cwd.
         self._roots = [os.getcwd()]
+        self._exclude_dirs = exclude_dirs or {"node_modules", "dist"}
         self.stashes = {}
         self._init_llm(api_key)
 
@@ -331,7 +338,7 @@ class RobodogService:
             patterns = patterns.split("|")
         else:
             patterns = list(patterns)
-        exclude_dirs = set(exclude_dirs or self.DEFAULT_EXCLUDE_DIRS)
+        exclude_dirs = set(exclude_dirs or self._exclude_dirs)
         matches = []
         for root in roots or []:
             if not os.path.isdir(root):

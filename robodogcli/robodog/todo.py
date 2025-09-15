@@ -286,7 +286,7 @@ class TodoService:
 
                 commited, compare = 0, []
                 if parsed_files:
-                    commited, compare = self._write_parsed_files(parsed_files, task)
+                    commited, compare = self._write_parsed_files(parsed_files, task, False)
                 else:
                     logger.info("No parsed files to report.")
 
@@ -420,7 +420,7 @@ class TodoService:
         return result
 
     # --- modified write-and-report method ---
-    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None) -> tuple[int, List[str]]:
+    def _write_parsed_files(self, parsed_files: List[dict], task: dict = None, commit_file: bool= False) -> tuple[int, List[str]]:
         """
         Write parsed files and compare tokens using parse_service object properties, return results and compare list
         """
@@ -448,11 +448,10 @@ class TodoService:
                 new_path = Path(task['file']).parent / parsed['filename']
        
             if new_path:
-                self._file_service.write_file(new_path, content)
-                new_txt = self._file_service.safe_read_file(new_path)
-                new_tokens = len(new_txt.split())
-            else:
-                new_tokens = 0
+                if commit_file == True:
+                    self._file_service.write_file(new_path, content)
+
+            new_tokens = len(content.split())
             code = self._compare_token_delta(orig_name, new_tokens, original_tokens, delta_tokens, new_path)
             change = abs(delta_tokens) / original_tokens * 100 if original_tokens > 0 else 0.0
             compare.append(f"{orig_name} (o/n/d tokens:{original_tokens}/{new_tokens}/{delta_tokens}) c={change:.1f}%,")
@@ -497,7 +496,7 @@ class TodoService:
         out_path = self._resolve_path(out_pat)
         return out_path
     
-    def _write_full_parsed_ai_output(self, svc, path, ai_out):
+    def _write_full_parsed_ai_outputb(self, svc, path, ai_out):
         
         logger.info(f"Write: {path} ({len(ai_out.split())} tokens)")
         if path:
@@ -543,7 +542,7 @@ class TodoService:
         trunc_code = 0
         compare: List[str] = []
         if parsed_files:
-            _trunc_code, compare = self._write_parsed_files(parsed_files, task)
+            _trunc_code, compare = self._write_parsed_files(parsed_files, task, True)
             trunc_code = _trunc_code
             self._write_full_ai_output(svc, task, ai_out, trunc_code)
         else:

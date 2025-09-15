@@ -1,9 +1,12 @@
 # file: C:\Projects\robodog\robodogcli\robodog\parse_service.py
-# filename: robodog/parse_service.py
-# originalfilename: robodog/parse_service.py
+# filename: c:\projects\robodog\robodogcli\robodog\parse_service.py
+# originalfilename: c:\projects\robodog\robodogcli\robodog\parse_service.py
 # matchedfilename: C:\Projects\robodog\robodogcli\robodog\parse_service.py
-# original file length: 311 lines
-# updated file length: 169 lines
+# original file length: 313 lines
+# updated file length: 317 lines
+# original file length: 169 lines
+# updated file length: 185 lines
+
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
 import re
@@ -28,6 +31,7 @@ class ParseService:
     
     def __init__(self):
         """Initialize the ParseService with regex patterns for parsing."""
+        logger.debug("Initializing ParseService")
         self.section_pattern = re.compile(r'^#\s*file:\s*(.+)$', re.MULTILINE | re.IGNORECASE)
         self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
@@ -51,16 +55,22 @@ class ParseService:
         logger.info(f"Starting enhanced parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
         try:
             if self._is_section_format(llm_output):
+                logger.debug("Detected section format")
                 parsed_objects = self._parse_section_format(llm_output)
             elif self._is_json_format(llm_output):
+                logger.debug("Detected JSON format")
                 parsed_objects = self._parse_json_format(llm_output)
             elif self._is_yaml_format(llm_output):
+                logger.debug("Detected YAML format")
                 parsed_objects = self._parse_yaml_format(llm_output)
             elif self._is_xml_format(llm_output):
+                logger.debug("Detected XML format")
                 parsed_objects = self._parse_xml_format(llm_output)
             elif self._is_md_fenced_format(llm_output):
+                logger.debug("Detected MD fenced format")
                 parsed_objects = self._parse_md_fenced_format(llm_output)
             else:
+                logger.debug("Using generic format")
                 parsed_objects = self._parse_generic_format(llm_output)
         except Exception as e:
             logger.error(f"Parsing error: {e}")
@@ -117,6 +127,7 @@ class ParseService:
           - 'new_tokens', 'original_tokens', 'delta_tokens'
         """
         filename = obj.get('filename', '')
+        logger.debug(f"Enhancing parsed object for filename: {filename}")
         new_content = obj.get('content', '')
         matched = None
         original = ''
@@ -180,6 +191,7 @@ class ParseService:
         - 🧩 for hunk headers (@@)
         - [lineNo⚫/➕/⚪] for removed/added/unchanged lines
         """
+        logger.debug(f"Generating improved MD diff for {filename}")
         orig_lines = original.splitlines()
         updt_lines = updated.splitlines()
 
@@ -309,4 +321,3 @@ class ParseService:
         return parsed
     def _parse_fallback(self, output: str):
         logger.warning("Using fallback parser"); return [{'filename':'generated.txt','content':output.strip()}]
-

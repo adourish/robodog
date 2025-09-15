@@ -42,11 +42,24 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 # parse service
 - [x][-] changes to tasks and todo
-  - started: 2025-09-14 23:34 | completed: 2025-09-14 23:34 | knowledge: 45 | include: 57076 | prompt: 57360 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error | compare: parse_service.py (o/n/d tokens:1175/650/-549) c=46.7%,
+  - started: 2025-09-14 23:40 | completed: 2025-09-14 23:40 | knowledge: 6 | include: 57083 | prompt: 57328 | cur_model: x-ai/grok-code-fast-1 | compare: parse_service.py (o/n/d tokens:1176/1221/21) c=1.8%,
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-2. make sure the compare is added to the status 
-3. it should look like this. "started: 2025-09-14 23:20 | completed: 2025-09-14 23:20 | knowledge: 9 | include: 57806 | prompt: 58054 | cur_model: x-ai/grok-code-fast-1 | compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> (o/n/d tokens:193/253/36) c=18.7%,  
+2. add debugging to the parser
+
+```
+
+# cli to service
+- [x][-] changes cli and service for exclude
+  - started: 2025-09-15 00:24 | completed: 2025-09-15 00:24 | knowledge: 24 | include: 57398 | prompt: 57662 | cur_model: x-ai/grok-code-fast-1 | compare: cli.py (o/n/d tokens:1046/1093/23) c=2.2%,, service.py (o/n/d tokens:1311/1344/9) c=0.7%,
+  - include: pattern=*robodogcli*robodog*.py  recursive`
+  - out:  temp\out.py
+```knowledge
+
+1. the default DEFAULT_EXCLUDE_DIRS is dist and node_modules
+2. pass excludedirs from the command line params
+3. set the updated exclude dirs in service
+
 ```
