@@ -341,13 +341,15 @@ class TodoService:
         else:
             change = abs(delta) / original_tokens * 100
         msg = f"Compare: '{orig_name}' -> {new_path} (original/new/delta tokens: {original_tokens}/{new_tokens}/{delta}) change={change:.1f}%"
+        
         if change > 40.0:
             logger.error(msg + " (change > 40%)")
             return -2
         if change > 20.0:
             logger.warning(msg + " (change > 20%)")
             return -1
-        logger.info(msg)
+        else:
+            logger.info(msg)
         return 0
   
     def _load_truncation_phrases(self) -> List[str]:
