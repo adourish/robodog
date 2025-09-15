@@ -69,16 +69,15 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][x] changes todo
-  - started: None | completed: 2025-09-15 13:36 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: parse_service.py (o/n/d tokens:0/844/841) c=0.0%,
+- [x][-] changes todo
+  - started: 2025-09-15 14:14 | completed: 2025-09-15 14:15 | knowledge: 17 | include: 7256 | prompt: 7519 | cur_model: openai/o4-mini | compare: file_service.py (o/n/d tokens:0/843/840) c=0.0%,, parse_service.py (o/n/d tokens:0/597/594) c=0.0%,
   - include: pattern=*robodogcli*robodog*service.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. enhance _parse_section_format
-2. ensure that you split the file by # file= 
-3. ensure that you find all of the content below # file=
-4. ensure that you remove the path from file=<filename.ext>  remove c:\bla\filename.md or bla\filename.ext  or bla/filename.ext   so its just the filename
+1. enhance parse_service.py todo.py and file_service.py 
+2. when writing a file, create a backup in the backupfolder
+
 
 
 ```

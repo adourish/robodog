@@ -329,94 +329,7 @@ class TodoService:
             logger.error(f"Include failed for spec='{full_spec}': {e}")
             return ""
 
-    # --- new helper methods for token comparison and completeness checks ---
-    def _compare_token_delta(self, orig_name: str, new_tokens: int, original_tokens: int, delta: int, new_path: Path) -> int:
-        if original_tokens == 0:
-            change = 0.0
-        else:
-            change = abs(delta) / original_tokens * 100
-        msg = f"Compare: '{orig_name}' -> {new_path} (original/new/delta tokens: {original_tokens}/{new_tokens}/{delta}) change={change:.1f}%"
-        
-        if change > 40.0:
-            logger.error(msg + " (change > 40%)")
-            return -2
-        if change > 20.0:
-            logger.warning(msg + " (change > 20%)")
-            return -1
-        else:
-            logger.info(msg)
-        return 0
-  
-    def _load_truncation_phrases(self) -> List[str]:
 
-        phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
-        if not phrases_file.exists():
-            logger.warning("Truncation phrases file not found. Create truncation_phrases.txt")
-            return []
-        try:
-            with open(phrases_file, 'r', encoding='utf-8') as f:
-                phrases = [line.strip() for line in f if line.strip()]
-            logger.debug(f"Loaded {len(phrases)} truncation phrases from {phrases_file}")
-            return phrases
-        except Exception as e:
-            logger.error(f"Failed to load truncation phrases: {e}")
-            return []
-    
-  
-    
-    def _check_content_completeness(self, content: str, orig_name: str) -> int:
-        """
-        Enhanced check if AI output appears complete, with phrases loaded from file to avoid triggering the function.
-        - Too few lines (under 3) → error -3
-        - Detect added truncation phrases from external file → error -4
-        - Skip check for todo.md to avoid false positives
-        """
-        # Skip completeness check for todo.md as it's not AI-generated content
-        if orig_name.lower() == 'todo.md':
-            return 0
-        
-        lines = content.splitlines()
-        if len(lines) < 3:
-            logger.error(f"Incomplete output for {orig_name}: only {len(lines)} lines")
-            return -3
-
-        # Load truncation phrases from file
-        truncation_phrases = self._load_truncation_phrases()
-        lower = content.lower()
-        for phrase in truncation_phrases:
-            if phrase.lower() in lower:
-                logger.error(f"Truncation indication found for {orig_name}: '{phrase}'")
-                return -4
-
-        return 0    
-    
-    # --- modified report method ---
-    def _report_parsed_files(self, parsed_files: List[dict], task: dict = None) -> int:
-        """
-        Log for each parsed file: compare tokens using parse_service object properties
-        """
-        logger.debug("_report_parsed_files called")
-        result = 0
-        for parsed in parsed_files:
-            orig_name = Path(parsed['filename']).name
-            new_tokens = parsed.get('new_tokens', 0)
-            original_tokens = parsed.get('original_tokens', 0)
-            delta_tokens = parsed.get('delta_tokens', 0)
-            new_path = None
-            if task and task.get('include'):
-                new_path = self._find_matching_file(orig_name, task['include'])
-            if new_path and new_path.exists():
-                txt = self._file_service.safe_read_file(new_path)
-                new_tokens = len(txt.split())
-            code = self._compare_token_delta(orig_name, new_tokens, original_tokens, delta_tokens, new_path)
-            if code < result or result == 0:
-                result = code
-            content = parsed['content']
-            comp = self._check_content_completeness(content, orig_name)
-            if comp < 0:
-                result = comp
-                continue
-        return result
 
     # --- modified write-and-report method ---
     def _write_parsed_files(self, parsed_files: List[dict], task: dict = None, commit_file: bool= False) -> tuple[int, List[str]]:
@@ -451,25 +364,19 @@ class TodoService:
                     self._file_service.write_file(new_path, content)
 
             new_tokens = len(content.split())
-            code = self._compare_token_delta(orig_name, new_tokens, original_tokens, delta_tokens, new_path)
-            change = abs(delta_tokens) / original_tokens * 100 if original_tokens > 0 else 0.0
-            compare.append(f"{orig_name} (o/n/d tokens:{original_tokens}/{new_tokens}/{delta_tokens}) c={change:.1f}%,")
-            # use positive code as success indicator 1
-            if code >= 0:
-                result = 1
-            else:
-                result = code
+            short_compare = parsed.get('short_compare', '')
+            long_compare = parsed.get('long_compare', '')
+            result = parsed.get('result', '')
+            compare.append(f"{short_compare}")
+
         return result, compare
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
         
         if not out_path:
             return
-        bf = getattr(svc, 'backup_folder', None)
         self._file_service.write_file(out_path, content)
-        if bf:
-            logger.debug(f"Backing up: {bf}")
-            self._file_service.write_file(bf, content)
+
         
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         out_path = self._get_ai_out_path(task)

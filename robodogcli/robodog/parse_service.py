@@ -152,6 +152,10 @@ class ParseService:
         new_tokens = len(new_content.split())
         original_tokens = len(original.split()) if original else 0
         delta_tokens = new_tokens - original_tokens
+        if original_tokens == 0:
+            change = 0.0
+        else:
+            change = abs(delta_tokens) / original_tokens * 100
 
         # Enhanced metadata for tracking
         obj['originalfilename'] = filename  # original input filename
@@ -160,6 +164,18 @@ class ParseService:
         filename_meta = (
             f"# file: {obj['filename']}\n"
         )
+        completeness = self._check_content_completeness(new_content, filename)
+        long_compare = f"Compare: '{filename}' -> {matched} (original/new/delta tokens: {original_tokens}/{new_tokens}/{delta_tokens}) change={change:.1f}%"
+        short_compare = f"Compare: '{filename}' -> {matched} (o/n/d tokens: {original_tokens}/{new_tokens}/{delta_tokens}) c={change:.1f}%"
+        result = 0;
+        if change > 40.0:
+            logger.error(long_compare + " (change > 40%)")
+            result =  -2
+        if change > 20.0:
+            logger.warning(long_compare + " (change > 20%)")
+            result = -1
+        else:
+            logger.info(long_compare)
         # Prepend metadata to content for consistency
         obj['content'] = filename_meta + new_content
         obj['originalcontent'] = original
@@ -168,6 +184,54 @@ class ParseService:
         obj['original_tokens'] = original_tokens
         obj['delta_tokens'] = delta_tokens
         obj['_tokens'] = new_tokens  # Legacy
+        obj['completeness'] = completeness 
+        obj['long_compare'] = long_compare 
+        obj['short_compare'] = short_compare 
+        obj['change'] = change
+        obj['result'] = result
+        
+        return long_compare
+  
+    def _load_truncation_phrases(self) -> List[str]:
+
+        phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
+        if not phrases_file.exists():
+            logger.warning("Truncation phrases file not found. Create truncation_phrases.txt")
+            return []
+        try:
+            with open(phrases_file, 'r', encoding='utf-8') as f:
+                phrases = [line.strip() for line in f if line.strip()]
+            logger.debug(f"Loaded {len(phrases)} truncation phrases from {phrases_file}")
+            return phrases
+        except Exception as e:
+            logger.error(f"Failed to load truncation phrases: {e}")
+            return []
+    
+    def _check_content_completeness(self, content: str, orig_name: str) -> int:
+        """
+        Enhanced check if AI output appears complete, with phrases loaded from file to avoid triggering the function.
+        - Too few lines (under 3) → error -3
+        - Detect added truncation phrases from external file → error -4
+        - Skip check for todo.md to avoid false positives
+        """
+        # Skip completeness check for todo.md as it's not AI-generated content
+        if orig_name.lower() == 'todo.md':
+            return 0
+        
+        lines = content.splitlines()
+        if len(lines) < 3:
+            logger.error(f"Incomplete output for {orig_name}: only {len(lines)} lines")
+            return -3
+
+        # Load truncation phrases from file
+        truncation_phrases = self._load_truncation_phrases()
+        lower = content.lower()
+        for phrase in truncation_phrases:
+            if phrase.lower() in lower:
+                logger.error(f"Truncation indication found for {orig_name}: '{phrase}'")
+                return -4
+
+        return 0      
 
     def _generate_improved_md_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
         """
