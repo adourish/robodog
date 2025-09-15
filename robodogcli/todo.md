@@ -53,7 +53,7 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # cli to service
 - [~][-] changes cli and service security
-  - started: 2025-09-15 03:37 | knowledge: 50 | include: 59146 | prompt: 59435 | cur_model: x-ai/grok-code-fast-1
+  - started: 2025-09-15 16:54 | knowledge: 50 | include: 66158 | prompt: 66457 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
@@ -70,14 +70,14 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo 
 - [x][-] changes todo
-  - started: 2025-09-15 15:59 | completed: 2025-09-15 16:00 | knowledge: 17 | include: 13390 | prompt: 13653 | cur_model: openai/o4-mini | compare: Compare: 'file_service.py' -> None (o/n/d tokens: 0/867/867) c=0.0%, Compare: 'todo.py' -> None (o/n/d tokens: 0/288/288) c=0.0%
+  - started: 2025-09-15 19:12 | completed: 2025-09-15 19:13 | knowledge: 40 | include: 13546 | prompt: 13832 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: Compare: 'parse_service.py' (o/n/d: 1769/495/-1274) c=72.0%
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. enhance parse_service.py todo.py and file_service.py 
-2. when writing a file, create a backup in the backupfolder
-
+1. fix find_matching_file in _enhance_parsed_object so it finds the matching file in the roots
+2. [2025-09-15 15:01:26,146] ERROR: resolve_path failed for Summary: string indices must be integers, not 'str'
+3. [2025-09-15 15:01:26,146] ERROR: Incomplete output for Summary: only 1 lines
 
 
 ```

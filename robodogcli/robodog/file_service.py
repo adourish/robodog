@@ -8,6 +8,7 @@ from typing import List, Optional
 from pathlib import Path
 import os
 import tempfile
+import fnmatch
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +29,37 @@ class FileService:
         logger.debug(f"Setting base_dir to: {value}")
         self._base_dir = value
     
+    def search_files(self, patterns="*", recursive=True, roots=None, exclude_dirs=None):
+        if isinstance(patterns, str):
+            patterns = patterns.split("|")
+        else:
+            patterns = list(patterns)
+        exclude_dirs = set(exclude_dirs or self._exclude_dirs)
+        matches = []
+        for root in roots or []:
+            if not os.path.isdir(root):
+                continue
+            if recursive:
+                for dirpath, dirnames, filenames in os.walk(root):
+                    dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+                    for fn in filenames:
+                        full = os.path.join(dirpath, fn)
+                        for pat in patterns:
+                            if fnmatch.fnmatch(full, pat) or fnmatch.fnmatch(fn, pat):
+                                matches.append(full)
+                                break
+            else:
+                for fn in os.listdir(root):
+                    full = os.path.join(root, fn)
+                    if not os.path.isfile(full) or fn in exclude_dirs:
+                        continue
+                    for pat in patterns:
+                        if fnmatch.fnmatch(full, pat) or fnmatch.fnmatch(fn, pat):
+                            matches.append(full)
+                            break
+        return matches
+
+
     def find_files_by_pattern(self, pattern: str, recursive: bool, svc=None) -> List[str]:
         """Find files matching the given glob pattern."""
         logger.debug(f"find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
@@ -53,7 +85,7 @@ class FileService:
     
     def resolve_path(self, frag: str) -> Optional[Path]:
         """Resolve a file fragment to an absolute path."""
-        logger.debug(f"Resolving path for frag: {frag}")
+        logger.info(f"Resolving path for frag: {frag}")
         if not frag:
             return None
         
@@ -62,14 +94,14 @@ class FileService:
         # Simple filename in base_dir
         if self._base_dir and not any(sep in f for sep in (os.sep,'/','\\')):
             candidate = Path(self._base_dir) / f
-            logger.debug(f"Resolved to base_dir candidate: {candidate}")
+            logger.info(f"Resolved to base_dir candidate: {candidate}")
             return candidate.resolve()
         
         # Path with separators in base_dir
         if self._base_dir and any(sep in f for sep in ('/','\\')):
             candidate = Path(self._base_dir) / Path(f)
             candidate.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Resolved to base_dir path candidate: {candidate}")
+            logger.info(f"Resolved to base_dir path candidate: {candidate}")
             return candidate.resolve()
         
         # Search in roots
@@ -77,7 +109,7 @@ class FileService:
         for root in search_roots:
             cand = Path(root) / f
             if cand.is_file():
-                logger.debug(f"Found in roots: {cand}")
+                logger.info(f"Found in roots: {cand}")
                 return cand.resolve()
         
         # Create in first root
@@ -85,7 +117,7 @@ class FileService:
         base = Path(self._roots[0]) / p.parent
         base.mkdir(parents=True, exist_ok=True)
         created = (base / p.name).resolve()
-        logger.debug(f"Created new path: {created}")
+        logger.info(f"Created new path: {created}")
         return created
     
     def safe_read_file(self, path: Path) -> str:
@@ -143,8 +175,6 @@ class FileService:
             logger.info(f"Written: {path} ({token_count} tokens)")
         except Exception as e:
             logger.error(f"FileService.write_file failed for {path}: {e}")
-
-
 
     def write_filee(self, path: Path, content: str):
         """

@@ -35,34 +35,30 @@ class ParseService:
         llm_output: str,
         base_dir: Optional[str] = None,
         file_service: Optional[object] = None,
-        ai_out_path: str = ''
+        ai_out_path: str = '',
+        task: List[object] = None,
+        svc: Optional[object] = None,
     ) -> List[Dict[str, Union[str, int]]]:
         """
-        Parse LLM output into objects with enhanced metadata for better readability and tracking:
+        Parse LLM output into objects with enhanced metadata for better readability and tracking.
+        Returns list of dicts each containing:
             'filename', 'originalfilename', 'matchedfilename',
-            'content', 'originalcontent', 'diff_md' (improved markdown extension for easier reading),
-            'new_tokens', 'original_tokens', 'delta_tokens'
-        Also writes each improved diff as a compact markdown file to an out/ folder.
+            'content', 'originalcontent', 'diff_md',
+            'new_tokens', 'original_tokens', 'delta_tokens', etc.
         """
         logger.info(f"Starting enhanced parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
         try:
             if self._is_section_format(llm_output):
-                logger.info("Detected section format")
                 parsed_objects = self._parse_section_format(llm_output)
             elif self._is_json_format(llm_output):
-                logger.info("Detected JSON format")
                 parsed_objects = self._parse_json_format(llm_output)
             elif self._is_yaml_format(llm_output):
-                logger.info("Detected YAML format")
                 parsed_objects = self._parse_yaml_format(llm_output)
             elif self._is_xml_format(llm_output):
-                logger.info("Detected XML format")
                 parsed_objects = self._parse_xml_format(llm_output)
             elif self._is_md_fenced_format(llm_output):
-                logger.info("Detected MD fenced format")
                 parsed_objects = self._parse_md_fenced_format(llm_output)
             else:
-                logger.info("Using generic format")
                 parsed_objects = self._parse_generic_format(llm_output)
         except Exception as e:
             logger.error(f"Parsing error: {e}")
@@ -72,11 +68,11 @@ class ParseService:
                 logger.error(f"Fallback parsing also failed: {fe}")
                 raise ParsingError(f"Could not parse LLM output: {e}")
 
-        # Enhance metadata for better tracking
+        # Enhance metadata for each parsed object
         for obj in parsed_objects:
-            self._enhance_parsed_object(obj, base_dir, file_service)
+            self._enhance_parsed_object(obj, base_dir, file_service, task, svc)
 
-        # Write enhanced compact markdown diff files to out/ folder based on ai_out_path or base_dir
+        # Write enhanced diffs to disk
         if ai_out_path:
             out_root = Path(ai_out_path).parent
         elif base_dir:
@@ -84,134 +80,122 @@ class ParseService:
         else:
             out_root = Path.cwd()
         out_dir = out_root / 'diffoutput'
-        try:
-            out_dir.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            logger.warning(f"Could not create out directory {out_dir}: {e}")
+        out_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M-%S")
         for obj in parsed_objects:
             md_diff = obj.get('diff_md', '')
-            orig_fn = obj.get('filename', 'file')
-            if md_diff:
-                orig_fn = obj.get('filename', 'file')
-                stem = Path(orig_fn).stem
-                suffix = Path(orig_fn).suffix or ''
-                diff_name = f"diff-{stem}-{ts}{suffix}.md"
-                diff_path = out_dir / diff_name
-                try:
-                    with open(diff_path, 'w', encoding='utf-8') as f:
-                        f.write(md_diff)
-                    logger.info(f"Diff: {diff_name} -> {diff_path}")
-                except Exception as e:
-                    logger.error(f"Failed to write enhanced markdown diff file {diff_path}: {e}")
+            if not md_diff:
+                continue
+            stem = Path(obj.get('filename', 'file')).stem
+            suffix = Path(obj.get('filename', '')).suffix or ''
+            diff_name = f"diff-{stem}-{ts}{suffix}.md"
+            diff_path = out_dir / diff_name
+            try:
+                with open(diff_path, 'w', encoding='utf-8') as f:
+                    f.write(md_diff)
+                logger.info(f"Diff: {diff_name} -> {diff_path}")
+            except Exception as e:
+                logger.error(f"Failed to write diff file {diff_path}: {e}")
 
         return parsed_objects
 
-  
     def _load_truncation_phrases(self) -> List[str]:
-
         phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
         if not phrases_file.exists():
-            logger.warning("Truncation phrases file not found. Create truncation_phrases.txt")
+            logger.warning("Truncation phrases file not found.")
             return []
         try:
             with open(phrases_file, 'r', encoding='utf-8') as f:
-                phrases = [line.strip() for line in f if line.strip()]
-            logger.debug(f"Loaded {len(phrases)} truncation phrases from {phrases_file}")
-            return phrases
+                return [line.strip() for line in f if line.strip()]
         except Exception as e:
             logger.error(f"Failed to load truncation phrases: {e}")
             return []
-    
-    
+
     def _enhance_parsed_object(
         self,
         obj: Dict[str, Union[str, int]],
         base_dir: Optional[str],
-        file_service: Optional[object]
+        file_service: Optional[object],
+        task: List[object],
+        svc: Optional[object] = None
     ):
         """
-        Enhance the parsed object with tracking metadata:
-          - 'filename', 'originalfilename', 'matchedfilename'
-          - 'diff_md' (enhanced with markdown/HTML for colors and emojis)
-          - 'new_tokens', 'original_tokens', 'delta_tokens'
+        Enhance the parsed object with:
+         - originalfilename, matchedfilename
+         - diff_md with emojis
+         - token counts and delta
         """
         filename = obj.get('filename', '')
-        logger.info(f"Enhancing parsed object for filename: {filename}")
         new_content = obj.get('content', '')
-        matched = None
-        original = ''
+        original_content = ''
+        matched = filename
         diff_md = ''
 
-        # Resolve via file_service for accurate matching
         if file_service:
             try:
-                logger.info(f"resolve_path for {filename}:")
-                candidate = file_service.resolve_path(filename)
-                if candidate and candidate.exists():
+                # Use include spec from task if provided, else default to search all
+                include_spec = {}
+                if isinstance(task, dict) and isinstance(task.get('include'), dict):
+                    include_spec = task['include']
+                else:
+                    include_spec = {'pattern': '*', 'recursive': True}
+                candidate = file_service.find_matching_file(filename, include_spec, svc)
+                if candidate:
                     matched = str(candidate.resolve())
-                    logger.info(f"resolve_path for {filename} matched: {matched}")
-                    original = candidate.read_text(encoding='utf-8', errors='ignore')
-                    diff_md = self._generate_improved_md_diff(filename, original, new_content, matched)
+                    original_content = file_service.safe_read_file(candidate)
+                    diff_md = self._generate_improved_md_diff(filename, original_content, new_content, matched)
             except Exception as e:
-                logger.debug(f"resolve_path failed for {filename}: {e}")
+                logger.error(f"resolve_path failed for {filename}: {e}")
+        else:
+            logger.warning(f"No file service provided for enhancing {filename}")
 
-        # Fallback to base_dir lookup
-        if matched is None and base_dir:
-            try:
-                candidate = Path(base_dir) / filename
-                if candidate.exists():
-                    matched = str(candidate.resolve())
-                    original = candidate.read_text(encoding='utf-8', errors='ignore')
-                    diff_md = self._generate_improved_md_diff(filename, original, new_content, matched)
-            except Exception as e:
-                logger.debug(f"Base_dir lookup failed for {filename}: {e}")
-
-        orig_lines = original.count('\n') + (1 if original else 0)
-        new_lines = new_content.count('\n') + (1 if new_content else 0)
         new_tokens = len(new_content.split())
-        original_tokens = len(original.split()) if original else 0
+        original_tokens = len(original_content.split())
         delta_tokens = new_tokens - original_tokens
-        if original_tokens == 0:
-            change = 0.0
-        else:
-            change = abs(delta_tokens) / original_tokens * 100
+        change = 0.0 if original_tokens == 0 else abs(delta_tokens) / original_tokens * 100
 
-        # Enhanced metadata for tracking
-        obj['originalfilename'] = filename  # original input filename
-        obj['matchedfilename'] = matched or filename  # resolved/matched path
-
-        filename_meta = (
-            f"# file: {obj['filename']}\n"
-        )
-        completeness = self._check_content_completeness(new_content, filename)
-        long_compare = f"Compare: '{filename}' -> {matched} (original/new/delta tokens: {original_tokens}/{new_tokens}/{delta_tokens}) change={change:.1f}%"
-        short_compare = f"Compare: '{filename}' -> {matched} (o/n/d tokens: {original_tokens}/{new_tokens}/{delta_tokens}) c={change:.1f}%"
-        result = 0;
-        if change > 40.0:
-            logger.error(long_compare + " (change > 40%)")
-            result =  -2
-        if change > 20.0:
-            logger.warning(long_compare + " (change > 20%)")
-            result = -1
-        else:
-            logger.info(long_compare)
-        # Prepend metadata to content for consistency
-        obj['content'] = filename_meta + new_content
-        obj['originalcontent'] = original
+        # Set metadata fields
+        obj['originalfilename'] = filename
+        obj['matchedfilename'] = matched
         obj['diff_md'] = diff_md
         obj['new_tokens'] = new_tokens
         obj['original_tokens'] = original_tokens
         obj['delta_tokens'] = delta_tokens
-        obj['_tokens'] = new_tokens  # Legacy
-        obj['completeness'] = completeness 
-        obj['long_compare'] = long_compare 
-        obj['short_compare'] = short_compare 
         obj['change'] = change
-        obj['result'] = result
-        
-        return long_compare
 
+        # Prepend file marker to content and originalcontent
+        obj['content'] = f"# file: {filename}\n{new_content}"
+        obj['originalcontent'] = f"# file: {filename}\n{original_content}"
+
+        # Check completeness
+        obj['completeness'] = self._check_content_completeness(new_content, filename)
+
+        # Comparison strings
+        long_cmp = f"Compare: '{filename}' -> {matched} (orig/new/delta tokens: {original_tokens}/{new_tokens}/{delta_tokens}) change={change:.1f}%"
+        short_cmp = f"Compare: '{filename}' (o/n/d: {original_tokens}/{new_tokens}/{delta_tokens}) c={change:.1f}%"
+        obj['long_compare'] = long_cmp
+        obj['short_compare'] = short_cmp
+        obj['result'] = 0
+        if change > 40.0:
+            obj['result'] = -2
+            logger.error(long_cmp + " >40%")
+        elif change > 20.0:
+            obj['result'] = -1
+            logger.warning(long_cmp + " >20%")
+        else:
+            logger.info(long_cmp)
+
+    def get_full_pattern_spec(self, task: dict, svc) -> str:
+        logger.debug("Gathering include knowledge")
+        inc = task.get('include') or {}
+        spec = inc.get('pattern','')
+        if not spec:
+            return ""
+        rec = " recursive" if inc.get('recursive') else ""
+        full_spec = f"pattern={spec}{rec}"
+        
+        return full_spec
+        
     def _check_content_completeness(self, content: str, orig_name: str) -> int:
         """
         Enhanced check if AI output appears complete, with phrases loaded from file to avoid triggering the function.

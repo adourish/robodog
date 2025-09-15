@@ -13,3 +13,5 @@
 /robodogcli/config.yaml
 *.log
 *.pyc
+diffoutput
+temp

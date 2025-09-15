@@ -115,7 +115,7 @@ class TodoService:
         logger.debug(f"Found files: {out}")
         return out
 
-    def _find_files_by_pattern(self, pattern: str, recursive: bool) -> List[str]:
+    def _find_files_by_patternb(self, pattern: str, recursive: bool) -> List[str]:
         """Find files matching the given glob pattern."""
         logger.debug(f"_find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
         if self._svc:
@@ -123,7 +123,7 @@ class TodoService:
         logger.warning("Svc not available for file search")
         return []
 
-    def _find_matching_file(self, filename: str, include_spec: dict) -> Optional[Path]:
+    def _find_matching_fileb(self, filename: str, include_spec: dict) -> Optional[Path]:
         """Find a file by name based on the include pattern."""
         logger.debug(f"_find_matching_file called for {filename}")
         files = self._find_files_by_pattern(include_spec['pattern'], include_spec.get('recursive', False))
@@ -276,7 +276,7 @@ class TodoService:
 
                 try:
                     basedir = Path(task['file']).parent
-                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path) if ai_out else []
+                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
                 except Exception as e:
                     logger.error(f"Parsing AI output failed: {e}")
                     parsed_files = []
@@ -421,7 +421,7 @@ class TodoService:
 
         # parse and report before writing
         try:
-            parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path) if ai_out else []
+            parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
         except Exception as e:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
