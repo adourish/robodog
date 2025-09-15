@@ -108,7 +108,7 @@ class ParseService:
                 try:
                     with open(diff_path, 'w', encoding='utf-8') as f:
                         f.write(md_diff)
-                    logger.info(f"Wrote enhanced markdown diff to {diff_path}")
+                    logger.info(f"Diff: {diff_name} -> {diff_path}")
                 except Exception as e:
                     logger.error(f"Failed to write enhanced markdown diff file {diff_path}: {e}")
 

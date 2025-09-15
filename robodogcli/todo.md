@@ -52,15 +52,16 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # cli to service
-- [x][x] changes cli and service security
-  - started: None | completed: 2025-09-15 01:12 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
+- [x][-] changes cli and service security
+  - started: 2025-09-15 03:25 | completed: 2025-09-15 03:25 | knowledge: 40 | include: 59158 | prompt: 59437 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: task_manager.py (o/n/d tokens:625/507/-142) c=22.7%,, todo.py (o/n/d tokens:1988/125/-1887) c=94.9%,
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. set exclude dirs in the service
-2. make sure that the mcpserver/service cannot access files outside of the --folders location
-3. 
+1. fix the todo complete. 
+2. the complete works for commit flow compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
+3. in commit flowwe see 
+- started: None | completed: 2025-09-15 01:12 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
 
 
 ```
