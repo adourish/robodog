@@ -50,7 +50,7 @@ class TodoService:
     FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist"}):
-        logger.info(f"Initializing TodoService with roots: {roots}")
+        logger.debug(f"Initializing TodoService with roots: {roots}")
         logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
         self._roots        = roots
         self._file_lines   = {}
@@ -68,7 +68,7 @@ class TodoService:
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
         
-        logger.info(f"Base directory parsed: {self._base_dir}")
+        logger.debug(f"Base directory parsed: {self._base_dir}")
 
         self._load_all()
         for fn in self._find_files():
@@ -80,7 +80,7 @@ class TodoService:
                 pass
 
         threading.Thread(target=self._watch_loop, daemon=True).start()
-        logger.info("TodoService initialized successfully")
+        logger.debug("TodoService initialized successfully")
 
     def _parse_base_dir(self) -> Optional[str]:
         logger.debug("_parse_base_dir called")
@@ -302,7 +302,7 @@ class TodoService:
         return ct
             
     def run_next_task(self, svc):
-        logger.info("run_next_task called")
+        logger.debug("run_next_task called")
         self._svc = svc
         self._load_all()
         todo = [t for t in self._tasks

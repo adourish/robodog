@@ -16,7 +16,7 @@ class FileService:
     """Handles file operations and path resolution."""
     
     def __init__(self, roots: List[str], base_dir: str = None):
-        logger.info(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}")
+        logger.debug(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}")
         self._roots = roots
         self._base_dir = base_dir
     
@@ -85,7 +85,7 @@ class FileService:
     
     def resolve_path(self, frag: str) -> Optional[Path]:
         """Resolve a file fragment to an absolute path."""
-        logger.info(f"Resolving path for frag: {frag}")
+        logger.debug(f"Resolving path for frag: {frag}")
         if not frag:
             return None
         
@@ -117,7 +117,7 @@ class FileService:
         base = Path(self._roots[0]) / p.parent
         base.mkdir(parents=True, exist_ok=True)
         created = (base / p.name).resolve()
-        logger.info(f"Created new path: {created}")
+        logger.debug(f"Created new path: {created}")
         return created
     
     def safe_read_file(self, path: Path) -> str:
@@ -143,78 +143,6 @@ class FileService:
         except Exception as e:
             logger.error(f"Failed to read {path}: {e}")
             return ""
-
-    def write_fileb(self, path: Path, content: str):
-        """Write content to the given path, creating directories as needed."""
-        logger.debug(f"Writing: {path}")
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding='utf-8')
-            logger.info(f"Written: {path} ({len(content.split())} tokens)")
-        except Exception as e:
-            logger.error(f"FileService.write_file failed for {path}: {e}")
-
-    def write_filed(self, path: Path, content: str):
-        """
-        Atomically write `content` to `path`, creating directories as needed.
-        If `path` already exists it will be overwritten.
-        """
-        logger.debug(f"Writing file {path}")
-        try:
-            # 1) ensure target directory exists
-            path.parent.mkdir(parents=True, exist_ok=True)
-
-            # 2) write to a temp file in the same directory
-            tmp = path.with_suffix(path.suffix + '.tmp')
-            tmp.write_text(content, encoding='utf-8')
-
-            # 3) atomically replace the old file (or create it if missing)
-            tmp.replace(path)
-
-            token_count = len(content.split())
-            logger.info(f"Written: {path} ({token_count} tokens)")
-        except Exception as e:
-            logger.error(f"FileService.write_file failed for {path}: {e}")
-
-    def write_filee(self, path: Path, content: str):
-        """
-        Atomically write `content` to `path`, creating directories as needed.
-        If `path` already exists it will be overwritten.
-        """
-        logger.debug(f"Writing file {path} (atomic, with fsync)")
-        try:
-            # ensure parent directories exist
-            path.parent.mkdir(parents=True, exist_ok=True)
-
-            # create a real temp file in the same dir for atomic rename
-            dirpath = str(path.parent)
-            # prefix with target name to make debugging easier
-            fd, tmp_name = tempfile.mkstemp(
-                dir=dirpath,
-                prefix=path.name +".",
-                suffix=".tmp"
-            )
-            try:
-                # write, flush, fsync
-                with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
-                    tmp_file.write(content)
-                    tmp_file.flush()
-                    os.fsync(tmp_file.fileno())
-
-                # atomic replace
-                os.replace(tmp_name, str(path))
-
-                token_count = len(content.split())
-                logger.info(f"Written: {path} ({token_count} tokens)")
-            except Exception:
-                # if write or rename fails, clean up temp file
-                try:
-                    os.remove(tmp_name)
-                except OSError:
-                    pass
-                raise
-        except Exception as e:
-            logger.error(f"FileService.write_file failed for {path}: {e}")
 
     def write_file(self, path: Path, content: str):
         """
@@ -250,7 +178,7 @@ class FileService:
             os.replace(tmp_name, str(path))
             tmp_name = None  # prevent cleanup in finally
             token_count = len(content.split())
-            logger.info(f"Written (atomic): {path} ({token_count} tokens)")
+            logger.debug(f"Written (atomic): {path} ({token_count} tokens)")
 
         except Exception as atomic_exc:
             logger.warning(f"Atomic write failed for {path}: {atomic_exc}")
@@ -263,7 +191,7 @@ class FileService:
                     f.flush()
                     os.fsync(f.fileno())
                 token_count = len(content.split())
-                logger.info(f"Written (fallback): {path} ({token_count} tokens)")
+                logger.debug(f"Written (fallback): {path} ({token_count} tokens)")
             except Exception as fallback_exc:
                 logger.error(f"Fallback write also failed for {path}: {fallback_exc}")
 
@@ -275,14 +203,6 @@ class FileService:
                 except Exception:
                     pass
                 
-    def write_file_lines(self, filepath: str, file_lines: List[str]):
-        """Write file and update watcher."""
-        logger.debug(f"Writing file lines to: {filepath}")
-        Path(filepath).write_text(''.join(file_lines), encoding='utf-8')
 
-    def write_file_text (self, filepath: str, content: str):
-        """Write file and update watcher."""
-        logger.debug(f"Writing text to: {filepath}")
-        Path(filepath).write_text(content, encoding='utf-8')
 # original file length: 82 lines
 # updated file length: 102 lines

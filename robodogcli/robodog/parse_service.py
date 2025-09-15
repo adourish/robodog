@@ -46,7 +46,7 @@ class ParseService:
             'content', 'originalcontent', 'diff_md',
             'new_tokens', 'original_tokens', 'delta_tokens', etc.
         """
-        logger.info(f"Starting enhanced parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
+        logger.debug(f"Starting enhanced parse of LLM output ({len(llm_output)} chars) with base_dir: {base_dir} and ai_out_path: {ai_out_path}")
         try:
             if self._is_section_format(llm_output):
                 parsed_objects = self._parse_section_format(llm_output)
@@ -329,49 +329,6 @@ class ParseService:
     def _is_md_fenced_format(self, output: str) -> bool:
         return bool(self.md_fenced_pattern.search(output))
 
-    def _parse_section_formatb(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        matches = list(self.section_pattern.finditer(output))
-        objs = []
-        for idx, match in enumerate(matches):
-            fn = match.group(1).strip()
-            start = match.end()
-            end = matches[idx+1].start() if idx+1 < len(matches) else len(output)
-            content = output[start:end].strip()
-            objs.append({'filename': fn, 'content': content})
-        return objs
-
-    def _parse_section_formatc(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        """
-        Splits an LLM output into file‐sections by '# file: <filename>' markers.
-        Returns a list of {'filename': ..., 'content': ...}.
-        """
-        matches = list(self.section_pattern.finditer(output))
-        if not matches:
-            return []
-
-        sections: List[Dict[str, Union[str, int]]] = []
-        # Build skeleton entries
-        for m in matches:
-            raw = m.group(1).strip()
-            # strip any surrounding quotes/backticks
-            fn = raw.strip('"\'' '`')
-            sections.append({
-                'filename': fn,
-                'content': ''  # to be filled
-            })
-
-        # Now carve out the content between markers
-        for idx, m in enumerate(matches):
-            start = m.end()
-            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(output)
-            chunk = output[start:end]
-            # trim leading/trailing blank lines
-            chunk = re.sub(r'^\s*\n+', '', chunk)
-            chunk = re.sub(r'\n+\s*$', '', chunk)
-            sections[idx]['content'] = chunk
-
-        return sections
-    
     def _parse_section_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
         """
         Splits an LLM output into file‐sections by '# file: <filename>' markers,
