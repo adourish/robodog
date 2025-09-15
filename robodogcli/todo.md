@@ -53,7 +53,7 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # cli to service
 - [x][-] changes cli and service for exclude
-  - started: 2025-09-15 00:24 | completed: 2025-09-15 00:24 | knowledge: 24 | include: 57398 | prompt: 57662 | cur_model: x-ai/grok-code-fast-1 | compare: cli.py (o/n/d tokens:1046/1093/23) c=2.2%,, service.py (o/n/d tokens:1311/1344/9) c=0.7%,
+  - started: 2025-09-15 00:45 | completed: 2025-09-15 00:46 | knowledge: 24 | include: 58135 | prompt: 58399 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error | compare: cli.py (o/n/d tokens:1093/1093/-24) c=2.2%,, service.py (o/n/d tokens:1344/113/-1255) c=93.4%,
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge

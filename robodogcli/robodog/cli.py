@@ -1,9 +1,11 @@
 # file: C:\Projects\robodog\robodogcli\robodog\cli.py
-# filename: robodog/cli.py
-# originalfilename: robodog/cli.py
+# filename: c:\projects\robodog\robodogcli\robodog\cli.py
+# originalfilename: c:\projects\robodog\robodogcli\robodog\cli.py
 # matchedfilename: C:\Projects\robodog\robodogcli\robodog\cli.py
-# original file length: 356 lines
-# updated file length: 358 lines
+# original file length: 364 lines
+# updated file length: 357 lines
+# original file length: 217 lines
+# updated file length: 237 lines
 #!/usr/bin/env python3
 import os
 import sys
@@ -194,7 +196,7 @@ def interact(svc: RobodogService):
                         ptext = " ".join(parts[brk:]) or ""
                         knowledge = svc.include(spec) or ""
                         answer = svc.ask(f"{ptext} {knowledge}".strip())
-                    return answer
+                        return answer
 
                 elif cmd == "curl":
                     svc.curl(args)
@@ -359,6 +361,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# original file length: 217 lines
-# updated file length: 237 lines
