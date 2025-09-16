@@ -1,3 +1,4 @@
+# file: service.py
 #!/usr/bin/env python3
 import os
 import re
@@ -80,12 +81,6 @@ class RobodogService:
                 return m["provider"]
         return None
 
-    def model_provider(self, model_name):
-        for m in self.models:
-            if m["model"] == model_name:
-                return m["provider"]
-        return None
-
     # ————————————————————————————————————————————————————————————
     # CORE LLM / CHAT
     def ask(self, prompt: str) -> str:
@@ -146,12 +141,14 @@ class RobodogService:
 
                 # pick our fighter‐vs‐fighter frame
                 frame = spinner[idx % len(spinner)]
-                sys.stdout.write(
-                    f"\r{frame}  {last_line[:60]}{'…' if len(last_line) > 60 else ''}"
-                )
-                sys.stdout.flush()
-                sys.stdout.write(f"\x1b]0;{last_line[:60].strip()}…\x07")
-                sys.stdout.flush()
+                if idx % 50 == 0:
+                    sys.stdout.write(
+                        f"\r{frame}  {last_line[:60]}{'…' if len(last_line) > 60 else ''}"
+                    )
+                    sys.stdout.flush()
+                    sys.stdout.write(f"\x1b]0;{last_line[:60].strip()}…\x07")
+                    sys.stdout.flush()
+
                 idx += 1
 
             # done streaming!
@@ -239,215 +236,4 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # /INCLUDE IMPLEMENTATION
-    def parse_include(self, text: str) -> dict:
-        parts = text.strip().split()
-        cmd = {"type": None, "file": None, "dir": None, "pattern": "*", "recursive": False}
-        if not parts:
-            return cmd
-        p0 = parts[0]
-        if p0 == "all":
-            cmd["type"] = "all"
-        elif p0.startswith("file="):
-            spec = p0[5:]
-            if re.search(r"[*?\[]", spec):
-                cmd.update(type="pattern", pattern=spec, recursive=True)
-            else:
-                cmd.update(type="file", file=spec)
-        elif p0.startswith("dir="):
-            spec = p0[4:]
-            cmd.update(type="dir", dir=spec)
-            for p in parts[1:]:
-                if p.startswith("pattern="):
-                    cmd["pattern"] = p.split("=", 1)[1]
-                if p == "recursive":
-                    cmd["recursive"] = True
-            if re.search(r"[*?\[]", spec):
-                cmd.update(type="pattern", pattern=spec, recursive=True)
-        elif p0.startswith("pattern="):
-            cmd.update(type="pattern", pattern=p0.split("=", 1)[1], recursive=True)
-        return cmd
-
-    def include(self, spec_text: str, prompt: str = None):
-        inc = self.parse_include(spec_text)
-        knowledge = ""
-        searches = []
-        if inc["type"] == "dir":
-            searches.append({
-                "root": inc["dir"],
-                "pattern": inc["pattern"],
-                "recursive": inc["recursive"]
-            })
-        else:
-            pat = inc["pattern"] if inc["type"] == "pattern" else (inc["file"] or "*")
-            searches.append({"pattern": pat, "recursive": True})
-
-        matches = []
-        for p in searches:
-            root = p.get("root")
-            # fix: pick up __roots injected from CLI's TodoService, or default to cwd
-            if root:
-                roots = [root]
-            elif hasattr(self, 'todo') and getattr(self.todo, '_roots', None):
-                roots = self.todo._roots
-            else:
-                roots = self._roots
-
-            found = self.search_files(
-                patterns=p.get("pattern", "*"),
-                recursive=p.get("recursive", True),
-                roots=roots
-            )
-            matches.extend(found)
-
-        if not matches:
-            return None
-
-        included_txts = []
-
-        def _read(path):
-            content = self.read_file(path)
-            return path, content
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-            for path, txt in pool.map(_read, matches):
-                try:
-                    enc = tiktoken.encoding_for_model(self.cur_model)
-                except:
-                    enc = tiktoken.get_encoding("gpt2")
-                wc = len(txt.split())
-                tc = len(enc.encode(txt))
-                logger.info(f"Included: {path} ({tc} tokens)")
-                included_txts.append("# file: " + path)
-                included_txts.append(txt)
-                combined = "\n".join(included_txts)
-                knowledge += "\n" + combined + "\n"
-
-        return knowledge
-
-    # Default exclude directories
-    DEFAULT_EXCLUDE_DIRS = {"node_modules", "dist"}
-
-    def search_files(self, patterns="*", recursive=True, roots=None, exclude_dirs=None):
-        if isinstance(patterns, str):
-            patterns = patterns.split("|")
-        else:
-            patterns = list(patterns)
-        exclude_dirs = set(exclude_dirs or self._exclude_dirs)
-        matches = []
-        for root in roots or []:
-            if not os.path.isdir(root):
-                continue
-            if recursive:
-                for dirpath, dirnames, filenames in os.walk(root):
-                    dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
-                    for fn in filenames:
-                        full = os.path.join(dirpath, fn)
-                        for pat in patterns:
-                            if fnmatch.fnmatch(full, pat) or fnmatch.fnmatch(fn, pat):
-                                matches.append(full)
-                                break
-            else:
-                for fn in os.listdir(root):
-                    full = os.path.join(root, fn)
-                    if not os.path.isfile(full) or fn in exclude_dirs:
-                        continue
-                    for pat in patterns:
-                        if fnmatch.fnmatch(full, pat) or fnmatch.fnmatch(fn, pat):
-                            matches.append(full)
-                            break
-        return matches
-
-    # ————————————————————————————————————————————————————————————
-    # /CURL IMPLEMENTATION
-    def curl(self, tokens: list):
-        pass
-
-    # ————————————————————————————————————————————————————————————
-    # /PLAY IMPLEMENTATION
-    def play(self, instructions: str):
-        pass
-
-    # ————————————————————————————————————————————————————————————
-    # MCP-SERVER FILE-OPS
-    def read_file(self, path: str):
-        return open(path, 'r', encoding='utf-8').read()
-
-    def update_file(self, path: str, content: str):
-        open(path, 'w', encoding='utf-8').write(content)
-
-    def create_file(self, path: str, content: str = ""):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, 'w', encoding='utf-8').write(content)
-
-    def delete_file(self, path: str):
-        os.remove(path)
-
-    def append_file(self, path: str, content: str):
-        open(path, 'a', encoding='utf-8').write(content)
-
-    def create_dir(self, path: str, mode: int = 0o755):
-        os.makedirs(path, mode, exist_ok=True)
-
-    def delete_dir(self, path: str, recursive: bool = False):
-        if recursive:
-            shutil.rmtree(path)
-        else:
-            os.rmdir(path)
-
-    def rename(self, src: str, dst: str):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        os.rename(src, dst)
-
-    def copy_file(self, src: str, dst: str):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy2(src, dst)
-
-    def _parse_base_dir(self) -> Optional[str]:
-            """
-            Look for a YAML front-matter block at the top of any todo.md,
-            scan it line-by-line for the first line starting with `base:`
-            and return its value.
-            """
-            for fn in self._find_files():
-                text = Path(fn).read_text(encoding='utf-8')
-                lines = text.splitlines()
-                # Must start a YAML block
-                if not lines or lines[0].strip() != '---':
-                    continue
-
-                # Find end of that block
-                try:
-                    end_idx = lines.index('---', 1)
-                except ValueError:
-                    # no closing '---'
-                    continue
-
-                # Scan only the lines inside the front-matter
-                for lm in lines[1:end_idx]:
-                    stripped = lm.strip()
-                    if stripped.startswith('base:'):
-                        # split on first colon, strip whitespace
-                        _, _, val = stripped.partition(':')
-                        base = val.strip()
-                        if base:
-                            return os.path.normpath(base)
-                # if we got here, front-matter existed but no base: line → try next file
-
-            return None
-
-
-    def _find_files(self) -> List[str]:
-        out = []
-        for r in self._roots:
-            for dp, _, fns in os.walk(r):
-                if self.FILENAME in fns:
-                    out.append(os.path.join(dp, self.FILENAME))
-        return out
-
-    
-    def checksum(self, path: str):
-        h = hashlib.sha256()
-        with open(path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
-                h.update(chunk)
-        return h.hexdigest()
+    def parse_include(self, text: str

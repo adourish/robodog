@@ -69,13 +69,14 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][-] changes todo
-  - started: 2025-09-16 00:42 | completed: 2025-09-16 00:43 | knowledge: 6 | include: 11796 | prompt: 12048 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | compare: Compare: 'file_service.py' (o/n/d: 735/733/-2) c=0.3%, Compare: 'parse_service.py' (o/n/d: 1601/1607/6) c=0.4%, Compare: 'service.py' (o/n/d: 1320/871/-449) c=34.0%
+- [x][~] changes todo
+  - started: None | completed: 2025-09-16 01:14 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: x-ai/grok-code-fast-1 | compare: Compare: 'out.py' (o/n/d: 0/14/14) c=0.0%, Compare: 'file_service.py' (o/n/d: 740/737/-3) c=0.4%, Compare: 'parse_service.py' (o/n/d: 1838/1835/-3) c=0.2%, Compare: 'service.py' (o/n/d: 672/669/-3) c=0.4%
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. identify and remove unused code/functions
-
+1. identify and remove unused functions
+2. do not refactor or change any logic. 
+3. review your changes, check that you have not changed existing code that is in use
 
 ```

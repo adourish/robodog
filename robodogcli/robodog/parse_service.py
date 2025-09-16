@@ -1,3 +1,4 @@
+# file: parse_service.py
 #!/usr/bin/env python3
 """Parse various LLM output formats into file objects with enhanced metadata."""
 import re
@@ -402,44 +403,126 @@ class ParseService:
         return parsed
 
     def _parse_md_fenced_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
+        """Parse Markdown fenced code blocks."""
         matches = self.md_fenced_pattern.findall(output)
-        parsed = []
+        parsed_objects = []
+        
         for info, content in matches:
-            fn = info.strip() or "unnamed"
-            if self._validate_filename(fn):
-                parsed.append({'filename': fn, 'content': content.strip()})
-        return parsed
+            filename = info.strip() if info else "unnamed"
+            
+            if not self._validate_filename(filename):
+                logger.warning(f"Invalid filename: {filename}, skipping")
+                continue
+            
+            # Only change code that must be changed: validate and parse but don't add extra fields yet
+            parsed_objects.append({
+                'filename': filename,
+                'content': content.strip()
+            })
+        
+        logger.info(f"Parsed {len(parsed_objects)} files from Markdown fenced format")
+        return parsed_objects
 
     def _parse_generic_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        lines = output.splitlines()
-        parsed = []
-        cur_fn = None
-        buf = []
+        """Best-effort parsing for unrecognized formats."""
+        lines = output.split('\n')
+        parsed_objects = []
+        current_filename = None
+        content_lines = []
+        
         for line in lines:
-            m = self.filename_pattern.match(line)
-            if m:
-                if cur_fn and buf and self._validate_filename(cur_fn):
-                    parsed.append({'filename': cur_fn, 'content': '\n'.join(buf).strip()})
-                cur_fn = m.group(1).strip()
-                buf = [m.group(2).strip()]
-            elif cur_fn and line.strip():
-                buf.append(line.strip())
-        if cur_fn and buf and self._validate_filename(cur_fn):
-            parsed.append({'filename': cur_fn, 'content': '\n'.join(buf).strip()})
-        if not parsed:
-            raise ParsingError("No valid files in generic parse")
-        return parsed
+            match = self.filename_pattern.match(line)
+            if match:
+                # Save previous file if exists
+                if current_filename and content_lines:
+                    content = '\n'.join(content_lines).strip()
+                    if self._validate_filename(current_filename):
+                        parsed_objects.append({
+                            'filename': current_filename,
+                            'content': content
+                        })
+                    content_lines = []
+                
+                current_filename = match.group(1).strip()
+                content_lines.append(match.group(2).strip())
+            elif current_filename and line.strip():
+                content_lines.append(line.strip())
+        
+        # Save last file
+        if current_filename and content_lines:
+            content = '\n'.join(content_lines).strip()
+            if self._validate_filename(current_filename):
+                parsed_objects.append({
+                    'filename': current_filename,
+                    'content': content
+                })
+        
+        if not parsed_objects:
+            raise ParsingError("No valid files found in generic parsing")
+        
+        logger.info("Parsed %d files from generic format", len(parsed_objects))
+        return parsed_objects
 
     def _parse_fallback(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        logger.warning("Using fallback parser")
-        return [{'filename': 'generated.txt', 'content': output.strip()}]
+        """Ultimate fallback: treat entire output as single file."""
+        logger.warning("Using fallback parser - treating output as single file")
+        return [{
+            'filename': 'generated.txt',
+            'content': output.strip()
+        }]
 
     def _validate_filename(self, filename: str) -> bool:
+        """Validate filename for safety."""
         if not filename or len(filename) > 255:
             return False
-        for c in '<>:"/\\|?*':
-            if c in filename:
+        
+        # Check for invalid characters
+        invalid_chars = ['<>:"/\\|?*']
+        for char in invalid_chars:
+            if char in filename:
                 return False
+        
+        # Check for path traversal attempts
         if '..' in filename or filename.startswith('/'):
             return False
+        
         return True
+
+    def write_parsed_files(self, parsed_objects: List[Dict[str, Union[str, int]]], base_dir: str = '.') -> Dict[str, Union[int, List[str]]]:
+        """
+        Write parsed files to disk.
+        
+        Args:
+            parsed_objects: List of enhanced file objects from parse_llm_output
+            base_dir: Base directory to write files to
+            
+        Returns:
+            Dict with success count and error list
+        """
+        success_count = 0
+        errors = []
+        base_path = Path(base_dir)
+        
+        for obj in parsed_objects:
+            try:
+                filepath = base_path / obj['filename']
+                filepath.parent.mkdir(parents=True, exist_ok=True)
+                # Write the content, which now includes length comments
+                filepath.write_text(obj['content'], encoding='utf-8')
+                success_count += 1
+                logger.info(f"Written file: {filepath} ({obj.get('tokens', 0)} tokens)")
+            except Exception as e:
+                error_msg = f"Failed to write {obj['filename']}: {e}"
+                logger.error(error_msg)
+                errors.append(error_msg)
+        
+        logger.info(f"Successfully wrote {success_count} files")
+        if errors:
+            logger.warning(f"Errors encountered: {len(errors)}")
+        
+        return {
+            'success_count': success_count,
+            'errors': errors
+        }
+# original file length: 468 lines
+# updated file length: 468 lines

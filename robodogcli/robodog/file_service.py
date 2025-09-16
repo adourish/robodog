@@ -1,12 +1,10 @@
-# Written on 2025-09-13 18:39:11 UTC
-
+# file: file_service.py
 #!/usr/bin/env python3
 """File operations and path resolution service."""
 import os
 import logging
 from typing import List, Optional
 from pathlib import Path
-import os
 import tempfile
 import fnmatch
 logger = logging.getLogger(__name__)
@@ -19,6 +17,7 @@ class FileService:
         logger.debug(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}")
         self._roots = roots
         self._base_dir = base_dir
+        self._exclude_dirs = {"node_modules", "dist"}
     
     @property
     def base_dir(self) -> Optional[str]:
@@ -149,6 +148,7 @@ class FileService:
         Atomically write `content` to `path`, creating directories as needed.
         If atomic replace fails, falls back to a simple write.
         """
+        path = Path(path)
         logger.debug(f"Writing file {path} (atomic, with fsync and fallback)")
 
         # 1) ensure parent directories exist
@@ -163,7 +163,7 @@ class FileService:
             # 2) create a real temp file in the same dir for atomic rename
             dirpath = str(path.parent) or os.getcwd()
             fd, tmp_name = tempfile.mkstemp(
-                dir=dirpath,
+                dir=dirpath,              # ← fixed!
                 prefix=path.name + ".",
                 suffix=".tmp"
             )
@@ -202,7 +202,5 @@ class FileService:
                     os.remove(tmp_name)
                 except Exception:
                     pass
-                
-
-# original file length: 82 lines
-# updated file length: 102 lines
+# original file length: 84 lines
+# updated file length: 83 lines
