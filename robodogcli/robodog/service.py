@@ -191,15 +191,6 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # STASH / POP / LIST / CLEAR / IMPORT / EXPORT
-    ## NOT USED!!!
-    def stash(self, name: str):
-        self.stashes[name] = str
-
-    ## NOT USED!!!
-    def pop(self, name: str):
-        if name not in self.stashes:
-            raise KeyError(f"No stash {name}")
-        return self.stashes[name]
 
     def list_stashes(self):
         return list(self.stashes.keys())
@@ -207,25 +198,6 @@ class RobodogService:
     ## NOT USED!!!
     def clear(self):
         pass
-
-    ## NOT USED!!!
-    def import_files(self, glob_pattern: str) -> int:
-        count = 0
-        knowledge = ""
-        for fn in __import__('glob').glob(glob_pattern, recursive=True):
-            try:
-                txt = open(fn, 'r', encoding='utf-8', errors='ignore').read()
-                knowledge += f"\n\n--- {fn} ---\n{txt}"
-                count += 1
-            except:
-                pass
-        return knowledge
-
-    ## NOT USED!!!
-    def export_snapshot(self, filename: str):
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write("=== Chat History ===\n" + self.context + "\n")
-            f.write("=== Knowledge ===\n" + self.knowledge + "\n")
 
     # ————————————————————————————————————————————————————————————
     # NUMERIC PARAMS
@@ -366,18 +338,6 @@ class RobodogService:
                             matches.append(full)
                             break
         return matches
-
-    # ————————————————————————————————————————————————————————————
-    # /CURL IMPLEMENTATION
-    ## NOT USED!!!
-    def curl(self, tokens: list):
-        pass
-
-    # ————————————————————————————————————————————————————————————
-    # /PLAY IMPLEMENTATION
-    ## NOT USED!!!
-    def play(self, instructions: str):
-        pass
 
     # ————————————————————————————————————————————————————————————
     # MCP-SERVER FILE-OPS

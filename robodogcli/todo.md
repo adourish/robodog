@@ -70,12 +70,10 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo 
 - [x][x] changes todo
-  - started: None | completed: 2025-09-16 03:28 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: 'service.py' (o/n/d/c: 1332/1350/18/1.4%) 
+  - started: None | completed: 2025-09-16 03:55 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: 'parse_service.py' (o/n/d/c: 1766/1765/-1/0.1%) 
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. identify and mark unused functions with ## NOT USED!!!
-2. do not refactor or change any logic. 
-3. review your changes, 
+1. change to side by side diff
 ```
