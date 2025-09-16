@@ -70,14 +70,12 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo 
 - [x][-] changes todo
-  - started: 2025-09-15 19:12 | completed: 2025-09-15 19:13 | knowledge: 40 | include: 13546 | prompt: 13832 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: Compare: 'parse_service.py' (o/n/d: 1769/495/-1274) c=72.0%
+  - started: 2025-09-16 00:42 | completed: 2025-09-16 00:43 | knowledge: 6 | include: 11796 | prompt: 12048 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | compare: Compare: 'file_service.py' (o/n/d: 735/733/-2) c=0.3%, Compare: 'parse_service.py' (o/n/d: 1601/1607/6) c=0.4%, Compare: 'service.py' (o/n/d: 1320/871/-449) c=34.0%
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py  recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. fix find_matching_file in _enhance_parsed_object so it finds the matching file in the roots
-2. [2025-09-15 15:01:26,146] ERROR: resolve_path failed for Summary: string indices must be integers, not 'str'
-3. [2025-09-15 15:01:26,146] ERROR: Incomplete output for Summary: only 1 lines
+1. identify and remove unused code/functions
 
 
 ```

@@ -115,25 +115,6 @@ class TodoService:
         logger.debug(f"Found files: {out}")
         return out
 
-    def _find_files_by_patternb(self, pattern: str, recursive: bool) -> List[str]:
-        """Find files matching the given glob pattern."""
-        logger.debug(f"_find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
-        if self._svc:
-            return self._svc.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
-        logger.warning("Svc not available for file search")
-        return []
-
-    def _find_matching_fileb(self, filename: str, include_spec: dict) -> Optional[Path]:
-        """Find a file by name based on the include pattern."""
-        logger.debug(f"_find_matching_file called for {filename}")
-        files = self._find_files_by_pattern(include_spec['pattern'], include_spec.get('recursive', False))
-        for f in files:
-            if Path(f).name == filename:
-                logger.debug(f"Matching file found: {f}")
-                return Path(f)
-        logger.debug("No matching file found")
-        return None
-
     def _load_all(self):
         """
         Parse each todo.md into tasks, capturing optional second‐bracket
@@ -340,23 +321,17 @@ class TodoService:
         result = 0
         compare: List[str] = []
         for parsed in parsed_files:
-            orig_name = Path(parsed['filename']).name
             content = parsed['content']
             # completeness check
-           
-            new_tokens = parsed.get('new_tokens', 0)
-            original_tokens = parsed.get('original_tokens', 0)
-            delta_tokens = parsed.get('delta_tokens', 0)
             matchedfilename = parsed.get('matchedfilename', '')
             new_path = matchedfilename
             
-            if new_path:
+            if matchedfilename:
                 if commit_file == True:
-                    self._file_service.write_file(new_path, content)
+                    self._file_service.write_file(matchedfilename, content)
 
-            new_tokens = len(content.split())
+
             short_compare = parsed.get('short_compare', '')
-            long_compare = parsed.get('long_compare', '')
             result = parsed.get('result', '')
             compare.append(f"{short_compare}")
 
@@ -367,7 +342,6 @@ class TodoService:
         if not out_path:
             return
         self._file_service.write_file(out_path, content)
-
         
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         out_path = self._get_ai_out_path(task)
@@ -379,11 +353,9 @@ class TodoService:
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
             return
-        out_path = self._resolve_path(out_pat)
+        out_path = srf = self._file_service.resolve_path(out_pat)
         return out_path
     
-
-
     def _process_one(self, task: dict, svc, file_lines_map: dict):
         logger.info(f"Processing task: {task['desc']}")
         basedir = Path(task['file']).parent
@@ -442,10 +414,5 @@ class TodoService:
         srf = self._file_service.resolve_path(frag)
         return srf
 
-    def safe_read_file(self, path: Path) -> str:
-        logger.debug(f"Safe reading file: {path}")
-        srf = self._file_service.safe_read_file(path)
-        return srf
-        
 # original file length: 497 lines
 # updated file length: 503 lines
