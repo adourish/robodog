@@ -268,7 +268,7 @@ class TodoService:
                 else:
                     logger.info("No parsed files to report.")
 
-                self._task_manager.complete_commit_task(task, self._file_lines, cur_model, commited, compare)
+                self._task_manager.complete_commit_task(task, self._file_lines, cur_model, 1, compare)
             else:
                 logger.debug("No tasks to commit.")
 
@@ -329,7 +329,6 @@ class TodoService:
             if matchedfilename:
                 if commit_file == True:
                     self._file_service.write_file(matchedfilename, content)
-
 
             short_compare = parsed.get('short_compare', '')
             result = parsed.get('result', '')

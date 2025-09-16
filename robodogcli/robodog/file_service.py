@@ -149,7 +149,7 @@ class FileService:
         If atomic replace fails, falls back to a simple write.
         """
         path = Path(path)
-        logger.debug(f"Writing file {path} (atomic, with fsync and fallback)")
+        logger.info(f"Writing file {path} (atomic, with fsync and fallback)")
 
         # 1) ensure parent directories exist
         try:
@@ -178,7 +178,7 @@ class FileService:
             os.replace(tmp_name, str(path))
             tmp_name = None  # prevent cleanup in finally
             token_count = len(content.split())
-            logger.debug(f"Written (atomic): {path} ({token_count} tokens)")
+            logger.info(f"Written (atomic): {path} ({token_count} tokens)")
 
         except Exception as atomic_exc:
             logger.warning(f"Atomic write failed for {path}: {atomic_exc}")
