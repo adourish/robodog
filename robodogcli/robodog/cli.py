@@ -83,16 +83,16 @@ def parse_cmd(line):
 
 
 def _init_services(args):
-    # Parse excludedirs from comma-separated string to set
+
+
     exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist"}
-    file_service = FileService(roots=args.folders, base_dir=None)
     # 1) core Robodog service + parser
-    svc    = RobodogService(args.config, exclude_dirs=exclude_dirs)
-    parser = ParseService()
+    svc    = RobodogService(args.config, exclude_dirs=exclude_dirs,  backupFolder=args.backupFolder)
+    parser = ParseService(base_dir=None, backupFolder=args.backupFolder)
     svc.parse_service = parser
 
     # 2) file‐service (for ad hoc file lookups and reads)
-    svc.file_service = FileService(roots=args.folders, base_dir=None)
+    svc.file_service = FileService(roots=args.folders, base_dir=None, backupFolder=args.backupFolder)
 
     # 3) file‐watcher (used by TaskManager / TodoService to ignore self‐writes)
     watcher = FileWatcher()
@@ -116,8 +116,7 @@ def _init_services(args):
     # 6) todo runner / watcher
     svc.todo = TodoService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher, svc.file_service, exclude_dirs=exclude_dirs)
 
-    # 7) where to stash old focus‐file backups
-    svc.backup_folder = args.backupFolder
+
 
     return svc, parser
 

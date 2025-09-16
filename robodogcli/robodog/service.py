@@ -21,7 +21,7 @@ from typing import List, Optional
 logger = logging.getLogger('robodog.service')
 
 class RobodogService:
-    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None):
+    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None , backupFolder:str = None):
         # --- load YAML config and LLM setup ---
         self._load_config(config_path)
         # --- ensure we always have a _roots attribute ---
@@ -30,6 +30,7 @@ class RobodogService:
         self._roots = [os.getcwd()]
         self._exclude_dirs = exclude_dirs or {"node_modules", "dist"}
         self.stashes = {}
+        self.backupFolder = backupFolder
         self._init_llm(api_key)
 
     def _load_config(self, config_path):

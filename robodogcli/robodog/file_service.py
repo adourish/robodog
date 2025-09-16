@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 class FileService:
     """Handles file operations and path resolution."""
     
-    def __init__(self, roots: List[str], base_dir: str = None):
+    def __init__(self, roots: List[str], base_dir: str = None, backupFolder:str = None):
         logger.debug(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}")
         self._roots = roots
         self._base_dir = base_dir
         self._exclude_dirs = {"node_modules", "dist"}
-    
+        self._backupFolder = backupFolder
     @property
     def base_dir(self) -> Optional[str]:
         return self._base_dir

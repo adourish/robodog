@@ -70,11 +70,12 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo 
 - [x][-] changes todo
-  - started: 2025-09-16 21:55 | completed: 2025-09-16 21:56 | knowledge: 18 | include: 18652 | prompt: 18916 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: 'parse_service.py' (o/n/d/c: 2260/476/-1784/78.9%) 
-  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*mcphandler.py   recursive`
+  - started: 2025-09-16 22:44 | completed: 2025-09-16 22:46 | knowledge: 19 | include: 25181 | prompt: 25475 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: 'parse_service.py' (o/n/d/c: 2275/656/-1619/71.2%) 
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py   recursive`
   - out:  temp\out.py
 ```knowledge
 
-1. save the diff output to the backupfolder root.
-2. use file_service write_file method to save the diff.
+1. change the prompt builder to include if the file is new or not. 
+2. # file: <filename.ext> NEW
+
 ```

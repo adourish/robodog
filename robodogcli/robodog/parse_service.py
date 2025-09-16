@@ -23,7 +23,7 @@ class ParsingError(Exception):
 class ParseService:
     """Service for parsing various LLM output formats into file objects."""
     
-    def __init__(self):
+    def __init__(self, base_dir: str = None, backupFolder:str = None):
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
         self.section_pattern = re.compile(r'^\s*#\s*file:\s*["`]?(.+?)["`]?\s*$', re.IGNORECASE | re.MULTILINE)
@@ -31,6 +31,8 @@ class ParseService:
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
         self.hunk_header = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@')
         self.side_width = 60
+        self._base_dir = base_dir
+        self._backupFolder = backupFolder
     def parse_llm_output(
         self,
         llm_output: str,
@@ -84,6 +86,8 @@ class ParseService:
             out_root = Path(base_dir)
         else:
             out_root = Path.cwd()
+        out_diffdir = out_root / 'diffoutput'
+        out_diffdir.mkdir(parents=True, exist_ok=True)
         out_dir = out_root / 'diffoutput'
         out_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M-%S")
@@ -94,7 +98,7 @@ class ParseService:
             stem = Path(obj.get('filename', 'file')).stem
             suffix = Path(obj.get('filename', '')).suffix or ''
             diff_name = f"diff-sbs-{stem}-{ts}{suffix}.md"
-            diff_path = out_dir / diff_name
+            diff_path = out_diffdir / diff_name
             try:
                 with open(diff_path, 'w', encoding='utf-8') as f:
                     f.write(sbs_diff)
@@ -417,12 +421,12 @@ class ParseService:
                     wrapped = wrap_line(l, col_width)
                     for wrap_idx, wrapped_line in enumerate(wrapped):
                         if wrap_idx == 0:
-                            left =  f"[{o_ln:4}⚪] {wrapped_line}".ljust(left_pad)
+                            left =  f"{o_ln:4}⚪ {wrapped_line}".ljust(left_pad)
                             right = f"             {wrapped_line}"
                         else:
-                            left  = f"[    ⚪] {wrapped_line}".ljust(left_pad)
+                            left  = f"    ⚪ {wrapped_line}".ljust(left_pad)
                             right = f"         {wrapped_line}"
-                        lines.append(f"{left} | {right}")
+                        lines.append(f"{left}  {right}")
                     o_ln += 1
                     n_ln += 1
                     
@@ -432,11 +436,11 @@ class ParseService:
                     wrapped = wrap_line(l, col_width)
                     for wrap_idx, wrapped_line in enumerate(wrapped):
                         if wrap_idx == 0:
-                            left = f"[{o_ln:4}⚫] {wrapped_line}".ljust(left_pad)
+                            left = f"{o_ln:4}⚫ {wrapped_line}".ljust(left_pad)
                         else:
-                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
+                            left = f"    ⚫ {wrapped_line}".ljust(left_pad)
                         right = " " * (col_width + 8)
-                        lines.append(f"{left} | {right}")
+                        lines.append(f"{left}  {right}")
                     o_ln += 1
                     
             elif tag == 'insert':
@@ -446,10 +450,10 @@ class ParseService:
                     for wrap_idx, wrapped_line in enumerate(wrapped):
                         left = " " * left_pad
                         if wrap_idx == 0:
-                            right = f"[{n_ln:4}🟢] {wrapped_line}"
+                            right = f"{n_ln:4}🟢 {wrapped_line}"
                         else:
-                            right = f"[    🟢] {wrapped_line}"
-                        lines.append(f"{left} | {right}")
+                            right = f"    🟢 {wrapped_line}"
+                        lines.append(f"{left}  {right}")
                     n_ln += 1
                     
             elif tag == 'replace':
@@ -460,21 +464,21 @@ class ParseService:
                     wrapped = wrap_line(la, col_width)
                     for wrap_idx, wrapped_line in enumerate(wrapped):
                         if wrap_idx == 0:
-                            left = f"[{o_ln + idx:4}⚫] {wrapped_line}".ljust(left_pad)
+                            left = f"{o_ln + idx:4}⚫ {wrapped_line}".ljust(left_pad)
                         else:
-                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
+                            left = f"    ⚫ {wrapped_line}".ljust(left_pad)
                         right = " " * (col_width + 8)
-                        lines.append(f"{left} | {right}")
+                        lines.append(f"{left}  {right}")
                 # inserted lines
                 for idx, lb in enumerate(b):
                     wrapped = wrap_line(lb, col_width)
                     for wrap_idx, wrapped_line in enumerate(wrapped):
                         left = " " * left_pad
                         if wrap_idx == 0:
-                            right = f"[{n_ln + idx:4}🟢] {wrapped_line}"
+                            right = f"{n_ln + idx:4}🟢 {wrapped_line}"
                         else:
-                            right = f"[    🟢] {wrapped_line}"
-                        lines.append(f"{left} | {right}")
+                            right = f"    🟢 {wrapped_line}"
+                        lines.append(f"{left}  {right}")
                 o_ln += len(a)
                 n_ln += len(b)
                 
