@@ -30,7 +30,7 @@ class ParseService:
         self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
         self.hunk_header = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@')
-
+        self.side_width = 60
     def parse_llm_output(
         self,
         llm_output: str,
@@ -254,7 +254,7 @@ class ParseService:
                         md_lines.append(f"[{orig_num:4}{emoji}] {content}")
                     orig_num = (orig_num or 0) + 1
                 elif prefix == '+':
-                    emoji='➕'
+                    emoji='🟢'
                     if new_num is not None:
                         md_lines.append(f"[{new_num:4}{emoji}] {content}")
                     new_num = (new_num or 0) + 1
@@ -263,7 +263,7 @@ class ParseService:
         md_lines.append("```")
         return "\n".join(md_lines) + "\n"
 
-    def _generate_side_by_side_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
+    def _generate_side_by_side_diffb(self, filename: str, original: str, updated: str, matched: str) -> str:
         """
         Generate a side-by-side diff using pipes, emojis, and line wrapping.
         Uses real line numbers and wraps long lines instead of truncating.
@@ -376,6 +376,110 @@ class ParseService:
                 n_ln += len(b)
                 
         return "\n".join(lines) + "\n"
+
+    def _generate_side_by_side_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
+        """
+        Generate a side-by-side diff using pipes, emojis, and line wrapping.
+        Uses real line numbers and wraps long lines instead of truncating.
+        Column width is configurable (self.side_width).
+        """
+        logger.debug(f"Generating side-by-side diff for {filename}")
+        orig_lines = original.splitlines()
+        updt_lines = updated.splitlines()
+        matcher = SequenceMatcher(None, orig_lines, updt_lines)
+        ops = matcher.get_opcodes()
+        
+        col_width = self.side_width  # use configured width
+        left_pad = col_width + 8     # account for "[####]⚫ " prefix
+
+        lines: List[str] = []
+        lines.append(f"📑 Side-by-Side Diff for {filename}")
+        lines.append(f"🔗 {matched or filename}")
+        lines.append(f"⏱️ {datetime.utcnow().isoformat()}")
+        lines.append("")
+        header = f"{'ORIGINAL'.ljust(left_pad)}   {'UPDATED'}"
+        lines.append(header)
+        lines.append(" " * left_pad + "  " + " " * (col_width + 8))
+
+        o_ln = 1
+        n_ln = 1
+        
+        def wrap_line(text: str, width: int) -> List[str]:
+            """Wrap a line to the specified width."""
+            if len(text) <= width:
+                return [text]
+            return textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False)
+
+        for tag, i1, i2, j1, j2 in ops:
+            if tag == 'equal':
+                for i in range(i1, i2):
+                    l = orig_lines[i]
+                    wrapped = wrap_line(l, col_width)
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        if wrap_idx == 0:
+                            left =  f"[{o_ln:4}⚪] {wrapped_line}".ljust(left_pad)
+                            right = f"             {wrapped_line}"
+                        else:
+                            left  = f"[    ⚪] {wrapped_line}".ljust(left_pad)
+                            right = f"         {wrapped_line}"
+                        lines.append(f"{left} | {right}")
+                    o_ln += 1
+                    n_ln += 1
+                    
+            elif tag == 'delete':
+                for i in range(i1, i2):
+                    l = orig_lines[i]
+                    wrapped = wrap_line(l, col_width)
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        if wrap_idx == 0:
+                            left = f"[{o_ln:4}⚫] {wrapped_line}".ljust(left_pad)
+                        else:
+                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
+                        right = " " * (col_width + 8)
+                        lines.append(f"{left} | {right}")
+                    o_ln += 1
+                    
+            elif tag == 'insert':
+                for j in range(j1, j2):
+                    l = updt_lines[j]
+                    wrapped = wrap_line(l, col_width)
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        left = " " * left_pad
+                        if wrap_idx == 0:
+                            right = f"[{n_ln:4}🟢] {wrapped_line}"
+                        else:
+                            right = f"[    🟢] {wrapped_line}"
+                        lines.append(f"{left} | {right}")
+                    n_ln += 1
+                    
+            elif tag == 'replace':
+                a = orig_lines[i1:i2]
+                b = updt_lines[j1:j2]
+                # deleted lines
+                for idx, la in enumerate(a):
+                    wrapped = wrap_line(la, col_width)
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        if wrap_idx == 0:
+                            left = f"[{o_ln + idx:4}⚫] {wrapped_line}".ljust(left_pad)
+                        else:
+                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
+                        right = " " * (col_width + 8)
+                        lines.append(f"{left} | {right}")
+                # inserted lines
+                for idx, lb in enumerate(b):
+                    wrapped = wrap_line(lb, col_width)
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        left = " " * left_pad
+                        if wrap_idx == 0:
+                            right = f"[{n_ln + idx:4}🟢] {wrapped_line}"
+                        else:
+                            right = f"[    🟢] {wrapped_line}"
+                        lines.append(f"{left} | {right}")
+                o_ln += len(a)
+                n_ln += len(b)
+                
+        return "\n".join(lines) + "\n"
+
 
     def _is_section_format(self, output: str) -> bool:
         return bool(self.section_pattern.search(output))

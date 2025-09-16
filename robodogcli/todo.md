@@ -70,10 +70,11 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo 
 - [x][-] changes todo
-  - started: 2025-09-16 04:41 | completed: 2025-09-16 04:42 | knowledge: 13 | include: 16492 | prompt: 16751 | cur_model: x-ai/grok-code-fast-1 | truncation: warning | truncation: error | compare: 'file_service.py' (o/n/d/c: 740/851/111/15.0%) , 'todo.py' (o/n/d/c: 1383/1389/6/0.4%) , 'parse_service.py' (o/n/d/c: 1852/637/-1215/65.6%) 
+  - started: 2025-09-16 21:55 | completed: 2025-09-16 21:56 | knowledge: 18 | include: 18652 | prompt: 18916 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: 'parse_service.py' (o/n/d/c: 2260/476/-1784/78.9%) 
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*mcphandler.py   recursive`
   - out:  temp\out.py
 ```knowledge
 
-1.add security to the file service to prevent accessing files outside of roots 
+1. save the diff output to the backupfolder root.
+2. use file_service write_file method to save the diff.
 ```
