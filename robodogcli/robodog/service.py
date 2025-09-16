@@ -199,6 +199,12 @@ class RobodogService:
     def clear(self):
         pass
 
+    ## NOT USED!!!
+    def export_snapshot(self, filename: str):
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write("=== Chat History ===\n" + self.context + "\n")
+            f.write("=== Knowledge ===\n" + self.knowledge + "\n")
+
     # ————————————————————————————————————————————————————————————
     # NUMERIC PARAMS
     def set_param(self, key: str, value):
@@ -338,6 +344,18 @@ class RobodogService:
                             matches.append(full)
                             break
         return matches
+
+    # ————————————————————————————————————————————————————————————
+    # /CURL IMPLEMENTATION
+    ## NOT USED!!!
+    def curl(self, tokens: list):
+        pass
+
+    # ————————————————————————————————————————————————————————————
+    # /PLAY IMPLEMENTATION
+    ## NOT USED!!!
+    def play(self, instructions: str):
+        pass
 
     # ————————————————————————————————————————————————————————————
     # MCP-SERVER FILE-OPS

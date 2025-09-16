@@ -85,7 +85,7 @@ def parse_cmd(line):
 def _init_services(args):
     # Parse excludedirs from comma-separated string to set
     exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist"}
-    
+    file_service = FileService(roots=args.folders, base_dir=None)
     # 1) core Robodog service + parser
     svc    = RobodogService(args.config, exclude_dirs=exclude_dirs)
     parser = ParseService()
