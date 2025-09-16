@@ -1,3 +1,4 @@
+# file: service.py
 #!/usr/bin/env python3
 import os
 import re
@@ -190,9 +191,11 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # STASH / POP / LIST / CLEAR / IMPORT / EXPORT
+    ## NOT USED!!!
     def stash(self, name: str):
         self.stashes[name] = str
 
+    ## NOT USED!!!
     def pop(self, name: str):
         if name not in self.stashes:
             raise KeyError(f"No stash {name}")
@@ -201,9 +204,11 @@ class RobodogService:
     def list_stashes(self):
         return list(self.stashes.keys())
 
+    ## NOT USED!!!
     def clear(self):
         pass
 
+    ## NOT USED!!!
     def import_files(self, glob_pattern: str) -> int:
         count = 0
         knowledge = ""
@@ -216,6 +221,7 @@ class RobodogService:
                 pass
         return knowledge
 
+    ## NOT USED!!!
     def export_snapshot(self, filename: str):
         with open(filename, 'w', encoding='utf-8') as f:
             f.write("=== Chat History ===\n" + self.context + "\n")
@@ -363,11 +369,13 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # /CURL IMPLEMENTATION
+    ## NOT USED!!!
     def curl(self, tokens: list):
         pass
 
     # ————————————————————————————————————————————————————————————
     # /PLAY IMPLEMENTATION
+    ## NOT USED!!!
     def play(self, instructions: str):
         pass
 
@@ -407,38 +415,35 @@ class RobodogService:
         shutil.copy2(src, dst)
 
     def _parse_base_dir(self) -> Optional[str]:
-            """
-            Look for a YAML front-matter block at the top of any todo.md,
-            scan it line-by-line for the first line starting with `base:`
-            and return its value.
-            """
-            for fn in self._find_files():
-                text = Path(fn).read_text(encoding='utf-8')
-                lines = text.splitlines()
-                # Must start a YAML block
-                if not lines or lines[0].strip() != '---':
-                    continue
+        """
+        Look for a YAML front-matter block at the top of any todo.md,
+        scan it line-by-line for the first line starting with `base:`
+        and return its value.
+        """
+        for fn in self._find_files():
+            text = Path(fn).read_text(encoding='utf-8')
+            lines = text.splitlines()
+            # Must start a YAML block
+            if not lines or lines[0].strip() != '---':
+                continue
 
-                # Find end of that block
-                try:
-                    end_idx = lines.index('---', 1)
-                except ValueError:
-                    # no closing '---'
-                    continue
+            # Find end of that block
+            try:
+                end_idx = lines.index('---', 1)
+            except ValueError:
+                # no closing '---'
+                continue
 
-                # Scan only the lines inside the front-matter
-                for lm in lines[1:end_idx]:
-                    stripped = lm.strip()
-                    if stripped.startswith('base:'):
-                        # split on first colon, strip whitespace
-                        _, _, val = stripped.partition(':')
-                        base = val.strip()
-                        if base:
-                            return os.path.normpath(base)
-                # if we got here, front-matter existed but no base: line → try next file
-
-            return None
-
+            # Scan only the lines inside the front-matter
+            for lm in lines[1:end_idx]:
+                stripped = lm.strip()
+                if stripped.startswith('base:'):
+                    # split on first colon, strip whitespace
+                    _, _, val = stripped.partition(':')
+                    base = val.strip()
+                    if base:
+                        return os.path.normpath(base)
+        return None
 
     def _find_files(self) -> List[str]:
         out = []
@@ -448,10 +453,12 @@ class RobodogService:
                     out.append(os.path.join(dp, self.FILENAME))
         return out
 
-    
     def checksum(self, path: str):
         h = hashlib.sha256()
         with open(path, 'rb') as f:
             for chunk in iter(lambda: f.read(8192), b''):
                 h.update(chunk)
         return h.hexdigest()
+
+# original file length: 497 lines
+# updated file length: 510 lines
