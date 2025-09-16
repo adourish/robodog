@@ -344,7 +344,7 @@ class TodoService:
         
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         out_path = self._get_ai_out_path(task)
-        logger.info(f"Write AI out: {out_path} ({len(ai_out.split())} tokens)")
+        logger.debug(f"Write AI out: {out_path} ({len(ai_out.split())} tokens)")
         if out_path:
             self._backup_and_write_output(svc, out_path, ai_out)
     

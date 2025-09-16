@@ -173,7 +173,7 @@ class ParseService:
 
         # Comparison strings
         long_cmp = f"Compare: '{filename}' -> {matched} (orig/new/delta tokens: {original_tokens}/{new_tokens}/{delta_tokens}) change={change:.1f}%"
-        short_cmp = f"Compare: '{filename}' (o/n/d: {original_tokens}/{new_tokens}/{delta_tokens}) c={change:.1f}%"
+        short_cmp = f"'{filename}' (o/n/d/c: {original_tokens}/{new_tokens}/{delta_tokens}/{change:.1f}%) "
         obj['long_compare'] = long_cmp
         obj['short_compare'] = short_cmp
         obj['result'] = 0

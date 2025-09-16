@@ -133,6 +133,7 @@ class RobodogService:
             "[-•----]",
         ]
         idx    = 0
+        std = 0
         answer = ""
         if self.stream:
             for chunk in resp:
@@ -146,7 +147,7 @@ class RobodogService:
 
                 # pick our fighter‐vs‐fighter frame
                 
-                if idx % 50 == 0:
+                if std % 50 == 0:
                     frame = spinner[idx % len(spinner)]
                     sys.stdout.write(
                         f"\r{frame}  {last_line[:60]}{'…' if len(last_line) > 60 else ''}"
@@ -156,7 +157,7 @@ class RobodogService:
                     sys.stdout.flush()
 
                 idx += 1
-
+                std += 1
             # done streaming!
             sys.stdout.write("\n\n")
         else:

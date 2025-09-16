@@ -149,7 +149,7 @@ class FileService:
         If atomic replace fails, falls back to a simple write.
         """
         path = Path(path)
-        logger.info(f"Writing file {path} (atomic, with fsync and fallback)")
+        logger.debug(f"Writing file {path} (atomic, with fsync and fallback)")
 
         # 1) ensure parent directories exist
         try:
