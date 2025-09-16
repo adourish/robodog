@@ -11,6 +11,7 @@ import difflib
 from difflib import SequenceMatcher
 from pathlib import Path
 from datetime import datetime
+import textwrap
 
 logger = logging.getLogger(__name__)
 
@@ -264,19 +265,18 @@ class ParseService:
 
     def _generate_side_by_side_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
         """
-        Generate a side-by-side diff using pipes, emojis, and spacing.
-        Columns are truncated to improve readability on standard laptop screens.
+        Generate a side-by-side diff using pipes, emojis, and line wrapping.
+        Uses real line numbers and wraps long lines instead of truncating.
         """
         logger.debug(f"Generating side-by-side diff for {filename}")
         orig_lines = original.splitlines()
         updt_lines = updated.splitlines()
         matcher = SequenceMatcher(None, orig_lines, updt_lines)
         ops = matcher.get_opcodes()
-        # Determine max width for left column content, truncated at 60 chars
-        max_left = min(max((len(l) for l in orig_lines), default=0), 60)
-        left_pad = max_left + 8  # account for "[####] emoji " prefix
-        # Limit right column to 60 chars
-        max_right = 60
+        
+        # Smaller column widths to fit on standard screens
+        col_width = 45  # Reduced from 60 to make room for line numbers and wrapping
+        left_pad = col_width + 8  # account for "[####] emoji " prefix
 
         lines: List[str] = []
         lines.append(f"📑 Side-by-Side Diff for {filename}")
@@ -285,55 +285,96 @@ class ParseService:
         lines.append("")
         header = f"{'ORIGINAL'.ljust(left_pad)} | {'UPDATED'}"
         lines.append(header)
-        lines.append("-" * left_pad + "-|-" + "-" * max_right)
+        lines.append("-" * left_pad + "-|-" + "-" * (col_width + 8))
 
         o_ln = 1
         n_ln = 1
+        
+        def wrap_line(text: str, width: int) -> List[str]:
+            """Wrap a line to the specified width."""
+            if len(text) <= width:
+                return [text]
+            return textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False)
+
         for tag, i1, i2, j1, j2 in ops:
             if tag == 'equal':
                 for i in range(i1, i2):
                     l = orig_lines[i]
-                    disp = l if len(l) <= max_left else l[:max_left-3] + '...'
-                    left = f"[{o_ln:4}⚪] {disp}".ljust(left_pad)
-                    right = f"[{n_ln:4}⚪] {disp}"
-                    lines.append(f"{left} | {right}")
-                    o_ln += 1; n_ln += 1
+                    wrapped = wrap_line(l, col_width)
+                    
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        if wrap_idx == 0:
+                            # First line gets the line number
+                            left = f"[{o_ln:4}⚪] {wrapped_line}".ljust(left_pad)
+                            right = f"[{n_ln:4}⚪] {wrapped_line}"
+                        else:
+                            # Continuation lines
+                            left = f"[    ⚪] {wrapped_line}".ljust(left_pad)
+                            right = f"[    ⚪] {wrapped_line}"
+                        lines.append(f"{left} | {right}")
+                    
+                    o_ln += 1
+                    n_ln += 1
+                    
             elif tag == 'delete':
                 for i in range(i1, i2):
                     l = orig_lines[i]
-                    disp = l if len(l) <= max_left else l[:max_left-3] + '...'
-                    left = f"[{o_ln:4}⚫] {disp}".ljust(left_pad)
-                    right = " " * max_right
-                    lines.append(f"{left} | {right}")
+                    wrapped = wrap_line(l, col_width)
+                    
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        if wrap_idx == 0:
+                            left = f"[{o_ln:4}⚫] {wrapped_line}".ljust(left_pad)
+                        else:
+                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
+                        right = " " * (col_width + 8)
+                        lines.append(f"{left} | {right}")
+                    
                     o_ln += 1
+                    
             elif tag == 'insert':
                 for j in range(j1, j2):
                     l = updt_lines[j]
-                    disp = l if len(l) <= max_right else l[:max_right-3] + '...'
-                    left = " " * left_pad
-                    right = f"[{n_ln:4}➕] {disp}"
-                    lines.append(f"{left} | {right}")
+                    wrapped = wrap_line(l, col_width)
+                    
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        left = " " * left_pad
+                        if wrap_idx == 0:
+                            right = f"[{n_ln:4}➕] {wrapped_line}"
+                        else:
+                            right = f"[    ➕] {wrapped_line}"
+                        lines.append(f"{left} | {right}")
+                    
                     n_ln += 1
+                    
             elif tag == 'replace':
                 a = orig_lines[i1:i2]
                 b = updt_lines[j1:j2]
-                m = max(len(a), len(b))
-                for k in range(m):
-                    if k < len(a):
-                        la = a[k]
-                        disp_a = la if len(la) <= max_left else la[:max_left-3] + '...'
-                        left = f"[{o_ln:4}⚫] {disp_a}".ljust(left_pad)
-                        o_ln += 1
-                    else:
+                
+                # Process deleted lines
+                for idx, la in enumerate(a):
+                    wrapped = wrap_line(la, col_width)
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
+                        if wrap_idx == 0:
+                            left = f"[{o_ln + idx:4}⚫] {wrapped_line}".ljust(left_pad)
+                        else:
+                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
+                        right = " " * (col_width + 8)
+                        lines.append(f"{left} | {right}")
+                
+                # Process inserted lines
+                for idx, lb in enumerate(b):
+                    wrapped = wrap_line(lb, col_width)
+                    for wrap_idx, wrapped_line in enumerate(wrapped):
                         left = " " * left_pad
-                    if k < len(b):
-                        lb = b[k]
-                        disp_b = lb if len(lb) <= max_right else lb[:max_right-3] + '...'
-                        right = f"[{n_ln:4}➕] {disp_b}"
-                        n_ln += 1
-                    else:
-                        right = " " * max_right
-                    lines.append(f"{left} | {right}")
+                        if wrap_idx == 0:
+                            right = f"[{n_ln + idx:4}➕] {wrapped_line}"
+                        else:
+                            right = f"[    ➕] {wrapped_line}"
+                        lines.append(f"{left} | {right}")
+                
+                o_ln += len(a)
+                n_ln += len(b)
+                
         return "\n".join(lines) + "\n"
 
     def _is_section_format(self, output: str) -> bool:
@@ -479,5 +520,5 @@ class ParseService:
             return False
         return True
 
-# original file length: 558 lines
-# updated file length: 553 lines
+# original file length: 553 lines
+# updated file length: 632 lines
