@@ -309,13 +309,14 @@ You can chain as many tasks and files as needed. Each can reside in different di
 
 ## Configuration & Command Reference  
 
+### Robodog UI
+
 See command palette in-app (`/help`) or the reference below:
 
 ```
 /help             — show help  
 /models           — list configured models  
 /model <name>     — switch model  
-/key <prov> <key> — set API key  
 /import <glob>    — import files into knowledge  
 /export <file>    — export snapshot  
 /clear            — clear chat & knowledge  
@@ -327,14 +328,25 @@ See command palette in-app (`/help`) or the reference below:
 /max_tokens <n>   — set max_tokens  
 /frequency_penalty <n> — set frequency_penalty  
 /presence_penalty <n>  — set presence_penalty  
-/stream           — enable streaming mode  
-/rest             — disable streaming mode  
+/dark             - toggle light/dark 
 /folders <dirs>   — set MCP roots  
 /include …        — include files via MCP  
 /curl …           — fetch pages / run JS  
 /play …           — AI-driven Playwright tests  
 /mcp …            — invoke raw MCP operation  
 /todo             — run next To Do task  
+```
+### Robodog CLI
+
+```
+/help             — show help  
+/models           — list configured models  
+/model <name>     — switch model  
+/clear            — clear chat & knowledge  
+/temperature <n>  — set temperature  
+/folders <dirs>   — set MCP roots  
+/include …        — include files via MCP  
+
 ```
 
 ---
@@ -355,7 +367,8 @@ npm install robodog
 pip install robodogcli  
 pip show -f robodogcli  
 python -m robodogcli.cli --help  
-python -m playwright install
+python -m robodogcli.cli --folders "c:\projects\robodog" --port 2500 --token testtoken --config config.yaml --model  openai/o4-mini --backupFolder "c:\temp"
+
 ```
 
 ---
