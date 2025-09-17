@@ -70,12 +70,21 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo 
 - [x][-] changes todo
-  - started: 2025-09-16 22:44 | completed: 2025-09-16 22:46 | knowledge: 19 | include: 25181 | prompt: 25475 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: 'parse_service.py' (o/n/d/c: 2275/656/-1619/71.2%) 
+  - started: 2025-09-16 23:56 | completed: 2025-09-16 23:57 | knowledge: 13 | include: 25472 | prompt: 25770 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: todo.py (o/n/d/c: 1383/399/-984/71.1%)
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py   recursive`
   - out:  temp\out.py
 ```knowledge
+1. if the file is NEW, create the file if it doesnt exist.
 
-1. change the prompt builder to include if the file is new or not. 
-2. # file: <filename.ext> NEW
+```
+
+
+# todo 
+- [x][-] changes todo
+  - started: 2025-09-16 23:31 | completed: 2025-09-16 23:32 | knowledge: 10 | include: 25472 | prompt: 25767 | cur_model: openai/o4-mini | compare: parse_service.py (o/n/d/c: 1052/1066/14/1.3%)
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*mcphandler.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*cli.py   recursive`
+  - out:  temp\out.py
+```knowledge
+
 
 ```

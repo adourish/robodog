@@ -7,14 +7,12 @@ import yaml
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional, Union
 import logging
-import difflib
-from difflib import SequenceMatcher
 from pathlib import Path
 from datetime import datetime
-import textwrap
+from diff_service import DiffService
+from difflib import SequenceMatcher
 
 logger = logging.getLogger(__name__)
-
 
 class ParsingError(Exception):
     """Custom exception for parsing errors."""
@@ -23,473 +21,195 @@ class ParsingError(Exception):
 class ParseService:
     """Service for parsing various LLM output formats into file objects."""
     
-    def __init__(self, base_dir: str = None, backupFolder:str = None):
+    def __init__(self, base_dir: str = None, backupFolder: str = None, diff_service: DiffService = None):
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
+        # detect "# file: <filename>" sections
         self.section_pattern = re.compile(r'^\s*#\s*file:\s*["`]?(.+?)["`]?\s*$', re.IGNORECASE | re.MULTILINE)
+        # fenced code blocks
         self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
+        # generic "filename: content" lines
         self.filename_pattern = re.compile(r'^([^:]+):\s*(.*)$', re.MULTILINE)
-        self.hunk_header = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@')
+        # thresholds
         self.side_width = 60
         self._base_dir = base_dir
         self._backupFolder = backupFolder
+        # use injected diff_service or default
+        self.diff_service = diff_service or DiffService(side_width=self.side_width)
+
     def parse_llm_output(
         self,
         llm_output: str,
         base_dir: Optional[str] = None,
         file_service: Optional[object] = None,
         ai_out_path: str = '',
-        task: List[object] = None,
+        task: Union[Dict, List] = None,
         svc: Optional[object] = None,
-    ) -> List[Dict[str, Union[str, int]]]:
+    ) -> List[Dict[str, Union[str, int, bool]]]:
         """
         Parse LLM output into objects with enhanced metadata, ensuring filename,
-        originalfilename, and matchedfilename fields are returned.
+        originalfilename, matchedfilename fields are returned, and marking new files.
         """
-        logger.debug(f"Starting enhanced parse of LLM output ({len(llm_output)} chars)")
+        logger.debug(f"Starting parse of LLM output ({len(llm_output)} chars)")
         try:
             if self._is_section_format(llm_output):
-                parsed_objects = self._parse_section_format(llm_output)
+                parsed = self._parse_section_format(llm_output)
             elif self._is_json_format(llm_output):
-                parsed_objects = self._parse_json_format(llm_output)
+                parsed = self._parse_json_format(llm_output)
             elif self._is_yaml_format(llm_output):
-                parsed_objects = self._parse_yaml_format(llm_output)
+                parsed = self._parse_yaml_format(llm_output)
             elif self._is_xml_format(llm_output):
-                parsed_objects = self._parse_xml_format(llm_output)
+                parsed = self._parse_xml_format(llm_output)
             elif self._is_md_fenced_format(llm_output):
-                parsed_objects = self._parse_md_fenced_format(llm_output)
+                parsed = self._parse_md_fenced_format(llm_output)
             else:
-                parsed_objects = self._parse_generic_format(llm_output)
+                parsed = self._parse_generic_format(llm_output)
         except Exception as e:
             logger.error(f"Parsing error: {e}")
             try:
-                parsed_objects = self._parse_fallback(llm_output)
+                parsed = self._parse_fallback(llm_output)
             except Exception as fe:
                 logger.error(f"Fallback parsing also failed: {fe}")
                 raise ParsingError(f"Could not parse LLM output: {e}")
 
-        # Enhance each parsed object with diffs and token metrics
-        for obj in parsed_objects:
+        # enhance each parsed object
+        for obj in parsed:
             self._enhance_parsed_object(obj, base_dir, file_service, task, svc)
 
-        # Ensure essential filename keys are present
-        for obj in parsed_objects:
+        # ensure filename keys
+        for obj in parsed:
             fn = obj.get('filename', '')
             obj['filename'] = fn
             obj.setdefault('originalfilename', fn)
             obj.setdefault('matchedfilename', fn)
 
-        # Write enhanced diffs to disk (side-by-side diff only)
+        # mark new files
+        for obj in parsed:
+            matched = obj.get('matchedfilename', '')
+            is_new = False
+            if matched:
+                try:
+                    if not Path(matched).exists():
+                        is_new = True
+                except Exception:
+                    is_new = True
+            obj['new'] = is_new
+            # append NEW to content directive if new
+            content = obj.get('content','')
+            if is_new and content.startswith("# file:"):
+                header, _, rest = content.partition("\n")
+                header += " NEW"
+                obj['content'] = header + ("\n" + rest if rest else "")
+
+        # write side-by-side diffs to disk
         if ai_out_path:
             out_root = Path(ai_out_path).parent
         elif base_dir:
             out_root = Path(base_dir)
         else:
             out_root = Path.cwd()
-        out_diffdir = out_root / 'diffoutput'
-        out_diffdir.mkdir(parents=True, exist_ok=True)
-        out_dir = out_root / 'diffoutput'
-        out_dir.mkdir(parents=True, exist_ok=True)
+        diffdir = out_root / 'diffoutput'
+        diffdir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M-%S")
-        for obj in parsed_objects:
-            sbs_diff = obj.get('diff_sbs', '')
-            if not sbs_diff:
+        for obj in parsed:
+            sbs = obj.get('diff_sbs','')
+            if not sbs:
                 continue
-            stem = Path(obj.get('filename', 'file')).stem
-            suffix = Path(obj.get('filename', '')).suffix or ''
-            diff_name = f"diff-sbs-{stem}-{ts}{suffix}.md"
-            diff_path = out_diffdir / diff_name
+            stem = Path(obj.get('filename','file')).stem
+            suf  = Path(obj.get('filename','')).suffix or ''
+            name = f"diff-sbs-{stem}-{ts}{suf}.md"
+            path = diffdir / name
             try:
-                with open(diff_path, 'w', encoding='utf-8') as f:
-                    f.write(sbs_diff)
-                logger.info(f"Side-by-Side Diff: {diff_name} -> {diff_path}")
+                path.write_text(sbs, encoding='utf-8')
+                logger.info(f"Saved side-by-side diff: {path}")
             except Exception as e:
-                logger.error(f"Failed to write side-by-side diff file {diff_path}: {e}")
+                logger.error(f"Failed to save diff {path}: {e}")
 
-        return parsed_objects
-
-    def _load_truncation_phrases(self) -> List[str]:
-        phrases_file = Path(__file__).parent / 'truncation_phrases.txt'
-        if not phrases_file.exists():
-            logger.warning("Truncation phrases file not found.")
-            return []
-        try:
-            with open(phrases_file, 'r', encoding='utf-8') as f:
-                return [line.strip() for line in f if line.strip()]
-        except Exception as e:
-            logger.error(f"Failed to load truncation phrases: {e}")
-            return []
+        return parsed
 
     def _enhance_parsed_object(
         self,
-        obj: Dict[str, Union[str, int]],
+        obj: Dict[str, Union[str,int]],
         base_dir: Optional[str],
         file_service: Optional[object],
-        task: List[object],
-        svc: Optional[object] = None
+        task: Union[Dict, List],
+        svc: Optional[object]
     ):
-        filename = obj.get('filename', '')
-        new_content = obj.get('content', '')
+        filename = obj.get('filename','')
+        new_content = obj.get('content','')
         original_content = ''
         matched = filename
         diff_md = ''
         diff_sbs = ''
-
+        # use file_service to locate and read original
         if file_service:
             try:
                 include_spec = {}
                 if isinstance(task, dict) and isinstance(task.get('include'), dict):
                     include_spec = task['include']
                 else:
-                    include_spec = {'pattern': '*', 'recursive': True}
+                    include_spec = {'pattern':'*','recursive':True}
                 candidate = file_service.find_matching_file(filename, include_spec, svc)
                 if candidate:
                     matched = str(candidate.resolve())
                     original_content = file_service.safe_read_file(candidate)
-                    diff_md = self._generate_improved_md_diff(filename, original_content, new_content, matched)
-                    diff_sbs = self._generate_side_by_side_diff(filename, original_content, new_content, matched)
+                    # generate diffs via diff_service
+                    diff_md  = self.diff_service.generate_improved_md_diff(filename, original_content, new_content, matched)
+                    diff_sbs = self.diff_service.generate_side_by_side_diff(filename, original_content, new_content, matched)
             except Exception as e:
-                logger.error(f"resolve_path failed for {filename}: {e}")
+                logger.error(f"Error enhancing {filename}: {e}")
         else:
-            logger.warning(f"No file service provided for enhancing {filename}")
+            logger.warning(f"No file_service for parsing {filename}")
 
-        new_tokens = len(new_content.split())
-        original_tokens = len(original_content.split())
-        delta_tokens = new_tokens - original_tokens
-        change = 0.0 if original_tokens == 0 else abs(delta_tokens) / original_tokens * 100
-
-        obj['originalfilename'] = filename
-        obj['matchedfilename'] = matched
-        obj['diff_md'] = diff_md
-        obj['diff_sbs'] = diff_sbs
-        obj['new_tokens'] = new_tokens
-        obj['original_tokens'] = original_tokens
-        obj['delta_tokens'] = delta_tokens
-        obj['change'] = change
-
+        # token metrics
+        new_toks = len(new_content.split())
+        orig_toks= len(original_content.split())
+        delta    = new_toks - orig_toks
+        change   = 0.0 if orig_toks==0 else abs(delta)/orig_toks*100
+        long_compare = f"Compare: '{filename}' -> {matched} (o/n/d: {orig_toks}/{new_toks}/{delta}) change={change:.1f}%"
+        short_compare = f"{filename} (o/n/d/c: {orig_toks}/{new_toks}/{delta}/{change:.1f}%)"
+        logger.info(long_compare)
+        obj.update({
+            'originalfilename': filename,
+            'matchedfilename': matched,
+            'diff_md': diff_md,
+            'diff_sbs': diff_sbs,
+            'new_tokens': new_toks,
+            'original_tokens': orig_toks,
+            'delta_tokens': delta,
+            'change': change,
+            'originalcontent': f"# file: {filename}\n{original_content}",
+            'completeness': self._check_content_completeness(new_content, filename),
+            'long_compare': long_compare,
+            'short_compare': short_compare,
+            'result': self._result_code(change)
+        })
+        # normalize content directive
         obj['content'] = f"# file: {filename}\n{new_content}"
-        obj['originalcontent'] = f"# file: {filename}\n{original_content}"
-        obj['completeness'] = self._check_content_completeness(new_content, filename)
 
-        long_cmp = f"Compare: '{filename}' -> {matched} (orig/new/delta tokens: {original_tokens}/{new_tokens}/{delta_tokens}) change={change:.1f}%"
-        short_cmp = f"'{filename}' (o/n/d/c: {original_tokens}/{new_tokens}/{delta_tokens}/{change:.1f}%) "
-        obj['long_compare'] = long_cmp
-        obj['short_compare'] = short_cmp
-        obj['result'] = 0
+    def _result_code(self, change: float) -> int:
         if change > 40.0:
-            obj['result'] = -2
-            logger.error(long_cmp + " >40%")
-        elif change > 20.0:
-            obj['result'] = -1
-            logger.warning(long_cmp + " >20%")
-        else:
-            logger.info(long_cmp)
+            return -2
+        if change > 20.0:
+            return -1
+        return 0
 
-    def _check_content_completeness(self, content: str, orig_name: str) -> int:
-        if orig_name.lower() == 'todo.md':
+    def _check_content_completeness(self, content: str, name: str) -> int:
+        if name.lower()=='todo.md':
             return 0
         lines = content.splitlines()
-        if len(lines) < 3:
-            logger.error(f"Incomplete output for {orig_name}: only {len(lines)} lines")
+        if len(lines)<3:
+            logger.error(f"Incomplete output for {name}: only {len(lines)} lines")
             return -3
-        truncation_phrases = self._load_truncation_phrases()
-        lower = content.lower()
-        for phrase in truncation_phrases:
-            if phrase.lower() in lower:
-                logger.error(f"Truncation indication found for {orig_name}: '{phrase}'")
-                return -4
-        return 0      
+        # no truncation phrases for now
+        return 0
 
-    def _generate_improved_md_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
-        """
-        Enhanced unified diff with emojis.
-        """
-        logger.debug(f"Generating improved MD diff for {filename}")
-        orig_lines = original.splitlines()
-        updt_lines = updated.splitlines()
-        unified = list(difflib.unified_diff(
-            orig_lines, updt_lines,
-            fromfile=f'🔵 Original: {filename}',
-            tofile=f'🔴 Updated: {filename} (matched: {matched})',
-            lineterm='', n=7
-        ))
-        md_lines: List[str] = []
-        md_lines.append(f"# 📊 Enhanced Diff for {filename}")
-        md_lines.append(f"**File Path:** {matched or filename}")
-        md_lines.append(f"**Change Timestamp:** {datetime.utcnow().isoformat()}")
-        md_lines.append("")
-        md_lines.append("## 🔍 Unified Diff (With Emojis & File Line Numbers)")
-        md_lines.append("```diff")
-        orig_num = None
-        new_num = None
-        for line in unified:
-            if line.startswith('--- '):
-                md_lines.append(f"🗂️ {line[4:]}")
-            elif line.startswith('+++ '):
-                content = line[4:]
-                if '(matched:' in content:
-                    before, _, after = content.partition(' (matched:')
-                    after = after.rstrip(')')
-                    md_lines.append(f"🗂️ {before}")
-                    md_lines.append(f"🔗 Matched: {after}")
-                else:
-                    md_lines.append(f"🗂️ {content}")
-            elif line.startswith('@@'):
-                md_lines.append(f"🧩 {line}")
-                m = self.hunk_header.match(line)
-                if m:
-                    new_num = int(m.group(1))
-                    om = re.search(r'-([\d]+)', line)
-                    if om:
-                        orig_num = int(om.group(1))
-                continue
-            else:
-                prefix = line[0] if line else ' '
-                content = line[1:] if prefix in ('-', '+', ' ') else line
-                if prefix == ' ':
-                    emoji='⚪'
-                    if new_num is not None:
-                        md_lines.append(f"[{new_num:4}{emoji}] {content}")
-                    new_num = (new_num or 0) + 1
-                    orig_num = (orig_num or 0) + 1
-                elif prefix == '-':
-                    emoji='⚫'
-                    if orig_num is not None:
-                        md_lines.append(f"[{orig_num:4}{emoji}] {content}")
-                    orig_num = (orig_num or 0) + 1
-                elif prefix == '+':
-                    emoji='🟢'
-                    if new_num is not None:
-                        md_lines.append(f"[{new_num:4}{emoji}] {content}")
-                    new_num = (new_num or 0) + 1
-                else:
-                    md_lines.append(line)
-        md_lines.append("```")
-        return "\n".join(md_lines) + "\n"
+    # format detection and parsing below
+    def _is_section_format(self, out: str) -> bool:
+        return bool(self.section_pattern.search(out))
 
-    def _generate_side_by_side_diffb(self, filename: str, original: str, updated: str, matched: str) -> str:
-        """
-        Generate a side-by-side diff using pipes, emojis, and line wrapping.
-        Uses real line numbers and wraps long lines instead of truncating.
-        """
-        logger.debug(f"Generating side-by-side diff for {filename}")
-        orig_lines = original.splitlines()
-        updt_lines = updated.splitlines()
-        matcher = SequenceMatcher(None, orig_lines, updt_lines)
-        ops = matcher.get_opcodes()
-        
-        # Smaller column widths to fit on standard screens
-        col_width = 45  # Reduced from 60 to make room for line numbers and wrapping
-        left_pad = col_width + 8  # account for "[####] emoji " prefix
-
-        lines: List[str] = []
-        lines.append(f"📑 Side-by-Side Diff for {filename}")
-        lines.append(f"🔗 {matched or filename}")
-        lines.append(f"⏱️ {datetime.utcnow().isoformat()}")
-        lines.append("")
-        header = f"{'ORIGINAL'.ljust(left_pad)} | {'UPDATED'}"
-        lines.append(header)
-        lines.append("-" * left_pad + "-|-" + "-" * (col_width + 8))
-
-        o_ln = 1
-        n_ln = 1
-        
-        def wrap_line(text: str, width: int) -> List[str]:
-            """Wrap a line to the specified width."""
-            if len(text) <= width:
-                return [text]
-            return textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False)
-
-        for tag, i1, i2, j1, j2 in ops:
-            if tag == 'equal':
-                for i in range(i1, i2):
-                    l = orig_lines[i]
-                    wrapped = wrap_line(l, col_width)
-                    
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        if wrap_idx == 0:
-                            # First line gets the line number
-                            left = f"[{o_ln:4}⚪] {wrapped_line}".ljust(left_pad)
-                            right = f"[{n_ln:4}⚪] {wrapped_line}"
-                        else:
-                            # Continuation lines
-                            left = f"[    ⚪] {wrapped_line}".ljust(left_pad)
-                            right = f"[    ⚪] {wrapped_line}"
-                        lines.append(f"{left} | {right}")
-                    
-                    o_ln += 1
-                    n_ln += 1
-                    
-            elif tag == 'delete':
-                for i in range(i1, i2):
-                    l = orig_lines[i]
-                    wrapped = wrap_line(l, col_width)
-                    
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        if wrap_idx == 0:
-                            left = f"[{o_ln:4}⚫] {wrapped_line}".ljust(left_pad)
-                        else:
-                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
-                        right = " " * (col_width + 8)
-                        lines.append(f"{left} | {right}")
-                    
-                    o_ln += 1
-                    
-            elif tag == 'insert':
-                for j in range(j1, j2):
-                    l = updt_lines[j]
-                    wrapped = wrap_line(l, col_width)
-                    
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        left = " " * left_pad
-                        if wrap_idx == 0:
-                            right = f"[{n_ln:4}➕] {wrapped_line}"
-                        else:
-                            right = f"[    ➕] {wrapped_line}"
-                        lines.append(f"{left} | {right}")
-                    
-                    n_ln += 1
-                    
-            elif tag == 'replace':
-                a = orig_lines[i1:i2]
-                b = updt_lines[j1:j2]
-                
-                # Process deleted lines
-                for idx, la in enumerate(a):
-                    wrapped = wrap_line(la, col_width)
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        if wrap_idx == 0:
-                            left = f"[{o_ln + idx:4}⚫] {wrapped_line}".ljust(left_pad)
-                        else:
-                            left = f"[    ⚫] {wrapped_line}".ljust(left_pad)
-                        right = " " * (col_width + 8)
-                        lines.append(f"{left} | {right}")
-                
-                # Process inserted lines
-                for idx, lb in enumerate(b):
-                    wrapped = wrap_line(lb, col_width)
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        left = " " * left_pad
-                        if wrap_idx == 0:
-                            right = f"[{n_ln + idx:4}➕] {wrapped_line}"
-                        else:
-                            right = f"[    ➕] {wrapped_line}"
-                        lines.append(f"{left} | {right}")
-                
-                o_ln += len(a)
-                n_ln += len(b)
-                
-        return "\n".join(lines) + "\n"
-
-    def _generate_side_by_side_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
-        """
-        Generate a side-by-side diff using pipes, emojis, and line wrapping.
-        Uses real line numbers and wraps long lines instead of truncating.
-        Column width is configurable (self.side_width).
-        """
-        logger.debug(f"Generating side-by-side diff for {filename}")
-        orig_lines = original.splitlines()
-        updt_lines = updated.splitlines()
-        matcher = SequenceMatcher(None, orig_lines, updt_lines)
-        ops = matcher.get_opcodes()
-        
-        col_width = self.side_width  # use configured width
-        left_pad = col_width + 8     # account for "[####]⚫ " prefix
-
-        lines: List[str] = []
-        lines.append(f"📑 Side-by-Side Diff for {filename}")
-        lines.append(f"🔗 {matched or filename}")
-        lines.append(f"⏱️ {datetime.utcnow().isoformat()}")
-        lines.append("")
-        header = f"{'ORIGINAL'.ljust(left_pad)}   {'UPDATED'}"
-        lines.append(header)
-        lines.append(" " * left_pad + "  " + " " * (col_width + 8))
-
-        o_ln = 1
-        n_ln = 1
-        
-        def wrap_line(text: str, width: int) -> List[str]:
-            """Wrap a line to the specified width."""
-            if len(text) <= width:
-                return [text]
-            return textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False)
-
-        for tag, i1, i2, j1, j2 in ops:
-            if tag == 'equal':
-                for i in range(i1, i2):
-                    l = orig_lines[i]
-                    wrapped = wrap_line(l, col_width)
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        if wrap_idx == 0:
-                            left =  f"{o_ln:4}⚪ {wrapped_line}".ljust(left_pad)
-                            right = f"             {wrapped_line}"
-                        else:
-                            left  = f"    ⚪ {wrapped_line}".ljust(left_pad)
-                            right = f"         {wrapped_line}"
-                        lines.append(f"{left}  {right}")
-                    o_ln += 1
-                    n_ln += 1
-                    
-            elif tag == 'delete':
-                for i in range(i1, i2):
-                    l = orig_lines[i]
-                    wrapped = wrap_line(l, col_width)
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        if wrap_idx == 0:
-                            left = f"{o_ln:4}⚫ {wrapped_line}".ljust(left_pad)
-                        else:
-                            left = f"    ⚫ {wrapped_line}".ljust(left_pad)
-                        right = " " * (col_width + 8)
-                        lines.append(f"{left}  {right}")
-                    o_ln += 1
-                    
-            elif tag == 'insert':
-                for j in range(j1, j2):
-                    l = updt_lines[j]
-                    wrapped = wrap_line(l, col_width)
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        left = " " * left_pad
-                        if wrap_idx == 0:
-                            right = f"{n_ln:4}🟢 {wrapped_line}"
-                        else:
-                            right = f"    🟢 {wrapped_line}"
-                        lines.append(f"{left}  {right}")
-                    n_ln += 1
-                    
-            elif tag == 'replace':
-                a = orig_lines[i1:i2]
-                b = updt_lines[j1:j2]
-                # deleted lines
-                for idx, la in enumerate(a):
-                    wrapped = wrap_line(la, col_width)
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        if wrap_idx == 0:
-                            left = f"{o_ln + idx:4}⚫ {wrapped_line}".ljust(left_pad)
-                        else:
-                            left = f"    ⚫ {wrapped_line}".ljust(left_pad)
-                        right = " " * (col_width + 8)
-                        lines.append(f"{left}  {right}")
-                # inserted lines
-                for idx, lb in enumerate(b):
-                    wrapped = wrap_line(lb, col_width)
-                    for wrap_idx, wrapped_line in enumerate(wrapped):
-                        left = " " * left_pad
-                        if wrap_idx == 0:
-                            right = f"{n_ln + idx:4}🟢 {wrapped_line}"
-                        else:
-                            right = f"    🟢 {wrapped_line}"
-                        lines.append(f"{left}  {right}")
-                o_ln += len(a)
-                n_ln += len(b)
-                
-        return "\n".join(lines) + "\n"
-
-
-    def _is_section_format(self, output: str) -> bool:
-        return bool(self.section_pattern.search(output))
-
-    def _is_json_format(self, output: str) -> bool:
-        s = output.strip()
+    def _is_json_format(self, out: str) -> bool:
+        s = out.strip()
         if not (s.startswith('{') or s.startswith('[')): return False
         try:
             parsed = json.loads(s)
@@ -497,136 +217,113 @@ class ParseService:
         except:
             return False
 
-    def _is_yaml_format(self, output: str) -> bool:
+    def _is_yaml_format(self, out: str) -> bool:
         try:
-            parsed = yaml.safe_load(output)
-            return isinstance(parsed, dict) and 'files' in parsed
+            data = yaml.safe_load(out)
+            return isinstance(data, dict) and 'files' in data
         except:
             return False
 
-    def _is_xml_format(self, output: str) -> bool:
-        s = output.strip()
+    def _is_xml_format(self, out: str) -> bool:
+        s = out.strip()
         if not s.startswith('<'): return False
         try:
             root = ET.fromstring(s)
-            return root.tag == 'files' and len(root) and root[0].tag == 'file'
+            return root.tag=='files' and len(root)>0 and root[0].tag=='file'
         except:
             return False
 
-    def _is_md_fenced_format(self, output: str) -> bool:
-        return bool(self.md_fenced_pattern.search(output))
+    def _is_md_fenced_format(self, out: str) -> bool:
+        return bool(self.md_fenced_pattern.search(out))
 
-    def _parse_section_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        matches = list(self.section_pattern.finditer(output))
-        if not matches: return []
-        sections: List[Dict[str, Union[str, int]]] = []
-        for m in matches:
+    def _parse_section_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
+        matches = list(self.section_pattern.finditer(out))
+        sections = []
+        for idx, m in enumerate(matches):
             clean = m.group(1).strip().strip('\'"`')
             fn = Path(clean).name
-            sections.append({'filename': fn, 'content': ''})
-        for idx, m in enumerate(matches):
             start = m.end()
-            end = matches[idx+1].start() if idx+1 < len(matches) else len(output)
-            chunk = output[start:end]
-            chunk = re.sub(r'^\s*\n+', '', chunk)
-            chunk = re.sub(r'\n+\s*$', '', chunk)
-            sections[idx]['content'] = chunk
+            end = matches[idx+1].start() if idx+1<len(matches) else len(out)
+            chunk = out[start:end].strip('\n')
+            sections.append({'filename':fn,'content':chunk})
         return sections
 
-    def _parse_json_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        data = json.loads(output.strip())
-        files = data.get('files', [])
-        if not isinstance(files, list):
-            raise ParsingError("JSON 'files' must be list")
-        parsed = []
+    def _parse_json_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
+        data = json.loads(out.strip())
+        files = data.get('files',[])
+        parsed=[]
         for it in files:
             fn = it.get('filename','').strip()
             ct = it.get('content','').strip()
             if self._validate_filename(fn):
-                parsed.append({'filename': fn, 'content': ct})
+                parsed.append({'filename':fn,'content':ct})
         return parsed
 
-    def _parse_yaml_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        data = yaml.safe_load(output)
-        files = data.get('files', [])
-        if not isinstance(files, list):
-            raise ParsingError("YAML 'files' must be list")
-        parsed = []
+    def _parse_yaml_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
+        data = yaml.safe_load(out)
+        files = data.get('files',[])
+        parsed=[]
         for it in files:
-            fn = it.get('filename','').strip()
-            ct = it.get('content','').strip()
+            fn=it.get('filename','').strip()
+            ct=it.get('content','').strip()
             if self._validate_filename(fn):
-                parsed.append({'filename': fn, 'content': ct})
+                parsed.append({'filename':fn,'content':ct})
         return parsed
 
-    def _parse_xml_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        root = ET.fromstring(output.strip())
-        if root.tag != 'files':
-            raise ParsingError("Root must be 'files'")
-        parsed = []
+    def _parse_xml_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
+        root = ET.fromstring(out.strip())
+        parsed=[]
         for fe in root.findall('file'):
-            fn_el = fe.find('filename')
-            ct_el = fe.find('content')
-            if fn_el is None or ct_el is None:
-                continue
-            fn = (fn_el.text or '').strip()
-            ct = (ct_el.text or '').strip()
+            fn_el=fe.find('filename'); ct_el=fe.find('content')
+            if fn_el is None or ct_el is None: continue
+            fn,ct=(fn_el.text or '').strip(),(ct_el.text or '').strip()
             if self._validate_filename(fn):
-                parsed.append({'filename': fn, 'content': ct})
+                parsed.append({'filename':fn,'content':ct})
         return parsed
 
-    def _parse_md_fenced_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        matches = self.md_fenced_pattern.findall(output)
-        parsed_objects = []
-        for info, content in matches:
-            filename = info.strip() if info else "unnamed"
-            if not self._validate_filename(filename):
-                logger.warning(f"Invalid filename: {filename}, skipping")
+    def _parse_md_fenced_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
+        matches = self.md_fenced_pattern.findall(out)
+        parsed=[]
+        for info,content in matches:
+            fn = info.strip() or "unnamed"
+            if not self._validate_filename(fn):
+                logger.warning(f"Invalid filename: {fn}, skipping")
                 continue
-            parsed_objects.append({'filename': filename, 'content': content.strip()})
-        logger.info(f"Parsed {len(parsed_objects)} files from Markdown fenced format")
-        return parsed_objects
+            parsed.append({'filename':fn,'content':content.strip()})
+        return parsed
 
-    def _parse_generic_format(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        lines = output.split('\n')
-        parsed_objects = []
-        current_filename = None
-        content_lines = []
+    def _parse_generic_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
+        lines = out.split('\n')
+        parsed=[]; cur_fn=None; buf=[]
         for line in lines:
-            match = self.filename_pattern.match(line)
-            if match:
-                if current_filename and content_lines:
-                    content = '\n'.join(content_lines).strip()
-                    if self._validate_filename(current_filename):
-                        parsed_objects.append({'filename': current_filename, 'content': content})
-                    content_lines = []
-                current_filename = match.group(1).strip()
-                content_lines.append(match.group(2).strip())
-            elif current_filename and line.strip():
-                content_lines.append(line.strip())
-        if current_filename and content_lines:
-            content = '\n'.join(content_lines).strip()
-            if self._validate_filename(current_filename):
-                parsed_objects.append({'filename': current_filename, 'content': content})
-        if not parsed_objects:
+            m=self.filename_pattern.match(line)
+            if m:
+                if cur_fn and buf:
+                    ct='\n'.join(buf).strip()
+                    if self._validate_filename(cur_fn):
+                        parsed.append({'filename':cur_fn,'content':ct})
+                cur_fn=m.group(1).strip()
+                buf=[m.group(2).strip()]
+            elif cur_fn and line.strip():
+                buf.append(line.strip())
+        if cur_fn and buf:
+            ct='\n'.join(buf).strip()
+            if self._validate_filename(cur_fn):
+                parsed.append({'filename':cur_fn,'content':ct})
+        if not parsed:
             raise ParsingError("No valid files found in generic parsing")
-        logger.info("Parsed %d files from generic format", len(parsed_objects))
-        return parsed_objects
+        return parsed
 
-    def _parse_fallback(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        logger.warning("Using fallback parser - treating output as single file")
-        return [{'filename': 'generated.txt', 'content': output.strip()}]
+    def _parse_fallback(self, out: str) -> List[Dict[str, Union[str,int]]]:
+        logger.warning("Fallback parser - single file")
+        return [{'filename':'generated.txt','content':out.strip()}]
 
-    def _validate_filename(self, filename: str) -> bool:
-        if not filename or len(filename) > 255:
-            return False
-        invalid_chars = ['<>:"/\\|?*']
-        for char in invalid_chars:
-            if char in filename:
-                return False
-        if '..' in filename or filename.startswith('/'):
-            return False
+    def _validate_filename(self, fn: str) -> bool:
+        if not fn or len(fn)>255: return False
+        for ch in '<>:"/\\|?*':
+            if ch in fn: return False
+        if '..' in fn or fn.startswith('/'): return False
         return True
 
-# original file length: 553 lines
-# updated file length: 632 lines
+# original file length: 632 lines
+# updated file length: 323 lines

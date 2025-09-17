@@ -20,6 +20,7 @@ from task_parser    import TaskParser
 from task_manager   import TaskManager
 from prompt_builder import PromptBuilder
 from todo           import TodoService
+from diff_service   import DiffService  # newly added
 # support both "python -m robodog.cli" and "python cli.py" invocations:
 try:
     from .service import RobodogService
@@ -84,11 +85,11 @@ def parse_cmd(line):
 
 def _init_services(args):
 
-
+    diff_service = DiffService(60)
     exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist"}
     # 1) core Robodog service + parser
     svc    = RobodogService(args.config, exclude_dirs=exclude_dirs,  backupFolder=args.backupFolder)
-    parser = ParseService(base_dir=None, backupFolder=args.backupFolder)
+    parser = ParseService(base_dir=None, backupFolder=args.backupFolder, diff_service=diff_service)
     svc.parse_service = parser
 
     # 2) file‐service (for ad hoc file lookups and reads)

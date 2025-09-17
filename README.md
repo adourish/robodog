@@ -214,64 +214,82 @@ configs:
 
 ---
 
+### 7) Auto Side by Side Diff
+
+![Robodog MCP File Service](screenshot-diff.png)
+
+
 ## /todo Feature  
 
-Robodog’s `/todo` command scans one or more `todo.md` files in your configured project roots, detects tasks marked `[ ]`, transitions them to `[~]` (Doing) when started, and `[x]` (Done) when completed. Each task may include:
+Robodog’s `/todo` command scans one or more `todo.md` files in your configured project roots, detects tasks marked `[ ][-]`, transitions them to `[~][-]` (Doing) when started, and `[x][-]` (Done) when completed. Additionally, flipping from [x[[ ] will commit the changes to from the out file to the destination file(s). Each task may include:
 
-- `include:` pattern or file specification to gather relevant knowledge
-- `focus:` file path where the AI will write or update content
-- Optional code fences below the task as initial context
+- [ ][-] task status and task commit status
+  - `include:` pattern or file specification to gather relevant knowledge
+  - `out:` file path where the AI will write or update content
+  - Optional code fences below the task as initial context
 
 You can have multiple `todo.md` files anywhere under your roots. `/todo` processes the earliest outstanding task, runs the AI with gathered knowledge, updates the focus file, stamps start/completion times, and advances to the next.
 
 ![Robodog MCP File Service](screenshot-todo.png)
 
+
 ### Example `todo.md` File Formats
 
 ```markdown
 # file: project1/todo.md
-- [ ] Revise API client
+- [ ][-] Revise API client
   - include: pattern=api/*.js recursive
-  - focus: file=api/client.js
+  - out: temp/out.js
 ```knowledge
 // existing stub
 ```
 
 
 ```markdown
-- [ ] Add unit tests
+- [ ][-] Add unit tests
   - include: file=tests/template.spec.js
-  - focus: file=tests/api.client.spec.js
+  - out: temp/out.js
 ```
 
 ```markdown
 # file: project2/docs/todo.md
-- [ ] Update README
-  - focus: file=README.md
-- [ ] Generate changelog
+- [ ][-] Update README
+  - out: file=README.md
+- [ ][-] Generate changelog
   - include: pattern=CHANGELOG*.md
-  - focus: file=CHANGELOG.md
+  - out: out.md
 ```knowledge
 
 ```
 
 ```markdown
 # todo readme
-- [x] readme
+- [x][-] readme
   - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
-  - focus: file=c:\projects\robodog\robodogcli\temp\service.log
+  - out: temp/out.js
 ```knowledge
 1. do not remove any content
 2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
 3. give lots of exampkes of file formats
 ```
+# todo 
+- [~][-] changes todo
+  - started: 2025-09-16 22:53 | knowledge: 36 | include: 25181 | prompt: 25492 | cur_model: openai/o4-mini
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py   recursive`
+  - out:  temp\out.py
+```knowledge
 
+1. detect if the parsed file is new or not. 
+2. # file: <filename.ext> NEW
+3. add if the file is new to the list of objects from parse_llm_output
+4. give me all of the code. 
+```
 
 ```markdown
 # watch
-- [ ] change app prints in service logger.INFO
+- [ ][-] change app prints in service logger.INFO
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus:   file=c:\projects\robodog\robodogcli\robodog\service.py
+  - out: temp/out.js
 ```knowledge
 do not remove any features.
 give me full drop in code file
@@ -280,7 +298,7 @@ give me full drop in code file
 
 ```markdown
 # fix logging
-- [ ] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
+- [ ][-] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
   - include: pattern=*robodog*.md|*robodog*.py  recursive`
   - focus: file=c:\projects\robodog\robodogcli\robodog\cli3.py
 ```knowledge

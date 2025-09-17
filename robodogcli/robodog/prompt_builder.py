@@ -40,7 +40,8 @@ class PromptBuilder:
         if knowledge_text:
             parts.append(f"Q. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
-        parts.append("R. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
+        parts.append("R. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q.")
+        parts.append(f"S.Produce one or more complete, runnable code files. Do not truncate.")
         return "\n".join(parts)
 
 
