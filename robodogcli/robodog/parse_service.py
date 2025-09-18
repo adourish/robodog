@@ -21,7 +21,7 @@ class ParsingError(Exception):
 class ParseService:
     """Service for parsing various LLM output formats into file objects."""
     
-    def __init__(self, base_dir: str = None, backupFolder: str = None, diff_service: DiffService = None):
+    def __init__(self, base_dir: str = None, backupFolder: str = None, diff_service: DiffService = None, file_service: Optional[object] = None):
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
         # detect "# file: <filename>" sections
@@ -36,6 +36,7 @@ class ParseService:
         self._backupFolder = backupFolder
         # use injected diff_service or default
         self.diff_service = diff_service or DiffService(side_width=self.side_width)
+        self.file_service = file_service
 
     def parse_llm_output(
         self,
@@ -74,7 +75,7 @@ class ParseService:
 
         # enhance each parsed object
         for obj in parsed:
-            self._enhance_parsed_object(obj, base_dir, file_service, task, svc)
+            self._enhance_parsed_object(obj, base_dir, file_service or self.file_service, task, svc)
 
         # ensure filename keys
         for obj in parsed:
@@ -101,7 +102,7 @@ class ParseService:
                 header += " NEW"
                 obj['content'] = header + ("\n" + rest if rest else "")
 
-        # write side-by-side diffs to disk
+        # write side-by-side diffs to disk using file_service if available
         if ai_out_path:
             out_root = Path(ai_out_path).parent
         elif base_dir:
@@ -109,7 +110,12 @@ class ParseService:
         else:
             out_root = Path.cwd()
         diffdir = out_root / 'diffoutput'
-        diffdir.mkdir(parents=True, exist_ok=True)
+        fs = file_service or self.file_service
+        if fs:
+            fs.ensure_dir(diffdir)
+        else:
+            logger.warning("No file_service available, skipping diff output writes.")
+            # No fallback to direct writes; rely on file_service being injected
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M-%S")
         for obj in parsed:
             sbs = obj.get('diff_sbs','')
@@ -120,8 +126,11 @@ class ParseService:
             name = f"diff-sbs-{stem}-{ts}{suf}.md"
             path = diffdir / name
             try:
-                path.write_text(sbs, encoding='utf-8')
-                logger.info(f"Saved side-by-side diff: {path}")
+                if fs:
+                    fs.write_file(path, sbs)
+                    logger.info(f"Saved side-by-side diff: {path}")
+                else:
+                    logger.warning(f"Skipping diff save for {path} due to missing file_service")
             except Exception as e:
                 logger.error(f"Failed to save diff {path}: {e}")
 
@@ -325,5 +334,5 @@ class ParseService:
         if '..' in fn or fn.startswith('/'): return False
         return True
 
-# original file length: 632 lines
-# updated file length: 323 lines
+# original file length: 338 lines
+# updated file length: 344 lines

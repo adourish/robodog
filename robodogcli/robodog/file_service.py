@@ -7,6 +7,7 @@ from typing import List, Optional
 from pathlib import Path
 import tempfile
 import fnmatch
+import shutil
 logger = logging.getLogger(__name__)
 
 
@@ -143,6 +144,15 @@ class FileService:
             logger.error(f"Failed to read {path}: {e}")
             return ""
 
+    def binary_read(self, path: Path) -> bytes:
+        """Safely read a file as binary."""
+        logger.debug(f"Binary read of: {path.absolute()}")
+        try:
+            return path.read_bytes()
+        except Exception as e:
+            logger.error(f"Failed to read binary {path}: {e}")
+            return b""
+
     def write_file(self, path: Path, content: str):
         """
         Atomically write `content` to `path`, creating directories as needed.
@@ -202,5 +212,38 @@ class FileService:
                     os.remove(tmp_name)
                 except Exception:
                     pass
-# original file length: 84 lines
-# updated file length: 84 lines
+
+    def ensure_dir(self, path: Path, parents: bool = True, exist_ok: bool = True):
+        """Ensure directory exists, creating parents if needed."""
+        path.mkdir(parents=parents, exist_ok=exist_ok)
+
+    def delete_file(self, path: Path):
+        """Delete a file if it exists."""
+        if path.exists():
+            path.unlink()
+
+    def append_file(self, path: Path, content: str):
+        """Append content to a file, creating directories if needed."""
+        self.ensure_dir(path.parent)
+        with path.open('a', encoding='utf-8') as f:
+            f.write(content)
+
+    def delete_dir(self, path: Path, recursive: bool = False):
+        """Delete a directory, optionally recursive."""
+        if recursive:
+            shutil.rmtree(path)
+        else:
+            path.rmdir()
+
+    def rename(self, src: Path, dst: Path):
+        """Rename or move a file/directory."""
+        self.ensure_dir(dst.parent)
+        src.rename(dst)
+
+    def copy_file(self, src: Path, dst: Path):
+        """Copy a file."""
+        self.ensure_dir(dst.parent)
+        shutil.copy2(src, dst)
+
+# original file length: 142 lines
+# updated file length: 159 lines

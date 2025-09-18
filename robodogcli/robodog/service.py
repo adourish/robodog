@@ -21,7 +21,7 @@ from typing import List, Optional
 logger = logging.getLogger('robodog.service')
 
 class RobodogService:
-    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None , backupFolder:str = None):
+    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None , backupFolder:str = None, file_service: Optional[object] = None):
         # --- load YAML config and LLM setup ---
         self._load_config(config_path)
         # --- ensure we always have a _roots attribute ---
@@ -31,6 +31,7 @@ class RobodogService:
         self._exclude_dirs = exclude_dirs or {"node_modules", "dist"}
         self.stashes = {}
         self.backupFolder = backupFolder
+        self.file_service = file_service
         self._init_llm(api_key)
 
     def _load_config(self, config_path):
@@ -202,9 +203,8 @@ class RobodogService:
 
     ## NOT USED!!!
     def export_snapshot(self, filename: str):
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write("=== Chat History ===\n" + self.context + "\n")
-            f.write("=== Knowledge ===\n" + self.knowledge + "\n")
+        content = "=== Chat History ===\n" + getattr(self, 'context', '') + "\n" + "=== Knowledge ===\n" + getattr(self, 'knowledge', '') + "\n"
+        self.file_service.write_file(Path(filename), content)
 
     # ————————————————————————————————————————————————————————————
     # NUMERIC PARAMS
@@ -361,37 +361,31 @@ class RobodogService:
     # ————————————————————————————————————————————————————————————
     # MCP-SERVER FILE-OPS
     def read_file(self, path: str):
-        return open(path, 'r', encoding='utf-8').read()
+        return self.file_service.safe_read_file(Path(path))
 
     def update_file(self, path: str, content: str):
-        open(path, 'w', encoding='utf-8').write(content)
+        self.file_service.write_file(Path(path), content)
 
     def create_file(self, path: str, content: str = ""):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, 'w', encoding='utf-8').write(content)
+        self.file_service.write_file(Path(path), content)
 
     def delete_file(self, path: str):
-        os.remove(path)
+        self.file_service.delete_file(Path(path))
 
     def append_file(self, path: str, content: str):
-        open(path, 'a', encoding='utf-8').write(content)
+        self.file_service.append_file(Path(path), content)
 
     def create_dir(self, path: str, mode: int = 0o755):
-        os.makedirs(path, mode, exist_ok=True)
+        self.file_service.ensure_dir(Path(path))
 
     def delete_dir(self, path: str, recursive: bool = False):
-        if recursive:
-            shutil.rmtree(path)
-        else:
-            os.rmdir(path)
+        self.file_service.delete_dir(Path(path), recursive=recursive)
 
     def rename(self, src: str, dst: str):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        os.rename(src, dst)
+        self.file_service.rename(Path(src), Path(dst))
 
     def copy_file(self, src: str, dst: str):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy2(src, dst)
+        self.file_service.copy_file(Path(src), Path(dst))
 
     def _parse_base_dir(self) -> Optional[str]:
         """
@@ -400,7 +394,7 @@ class RobodogService:
         and return its value.
         """
         for fn in self._find_files():
-            text = Path(fn).read_text(encoding='utf-8')
+            text = self.file_service.safe_read_file(Path(fn))
             lines = text.splitlines()
             # Must start a YAML block
             if not lines or lines[0].strip() != '---':
@@ -433,11 +427,9 @@ class RobodogService:
         return out
 
     def checksum(self, path: str):
-        h = hashlib.sha256()
-        with open(path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
-                h.update(chunk)
+        content = self.file_service.binary_read(Path(path))
+        h = hashlib.sha256(content)
         return h.hexdigest()
 
-# original file length: 497 lines
-# updated file length: 510 lines
+# original file length: 528 lines
+# updated file length: 546 lines

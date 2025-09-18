@@ -69,13 +69,14 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][-] changes todo
-  - started: 2025-09-16 23:56 | completed: 2025-09-16 23:57 | knowledge: 13 | include: 25472 | prompt: 25770 | cur_model: openai/o4-mini | truncation: warning | truncation: error | compare: todo.py (o/n/d/c: 1383/399/-984/71.1%)
+- [x][x] changes todo
+  - started: None | completed: 2025-09-18 00:36 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openrouter/sonoma-sky-alpha | commit: success | compare: file_service.py (o/n/d/c: 847/875/28/3.3%), service.py (o/n/d/c: 1284/1275/-9/0.7%)
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py   recursive`
   - out:  temp\out.py
 ```knowledge
-1. if the file is NEW, create the file if it doesnt exist.
-
+1. identify any services that read and write files
+2. identify any new functions that need to be part of the file_service and add them
+3. change any services that are writing there own files and change them to call the file_service
 ```
 
 

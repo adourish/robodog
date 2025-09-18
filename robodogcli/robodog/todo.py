@@ -1,4 +1,4 @@
-
+# file: todo.py
 import os
 import re
 import time
@@ -86,8 +86,8 @@ class TodoService:
         logger.debug("_parse_base_dir called")
         for fn in self._find_files():
             logger.debug(f"Parsing front-matter from {fn}")
-            text = Path(fn).read_text(encoding='utf-8')
-            lines = text.splitlines()
+            content = self._file_service.safe_read_file(Path(fn))
+            lines = content.splitlines()
             if not lines or lines[0].strip() != '---':
                 continue
             try:
@@ -125,7 +125,8 @@ class TodoService:
         self._tasks.clear()
         for fn in self._find_files():
             logger.debug(f"Parsing tasks from {fn}")
-            lines = Path(fn).read_text(encoding='utf-8').splitlines(keepends=True)
+            content = self._file_service.safe_read_file(Path(fn))
+            lines = content.splitlines(keepends=True)
             self._file_lines[fn] = lines
             i = 0
             task_count = 0
@@ -323,12 +324,23 @@ class TodoService:
         for parsed in parsed_files:
             content = parsed['content']
             # completeness check
+            filename = parsed.get('filename', '')
             matchedfilename = parsed.get('matchedfilename', '')
-            new_path = matchedfilename
-            
-            if matchedfilename:
-                if commit_file == True:
-                    self._file_service.write_file(matchedfilename, content)
+            is_new = parsed.get('new', False)
+            new_path = None
+
+            if commit_file:
+                if is_new:
+                    # For new files, resolve the path to create in the appropriate root
+                    new_path = self._file_service.resolve_path(filename)
+                    logger.info(f"Creating new file at resolved path: {new_path}")
+                else:
+                    new_path = Path(matchedfilename)
+                
+                if new_path:
+                    self._file_service.write_file(new_path, content)
+                    # Update matchedfilename for reporting
+                    parsed['matchedfilename'] = str(new_path)
 
             short_compare = parsed.get('short_compare', '')
             result = parsed.get('result', '')
@@ -413,5 +425,5 @@ class TodoService:
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 497 lines
-# updated file length: 503 lines
+# original file length: 523 lines
+# updated file length: 529 lines

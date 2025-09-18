@@ -1,3 +1,4 @@
+# file: cli.py
 #!/usr/bin/env python3
 import os
 import sys
@@ -94,6 +95,10 @@ def _init_services(args):
 
     # 2) file‐service (for ad hoc file lookups and reads)
     svc.file_service = FileService(roots=args.folders, base_dir=None, backupFolder=args.backupFolder)
+
+    # Inject file_service into parser and service
+    parser.file_service = svc.file_service
+    svc.file_service = svc.file_service
 
     # 3) file‐watcher (used by TaskManager / TodoService to ignore self‐writes)
     watcher = FileWatcher()
@@ -353,3 +358,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# original file length: 368 lines
+# updated file length: 375 lines
