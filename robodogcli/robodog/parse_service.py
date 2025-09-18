@@ -24,7 +24,7 @@ class ParseService:
     def __init__(self, base_dir: str = None, backupFolder: str = None, diff_service: DiffService = None, file_service: Optional[object] = None):
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
-        # Enhanced pattern to match different comment styles: #, //, /* */
+        # Enhanced pattern to match different comment styles: #, //
         # Captures the comment prefix for potential use in reconstruction
         # Also captures optional NEW or DELETE flag
         self.section_pattern = re.compile(

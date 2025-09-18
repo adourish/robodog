@@ -16,7 +16,7 @@ class PromptBuilder:
         parts = [
             "Instructions:",
             "A. Produce one or more complete, runnable code files.",
-            "B. For each file, begin with the appropriate comment directive based on the file type: use '# file: <filename>' for Python, '// file: <filename>' for JavaScript/TypeScript, '/* file: <filename> */' for other languages if needed. Use only filenames provided in the task; do not guess or infer. Do not include the file path.",
+            "B. For each file, begin with the appropriate comment directive based on the file type: use '# file: <filename>' for Python, '// file: <filename>' for JavaScript/TypeScript, '// file: <filename> ' for other languages if needed. Use only filenames provided in the task; do not guess or infer. Do not include the file path.",
             "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run. Ensure the content uses the correct syntax and comment styles for the file type.",
             "D. If multiple files are needed, separate them with a single blank line.",
             "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
@@ -43,7 +43,7 @@ class PromptBuilder:
             parts.append(f"R. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
         parts.append("S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
-        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses // or /* */.")
+        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //")
         return "\n".join(parts)
 
 
@@ -53,7 +53,7 @@ class PromptBuilder:
         parts = [
             "Instructions:",
             "A. Produce one or more complete, runnable code files.",
-            "B. For each file, begin with the appropriate comment directive based on the file type: use '# file: <filename>' for Python, '// file: <filename>' for JavaScript/TypeScript, '/* file: <filename> */' for other languages if needed. Use only filenames provided in the task; do not guess or infer. Do not include the file path.",
+            "B. For each file, begin with the appropriate comment directive based on the file type: use '# file: <filename>' for Python, '// file: <filename>' for JavaScript/TypeScript, '// file: <filename> ' for other languages if needed. Use only filenames provided in the task; do not guess or infer. Do not include the file path.",
             "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run. Ensure the content uses the correct syntax and comment styles for the file type.",
             "D. If multiple files are needed, separate them with a single blank line.",
             "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
@@ -80,7 +80,7 @@ class PromptBuilder:
             parts.append(f"R. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
         parts.append("S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
-        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses // or /* */.")
+        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //")
         return "\n".join(parts)
 
 # original file length: 113 lines
