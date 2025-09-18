@@ -123,7 +123,7 @@ class DiffService:
                             left = f"{o_ln:4}⚪ {segment}".ljust(left_pad)
                             right = f"             {segment}"
                         else:
-                            left = f"    ⚪ {segment}".ljust(left_pad)
+                            left = f"      {segment}".ljust(left_pad)
                             right = f"         {segment}"
                         lines.append(f"{left}  {right}")
                     o_ln += 1
@@ -147,7 +147,7 @@ class DiffService:
                         if idxw == 0:
                             right = f"{n_ln:4}🟢 {segment}"
                         else:
-                            right = f"    🟢 {segment}"
+                            right = f"      {segment}"
                         lines.append(f"{left}  {right}")
                     n_ln += 1
             elif tag == 'replace':
@@ -158,7 +158,7 @@ class DiffService:
                         if idxw == 0:
                             left = f"{o_ln + idxd:4}⚫ {segment}".ljust(left_pad)
                         else:
-                            left = f"    ⚫ {segment}".ljust(left_pad)
+                            left = f"      {segment}".ljust(left_pad)
                         right = " " * (col_width + 8)
                         lines.append(f"{left}  {right}")
                 # insertions
@@ -169,7 +169,7 @@ class DiffService:
                         if idxw == 0:
                             right = f"{n_ln + idxi:4}🟢 {segment}"
                         else:
-                            right = f"    🟢 {segment}"
+                            right = f"      {segment}"
                         lines.append(f"{left}  {right}")
                 o_ln += (i2 - i1)
                 n_ln += (j2 - j1)

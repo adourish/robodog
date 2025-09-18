@@ -1,3 +1,4 @@
+# file: mcphandler.py
 #!/usr/bin/env python3
 import os
 import json
@@ -7,6 +8,7 @@ import fnmatch
 import hashlib
 import shutil
 import logging
+import ssl
 
 try:
     from .service import RobodogService
@@ -360,19 +362,45 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads      = True
     allow_reuse_address = True
 
+class SSLThreadedTCPServer(ThreadedTCPServer):
+    def __init__(self, server_address, RequestHandlerClass, certfile=None, keyfile=None, ssl_context=None, **kwargs):
+        self.certfile = certfile
+        self.keyfile = keyfile
+        self.ssl_context = ssl_context
+        super().__init__(server_address, RequestHandlerClass, **kwargs)
+
+    def get_request(self):
+        newsock, sock = super().get_request()
+        if self.ssl_context:
+            newsock = self.ssl_context.wrap_socket(newsock, server_side=True)
+        return newsock, sock
+
 def run_robodogmcp(host: str, port: int, token: str,
-                   folders: list, svc: RobodogService):
+                   folders: list, svc: RobodogService, cert: str = None, key: str = None):
     """
     Launch a threaded MCP server on (host,port) with bearer‐auth and
     hook into the provided RobodogService instance.
+    Supports SSL if cert and key files are provided.
     """
     global TOKEN, ROOTS, SERVICE
     TOKEN   = token
     SERVICE = svc
     ROOTS   = [os.path.abspath(f) for f in folders]
-    server  = ThreadedTCPServer((host, port), MCPHandler)
+    
+    if cert and key:
+        # Create SSL context for server-side
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(certfile=cert, keyfile=key)
+        # Use custom SSL server
+        server = SSLThreadedTCPServer((host, port), MCPHandler, certfile=cert, keyfile=key, ssl_context=ssl_context)
+        logger.info("SSL MCP server started with cert: %s, key: %s", cert, key)
+    else:
+        # Plain TCP server
+        server = ThreadedTCPServer((host, port), MCPHandler)
+        logger.info("Plain MCP server started (no SSL)")
+    
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
-# original file length: 222 lines
-# updated file length: 256 lines
+# original file length: 256 lines
+# updated file length: 312 lines

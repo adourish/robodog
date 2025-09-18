@@ -128,7 +128,7 @@ class ParseService:
             try:
                 if fs:
                     fs.write_file(path, sbs)
-                    logger.info(f"Saved side-by-side diff: {path}")
+                    logger.debug(f"Saved side-by-side diff: {path}")
                 else:
                     logger.warning(f"Skipping diff save for {path} due to missing file_service")
             except Exception as e:

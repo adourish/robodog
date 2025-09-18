@@ -297,6 +297,10 @@ def main():
                         help='MCP port')
     parser.add_argument('--token', required=True,
                         help='MCP auth token')
+    parser.add_argument('--cert', default=None,
+                        help='Path to SSL certificate file (PEM format)')
+    parser.add_argument('--key', default=None,
+                        help='Path to SSL private key file (PEM format)')
     parser.add_argument('--model', '-m',
                         help='startup model name')
     parser.add_argument('--log-file', default='robodog.log',
@@ -339,11 +343,15 @@ def main():
         port    = args.port,
         token   = args.token,
         folders = args.folders,
-        svc     = svc
+        svc     = svc,
+        cert    = args.cert,
+        key     = args.key
     )
     logging.info("MCP server on %s:%d", args.host, args.port)
+    if args.cert and args.key:
+        logging.info("SSL enabled with provided cert and key")
 
-    svc.mcp_cfg['baseUrl'] = f"http://{args.host}:{args.port}"
+    svc.mcp_cfg['baseUrl'] = f"http{'s' if args.cert and args.key else ''}://{args.host}:{args.port}"
     svc.mcp_cfg['apiKey']  = args.token
     if args.model:
         svc.set_model(args.model)
@@ -359,5 +367,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# original file length: 368 lines
-# updated file length: 375 lines
+# original file length: 375 lines
+# updated file length: 395 lines

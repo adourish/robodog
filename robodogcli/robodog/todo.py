@@ -26,7 +26,7 @@ TASK_RE = re.compile(
     r'^(\s*)-\s*'                  # indent + "- "
     r'\[(?P<status>[ x~])\]'       # first [status]
     r'(?:\s*\[(?P<write>[ x~-])\])?'  # optional [write_flag], whitespace allowed
-    r'\s*(?P<desc>.+)$'            # space + desc
+    r'\s*(?P<desc>.+)$'            # space + desc (including potential metadata)
 )
 SUB_RE = re.compile(
     r'^\s*-\s*(?P<key>include|out|in|focus):\s*'
@@ -82,6 +82,42 @@ class TodoService:
         threading.Thread(target=self._watch_loop, daemon=True).start()
         logger.debug("TodoService initialized successfully")
 
+    def _parse_task_metadata(self, full_desc: str) -> Dict:
+        """
+        Parse the task description for metadata like started, completed, knowledge_tokens, etc.
+        Returns a dict with parsed values and the clean description.
+        """
+        metadata = {
+            'desc': full_desc.strip(),
+            '_start_stamp': None,
+            '_complete_stamp': None,
+            'knowledge_tokens': 0,
+            'include_tokens': 0,
+            'prompt_tokens': 0,
+        }
+        # Split by | to separate desc from metadata
+        parts = [p.strip() for p in full_desc.split('|') if p.strip()]
+        if len(parts) > 1:
+            metadata['desc'] = parts[0]  # Clean desc is the first part
+            # Parse metadata parts
+            for part in parts[1:]:
+                if ':' in part:
+                    key, val = [s.strip() for s in part.split(':', 1)]
+                    try:
+                        if key == 'started':
+                            metadata['_start_stamp'] = val if val.lower() != 'none' else None
+                        elif key == 'completed':
+                            metadata['_complete_stamp'] = val if val.lower() != 'none' else None
+                        elif key == 'knowledge':
+                            metadata['knowledge_tokens'] = int(val) if val.isdigit() else 0
+                        elif key == 'include':
+                            metadata['include_tokens'] = int(val) if val.isdigit() else 0
+                        elif key == 'prompt':
+                            metadata['prompt_tokens'] = int(val) if val.isdigit() else 0
+                    except ValueError:
+                        logger.debug(f"Failed to parse metadata part: {part}")
+        return metadata
+
     def _parse_base_dir(self) -> Optional[str]:
         logger.debug("_parse_base_dir called")
         for fn in self._find_files():
@@ -119,6 +155,7 @@ class TodoService:
         """
         Parse each todo.md into tasks, capturing optional second‐bracket
         write‐flag and any adjacent ```knowledge``` block.
+        Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
         """
         logger.debug("_load_all called: Reloading all tasks from files")
         self._file_lines.clear()
@@ -139,8 +176,11 @@ class TodoService:
                 indent     = m.group(1)
                 status     = m.group('status')
                 write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
-                desc       = m.group('desc').strip()
-                task       = {
+                full_desc  = m.group('desc')
+                # Parse metadata and clean desc
+                metadata = self._parse_task_metadata(full_desc)
+                desc     = metadata.pop('desc')
+                task     = {
                     'file': fn,
                     'line_no': i,
                     'indent': indent,
@@ -151,12 +191,17 @@ class TodoService:
                     'in': None,
                     'out': None,
                     'knowledge': '',
+                    'knowledge_tokens': 0,
+                    'include_tokens': 0,
+                    'prompt_tokens': 0,
                     '_start_stamp': None,
                     '_know_tokens': 0,
                     '_in_tokens': 0,
                     '_prompt_tokens': 0,
                     '_include_tokens': 0,
+                    '_complete_stamp': None,
                 }
+                task.update(metadata)  # Add parsed metadata (tokens, stamps)
 
                 # scan sub‐entries (include, in, focus)
                 j = i + 1
@@ -180,6 +225,9 @@ class TodoService:
                         fence.append(lines[j])
                         j += 1
                     task['knowledge'] = ''.join(fence)
+                    know_tokens = len(''.join(fence).split())
+                    task['_know_tokens'] = know_tokens
+                    task['knowledge_tokens'] = know_tokens  # Override if metadata had different value
                     j += 1  # skip closing ``` line
 
                 self._tasks.append(task)
@@ -220,9 +268,9 @@ class TodoService:
                     try:
                         # re‐parse all todo.md files into self._tasks
                         self._load_all()
-                        todo = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'Done']
+                        done_tasks = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'Done']
                                          
-                        self._process_manual_done(todo)
+                        self._process_manual_done(done_tasks)
 
                         # b) then run the next To Do task, if any remain
                         next_todos = [
@@ -241,20 +289,33 @@ class TodoService:
 
             time.sleep(1)
 
-    def _process_manual_done(self, todo: list):
+    def _process_manual_done(self, done_tasks: list):
         """
         When a task is manually marked Done:
         - Use the same processing logic as _process_one for consistency
+        - Ensure token values are populated from parsed metadata or defaults
         """
-        logger.debug(f"_process_manual_done called with {len(todo)} tasks")
-        for task in todo:
+        logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks")
+        for task in done_tasks:
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
                 logger.info(f"Manual commit of task: {task['desc']}")
+                # Tokens should already be populated from _load_all parsing
+                # But ensure they are set (fallback to 0 if not)
+                task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
+                task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
+                task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
+                # Ensure start stamp is set before task_manager call
+                if task.get('_start_stamp') is None:
+                    task['_start_stamp'] = datetime.now().isoformat()
                 out_path = self._get_ai_out_path(task)
                 ai_out = self._file_service.safe_read_file(out_path)
                 logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
                 cur_model = self._svc.get_cur_model()
-                self._task_manager.start_commit_task(task, self._file_lines, cur_model)
+                st = self._task_manager.start_commit_task(task, self._file_lines, cur_model)
+                # Preserve or set stamp if task_manager returns None
+                if st is None:
+                    st = task['_start_stamp']
+                task['_start_stamp'] = st
 
                 try:
                     basedir = Path(task['file']).parent
@@ -269,18 +330,38 @@ class TodoService:
                 else:
                     logger.info("No parsed files to report.")
 
-                self._task_manager.complete_commit_task(task, self._file_lines, cur_model, 1, compare)
+                ct = self._task_manager.complete_commit_task(task, self._file_lines, cur_model, 1, compare)
+                # Preserve or set stamp if task_manager returns None
+                if ct is None:
+                    ct = datetime.now().isoformat()
+                task['_complete_stamp'] = ct
             else:
                 logger.debug("No tasks to commit.")
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
         logger.debug(f"Starting task: {task['desc']}")
+        # Ensure tokens are populated before calling task_manager
+        task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
+        task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
+        task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
         st = self._task_manager.start_task(task, file_lines_map, cur_model)
+        # Preserve or set stamp if task_manager returns None
+        if st is None:
+            st = datetime.now().isoformat()
+        task['_start_stamp'] = st  # Ensure start stamp is set on task
         return st
         
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None):
         logger.debug(f"Completing task: {task['desc']}")
+        # Ensure tokens are populated before calling task_manager
+        task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
+        task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
+        task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
         ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation, compare)
+        # Preserve or set stamp if task_manager returns None
+        if ct is None:
+            ct = datetime.now().isoformat()
+        task['_complete_stamp'] = ct  # Ensure complete stamp is set on task
         return ct
             
     def run_next_task(self, svc):
@@ -374,16 +455,20 @@ class TodoService:
         logger.debug(f"Base dir: {self._base_dir}")
         include_text = self._gather_include_knowledge(task, svc)
         task['_include_tokens'] = len(include_text.split())
+        task['include_tokens'] = task['_include_tokens']
         logger.info(f"Include tokens: {task['_include_tokens']}")
         knowledge_text = task.get('knowledge') or ""
         task['_know_tokens'] = len(knowledge_text.split())
+        task['knowledge_tokens'] = task['_know_tokens']
         logger.info(f"Knowledge tokens: {task['_know_tokens']}")
         out_path = self._get_ai_out_path(task)
         prompt = self._prompt_builder.build_task_prompt(task, self._base_dir, str(out_path), knowledge_text, include_text)
         task['_prompt_tokens'] = len(prompt.split())
+        task['prompt_tokens'] = task['_prompt_tokens']
         logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
         cur_model = svc.get_cur_model()
-        self.start_task(task, file_lines_map, cur_model)
+        st = self.start_task(task, file_lines_map, cur_model)
+        task['_start_stamp'] = st  # Ensure start stamp is set
 
         try:
             ai_out = svc.ask(prompt)
@@ -418,12 +503,13 @@ class TodoService:
         else:
             logger.info("No parsed files to report.")
 
-        self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
+        ct = self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
+        task['_complete_stamp'] = ct  # Ensure complete stamp is set
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 523 lines
-# updated file length: 529 lines
+# original file length: 578 lines
+# updated file length: 641 lines

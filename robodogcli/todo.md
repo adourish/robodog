@@ -69,14 +69,13 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][x] changes todo
-  - started: None | completed: 2025-09-18 00:36 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openrouter/sonoma-sky-alpha | commit: success | compare: file_service.py (o/n/d/c: 847/875/28/3.3%), service.py (o/n/d/c: 1284/1275/-9/0.7%)
-  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py   recursive`
+- [x][-] changes todo
+  - started: 2025-09-17T21:35:02.566782 | completed: 2025-09-18 01:35 | knowledge: 19 | include: 35729 | prompt: 36033 | cur_model: openrouter/sonoma-sky-alpha | compare: mcphandler.py (o/n/d/c: 1152/1149/-3/0.3%), cli.py (o/n/d/c: 1122/1119/-3/0.3%)
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. identify any services that read and write files
-2. identify any new functions that need to be part of the file_service and add them
-3. change any services that are writing there own files and change them to call the file_service
+1. add ssl support to the mcp server
+2. add an optional cli param for passing in the key
 ```
 
 
