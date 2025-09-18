@@ -26,8 +26,9 @@ class ParseService:
         logger.debug("Initializing ParseService")
         # Enhanced pattern to match different comment styles: #, //, /* */
         # Captures the comment prefix for potential use in reconstruction
+        # Also captures optional NEW or DELETE flag
         self.section_pattern = re.compile(
-            r'^\s*(?P<comment>(#|//|/\*))\s*file:\s*["`]?(.+?)["`]?\s*(NEW)?\s*$', 
+            r'^\s*(?P<comment>(#|//|/\*))\s*file:\s*["`]?(.+?)["`]?\s*(?P<flag>NEW|DELETE)?\s*$', 
             re.IGNORECASE | re.MULTILINE
         )
         # fenced code blocks
@@ -89,19 +90,28 @@ class ParseService:
             obj.setdefault('originalfilename', fn)
             obj.setdefault('matchedfilename', fn)
 
-        # mark new files
+        # mark new files and deletions
         for obj in parsed:
+            flag = obj.get('flag', '')
             matched = obj.get('matchedfilename', '')
-            new_header = obj.get('new_header', False)
+            new_header = flag == 'NEW'
+            delete_flag = flag == 'DELETE'
             is_new = new_header or (matched and not Path(matched).exists()) or (not matched)
             obj['new'] = is_new
-            # append NEW to content directive if new, preserving comment style
+            obj['delete'] = delete_flag
+            # append NEW or DELETE to content directive if flagged, preserving comment style
             content = obj.get('content','')
             comment_style = obj.get('comment_style', '#')  # Default to Python
-            if is_new and content.startswith(f"{comment_style} file:"):
+            if content.startswith(f"{comment_style} file:"):
                 header, _, rest = content.partition("\n")
-                header += " NEW"
+                if new_header:
+                    header += " NEW"
+                elif delete_flag:
+                    header += " DELETE"
                 obj['content'] = header + ("\n" + rest if rest else "")
+            # For DELETE, ensure no content or set to empty
+            if delete_flag:
+                obj['content'] = f"{comment_style} file: {obj.get('filename', '')} DELETE"
 
         # write side-by-side diffs to disk using file_service if available
         if ai_out_path:
@@ -151,13 +161,17 @@ class ParseService:
         matched = filename  # Default to relative filename
         diff_md = ''
         diff_sbs = ''
-        new_header = obj.get('new_header', False)
+        flag = obj.get('flag', '')  # NEW or DELETE
+        new_header = flag == 'NEW'
+        delete_flag = flag == 'DELETE'
         relative_path = obj.get('relative_path', filename)
         comment_style = obj.get('comment_style', '#')  # Captured from pattern
+        obj['flag'] = flag
         obj['new_header'] = new_header
+        obj['delete'] = delete_flag
         obj['comment_style'] = comment_style
         # use file_service to locate and read original
-        if file_service and not new_header:
+        if file_service and not new_header and not delete_flag:
             try:
                 include_spec = {}
                 if isinstance(task, dict) and isinstance(task.get('include'), dict):
@@ -178,6 +192,23 @@ class ParseService:
                 # For new files, use relative path from directive
                 matched = relative_path
                 logger.info(f"New file detected from header for {filename}, relative path: {matched} (will resolve relative to {base_dir})")
+            elif delete_flag:
+                # For delete, try to find existing file for diff (full removal)
+                if file_service:
+                    try:
+                        include_spec = {'pattern':'*','recursive':True}
+                        candidate = file_service.find_matching_file(filename, include_spec, svc)
+                        if candidate:
+                            matched = str(candidate.resolve())
+                            original_content = file_service.safe_read_file(candidate)
+                            new_content = ''  # Empty for deletion
+                            diff_md  = self.diff_service.generate_improved_md_diff(filename, original_content, new_content, matched)
+                            diff_sbs = self.diff_service.generate_side_by_side_diff(filename, original_content, new_content, matched)
+                            logger.info(f"Generated removal diff for {filename}")
+                    except Exception as e:
+                        logger.error(f"Error enhancing delete for {filename}: {e}")
+                matched = relative_path or filename
+                logger.info(f"Delete flagged for {filename}, matched: {matched} (will delete if exists)")
             else:
                 logger.warning(f"No file_service for parsing {filename}")
 
@@ -188,7 +219,8 @@ class ParseService:
         change   = 0.0 if orig_toks==0 else abs(delta)/orig_toks*100
         long_compare = f"Compare: '{filename}' -> {matched} (o/n/d: {orig_toks}/{new_toks}/{delta}) change={change:.1f}%"
         short_compare = f"{filename} (o/n/d/c: {orig_toks}/{new_toks}/{delta}/{change:.1f}%)"
-        logger.info(long_compare)
+        action = 'NEW' if new_header else ('DELETE' if delete_flag else 'UPDATE')
+        logger.info(f"{action}: {long_compare}")
         obj.update({
             'originalfilename': filename,
             'matchedfilename': matched,
@@ -204,14 +236,16 @@ class ParseService:
             'short_compare': short_compare,
             'result': self._result_code(change)
         })
-        # normalize content directive, add NEW if new (but will be set later; for now, base)
+        # normalize content directive, add NEW or DELETE if flagged (but will be set later; for now, base)
         if new_header and 'relative_path' in obj:
             directive = f"{comment_style} file: {obj['relative_path']}"
         else:
             directive = f"{comment_style} file: {filename}"
-        if obj.get('new', False):
+        if new_header:
             directive += " NEW"
-        obj['content'] = f"{directive}\n{new_content}"
+        elif delete_flag:
+            directive += " DELETE"
+        obj['content'] = f"{directive}\n{new_content}" if not delete_flag else f"{directive}"
 
     def _result_code(self, change: float) -> int:
         if change > 40.0:
@@ -268,19 +302,24 @@ class ParseService:
         for idx, m in enumerate(matches):
             comment = m.group('comment')  # e.g., '#', '//', '/*'
             raw_fn = m.group(3).strip().strip('\'"`')  # Filename group
-            new_header = bool(m.group(4))  # Capture the optional 'NEW'
-            if new_header:
-                raw_fn = raw_fn.rstrip(' NEW').strip()  # Strip 'NEW' if present
+            flag = m.group('flag')  # NEW or DELETE or None
+            # Strip flag from raw_fn if present (though pattern already separates)
+            if flag:
+                raw_fn = raw_fn.rstrip(f" {flag}").strip()
             fn = Path(raw_fn).name
             relative_path = raw_fn
             start = m.end()
             end = matches[idx+1].start() if idx+1<len(matches) else len(out)
             chunk = out[start:end].strip('\n')
+            new_header = flag == 'NEW' if flag else False
+            delete_flag = flag == 'DELETE' if flag else False
             sections.append({
                 'filename': fn, 
                 'relative_path': relative_path, 
                 'content': chunk, 
+                'flag': flag,
                 'new_header': new_header,
+                'delete': delete_flag,
                 'comment_style': comment  # Store the comment style for later use
             })
         return sections
@@ -362,5 +401,5 @@ class ParseService:
         if '..' in fn or fn.startswith('/'): return False
         return True
 
-# original file length: 428 lines
-# updated file length: 492 lines
+# original file length: 578 lines
+# updated file length: 578 lines

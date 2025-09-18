@@ -69,15 +69,13 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][x] changes todo | started: 2025-09-17T23:24:18.813225 | knowledge: 35
-  - started: 2025-09-17T23:23:00.770205 | completed: 2025-09-18 03:23 | knowledge: 35 | include: 36495 | prompt: 36815 | cur_model: openrouter/sonoma-sky-alpha | compare: prompt_builder.py (o/n/d/c: 701/857/156/22.3%)  -> C:\Projects\robodog\robodogcli\robodog\prompt_builder.py, parse_service.py (o/n/d/c: 1210/1287/77/6.4%)  -> C:\Projects\robodog\robodogcli\robodog\parse_service.py
+- [x][x] changes todo | started: 2025-09-18T18:29:57.244582 | knowledge: 17
+  - started: 2025-09-18T18:27:37.726722 | completed: 2025-09-18 22:28 | knowledge: 17 | include: 38418 | prompt: 38827 | cur_model: openrouter/sonoma-sky-alpha | compare: parse_service.py (o/n/d/c: 1498/1495/-3/0.2%)  -> C:\Projects\robodog\robodogcli\robodog\parse_service.py, todo.py (o/n/d/c: 2117/2168/51/2.4%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. enhance the prompt_builder and parser to support other comment blocks 
-2. e.g., "# file: <filename>" should be "// file: <filename> " for javascript frameworks
-3. handle other file types. it is working for python
-
+1. enhance the parse service to handle deletes.
+2. add delete feature to file service if needed.
 
 ```
 

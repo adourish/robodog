@@ -435,6 +435,7 @@ class TodoService:
         """
         Write parsed files and compare tokens using parse_service object properties, return results and compare list
         For NEW files, resolve path relative to todo.md folder (base_dir) and create full path.
+        For DELETE files, delete the matched file if it exists.
         matchedfilename remains relative for reporting.
         """
         logger.debug("_write_parsed_files called")
@@ -449,10 +450,20 @@ class TodoService:
             matchedfilename = parsed.get('matchedfilename', '')  # Relative path for NEW files
             relative_path = parsed.get('relative_path', filename)
             is_new = parsed.get('new', False)
+            is_delete = parsed.get('delete', False)
             new_path = None
 
             if commit_file:
-                if is_new:
+                if is_delete:
+                    # Handle DELETE: delete the matched file
+                    delete_path = Path(matchedfilename)
+                    if delete_path.exists():
+                        self._file_service.delete_file(delete_path)
+                        logger.info(f"Deleted file: {delete_path}")
+                    else:
+                        logger.warning(f"File to delete not found: {delete_path}")
+                    continue  # No content to write for deletes
+                elif is_new:
                     # For NEW files, resolve relative path from directive to full path under base_dir (todo.md folder)
                     new_path = self._file_service.resolve_path(relative_path)
                     logger.info(f"Creating NEW file at full path: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
@@ -460,13 +471,13 @@ class TodoService:
                     # For existing, use matched full path
                     new_path = Path(matchedfilename)
                 
-                if new_path:
+                if new_path and not is_delete:
                     self._file_service.write_file(new_path, content)
                     logger.info(f"Committed file: {new_path} (relative: {relative_path if is_new else matchedfilename})")
 
             short_compare = parsed.get('short_compare', '')
             result = parsed.get('result', '')
-            compare.append(f"{short_compare} {'(NEW)' if is_new else ''} -> {matchedfilename}")
+            compare.append(f"{short_compare} {'(NEW)' if is_new else '(DELETE)' if is_delete else ''} -> {matchedfilename}")
 
         return result, compare
 
@@ -553,5 +564,5 @@ class TodoService:
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 753 lines
-# updated file length: 787 lines
+# original file length: 787 lines
+# updated file length: 833 lines

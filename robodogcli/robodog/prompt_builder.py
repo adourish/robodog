@@ -34,15 +34,16 @@ class PromptBuilder:
         # New instruction: mark newly created files
         idx = parts.index("")  # insert before the first blank line
         parts.insert(idx, "O. If a file is newly created (did not exist before), append 'NEW' after the filename in the file directive, e.g., '# file: <filename> NEW' or '// file: <filename> NEW' for JS.")
+        parts.insert(idx + 1, "P. For files to be deleted, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript. Do not include any content after the directive for deleted files.")
         
         if include_text:
-            parts.append(f"P. Review included files:\n{include_text}")
+            parts.append(f"Q. Review included files:\n{include_text}")
         
         if knowledge_text:
-            parts.append(f"Q. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
+            parts.append(f"R. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
-        parts.append("R. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q.")
-        parts.append(f"S. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses // or /* */.")
+        parts.append("S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
+        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses // or /* */.")
         return "\n".join(parts)
 
 
@@ -70,15 +71,17 @@ class PromptBuilder:
         # New instruction: mark newly created files
         idx = parts.index("")  # insert before the first blank line
         parts.insert(idx, "O. If a file is newly created (did not exist before), append 'NEW' after the filename in the file directive, e.g., '# file: <filename> NEW' or '// file: <filename> NEW' for JS.")
+        parts.insert(idx + 1, "P. For files to be deleted, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript. Do not include any content after the directive for deleted files.")
         
         if include_text:
-            parts.append(f"P. Review included files:\n{include_text}")
+            parts.append(f"Q. Review included files:\n{include_text}")
         
         if knowledge_text:
-            parts.append(f"Q. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
+            parts.append(f"R. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
-        parts.append("R. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q.")
-        parts.append(f"S. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses // or /* */.")
+        parts.append("S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
+        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses // or /* */.")
         return "\n".join(parts)
-# original file length: 85 lines
-# updated file length: 113 lines
+
+# original file length: 113 lines
+# updated file length: 143 lines
