@@ -24,8 +24,12 @@ class ParseService:
     def __init__(self, base_dir: str = None, backupFolder: str = None, diff_service: DiffService = None, file_service: Optional[object] = None):
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
-        # detect "# file: <filename>" sections
-        self.section_pattern = re.compile(r'^\s*#\s*file:\s*["`]?(.+?)["`]?\s*(NEW)?\s*$', re.IGNORECASE | re.MULTILINE)
+        # Enhanced pattern to match different comment styles: #, //, /* */
+        # Captures the comment prefix for potential use in reconstruction
+        self.section_pattern = re.compile(
+            r'^\s*(?P<comment>(#|//|/\*))\s*file:\s*["`]?(.+?)["`]?\s*(NEW)?\s*$', 
+            re.IGNORECASE | re.MULTILINE
+        )
         # fenced code blocks
         self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
         # generic "filename: content" lines
@@ -50,6 +54,7 @@ class ParseService:
         """
         Parse LLM output into objects with enhanced metadata, ensuring filename,
         originalfilename, matchedfilename fields are returned, and marking new files.
+        Supports different comment styles based on file type (e.g., # for Python, // for JS).
         """
         logger.debug(f"Starting parse of LLM output ({len(llm_output)} chars)")
         try:
@@ -90,9 +95,10 @@ class ParseService:
             new_header = obj.get('new_header', False)
             is_new = new_header or (matched and not Path(matched).exists()) or (not matched)
             obj['new'] = is_new
-            # append NEW to content directive if new
+            # append NEW to content directive if new, preserving comment style
             content = obj.get('content','')
-            if is_new and content.startswith("# file:"):
+            comment_style = obj.get('comment_style', '#')  # Default to Python
+            if is_new and content.startswith(f"{comment_style} file:"):
                 header, _, rest = content.partition("\n")
                 header += " NEW"
                 obj['content'] = header + ("\n" + rest if rest else "")
@@ -147,7 +153,9 @@ class ParseService:
         diff_sbs = ''
         new_header = obj.get('new_header', False)
         relative_path = obj.get('relative_path', filename)
+        comment_style = obj.get('comment_style', '#')  # Captured from pattern
         obj['new_header'] = new_header
+        obj['comment_style'] = comment_style
         # use file_service to locate and read original
         if file_service and not new_header:
             try:
@@ -190,7 +198,7 @@ class ParseService:
             'original_tokens': orig_toks,
             'delta_tokens': delta,
             'change': change,
-            'originalcontent': f"# file: {filename}\n{original_content}",
+            'originalcontent': f"{comment_style} file: {filename}\n{original_content}",
             'completeness': self._check_content_completeness(new_content, filename),
             'long_compare': long_compare,
             'short_compare': short_compare,
@@ -198,9 +206,9 @@ class ParseService:
         })
         # normalize content directive, add NEW if new (but will be set later; for now, base)
         if new_header and 'relative_path' in obj:
-            directive = f"# file: {obj['relative_path']}"
+            directive = f"{comment_style} file: {obj['relative_path']}"
         else:
-            directive = f"# file: {filename}"
+            directive = f"{comment_style} file: {filename}"
         if obj.get('new', False):
             directive += " NEW"
         obj['content'] = f"{directive}\n{new_content}"
@@ -258,8 +266,9 @@ class ParseService:
         matches = list(self.section_pattern.finditer(out))
         sections = []
         for idx, m in enumerate(matches):
-            raw_fn = m.group(1).strip().strip('\'"`')
-            new_header = bool(m.group(2))  # Capture the optional 'NEW'
+            comment = m.group('comment')  # e.g., '#', '//', '/*'
+            raw_fn = m.group(3).strip().strip('\'"`')  # Filename group
+            new_header = bool(m.group(4))  # Capture the optional 'NEW'
             if new_header:
                 raw_fn = raw_fn.rstrip(' NEW').strip()  # Strip 'NEW' if present
             fn = Path(raw_fn).name
@@ -267,7 +276,13 @@ class ParseService:
             start = m.end()
             end = matches[idx+1].start() if idx+1<len(matches) else len(out)
             chunk = out[start:end].strip('\n')
-            sections.append({'filename':fn, 'relative_path': relative_path, 'content':chunk, 'new_header': new_header})
+            sections.append({
+                'filename': fn, 
+                'relative_path': relative_path, 
+                'content': chunk, 
+                'new_header': new_header,
+                'comment_style': comment  # Store the comment style for later use
+            })
         return sections
 
     def _parse_json_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
@@ -347,5 +362,5 @@ class ParseService:
         if '..' in fn or fn.startswith('/'): return False
         return True
 
-# original file length: 400 lines
-# updated file length: 428 lines
+# original file length: 428 lines
+# updated file length: 492 lines
