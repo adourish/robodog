@@ -57,7 +57,7 @@ def print_help():
         "getkey <prov>":       "get API key for provider",
         "import <glob>":       "import files into knowledge",
         "export <file>":       "export chat+knowledge snapshot",
-        "clear":               "clear chat+knowledge",
+        "clear":               "clear chat+knowledge and screen",
         "stash <name>":        "stash state",
         "pop <name>":          "restore stash",
         "list":                "list stashes",
@@ -229,7 +229,9 @@ def interact(svc: RobodogService):
 
                 elif cmd == "clear":
                     svc.clear()
-                    logging.info("Cleared chat history and knowledge.")
+                    # Clear the screen
+                    os.system('cls' if os.name == 'nt' else 'clear')
+                    logging.info("Cleared chat history, knowledge, and screen.")
 
                 elif cmd == "stash":
                     if not args:
@@ -367,5 +369,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# original file length: 375 lines
-# updated file length: 395 lines
+# original file length: 395 lines
+# updated file length: 401 lines

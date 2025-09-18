@@ -69,13 +69,12 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][-] changes todo
-  - started: 2025-09-17T21:35:02.566782 | completed: 2025-09-18 01:35 | knowledge: 19 | include: 35729 | prompt: 36033 | cur_model: openrouter/sonoma-sky-alpha | compare: mcphandler.py (o/n/d/c: 1152/1149/-3/0.3%), cli.py (o/n/d/c: 1122/1119/-3/0.3%)
+- [x][x] changes todo
+  - started: 2025-09-17T21:39:49.524695 | completed: 2025-09-18 01:39 | knowledge: 9 | include: 0 | prompt: 0 | cur_model: openrouter/sonoma-sky-alpha | commit: success | compare: cli.py (o/n/d/c: 1122/1133/11/1.0%)
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. add ssl support to the mcp server
-2. add an optional cli param for passing in the key
+1. add the /clear feature to clear the screen
 ```
 
 
