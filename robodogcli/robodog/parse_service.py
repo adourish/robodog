@@ -25,7 +25,7 @@ class ParseService:
         """Initialize the ParseService with regex patterns for parsing."""
         logger.debug("Initializing ParseService")
         # detect "# file: <filename>" sections
-        self.section_pattern = re.compile(r'^\s*#\s*file:\s*["`]?(.+?)["`]?\s*$', re.IGNORECASE | re.MULTILINE)
+        self.section_pattern = re.compile(r'^\s*#\s*file:\s*["`]?(.+?)["`]?\s*(NEW)?\s*$', re.IGNORECASE | re.MULTILINE)
         # fenced code blocks
         self.md_fenced_pattern = re.compile(r'```([^\^\n]*)\n(.*?)\n```', re.DOTALL)
         # generic "filename: content" lines
@@ -87,13 +87,8 @@ class ParseService:
         # mark new files
         for obj in parsed:
             matched = obj.get('matchedfilename', '')
-            is_new = False
-            if matched:
-                try:
-                    if not Path(matched).exists():
-                        is_new = True
-                except Exception:
-                    is_new = True
+            new_header = obj.get('new_header', False)
+            is_new = new_header or (matched and not Path(matched).exists()) or (not matched)
             obj['new'] = is_new
             # append NEW to content directive if new
             content = obj.get('content','')
@@ -147,11 +142,14 @@ class ParseService:
         filename = obj.get('filename','')
         new_content = obj.get('content','')
         original_content = ''
-        matched = filename
+        matched = filename  # Default to relative filename
         diff_md = ''
         diff_sbs = ''
+        new_header = obj.get('new_header', False)
+        relative_path = obj.get('relative_path', filename)
+        obj['new_header'] = new_header
         # use file_service to locate and read original
-        if file_service:
+        if file_service and not new_header:
             try:
                 include_spec = {}
                 if isinstance(task, dict) and isinstance(task.get('include'), dict):
@@ -168,7 +166,12 @@ class ParseService:
             except Exception as e:
                 logger.error(f"Error enhancing {filename}: {e}")
         else:
-            logger.warning(f"No file_service for parsing {filename}")
+            if new_header:
+                # For new files, use relative path from directive
+                matched = relative_path
+                logger.info(f"New file detected from header for {filename}, relative path: {matched} (will resolve relative to {base_dir})")
+            else:
+                logger.warning(f"No file_service for parsing {filename}")
 
         # token metrics
         new_toks = len(new_content.split())
@@ -193,8 +196,14 @@ class ParseService:
             'short_compare': short_compare,
             'result': self._result_code(change)
         })
-        # normalize content directive
-        obj['content'] = f"# file: {filename}\n{new_content}"
+        # normalize content directive, add NEW if new (but will be set later; for now, base)
+        if new_header and 'relative_path' in obj:
+            directive = f"# file: {obj['relative_path']}"
+        else:
+            directive = f"# file: {filename}"
+        if obj.get('new', False):
+            directive += " NEW"
+        obj['content'] = f"{directive}\n{new_content}"
 
     def _result_code(self, change: float) -> int:
         if change > 40.0:
@@ -249,12 +258,16 @@ class ParseService:
         matches = list(self.section_pattern.finditer(out))
         sections = []
         for idx, m in enumerate(matches):
-            clean = m.group(1).strip().strip('\'"`')
-            fn = Path(clean).name
+            raw_fn = m.group(1).strip().strip('\'"`')
+            new_header = bool(m.group(2))  # Capture the optional 'NEW'
+            if new_header:
+                raw_fn = raw_fn.rstrip(' NEW').strip()  # Strip 'NEW' if present
+            fn = Path(raw_fn).name
+            relative_path = raw_fn
             start = m.end()
             end = matches[idx+1].start() if idx+1<len(matches) else len(out)
             chunk = out[start:end].strip('\n')
-            sections.append({'filename':fn,'content':chunk})
+            sections.append({'filename':fn, 'relative_path': relative_path, 'content':chunk, 'new_header': new_header})
         return sections
 
     def _parse_json_format(self, out: str) -> List[Dict[str, Union[str,int]]]:
@@ -334,5 +347,5 @@ class ParseService:
         if '..' in fn or fn.startswith('/'): return False
         return True
 
-# original file length: 338 lines
-# updated file length: 344 lines
+# original file length: 400 lines
+# updated file length: 428 lines

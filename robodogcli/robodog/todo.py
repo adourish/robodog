@@ -311,7 +311,7 @@ class TodoService:
                 ai_out = self._file_service.safe_read_file(out_path)
                 logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
                 cur_model = self._svc.get_cur_model()
-                st = self._task_manager.start_commit_task(task, self._file_lines, cur_model)
+                st = self.start_task(task, self._file_lines, cur_model)
                 # Preserve or set stamp if task_manager returns None
                 if st is None:
                     st = task['_start_stamp']
@@ -330,7 +330,7 @@ class TodoService:
                 else:
                     logger.info("No parsed files to report.")
 
-                ct = self._task_manager.complete_commit_task(task, self._file_lines, cur_model, 1, compare)
+                ct = self.complete_task(task, self._file_lines, cur_model, 0, compare)
                 # Preserve or set stamp if task_manager returns None
                 if ct is None:
                     ct = datetime.now().isoformat()
@@ -398,34 +398,39 @@ class TodoService:
     def _write_parsed_files(self, parsed_files: List[dict], task: dict = None, commit_file: bool= False) -> tuple[int, List[str]]:
         """
         Write parsed files and compare tokens using parse_service object properties, return results and compare list
+        For NEW files, resolve path relative to todo.md folder (base_dir) and create full path.
+        matchedfilename remains relative for reporting.
         """
         logger.debug("_write_parsed_files called")
         result = 0
         compare: List[str] = []
+        basedir = Path(task['file']).parent if task else Path.cwd()
+        self._file_service.base_dir = str(basedir)  # Set base_dir for relative path resolution
         for parsed in parsed_files:
             content = parsed['content']
             # completeness check
             filename = parsed.get('filename', '')
-            matchedfilename = parsed.get('matchedfilename', '')
+            matchedfilename = parsed.get('matchedfilename', '')  # Relative path for NEW files
+            relative_path = parsed.get('relative_path', filename)
             is_new = parsed.get('new', False)
             new_path = None
 
             if commit_file:
                 if is_new:
-                    # For new files, resolve the path to create in the appropriate root
-                    new_path = self._file_service.resolve_path(filename)
-                    logger.info(f"Creating new file at resolved path: {new_path}")
+                    # For NEW files, resolve relative path from directive to full path under base_dir (todo.md folder)
+                    new_path = self._file_service.resolve_path(relative_path)
+                    logger.info(f"Creating NEW file at full path: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
                 else:
+                    # For existing, use matched full path
                     new_path = Path(matchedfilename)
                 
                 if new_path:
                     self._file_service.write_file(new_path, content)
-                    # Update matchedfilename for reporting
-                    parsed['matchedfilename'] = str(new_path)
+                    logger.info(f"Committed file: {new_path} (relative: {relative_path if is_new else matchedfilename})")
 
             short_compare = parsed.get('short_compare', '')
             result = parsed.get('result', '')
-            compare.append(f"{short_compare}")
+            compare.append(f"{short_compare} {'(NEW)' if is_new else ''} -> {matchedfilename}")
 
         return result, compare
 
@@ -452,6 +457,7 @@ class TodoService:
         logger.info(f"Processing task: {task['desc']}")
         basedir = Path(task['file']).parent
         self._base_dir = str(basedir)
+        self._file_service.base_dir = str(basedir)  # Set base_dir for relative resolutions
         logger.debug(f"Base dir: {self._base_dir}")
         include_text = self._gather_include_knowledge(task, svc)
         task['_include_tokens'] = len(include_text.split())
@@ -511,5 +517,5 @@ class TodoService:
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 578 lines
-# updated file length: 641 lines
+# original file length: 692 lines
+# updated file length: 723 lines

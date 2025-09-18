@@ -69,12 +69,21 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][x] changes todo
-  - started: 2025-09-17T21:39:49.524695 | completed: 2025-09-18 01:39 | knowledge: 9 | include: 0 | prompt: 0 | cur_model: openrouter/sonoma-sky-alpha | commit: success | compare: cli.py (o/n/d/c: 1122/1133/11/1.0%)
+- [x][ ] changes todo
+  - started: 2025-09-17T23:00:32.664160 | completed: 2025-09-18 03:01 | knowledge: 52 | include: 36258 | prompt: 36595 | cur_model: openrouter/sonoma-sky-alpha | compare: parse_service.py (o/n/d/c: 1188/1207/19/1.6%)  -> C:\Projects\robodog\robodogcli\robodog\parse_service.py, todo.py (o/n/d/c: 1968/1969/1/0.1%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. add the /clear feature to clear the screen
+1. when the file is new, it is not using the full path
+2. the files are being created in in the root path and not under relative path. e.g,  src/core/
+3. use the # File full path
+4. fix this bug
+
+some examples
+# file: src/app/app.module.ts NEW
+# file: src/app/app.component.ts NEW
+
+
 ```
 
 
