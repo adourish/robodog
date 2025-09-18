@@ -1,4 +1,6 @@
 # file: todo.py
+#!/usr/bin/env python3
+"""Todo task management and execution service."""
 import os
 import re
 import time
@@ -294,6 +296,7 @@ class TodoService:
         When a task is manually marked Done:
         - Use the same processing logic as _process_one for consistency
         - Ensure token values are populated from parsed metadata or defaults
+        - After successful commit, update status to [x][x]
         """
         logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks")
         for task in done_tasks:
@@ -325,10 +328,43 @@ class TodoService:
                     parsed_files = []
 
                 commited, compare = 0, []
+                success = False
                 if parsed_files:
                     commited, compare = self._write_parsed_files(parsed_files, task, True)
+                    if commited > 0 or len(compare) > 0:
+                        success = True
                 else:
                     logger.info("No parsed files to report.")
+
+                # After successful commit, update status to [x][x]
+                if success:
+                    file_lines = self._file_lines[task['file']]
+                    line_no = task['line_no']
+                    indent = task['indent']
+                    # Reconstruct full line with metadata
+                    clean_desc = task['desc']
+                    metadata_parts = []
+                    if task.get('_start_stamp'):
+                        metadata_parts.append(f"started: {task['_start_stamp']}")
+                    if task.get('_complete_stamp'):
+                        metadata_parts.append(f"completed: {task['_complete_stamp']}")
+                    if task.get('knowledge_tokens', 0) > 0:
+                        metadata_parts.append(f"knowledge: {task['knowledge_tokens']}")
+                    if task.get('include_tokens', 0) > 0:
+                        metadata_parts.append(f"include: {task['include_tokens']}")
+                    if task.get('prompt_tokens', 0) > 0:
+                        metadata_parts.append(f"prompt: {task['prompt_tokens']}")
+                    full_desc = clean_desc
+                    if metadata_parts:
+                        full_desc += ' | ' + ' | '.join(metadata_parts)
+                    # Update the line to [x][x] full_desc
+                    new_line = f"{indent}- [x][x] {full_desc}\n"
+                    file_lines[line_no] = new_line
+                    # Write back to file
+                    self._file_service.write_file(Path(task['file']), ''.join(file_lines))
+                    logger.info(f"Updated task status to [x][x] for successful commit: {task['desc']}")
+                    # Ignore our own write in watcher
+                    self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
 
                 ct = self.complete_task(task, self._file_lines, cur_model, 0, compare)
                 # Preserve or set stamp if task_manager returns None
@@ -517,5 +553,5 @@ class TodoService:
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 692 lines
-# updated file length: 723 lines
+# original file length: 753 lines
+# updated file length: 787 lines

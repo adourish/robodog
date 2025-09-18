@@ -69,19 +69,12 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo 
-- [x][ ] changes todo
-  - started: 2025-09-17T23:00:32.664160 | completed: 2025-09-18 03:01 | knowledge: 52 | include: 36258 | prompt: 36595 | cur_model: openrouter/sonoma-sky-alpha | compare: parse_service.py (o/n/d/c: 1188/1207/19/1.6%)  -> C:\Projects\robodog\robodogcli\robodog\parse_service.py, todo.py (o/n/d/c: 1968/1969/1/0.1%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
+- [x][x] changes todo
+  - started: 2025-09-17T23:08:41.673178 | completed: 2025-09-18 03:09 | knowledge: 11 | include: 36435 | prompt: 36731 | cur_model: openrouter/sonoma-sky-alpha | compare: todo.py (o/n/d/c: 2057/2114/57/2.8%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. when the file is new, it is not using the full path
-2. the files are being created in in the root path and not under relative path. e.g,  src/core/
-3. use the # File full path
-4. fix this bug
-
-some examples
-# file: src/app/app.module.ts NEW
-# file: src/app/app.component.ts NEW
+fix setting the commit status to [x][x] after a successful commit
 
 
 ```
