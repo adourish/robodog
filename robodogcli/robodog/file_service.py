@@ -18,7 +18,7 @@ class FileService:
         logger.debug(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}")
         self._roots = roots
         self._base_dir = base_dir
-        self._exclude_dirs = {"node_modules", "dist"}
+        self._exclude_dirs = {"node_modules", "dist", "temp", "diffoutput"}
         self._backupFolder = backupFolder
     @property
     def base_dir(self) -> Optional[str]:
