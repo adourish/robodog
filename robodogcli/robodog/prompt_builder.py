@@ -34,7 +34,7 @@ class PromptBuilder:
         # New instruction: mark newly created files
         idx = parts.index("")  # insert before the first blank line
         parts.insert(idx, "O. If a file is newly created (did not exist before), append 'NEW' after the filename in the file directive, e.g., '# file: <filename> NEW' or '// file: <filename> NEW' for JS.")
-        parts.insert(idx + 1, "P. If the request/ask is to delete a file, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript/TypeScipt. Do not include any content after the directive for deleted files.")
+        parts.insert(idx + 1, "P. If the request/ask is to delete a file, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript/TypeScipt. Do not include any content after the directive for deleted files. IMPORTANT: When the task involves reviewing folder structure or marking/deleting files, always use the DELETE tag for files to be removed, and ensure no code content follows the directive.")
         
         if include_text:
             parts.append(f"Q. Review included files:\n{include_text}")
@@ -71,7 +71,7 @@ class PromptBuilder:
         # New instruction: mark newly created files
         idx = parts.index("")  # insert before the first blank line
         parts.insert(idx, "O. If a file is newly created (did not exist before), append 'NEW' after the filename in the file directive, e.g., '# file: <filename> NEW' or '// file: <filename> NEW' for JS.")
-        parts.insert(idx + 1, "P. For files to be deleted, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript. Do not include any content after the directive for deleted files.")
+        parts.insert(idx + 1, "P. For files to be deleted, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript. Do not include any content after the directive for deleted files. IMPORTANT: When the task involves reviewing folder structure or marking/deleting files, always use the DELETE tag for files to be removed, and ensure no code content follows the directive.")
         
         if include_text:
             parts.append(f"Q. Review included files:\n{include_text}")
@@ -83,5 +83,5 @@ class PromptBuilder:
         parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //")
         return "\n".join(parts)
 
-# original file length: 113 lines
-# updated file length: 143 lines
+# original file length: 143 lines
+# updated file length: 149 lines

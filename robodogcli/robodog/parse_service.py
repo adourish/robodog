@@ -194,20 +194,26 @@ class ParseService:
                 logger.info(f"New file detected from header for {filename}, relative path: {matched} (will resolve relative to {base_dir})")
             elif delete_flag:
                 # For delete, try to find existing file for diff (full removal)
+                matched = relative_path or filename
                 if file_service:
                     try:
-                        include_spec = {'pattern':'*','recursive':True}
-                        candidate = file_service.find_matching_file(filename, include_spec, svc)
+                        # First, try to resolve the relative path and check if it exists
+                        candidate_path = file_service.resolve_path(relative_path)
+                        if candidate_path.exists():
+                            candidate = candidate_path
+                        else:
+                            # Fallback to search by name
+                            include_spec = {'pattern':'*','recursive':True}
+                            candidate = file_service.find_matching_file(filename, include_spec, svc)
                         if candidate:
                             matched = str(candidate.resolve())
                             original_content = file_service.safe_read_file(candidate)
                             new_content = ''  # Empty for deletion
                             diff_md  = self.diff_service.generate_improved_md_diff(filename, original_content, new_content, matched)
                             diff_sbs = self.diff_service.generate_side_by_side_diff(filename, original_content, new_content, matched)
-                            logger.info(f"Generated removal diff for {filename}")
+                            logger.info(f"Generated removal diff for {filename} at {matched}")
                     except Exception as e:
                         logger.error(f"Error enhancing delete for {filename}: {e}")
-                matched = relative_path or filename
                 logger.info(f"Delete flagged for {filename}, matched: {matched} (will delete if exists)")
             else:
                 logger.warning(f"No file_service for parsing {filename}")
@@ -402,4 +408,4 @@ class ParseService:
         return True
 
 # original file length: 578 lines
-# updated file length: 578 lines
+# updated file length: 604 lines

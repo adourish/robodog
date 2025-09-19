@@ -69,19 +69,16 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo  
-- [x][-] changes todo
-  - started: 2025-09-18T20:42:09.033703 | completed: 2025-09-19 00:42 | knowledge: 63 | include: 38446 | prompt: 38898 | cur_model: openrouter/sonoma-sky-alpha | compare: prompt_builder.py (o/n/d/c: 952/1139/187/19.6%)  -> C:\Projects\robodog\robodogcli\robodog\prompt_builder.py, parse_service.py (o/n/d/c: 1496/1698/202/13.5%)  -> C:\Projects\robodog\robodogcli\robodog\parse_service.py, todo.py (o/n/d/c: 2171/2313/142/6.5%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
+- [x][x] changes todo | started: 2025-09-19T16:46:55.376809 | knowledge: 30
+  - started: 2025-09-19T16:45:33.769405 | completed: 2025-09-19 20:46 | knowledge: 30 | include: 38591 | prompt: 39013 | cur_model: openrouter/sonoma-sky-alpha | compare: prompt_builder.py (o/n/d/c: 955/1010/55/5.8%)  -> C:\Projects\robodog\robodogcli\robodog\prompt_builder.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. enhance the parse service to handle deletes.
-2. add delete feature to file service if needed.
-3. add the move and copy feature to the prompt builder. 
-4. add todo support to move and copy files.
-5. # <filename> COPY to <path>
-6. # <filename> MOVE to <path>
-7. add this support
-8. always create the empty files and then fill them 
+1. the existing prompt_builder.py has a promot to tag deleted files
+2. it is not working. 
+
+example llm prompt 
+"review the folder structure for my application and mark/delete the files.
 
 ```
 
