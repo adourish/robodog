@@ -68,14 +68,20 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 ```
 
-# todo 
-- [x][x] changes todo | started: 2025-09-18T18:29:57.244582 | knowledge: 17
-  - started: 2025-09-18T18:27:37.726722 | completed: 2025-09-18 22:28 | knowledge: 17 | include: 38418 | prompt: 38827 | cur_model: openrouter/sonoma-sky-alpha | compare: parse_service.py (o/n/d/c: 1498/1495/-3/0.2%)  -> C:\Projects\robodog\robodogcli\robodog\parse_service.py, todo.py (o/n/d/c: 2117/2168/51/2.4%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
+# todo  
+- [x][-] changes todo
+  - started: 2025-09-18T20:42:09.033703 | completed: 2025-09-19 00:42 | knowledge: 63 | include: 38446 | prompt: 38898 | cur_model: openrouter/sonoma-sky-alpha | compare: prompt_builder.py (o/n/d/c: 952/1139/187/19.6%)  -> C:\Projects\robodog\robodogcli\robodog\prompt_builder.py, parse_service.py (o/n/d/c: 1496/1698/202/13.5%)  -> C:\Projects\robodog\robodogcli\robodog\parse_service.py, todo.py (o/n/d/c: 2171/2313/142/6.5%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
 1. enhance the parse service to handle deletes.
 2. add delete feature to file service if needed.
+3. add the move and copy feature to the prompt builder. 
+4. add todo support to move and copy files.
+5. # <filename> COPY to <path>
+6. # <filename> MOVE to <path>
+7. add this support
+8. always create the empty files and then fill them 
 
 ```
 
