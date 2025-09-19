@@ -34,7 +34,7 @@ class PromptBuilder:
         # New instruction: mark newly created files
         idx = parts.index("")  # insert before the first blank line
         parts.insert(idx, "O. If a file is newly created (did not exist before), append 'NEW' after the filename in the file directive, e.g., '# file: <filename> NEW' or '// file: <filename> NEW' for JS.")
-        parts.insert(idx + 1, "P. For files to be deleted, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript. Do not include any content after the directive for deleted files.")
+        parts.insert(idx + 1, "P. If the request/ask is to delete a file, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript/TypeScipt. Do not include any content after the directive for deleted files.")
         
         if include_text:
             parts.append(f"Q. Review included files:\n{include_text}")
