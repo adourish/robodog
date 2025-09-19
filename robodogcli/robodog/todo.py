@@ -549,12 +549,56 @@ class TodoService:
 
         trunc_code = 0
         compare: List[str] = []
+        success = False
         if parsed_files:
-            _trunc_code, compare = self._write_parsed_files(parsed_files, task, False)
-            trunc_code = _trunc_code
+            trunc_code, compare = self._write_parsed_files(parsed_files, task, False)
             self._write_full_ai_output(svc, task, ai_out, trunc_code)
+            # Check if commit was successful (trunc_code > 0 or parsed_files)
+            if trunc_code > 0 or len(compare) > 0:
+                success = True
         else:
             logger.info("No parsed files to report.")
+
+        # Update task status to [x][ ] (commit) and then to [x][x] if successful
+        file_lines = file_lines_map[task['file']]
+        line_no = task['line_no']
+        indent = task['indent']
+        # First, update to [x][ ] (commit status)
+        clean_desc = task['desc']
+        metadata_parts = []
+        if task.get('_start_stamp'):
+            metadata_parts.append(f"started: {task['_start_stamp']}")
+        if task.get('_complete_stamp'):
+            metadata_parts.append(f"completed: {task['_complete_stamp']}")
+        if task.get('knowledge_tokens', 0) > 0:
+            metadata_parts.append(f"knowledge: {task['knowledge_tokens']}")
+        if task.get('include_tokens', 0) > 0:
+            metadata_parts.append(f"include: {task['include_tokens']}")
+        if task.get('prompt_tokens', 0) > 0:
+            metadata_parts.append(f"prompt: {task['prompt_tokens']}")
+        full_desc = clean_desc
+        if metadata_parts:
+            full_desc += ' | ' + ' | '.join(metadata_parts)
+        commit_line = f"{indent}- [x][ ] {full_desc}\n"
+        file_lines[line_no] = commit_line
+        self._file_service.write_file(Path(task['file']), ''.join(file_lines))
+        logger.info(f"Updated task status to [x][ ] for commit: {task['desc']}")
+        self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
+
+        # If successful, update to [x][x]
+        if success:
+            # Reconstruct with complete stamp if available
+            if task.get('_complete_stamp') is None:
+                task['_complete_stamp'] = datetime.now().isoformat()
+            metadata_parts.append(f"completed: {task['_complete_stamp']}")
+            full_desc = clean_desc
+            if metadata_parts:
+                full_desc += ' | ' + ' | '.join(metadata_parts)
+            done_line = f"{indent}- [x][x] {full_desc}\n"
+            file_lines[line_no] = done_line
+            self._file_service.write_file(Path(task['file']), ''.join(file_lines))
+            logger.info(f"Updated task status to [x][x] for successful completion: {task['desc']}")
+            self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
 
         ct = self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
         task['_complete_stamp'] = ct  # Ensure complete stamp is set
@@ -564,5 +608,5 @@ class TodoService:
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 787 lines
-# updated file length: 833 lines
+# original file length: 833 lines
+# updated file length: 907 lines

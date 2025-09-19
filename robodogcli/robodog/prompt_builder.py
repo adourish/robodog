@@ -34,7 +34,7 @@ class PromptBuilder:
         # New instruction: mark newly created files
         idx = parts.index("")  # insert before the first blank line
         parts.insert(idx, "O. If a file is newly created (did not exist before), append 'NEW' after the filename in the file directive, e.g., '# file: <filename> NEW' or '// file: <filename> NEW' for JS.")
-        parts.insert(idx + 1, "P. If the request/ask is to delete a file, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript/TypeScipt. Do not include any content after the directive for deleted files. IMPORTANT: When the task involves reviewing folder structure or marking/deleting files, always use the DELETE tag for files to be removed, and ensure no code content follows the directive.")
+        parts.insert(idx + 1, "P. If the request/ask is to delete a file, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript/TypeScript. Do not include any content after the directive for deleted files. IMPORTANT: When the task involves reviewing folder structure or marking/deleting files, always use the DELETE tag for files to be removed, and ensure no code content follows the directive. For example, if reviewing the folder structure and identifying files in 'src' for deletion, output directives like '// file: src/app.ts DELETE' without any file content. If deleting all TypeScript files under 'src', list each with 'DELETE' and no content. Always use the exact filename from the folder structure, not task descriptions or summaries (e.g., use 'src/app.ts' not 'components SHARED COMPONENTS FILES').")
         
         if include_text:
             parts.append(f"Q. Review included files:\n{include_text}")
@@ -43,7 +43,7 @@ class PromptBuilder:
             parts.append(f"R. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
         parts.append("S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
-        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //")
+        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. For deletion tasks, strictly follow P: use exact filenames (e.g., 'src/app.ts DELETE'), no content after directive, especially when reviewing structures like 'src' or deleting TypeScript files. Examples: For 'review the folder structure for my application and mark/delete the files', output '// file: src/app.ts DELETE' for each file in src. For 'delete the typescript files under src', list each like '// file: src/main.ts DELETE'.")
         return "\n".join(parts)
 
 
@@ -71,7 +71,7 @@ class PromptBuilder:
         # New instruction: mark newly created files
         idx = parts.index("")  # insert before the first blank line
         parts.insert(idx, "O. If a file is newly created (did not exist before), append 'NEW' after the filename in the file directive, e.g., '# file: <filename> NEW' or '// file: <filename> NEW' for JS.")
-        parts.insert(idx + 1, "P. For files to be deleted, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript. Do not include any content after the directive for deleted files. IMPORTANT: When the task involves reviewing folder structure or marking/deleting files, always use the DELETE tag for files to be removed, and ensure no code content follows the directive.")
+        parts.insert(idx + 1, "P. For files to be deleted, append 'DELETE' after the filename in the file directive, using the appropriate comment style, e.g., '# file: <filename> DELETE' for Python or '// file: <filename> DELETE' for JavaScript. Do not include any content after the directive for deleted files. IMPORTANT: When the task involves reviewing folder structure or marking/deleting files, always use the DELETE tag for files to be removed, and ensure no code content follows the directive. For example, if reviewing the folder structure and identifying files in 'src' for deletion, output directives like '// file: src/app.ts DELETE' without any file content. If deleting all TypeScript files under 'src', list each with 'DELETE' and no content. Always use the exact filename from the folder structure, not task descriptions or summaries (e.g., use 'src/app.ts' not 'components SHARED COMPONENTS FILES').")
         
         if include_text:
             parts.append(f"Q. Review included files:\n{include_text}")
@@ -80,8 +80,8 @@ class PromptBuilder:
             parts.append(f"R. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
         
         parts.append("S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
-        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //")
+        parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. For deletion tasks, strictly follow P: use exact filenames (e.g., 'src/app.ts DELETE'), no content after directive, especially when reviewing structures like 'src' or deleting TypeScript files. Examples: For 'review the folder structure for my application and mark/delete the files', output '// file: src/app.ts DELETE' for each file in src. For 'delete the typescript files under src', list each like '// file: src/main.ts DELETE'.")
         return "\n".join(parts)
 
-# original file length: 143 lines
-# updated file length: 149 lines
+# original file length: 169 lines
+# updated file length: 215 lines

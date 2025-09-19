@@ -195,6 +195,7 @@ class ParseService:
             elif delete_flag:
                 # For delete, try to find existing file for diff (full removal)
                 matched = relative_path or filename
+                original_toks_for_log = 0
                 if file_service:
                     try:
                         # First, try to resolve the relative path and check if it exists
@@ -208,25 +209,41 @@ class ParseService:
                         if candidate:
                             matched = str(candidate.resolve())
                             original_content = file_service.safe_read_file(candidate)
-                            new_content = ''  # Empty for deletion
-                            diff_md  = self.diff_service.generate_improved_md_diff(filename, original_content, new_content, matched)
-                            diff_sbs = self.diff_service.generate_side_by_side_diff(filename, original_content, new_content, matched)
-                            logger.info(f"Generated removal diff for {filename} at {matched}")
+                            original_toks_for_log = len(original_content.split())
+                            new_content_for_diff = ''  # Empty for deletion
+                            diff_md  = self.diff_service.generate_improved_md_diff(filename, original_content, new_content_for_diff, matched)
+                            diff_sbs = self.diff_service.generate_side_by_side_diff(filename, original_content, new_content_for_diff, matched)
+                            logger.info(f"Generated removal diff for {filename} at {matched} (original tokens: {original_toks_for_log})")
+                        else:
+                            logger.warning(f"No matching file found for deletion: {filename} (tried {relative_path})")
                     except Exception as e:
                         logger.error(f"Error enhancing delete for {filename}: {e}")
-                logger.info(f"Delete flagged for {filename}, matched: {matched} (will delete if exists)")
+                else:
+                    logger.warning(f"No file_service for delete {filename}")
+                # For logging, if no candidate, use 0 tokens
+                orig_toks = original_toks_for_log
+                logger.info(f"DELETE: File '{filename}' (matched: {matched}) - original tokens: {orig_toks}")
             else:
                 logger.warning(f"No file_service for parsing {filename}")
 
-        # token metrics
-        new_toks = len(new_content.split())
-        orig_toks= len(original_content.split())
-        delta    = new_toks - orig_toks
-        change   = 0.0 if orig_toks==0 else abs(delta)/orig_toks*100
+        # token metrics - for delete without candidate, force 0/0/0
+        if delete_flag and orig_toks == 0:
+            new_toks = 0
+            delta = 0
+            change = 0.0
+        else:
+            new_toks = len(new_content.split())
+            orig_toks= len(original_content.split())
+            delta    = new_toks - orig_toks
+            change   = 0.0 if orig_toks==0 else abs(delta)/orig_toks*100
         long_compare = f"Compare: '{filename}' -> {matched} (o/n/d: {orig_toks}/{new_toks}/{delta}) change={change:.1f}%"
         short_compare = f"{filename} (o/n/d/c: {orig_toks}/{new_toks}/{delta}/{change:.1f}%)"
         action = 'NEW' if new_header else ('DELETE' if delete_flag else 'UPDATE')
-        logger.info(f"{action}: {long_compare}")
+        # Enhanced logging for DELETE to explicitly show filename
+        if delete_flag:
+            logger.info(f"{action}: {filename} (matched: {matched}) - {long_compare}")
+        else:
+            logger.info(f"{action}: {long_compare}")
         obj.update({
             'originalfilename': filename,
             'matchedfilename': matched,
@@ -407,5 +424,5 @@ class ParseService:
         if '..' in fn or fn.startswith('/'): return False
         return True
 
-# original file length: 578 lines
-# updated file length: 604 lines
+# original file length: 604 lines
+# updated file length: 661 lines
