@@ -183,7 +183,7 @@ class ParseService:
     def _is_md_fenced_format(self, out: str) -> bool:
         return bool(self.md_fenced_pattern.search(out))
 
-    def _parse_section_format(self, out: str):
+    def _parse_section_format(self, out: str):  
         matches = list(self.section_pattern.finditer(out))
         sections = []
         for idx, m in enumerate(matches):
@@ -246,6 +246,37 @@ class ParseService:
         return [{'filename': 'generated.txt', 'content': out.strip()}]
 
     def _extract_filename_and_flag(self, header: str):
+        """
+        Extract the comment prefix, the raw filename/path, and the flag (NEW|DELETE|COPY|UPDATE)
+        from a directive line like:
+            "# file: src/foo.txt DELETE"
+            "// file: bar.js NEW"
+        """
+        # 1) grab the comment‐prefix (#, // or /*)
+        cm = re.match(r'^\s*(?P<comment>(#|//|/\*))', header)
+        comment = cm.group('comment') if cm else '#'
+
+        # 2) strip off that prefix
+        rest = header[cm.end():].strip() if cm else header.strip()
+
+        # 3) remove an initial "file:" (case‐insensitive)
+        rest = re.sub(r'(?i)^file:\s*', '', rest).strip()
+
+        # 4) split into tokens and look at the last token for a flag
+        parts = rest.split()
+        flag = ''
+        if parts and parts[-1].upper() in ('NEW', 'DELETE', 'COPY', 'UPDATE'):
+            flag = parts[-1].upper()
+            filename = ' '.join(parts[:-1])
+        else:
+            filename = rest
+
+        # 5) strip any wrapping quotes or backticks
+        filename = filename.strip('"').strip("'").strip('`')
+
+        return comment, filename, flag
+    
+    def _extract_filename_and_flagb(self, header: str):
         comment_m = re.match(r'^\s*(?P<comment>(#|//|/\*))', header)
         comment = comment_m.group('comment') if comment_m else '#'
         rest = header[comment_m.end():].strip() if comment_m else header
@@ -279,14 +310,44 @@ class ParseService:
 
     def _determine_flags(self, obj, matched):
         flag = obj.get('flag','').upper()
+        logger.debug("flag:" + flag)
         exists = Path(matched).exists() if matched else False
         return {
-            'new': flag=='NEW' or (not exists and flag==''),
-            'update': flag=='UPDATE' or (exists and flag==''),
+            'new': flag=='NEW',
+            'update': flag=='UPDATE',
             'delete': flag=='DELETE',
             'copy': flag=='COPY'
         }
 
+    def _determine_flagsc(self, obj, matched):
+        """
+        Determine new/update/delete/copy based on the actual LLM directive line,
+        or, if none of those keywords is present, fall back to using
+        filesystem existence to choose between new vs. update.
+        """
+        # look at the very first line of the content (the "// file: ..." or "# file: ..." line)
+        first_line = obj.get('content', '').splitlines()[0] if obj.get('content') else ''
+        # try to find one of the four keywords
+        m = re.search(r'\b(NEW|UPDATE|DELETE|COPY)\b', first_line, re.IGNORECASE)
+        flag = m.group(1).upper() if m else ''
+
+        # if matched is a path, test whether it already exists on disk
+        exists = False
+        if matched:
+            try:
+                exists = Path(matched).exists()
+            except Exception:
+                exists = False
+
+        return {
+            # explicit NEW or no keyword + file did not exist
+            'new':      (flag == 'NEW') or (flag == '' and not exists),
+            # explicit UPDATE or no keyword + file did exist
+            'update':   (flag == 'UPDATE') or (flag == '' and exists),
+            'delete':   (flag == 'DELETE'),
+            'copy':     (flag == 'COPY'),
+        }
+    
     def _apply_flag_to_content(self, obj):
         c = obj.get('comment_style','#')
         fname = obj.get('filename','')
