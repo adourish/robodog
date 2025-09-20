@@ -377,7 +377,7 @@ class TodoService:
         task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
         task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
         task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
-        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation, compare, commit)
+        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit)
         # Preserve or set stamp if task_manager returns None
         if ct is None:
             ct = datetime.now().isoformat()
@@ -510,6 +510,122 @@ class TodoService:
                 delta_median = statistics.median(update_deltas)
                 delta_avg = statistics.mean(update_deltas)
                 delta_peak = max(update_deltas)
+                # Log in task_manager format
+                logger.info(
+                    f"Task UPDATE logging - Indent: {task.get('indent', '')}, "
+                    f"Start: {task.get('_start_stamp', '')}, "
+                    f"End: {task.get('_complete_stamp', '')}, "
+                    f"Know: {task.get('knowledge_tokens', 0)}, "
+                    f"Prompt: {task.get('prompt_tokens', 0)}, "
+                    f"Incount: {task.get('include_tokens', 0)}, "  # Note: incount vs include
+                    f"Include: {task.get('include_tokens', 0)}, "  # Assuming include is the same
+                    f"Cur_model: {task.get('cur_model', '')}, "  # cur_model from task or svc
+                    f"Delta_median: {delta_median:.1f}%, "
+                    f"Delta_avg: {delta_avg:.1f}%, "
+                    f"Delta_peak: {delta_peak:.1f}%, "
+                    f"Committed: {result}, "
+                    f"Truncation: 0, "
+                    f"Compare: {compare}"
+                )
+                logger.info(f"Full compare details: {compare}")
+
+        return result, compare
+
+    def _test_write_parsed_files(self, parsed_files: List[dict], task: dict = None, commit_file: bool = False) -> tuple[int, List[str]]:
+        """
+        Write parsed files and compare tokens using parse_service object properties, return results and compare list
+        For NEW files, resolve path relative to todo.md folder (base_dir) and create full path.
+        For DELETE files, delete the matched file if it exists; prioritize DELETE over NEW even if both flags are set.
+        matchedfilename remains relative for reporting.
+        Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
+        """
+        logger.debug("_test_write_parsed_files called")
+        result = 0
+        compare: List[str] = []
+        basedir = Path(task['file']).parent if task else Path.cwd()
+        self._file_service.base_dir = str(basedir)  # Set base_dir for relative path resolution
+        update_deltas = []  # Collect deltas for UPDATE logging
+
+        for parsed in parsed_files:
+            content = parsed['content']
+            # completeness check
+            filename = parsed.get('filename', '')
+            matchedfilename = parsed.get('matchedfilename', '')  # Relative path for NEW files
+            relative_path = parsed.get('relative_path', filename)
+            is_new = parsed.get('new', False)
+            is_delete = parsed.get('delete', False)
+            is_copy = parsed.get('copy', False)
+            is_update = parsed.get('update', False)
+            new_path = None
+            orig_content = parsed.get('original_content', '')  # Assume parsed has original for diff calc
+            orig_tokens = len(orig_content.split()) if orig_content else 0
+            new_tokens = len(content.split()) if content else 0
+            token_delta = ((new_tokens - orig_tokens) / orig_tokens * 100) if orig_tokens > 0 else 100.0 if new_tokens > 0 else 0.0
+
+            # Prioritize DELETE: delete if flagged, regardless of other flags
+            if is_delete:
+                delete_path = Path(matchedfilename) if matchedfilename else None
+                if commit_file and delete_path and delete_path.exists():
+                    # self._file_service.delete_file(delete_path)
+                    logger.info(f"Not Deleted file: {delete_path} (matched: {matchedfilename})")
+                    result += 1
+                elif not delete_path:
+                    logger.warning(f"No matched path for DELETE: {filename}")
+                else:
+                    logger.info(f"Not DELETE file not found: {delete_path}")
+                compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
+                continue  # No further action for deletes
+
+            if commit_file:
+                if is_copy:
+                    # For COPY: resolve source and destination, copy file
+                    src_path = Path(matchedfilename)  # Assume matched is source
+                    dst_path = self._file_service.resolve_path(relative_path)  # Destination relative
+                    if src_path.exists():
+                        # self._file_service.copy_file(src_path, dst_path)
+                        logger.info(f"Not Copied file: {src_path} -> {dst_path} (relative: {relative_path})")
+                        result += 1
+                    else:
+                        logger.warning(f"Source for COPY not found: {src_path}")
+                elif is_new:
+                    # For NEW, resolve relative to base_dir
+                    new_path = self._file_service.resolve_path(relative_path)
+                    # self._file_service.write_file(new_path, content)
+                    logger.info(f"Not Created NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
+                    result += 1
+                elif is_update:
+                    # For UPDATE, use matched path
+                    new_path = Path(matchedfilename)
+                    if new_path.exists():
+                        # self._file_service.write_file(new_path, content)
+                        logger.info(f"Not Updated file: {new_path} (matched: {matchedfilename})")
+                        # Enhanced UPDATE logging: calculate and log deltas
+                        update_deltas.append(token_delta)
+                        logger.info(f"UPDATE details for {filename}: Tokens original={orig_tokens}, new={new_tokens}, delta={token_delta:.1f}%")
+                        result += 1
+                    else:
+                        logger.warning(f"Path for UPDATE not found: {new_path}")
+                else:
+                    logger.warning(f"Unknown action for {filename}: new={is_new}, update={is_update}, delete={is_delete}, copy={is_copy}")
+
+            short_compare = parsed.get('short_compare', '')
+            if is_delete:
+                compare.append(f"{short_compare} (DELETE) -> {matchedfilename}")
+            elif is_copy:
+                compare.append(f"{short_compare} (COPY) -> {matchedfilename}")
+            elif is_new:
+                compare.append(f"{short_compare} (NEW) -> {matchedfilename}")
+            elif is_update:
+                compare.append(f"{short_compare} (UPDATE, delta={token_delta:.1f}%) -> {matchedfilename}")
+            else:
+                compare.append(short_compare)
+
+        # Aggregate UPDATE logging: full compare details with stats (median, avg, peak delta)
+        if update_deltas and commit_file:
+            if len(update_deltas) > 0:
+                delta_median = statistics.median(update_deltas)
+                delta_avg = statistics.mean(update_deltas)
+                delta_peak = max(update_deltas)
                 logger.info(f"UPDATE Summary: {len(update_deltas)} files updated. Median delta: {delta_median:.1f}%, Avg delta: {delta_avg:.1f}%, Peak delta: {delta_peak:.1f}%")
                 logger.info(f"Full compare details: {compare}")  # Log full compare list
                 # Mimic task_manager format: log with key params
@@ -523,10 +639,10 @@ class TodoService:
         return result, compare
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
-        
         if not out_path:
             return
         self._file_service.write_file(out_path, content)
+        logger.info(f"Backed up and wrote output to: {out_path}")
         
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         out_path = self._get_ai_out_path(task)
@@ -538,7 +654,8 @@ class TodoService:
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
             return
-        out_path = srf = self._file_service.resolve_path(out_pat)
+        out_path = self._file_service.resolve_path(out_pat)
+        logger.debug(f"Resolved AI out path: {out_path}")
         return out_path
     
     def _process_one(self, task: dict, svc, file_lines_map: dict):
@@ -561,6 +678,7 @@ class TodoService:
         task['prompt_tokens'] = task['_prompt_tokens']
         logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
         cur_model = svc.get_cur_model()
+        task['cur_model'] = cur_model  # Set cur_model for logging
         st = self.start_task(task, file_lines_map, cur_model)
         task['_start_stamp'] = st  # Ensure start stamp is set
 
@@ -591,6 +709,17 @@ class TodoService:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
 
+        commited, compare = 0, []
+        success = False
+        if parsed_files:
+            commited, compare = self._write_parsed_files(parsed_files, task, True)
+            if commited > 0 or len(compare) > 0:
+                success = True
+        else:
+            logger.info("No parsed files to commit.")
+        truncation = 0.0  # Assuming no truncation
+        ct = self.complete_task(task, file_lines_map, cur_model, truncation, compare, False)
+        task['_complete_stamp'] = ct  # Ensure complete stamp is set
         logger.info(f"Manual commit pending for task (write_flag=' '): {task['desc']}")
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
