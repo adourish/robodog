@@ -67,41 +67,13 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo  promots
 - [x][-] changes todo
-  - started: 2025-09-20T11:10:55.182215 | completed: 2025-09-20 15:11 | knowledge: 25 | include: 40963 | prompt: 41533 | cur_model: x-ai/grok-4-fast:free | compare:  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py
-  - commit_summary:
-    - Commit Summary:
-    - -  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py (updated)
-  - commit_summary:
-    - Commit Summary:
-    - - todo.py (committed)
-    -   Changes: 900 lines affected
-  - commit_summary:
-    - Commit Summary:
-    - - todo.py (updated)
-    -   Changes: 910 lines affected
-  - started: 2025-09-20 14:37 | knowledge: 33 | include: 41005 | prompt: 41583 | cur_model: x-ai/grok-4-fast:free
-  - commit_summary:
-    - Commit Summary:
-    - - todo.py (updated)
-    -   Changes: 898 lines affected
-  - started: 2025-09-20 14:34 | knowledge: 12 | include: 40998 | prompt: 41555 | cur_model: x-ai/grok-4-fast:free
-  - commit_summary:
-    - Commit Summary:
-    - -  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py (updated)
-  - commit_summary:
-    - Commit Summary:
-    - - todo.py (committed)
-    -   Changes: 895 lines affected
-  - commit_summary:
-    - Commit Summary:
-    - - todo.py (updated)
-    -   Changes: 895 lines affected
-  - started: 2025-09-20 14:33 | knowledge: 12 | include: 40986 | prompt: 41543 | cur_model: x-ai/grok-4-fast:free
+  - started: 2025-09-20T11:43:58.095516 | completed: 2025-09-20 15:44 | knowledge: 22 | include: 41366 | prompt: 41933 | cur_model: x-ai/grok-4-fast:free | compare:  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. fix all logging in todo.py so that it calls the task_manager format summary .format_summary
-2. this will make sure that all summary are consistent
+1. fix all logging in todo.py 
+2. when calling during complete or complete commit always pass the optional values into format_summary
+3
 ```
 
 

@@ -85,6 +85,47 @@ class ParseService:
         return parsed
 
     # --- helper methods below (unchanged) ---
+    def parse_llm_output_commit(
+        self,
+        llm_output: str,
+        base_dir: Optional[str] = None,
+        file_service: Optional[object] = None,
+        ai_out_path: Union[str, Path] = '',
+        task: Union[Dict, List] = None,
+        svc: Optional[object] = None,
+    ) -> List[Dict[str, Union[str, int, bool]]]:
+        """
+        Same as parse_llm_output, but afterwards re‐reads the first line of each
+        file‐directive and forces the new/update/delete/copy flags to exactly
+        what the directive in the AI output says.
+        """
+        # first, parse normally (this will fill content, matchedfilename, etc)
+        parsed = self.parse_llm_output(
+            llm_output,
+            base_dir=base_dir,
+            file_service=file_service,
+            ai_out_path=str(ai_out_path),
+            task=task,
+            svc=svc,
+        )
+        import re
+        for obj in parsed:
+            # look at the very first line of the content
+            first = obj.get('content', '').splitlines()[0]
+            m = re.search(r'\b(NEW|DELETE|COPY|UPDATE)\s*$', first, re.IGNORECASE)
+            # reset all four to False
+            obj['new'] = obj['update'] = obj['delete'] = obj['copy'] = False
+            if m:
+                flag = m.group(1).upper()
+                if flag == 'NEW':
+                    obj['new'] = True
+                elif flag == 'UPDATE':
+                    obj['update'] = True
+                elif flag == 'DELETE':
+                    obj['delete'] = True
+                elif flag == 'COPY':
+                    obj['copy'] = True
+        return parsed
     def _detect_format(self, out: str) -> str:
         if self._is_section_format(out):
             return 'section'
