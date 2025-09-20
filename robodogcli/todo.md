@@ -69,27 +69,16 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo  
-- [~][-] changes todo
-  - started: 2025-09-20 12:42 | knowledge: 103 | include: 42098 | prompt: 42746 | cur_model: x-ai/grok-4-fast:free
+- [x][-] changes todo
+  - started: 2025-09-20T09:54:22.566356 | completed: 2025-09-20 13:54 | knowledge: 55 | include: 40738 | prompt: 41338 | cur_model: x-ai/grok-4-fast:free | compare:  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. we need to figure out if it is a NEW, DELETE, COPY, UPDATE from the LLM output
-2. we need to log the correct action
-3. we need to perform the correct action.
-4. right now there seems to be some issues. 
-5. make changes to parse service and todo to fix these issues. only change what is neded
+1. On commit, we need to read the out file and re-parse it using the same functions. this way the DELETE, UPDATE, NEW file operations will be correct. 
+2. _process_manual_done is correct here  ai_out = self._file_service.safe_read_file(out_path)
+3. we dont want to write to output again during commit. 
+4. esure that the correct commit operation happens 
 
-7. dont remove any logging
-
-fix error.
-why does parse service athing a delete is a NEW.
-
-it says creating new file
-[2025-09-20 08:23:01,191] INFO: Creating NEW file at full path: C:\Projects\concepts\work\hrsa-bphc\configurationhub\src\core\services\app-start-config.service.ts (relative: src/core/services/app-start-config.service.ts
-
-it is marked for delete
-// file: src/core/services/app-start-config.service.ts DELETE
 ```
 
 

@@ -297,6 +297,7 @@ class TodoService:
         - Use the same processing logic as _process_one for consistency
         - Ensure token values are populated from parsed metadata or defaults
         - After successful commit, update status to [x][x]
+        - Do not re-write the output file during commit
         """
         logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks")
         for task in done_tasks:
@@ -310,9 +311,14 @@ class TodoService:
                 # Ensure start stamp is set before task_manager call
                 if task.get('_start_stamp') is None:
                     task['_start_stamp'] = datetime.now().isoformat()
+                # Read the existing ai_out from out_path (do not regenerate or re-write)
                 out_path = self._get_ai_out_path(task)
+                if not out_path or not out_path.exists():
+                    logger.warning(f"Output path not found for manual commit: {out_path}")
+                    continue
                 ai_out = self._file_service.safe_read_file(out_path)
-                logger.info(f"Read out: {out_path} ({len(ai_out.split())} tokens)")
+                logger.info(f"Read existing out: {out_path} ({len(ai_out.split())} tokens)")
+                # Parse the existing ai_out
                 cur_model = self._svc.get_cur_model()
                 st = self.start_task(task, self._file_lines, cur_model)
                 # Preserve or set stamp if task_manager returns None
@@ -322,9 +328,10 @@ class TodoService:
 
                 try:
                     basedir = Path(task['file']).parent
+                    self._file_service.base_dir = str(basedir)
                     parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
                 except Exception as e:
-                    logger.error(f"Parsing AI output failed: {e}")
+                    logger.error(f"Parsing existing AI output failed: {e}")
                     parsed_files = []
 
                 commited, compare = 0, []
@@ -334,7 +341,7 @@ class TodoService:
                     if commited > 0 or len(compare) > 0:
                         success = True
                 else:
-                    logger.info("No parsed files to report.")
+                    logger.info("No parsed files to commit.")
 
                 # After successful commit, update status to [x][x]
                 if success:
@@ -571,6 +578,9 @@ class TodoService:
         else:
             logger.info(f"AI output length: {len(ai_out)} characters")
 
+        # Write AI output immediately
+        self._write_full_ai_output(svc, task, ai_out, 0)
+
         # parse and report before writing
         try:
             parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
@@ -580,27 +590,23 @@ class TodoService:
 
         trunc_code = 0
         compare: List[str] = []
-        success = False
-        if parsed_files:
-            trunc_code, compare = self._write_parsed_files(parsed_files, task, False)
-            self._write_full_ai_output(svc, task, ai_out, trunc_code)
-            # Check if commit was successful (trunc_code > 0 or parsed_files)
-            if trunc_code > 0 or len(compare) > 0:
-                success = True
-        else:
-            logger.info("No parsed files to report.")
+        success = bool(parsed_files and (len(parsed_files) > 0))
+        write_flag = task.get('write_flag')
+        auto_commit = write_flag is None or write_flag != ' '
 
-        # Update task status to [x][ ] (commit) and then to [x][x] if successful
+        commited = 0
+        if auto_commit and success:
+            commited, compare = self._write_parsed_files(parsed_files, task, True)
+
+        # Update task line to [x][ ] (committed or pending)
         file_lines = file_lines_map[task['file']]
         line_no = task['line_no']
         indent = task['indent']
-        # First, update to [x][ ] (commit status)
+        # Reconstruct full line with metadata
         clean_desc = task['desc']
         metadata_parts = []
         if task.get('_start_stamp'):
             metadata_parts.append(f"started: {task['_start_stamp']}")
-        if task.get('_complete_stamp'):
-            metadata_parts.append(f"completed: {task['_complete_stamp']}")
         if task.get('knowledge_tokens', 0) > 0:
             metadata_parts.append(f"knowledge: {task['knowledge_tokens']}")
         if task.get('include_tokens', 0) > 0:
@@ -610,34 +616,34 @@ class TodoService:
         full_desc = clean_desc
         if metadata_parts:
             full_desc += ' | ' + ' | '.join(metadata_parts)
+        # Mark as [x][ ] initially
         commit_line = f"{indent}- [x][ ] {full_desc}\n"
         file_lines[line_no] = commit_line
         self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-        logger.info(f"Updated task status to [x][ ] for commit: {task['desc']}")
+        logger.info(f"Updated task status to [x][ ] : {task['desc']}")
         self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
 
-        # If successful, update to [x][x]
-        if success:
-            # Reconstruct with complete stamp if available
-            if task.get('_complete_stamp') is None:
-                task['_complete_stamp'] = datetime.now().isoformat()
-            metadata_parts.append(f"completed: {task['_complete_stamp']}")
+        # If auto-commit and success, update to [x][x] and call complete_task
+        if auto_commit and success:
+            ct = datetime.now().isoformat()
+            task['_complete_stamp'] = ct
+            metadata_parts.append(f"completed: {ct}")
             full_desc = clean_desc
             if metadata_parts:
                 full_desc += ' | ' + ' | '.join(metadata_parts)
             done_line = f"{indent}- [x][x] {full_desc}\n"
             file_lines[line_no] = done_line
             self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-            logger.info(f"Updated task status to [x][x] for successful completion: {task['desc']}")
+            logger.info(f"Auto-committed and updated to [x][x]: {task['desc']}")
             self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
-
-        ct = self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
-        task['_complete_stamp'] = ct  # Ensure complete stamp is set
+            self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
+        elif not auto_commit:
+            logger.info(f"Manual commit pending for task (write_flag=' '): {task['desc']}")
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 907 lines
-# updated file length: 1042 lines
+# original file length: 1042 lines
+# updated file length: 1308 lines
