@@ -594,10 +594,6 @@ class TodoService:
         write_flag = task.get('write_flag')
         auto_commit = write_flag is None or write_flag != ' '
 
-        commited = 0
-        if auto_commit and success:
-            commited, compare = self._write_parsed_files(parsed_files, task, True)
-
         # Update task line to [x][ ] (committed or pending)
         file_lines = file_lines_map[task['file']]
         line_no = task['line_no']
