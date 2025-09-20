@@ -435,7 +435,7 @@ class TodoService:
         """
         Write parsed files and compare tokens using parse_service object properties, return results and compare list
         For NEW files, resolve path relative to todo.md folder (base_dir) and create full path.
-        For DELETE files, delete the matched file if it exists.
+        For DELETE files, delete the matched file if it exists; prioritize DELETE over NEW even if both flags are set.
         matchedfilename remains relative for reporting.
         """
         logger.debug("_write_parsed_files called")
@@ -451,33 +451,64 @@ class TodoService:
             relative_path = parsed.get('relative_path', filename)
             is_new = parsed.get('new', False)
             is_delete = parsed.get('delete', False)
+            is_copy = parsed.get('copy', False)
+            is_update = parsed.get('update', False)
             new_path = None
 
-            if commit_file:
-                if is_delete:
-                    # Handle DELETE: delete the matched file
-                    delete_path = Path(matchedfilename)
-                    if delete_path.exists():
-                        self._file_service.delete_file(delete_path)
-                        logger.info(f"Deleted file: {delete_path}")
-                    else:
-                        logger.warning(f"File to delete not found: {delete_path}")
-                    continue  # No content to write for deletes
-                elif is_new:
-                    # For NEW files, resolve relative path from directive to full path under base_dir (todo.md folder)
-                    new_path = self._file_service.resolve_path(relative_path)
-                    logger.info(f"Creating NEW file at full path: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
+            # Prioritize DELETE: delete if flagged, regardless of other flags
+            if is_delete:
+                delete_path = Path(matchedfilename) if matchedfilename else None
+                if commit_file and delete_path and delete_path.exists():
+                    self._file_service.delete_file(delete_path)
+                    logger.info(f"Deleted file: {delete_path} (matched: {matchedfilename})")
+                    result += 1
+                elif not delete_path:
+                    logger.warning(f"No matched path for DELETE: {filename}")
                 else:
-                    # For existing, use matched full path
-                    new_path = Path(matchedfilename)
-                
-                if new_path and not is_delete:
+                    logger.info(f"DELETE file not found: {delete_path}")
+                compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
+                continue  # No further action for deletes
+
+            if commit_file:
+                if is_copy:
+                    # For COPY: resolve source and destination, copy file
+                    src_path = Path(matchedfilename)  # Assume matched is source
+                    dst_path = self._file_service.resolve_path(relative_path)  # Destination relative
+                    if src_path.exists():
+                        self._file_service.copy_file(src_path, dst_path)
+                        logger.info(f"Copied file: {src_path} -> {dst_path} (relative: {relative_path})")
+                        result += 1
+                    else:
+                        logger.warning(f"Source for COPY not found: {src_path}")
+                elif is_new:
+                    # For NEW, resolve relative to base_dir
+                    new_path = self._file_service.resolve_path(relative_path)
                     self._file_service.write_file(new_path, content)
-                    logger.info(f"Committed file: {new_path} (relative: {relative_path if is_new else matchedfilename})")
+                    logger.info(f"Created NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
+                    result += 1
+                elif is_update:
+                    # For UPDATE, use matched path
+                    new_path = Path(matchedfilename)
+                    if new_path.exists():
+                        self._file_service.write_file(new_path, content)
+                        logger.info(f"Updated file: {new_path} (matched: {matchedfilename})")
+                        result += 1
+                    else:
+                        logger.warning(f"Path for UPDATE not found: {new_path}")
+                else:
+                    logger.warning(f"Unknown action for {filename}: new={is_new}, update={is_update}, delete={is_delete}, copy={is_copy}")
 
             short_compare = parsed.get('short_compare', '')
-            result = parsed.get('result', '')
-            compare.append(f"{short_compare} {'(NEW)' if is_new else '(DELETE)' if is_delete else ''} -> {matchedfilename}")
+            if is_delete:
+                compare.append(f"{short_compare} (DELETE) -> {matchedfilename}")
+            elif is_copy:
+                compare.append(f"{short_compare} (COPY) -> {matchedfilename}")
+            elif is_new:
+                compare.append(f"{short_compare} (NEW) -> {matchedfilename}")
+            elif is_update:
+                compare.append(f"{short_compare} (UPDATE) -> {matchedfilename}")
+            else:
+                compare.append(short_compare)
 
         return result, compare
 
@@ -608,5 +639,5 @@ class TodoService:
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 833 lines
-# updated file length: 907 lines
+# original file length: 907 lines
+# updated file length: 1042 lines

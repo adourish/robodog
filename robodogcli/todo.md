@@ -69,13 +69,27 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 ```
 
 # todo  
-- [x][x] changes todo | started: 2025-09-19T17:24:14.191826 | knowledge: 16
-  - started: 2025-09-19T17:22:53.772064 | completed: 2025-09-19 21:23 | knowledge: 16 | include: 39817 | prompt: 40378 | cur_model: openrouter/sonoma-sky-alpha | compare: todo.py (o/n/d/c: 2171/2353/182/8.4%)  -> C:\Projects\robodog\robodogcli\robodog\todo.py
+- [~][-] changes todo
+  - started: 2025-09-20 12:42 | knowledge: 103 | include: 42098 | prompt: 42746 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. when performing commit [x][ ]. ensure that we set the commit status when done [x][x]
+1. we need to figure out if it is a NEW, DELETE, COPY, UPDATE from the LLM output
+2. we need to log the correct action
+3. we need to perform the correct action.
+4. right now there seems to be some issues. 
+5. make changes to parse service and todo to fix these issues. only change what is neded
 
+7. dont remove any logging
+
+fix error.
+why does parse service athing a delete is a NEW.
+
+it says creating new file
+[2025-09-20 08:23:01,191] INFO: Creating NEW file at full path: C:\Projects\concepts\work\hrsa-bphc\configurationhub\src\core\services\app-start-config.service.ts (relative: src/core/services/app-start-config.service.ts
+
+it is marked for delete
+// file: src/core/services/app-start-config.service.ts DELETE
 ```
 
 
