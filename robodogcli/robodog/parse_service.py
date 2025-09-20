@@ -81,6 +81,17 @@ class ParseService:
             self._apply_flag_to_content(obj)
         # Generate side-by-side diffs if applicable
         self._write_side_by_side_diffs(parsed, ai_out_path or self._base_dir or str(Path.cwd()), fs)
+
+        # Log for each file: action, filename, original/updated/delta/percentage
+        for obj in parsed:
+            filename = obj.get('filename', '')
+            original_tokens = obj.get('original_tokens', 0)
+            new_tokens = obj.get('new_tokens', 0)
+            abs_delta = obj.get('abs_delta_tokens', 0)
+            percent_delta = obj.get('percent_delta', 0.0)
+            action = 'NEW' if obj.get('new') else 'UPDATE' if obj.get('update') else 'DELETE' if obj.get('delete') else 'COPY' if obj.get('copy') else 'UNKNOWN'
+            logger.info(f"{action} {filename}: (original={original_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={percent_delta:.1f}%)")
+
         logger.debug("Completed parse_llm_output")
         return parsed
 
@@ -307,6 +318,13 @@ class ParseService:
         upd = content if flag!='DELETE' else ''
         obj['diff_md'] = self.diff_service.generate_improved_md_diff(filename, orig, upd, obj['matchedfilename']) if flag!='NEW' else ''
         obj['diff_sbs'] = self.diff_service.generate_side_by_side_diff(filename, orig, upd, obj['matchedfilename']) if flag!='NEW' else ''
+        # Add original content and token counts for logging in todo.py
+        obj['original_content'] = orig
+        obj['original_tokens'] = len(orig.split()) if orig else 0
+        obj['new_tokens'] = len(upd.split()) if upd else 0
+        obj['abs_delta_tokens'] = obj['new_tokens'] - obj['original_tokens']
+        obj['percent_delta'] = ((obj['new_tokens'] - obj['original_tokens']) / obj['original_tokens'] * 100) if obj['original_tokens'] > 0 else 100.0 if obj['new_tokens'] > 0 else 0.0
+        obj['short_compare'] = f"O:{obj['original_tokens']} N:{obj['new_tokens']} D:{obj['abs_delta_tokens']}"
 
     def _determine_flags(self, obj, matched):
         flag = obj.get('flag','').upper()
@@ -569,6 +587,13 @@ class ParseService:
         upd = content if flag!='DELETE' else ''
         obj['diff_md'] = self.diff_service.generate_improved_md_diff(filename, orig, upd, obj['matchedfilename']) if flag!='NEW' else ''
         obj['diff_sbs'] = self.diff_service.generate_side_by_side_diff(filename, orig, upd, obj['matchedfilename']) if flag!='NEW' else ''
+        # Add original content and token counts for logging in todo.py
+        obj['original_content'] = orig
+        obj['original_tokens'] = len(orig.split()) if orig else 0
+        obj['new_tokens'] = len(upd.split()) if upd else 0
+        obj['abs_delta_tokens'] = obj['new_tokens'] - obj['original_tokens']
+        obj['percent_delta'] = ((obj['new_tokens'] - obj['original_tokens']) / obj['original_tokens'] * 100) if obj['original_tokens'] > 0 else 100.0 if obj['new_tokens'] > 0 else 0.0
+        obj['short_compare'] = f"O:{obj['original_tokens']} N:{obj['new_tokens']} D:{obj['abs_delta_tokens']}"
 
     def _determine_flagsb(self, obj, matched):
         flag = obj.get('flag','').upper()
@@ -609,5 +634,5 @@ class ParseService:
             except Exception:
                 pass
 
-# original file length: 812 lines
-# updated file length: 1056 lines
+# original file length: 1096 lines
+# updated file length: 1111 lines

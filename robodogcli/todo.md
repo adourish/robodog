@@ -67,37 +67,15 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo  promots
 - [x][-] logging in todo
-  - started: 2025-09-20T15:33:09.969607 | completed: 2025-09-20 19:33 | knowledge: 82 | include: 41911 | prompt: 42539 | cur_model: x-ai/grok-4-fast:free | compare:  (UPDATE, delta=100.0%) -> C:\Projects\robodog\robodogcli\robodog\todo.py
+  - started: 2025-09-20T19:23:02.397993 | completed: 2025-09-20 23:24 | knowledge: 43 | include: 43919 | prompt: 44508 | cur_model: x-ai/grok-4-fast:free | compare: O:2370 N:2367 D:-3 (UPDATE, delta_tokens=0, delta_percent=0.0%) -> C:\Projects\robodog\robodogcli\robodog\parse_service.py, O:3205 N:3202 D:-3 (UPDATE, delta_tokens=0, delta_percent=0.0%) -> C:\Projects\robodog\robodogcli\robodog\todo.py, O:1136 N:1133 D:-3 (UPDATE, delta_tokens=0, delta_percent=0.0%) -> C:\Projects\robodog\robodogcli\robodog\cli.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. fix all logging in todo service.
-2. when doing an UPDATE.
-3. ensure to log full compare details with percentage delta. use the task_manager format
-
- indent: Optional[str] = None,
-            start: Optional[str] = None,
-            end: Optional[str] = None,
-            know: Optional[int] = None,
-            prompt: Optional[int] = None,
-            incount: Optional[int] = None,
-            include: Optional[int] = None,
-            cur_model: str = None,
-            delta_median: Optional[float] = None,
-            delta_avg: Optional[float] = None,
-            delta_peak: Optional[float] = None,
-            committed: float = 0,
-            truncation: float = 0,
-            compare: Optional[List[str]] = None
-```
-
-
-# todo 
-- [x][-] changes todo
-  - started: 2025-09-16 23:31 | completed: 2025-09-16 23:32 | knowledge: 10 | include: 25472 | prompt: 25767 | cur_model: openai/o4-mini | compare: parse_service.py (o/n/d/c: 1052/1066/14/1.3%)
-  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*mcphandler.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*cli.py   recursive`
-  - out:  temp\out.py
-```knowledge
+1. in parse_llm_output
+2. for each file, add the old/new token count if an update
+3. for each file, add the delta token count
+4. for each file, add the percentage change 
+5. for each file, log the "NEW/UPDATE/DELETE/COPY filename: (original/updated/delta/percentage)" using logger.info
 
 
 ```

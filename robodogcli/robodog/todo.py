@@ -429,6 +429,7 @@ class TodoService:
         basedir = Path(task['file']).parent if task else Path.cwd()
         self._file_service.base_dir = str(basedir)  # Set base_dir for relative path resolution
         update_deltas = []  # Collect deltas for UPDATE logging
+        update_abs_deltas = []  # Collect absolute deltas for UPDATE logging
 
         for parsed in parsed_files:
             content = parsed['content']
@@ -440,11 +441,17 @@ class TodoService:
             is_delete = parsed.get('delete', False)
             is_copy = parsed.get('copy', False)
             is_update = parsed.get('update', False)
+            if not is_new and not is_copy and not is_delete and not is_update:
+                is_update = True
             new_path = None
             orig_content = parsed.get('original_content', '')  # Assume parsed has original for diff calc
             orig_tokens = len(orig_content.split()) if orig_content else 0
             new_tokens = len(content.split()) if content else 0
+            abs_delta = new_tokens - orig_tokens  # Absolute delta token count
             token_delta = ((new_tokens - orig_tokens) / orig_tokens * 100) if orig_tokens > 0 else 100.0 if new_tokens > 0 else 0.0
+
+            # Per-file logging for all updates, new, etc.
+            logger.info(f"File: {filename}, Original tokens: {orig_tokens}, Updated tokens: {new_tokens}, Delta tokens: {abs_delta}, Percentage change: {token_delta:.1f}%")
 
             # Prioritize DELETE: delete if flagged, regardless of other flags
             if is_delete:
@@ -485,7 +492,8 @@ class TodoService:
                         logger.info(f"Updated file: {new_path} (matched: {matchedfilename})")
                         # Enhanced UPDATE logging: calculate and log deltas
                         update_deltas.append(token_delta)
-                        logger.info(f"UPDATE details for {filename}: Tokens original={orig_tokens}, new={new_tokens}, delta={token_delta:.1f}%")
+                        update_abs_deltas.append(abs_delta)
+                        logger.info(f"UPDATE details for {filename}: Tokens original={orig_tokens}, new={new_tokens}, delta_tokens={abs_delta}, delta_percent={token_delta:.1f}%")
                         result += 1
                     else:
                         logger.warning(f"Path for UPDATE not found: {new_path}")
@@ -500,7 +508,7 @@ class TodoService:
             elif is_new:
                 compare.append(f"{short_compare} (NEW) -> {matchedfilename}")
             elif is_update:
-                compare.append(f"{short_compare} (UPDATE, delta={token_delta:.1f}%) -> {matchedfilename}")
+                compare.append(f"{short_compare} (UPDATE, delta_tokens={abs_delta}, delta_percent={token_delta:.1f}%) -> {matchedfilename}")
             else:
                 compare.append(short_compare)
 
@@ -510,6 +518,9 @@ class TodoService:
                 delta_median = statistics.median(update_deltas)
                 delta_avg = statistics.mean(update_deltas)
                 delta_peak = max(update_deltas)
+                abs_delta_median = statistics.median(update_abs_deltas)
+                abs_delta_avg = statistics.mean(update_abs_deltas)
+                abs_delta_peak = max(update_abs_deltas)
                 # Log in task_manager format
                 logger.info(
                     f"Task UPDATE logging - Indent: {task.get('indent', '')}, "
@@ -520,14 +531,10 @@ class TodoService:
                     f"Incount: {task.get('include_tokens', 0)}, "  # Note: incount vs include
                     f"Include: {task.get('include_tokens', 0)}, "  # Assuming include is the same
                     f"Cur_model: {task.get('cur_model', '')}, "  # cur_model from task or svc
-                    f"Delta_median: {delta_median:.1f}%, "
-                    f"Delta_avg: {delta_avg:.1f}%, "
-                    f"Delta_peak: {delta_peak:.1f}%, "
                     f"Committed: {result}, "
                     f"Truncation: 0, "
                     f"Compare: {compare}"
                 )
-                logger.info(f"Full compare details: {compare}")
 
         return result, compare
 
@@ -545,6 +552,7 @@ class TodoService:
         basedir = Path(task['file']).parent if task else Path.cwd()
         self._file_service.base_dir = str(basedir)  # Set base_dir for relative path resolution
         update_deltas = []  # Collect deltas for UPDATE logging
+        update_abs_deltas = []  # Collect absolute deltas for UPDATE logging
 
         for parsed in parsed_files:
             content = parsed['content']
@@ -556,23 +564,30 @@ class TodoService:
             is_delete = parsed.get('delete', False)
             is_copy = parsed.get('copy', False)
             is_update = parsed.get('update', False)
+            if not is_new and not is_copy and not is_delete and not is_update:
+                is_update = True
+
             new_path = None
             orig_content = parsed.get('original_content', '')  # Assume parsed has original for diff calc
             orig_tokens = len(orig_content.split()) if orig_content else 0
             new_tokens = len(content.split()) if content else 0
+            abs_delta = new_tokens - orig_tokens  # Absolute delta token count
             token_delta = ((new_tokens - orig_tokens) / orig_tokens * 100) if orig_tokens > 0 else 100.0 if new_tokens > 0 else 0.0
+
+            # Per-file logging for all updates, new, etc.
+            logger.info(f"File: {filename}, Original tokens: {orig_tokens}, Updated tokens: {new_tokens}, Delta tokens: {abs_delta}, Percentage change: {token_delta:.1f}%")
 
             # Prioritize DELETE: delete if flagged, regardless of other flags
             if is_delete:
                 delete_path = Path(matchedfilename) if matchedfilename else None
                 if commit_file and delete_path and delete_path.exists():
                     # self._file_service.delete_file(delete_path)
-                    logger.info(f"Not Deleted file: {delete_path} (matched: {matchedfilename})")
+                    logger.info(f"Test DELETE of file: {delete_path} (matched: {matchedfilename})")
                     result += 1
                 elif not delete_path:
                     logger.warning(f"No matched path for DELETE: {filename}")
                 else:
-                    logger.info(f"Not DELETE file not found: {delete_path}")
+                    logger.info(f"DELETE file not found: {delete_path}")
                 compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
                 continue  # No further action for deletes
 
@@ -583,7 +598,7 @@ class TodoService:
                     dst_path = self._file_service.resolve_path(relative_path)  # Destination relative
                     if src_path.exists():
                         # self._file_service.copy_file(src_path, dst_path)
-                        logger.info(f"Not Copied file: {src_path} -> {dst_path} (relative: {relative_path})")
+                        logger.info(f"Test COPY file: {src_path} -> {dst_path} (relative: {relative_path})")
                         result += 1
                     else:
                         logger.warning(f"Source for COPY not found: {src_path}")
@@ -591,7 +606,7 @@ class TodoService:
                     # For NEW, resolve relative to base_dir
                     new_path = self._file_service.resolve_path(relative_path)
                     # self._file_service.write_file(new_path, content)
-                    logger.info(f"Not Created NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
+                    logger.info(f"Test NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
                     result += 1
                 elif is_update:
                     # For UPDATE, use matched path
@@ -601,7 +616,8 @@ class TodoService:
                         logger.info(f"Not Updated file: {new_path} (matched: {matchedfilename})")
                         # Enhanced UPDATE logging: calculate and log deltas
                         update_deltas.append(token_delta)
-                        logger.info(f"UPDATE details for {filename}: Tokens original={orig_tokens}, new={new_tokens}, delta={token_delta:.1f}%")
+                        update_abs_deltas.append(abs_delta)
+                        logger.info(f"UPDATE details for {filename}: Tokens original={orig_tokens}, new={new_tokens}, delta_tokens={abs_delta}, delta_percent={token_delta:.1f}%")
                         result += 1
                     else:
                         logger.warning(f"Path for UPDATE not found: {new_path}")
@@ -616,7 +632,7 @@ class TodoService:
             elif is_new:
                 compare.append(f"{short_compare} (NEW) -> {matchedfilename}")
             elif is_update:
-                compare.append(f"{short_compare} (UPDATE, delta={token_delta:.1f}%) -> {matchedfilename}")
+                compare.append(f"{short_compare} (UPDATE, delta_tokens={abs_delta}, delta_percent={token_delta:.1f}%) -> {matchedfilename}")
             else:
                 compare.append(short_compare)
 
@@ -626,15 +642,30 @@ class TodoService:
                 delta_median = statistics.median(update_deltas)
                 delta_avg = statistics.mean(update_deltas)
                 delta_peak = max(update_deltas)
-                logger.info(f"UPDATE Summary: {len(update_deltas)} files updated. Median delta: {delta_median:.1f}%, Avg delta: {delta_avg:.1f}%, Peak delta: {delta_peak:.1f}%")
-                logger.info(f"Full compare details: {compare}")  # Log full compare list
-                # Mimic task_manager format: log with key params
-                logger.info(f"Task UPDATE logging - Indent: {task.get('indent', '')}, Start: {task.get('_start_stamp', '')}, "
-                            f"End: {task.get('_complete_stamp', '')}, Know: {task.get('knowledge_tokens', 0)}, "
-                            f"Prompt: {task.get('prompt_tokens', 0)}, Include: {task.get('include_tokens', 0)}, "
-                            f"Model: {task.get('cur_model', '')}, Delta Median: {delta_median:.1f}%, "
-                            f"Delta Avg: {delta_avg:.1f}%, Delta Peak: {delta_peak:.1f}%, Committed: {result}, "
-                            f"Truncation: 0, Compare: {compare}")
+                abs_delta_median = statistics.median(update_abs_deltas)
+                abs_delta_avg = statistics.mean(update_abs_deltas)
+                abs_delta_peak = max(update_abs_deltas)
+                # Log in task_manager format
+                logger.info(
+                    f"Task UPDATE logging - Indent: {task.get('indent', '')}, "
+                    f"Start: {task.get('_start_stamp', '')}, "
+                    f"End: {task.get('_complete_stamp', '')}, "
+                    f"Know: {task.get('knowledge_tokens', 0)}, "
+                    f"Prompt: {task.get('prompt_tokens', 0)}, "
+                    f"Incount: {task.get('include_tokens', 0)}, "  # Note: incount vs include
+                    f"Include: {task.get('include_tokens', 0)}, "  # Assuming include is the same
+                    f"Cur_model: {task.get('cur_model', '')}, "  # cur_model from task or svc
+                    f"Delta_median_percent: {delta_median:.1f}%, "
+                    f"Delta_avg_percent: {delta_avg:.1f}%, "
+                    f"Delta_peak_percent: {delta_peak:.1f}%, "
+                    f"Delta_median_tokens: {abs_delta_median}, "
+                    f"Delta_avg_tokens: {abs_delta_avg}, "
+                    f"Delta_peak_tokens: {abs_delta_peak}, "
+                    f"Committed: {result}, "
+                    f"Truncation: 0, "
+                    f"Compare: {compare}"
+                )
+                logger.info(f"Full compare details: {compare}")
 
         return result, compare
 
@@ -728,4 +759,4 @@ class TodoService:
         return srf
 
 # original file length: 1042 lines
-# updated file length: 1310 lines
+# updated file length: 1374 lines

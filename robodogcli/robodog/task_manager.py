@@ -240,6 +240,7 @@ class TaskManager(TaskBase):
             file_lines_map[fn].insert(idx, summary)
 
         self.write_file(fn, file_lines_map[fn])
+
         task['status_char'] = self.REVERSE_STATUS['Doing']
 
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str,
@@ -272,7 +273,7 @@ class TaskManager(TaskBase):
 
         self.write_file(fn, file_lines_map[fn])
         task['status_char'] = self.REVERSE_STATUS['Done']
-        logger.info(summary)
+
 
 
     def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str,
