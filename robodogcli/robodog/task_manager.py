@@ -276,34 +276,5 @@ class TaskManager(TaskBase):
 
 
 
-    def complete_commit_task(self, task: dict, file_lines_map: dict, cur_model: str,
-                              committed: float, compare: Optional[List[str]] = None):
-        """Mark a commit-task as completed with commit status, inline compare info."""
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
-        second_status = 'x' if committed >= 1 else '~'
-        file_lines_map[fn][ln] = f"{indent}- [x][{second_status}] {desc}\n"
-
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        start = task.get('_start_stamp', '')
-
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        incount = task.get('_include_tokens', 0)
-        delta_median = task.get('_delta_median')
-        delta_avg = task.get('_delta_avg')
-        delta_peak = task.get('_delta_peak')
-
-        summary = self.format_task_summary(task, cur_model)
-
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-
-        self.write_file(fn, file_lines_map[fn])
-        task['status_char'] = self.REVERSE_STATUS['Done']
-
 # original file length: 187 lines
 # updated file length: 187 lines

@@ -372,7 +372,7 @@ class TodoService:
         return st
         
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False):
-        logger.debug(f"Completing task: {task['desc']}")
+        logger.info(f"Completing task: {task['desc']} commit:" + str(commit))
         # Ensure tokens are populated before calling task_manager
         task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
         task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
