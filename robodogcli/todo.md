@@ -67,13 +67,28 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # todo  promots
 - [x][-] changes todo
-  - started: 2025-09-20T11:43:58.095516 | completed: 2025-09-20 15:44 | knowledge: 22 | include: 41366 | prompt: 41933 | cur_model: x-ai/grok-4-fast:free | compare:  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py
+  - started: 2025-09-20T11:55:17.217665 | completed: 2025-09-20 15:55 | knowledge: 82 | include: 41557 | prompt: 42184 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. fix all logging in todo.py 
-2. when calling during complete or complete commit always pass the optional values into format_summary
-3
+1. fix all logging in todo service.
+2. when doing an UPDATE.
+3. ensure to log full compare details with percentage delta. use the task_manager format
+
+ indent: Optional[str] = None,
+            start: Optional[str] = None,
+            end: Optional[str] = None,
+            know: Optional[int] = None,
+            prompt: Optional[int] = None,
+            incount: Optional[int] = None,
+            include: Optional[int] = None,
+            cur_model: str = None,
+            delta_median: Optional[float] = None,
+            delta_avg: Optional[float] = None,
+            delta_peak: Optional[float] = None,
+            committed: float = 0,
+            truncation: float = 0,
+            compare: Optional[List[str]] = None
 ```
 
 
