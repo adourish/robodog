@@ -53,7 +53,7 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 # cli to service
 - [~][-] changes cli and service security
-  - started: 2025-09-15 16:54 | knowledge: 50 | include: 66158 | prompt: 66457 | cur_model: openai/o4-mini
+  - started: 2025-09-20 14:49 | knowledge: 50 | include: 83453 | prompt: 84051 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out:  temp\out.py
 ```knowledge
@@ -61,24 +61,47 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 1. fix the todo complete. 
 2. the complete works for commit flow compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
 3. in commit flowwe see 
-- started: None | completed: 2025-09-15 01:12 | knowledge: 0 | include: 0 | prompt: 0 | cur_model: openai/o4-mini | commit: success | compare: mcphandler.py (o/n/d tokens:954/1067/89) c=9.3%,
-
 
 ```
 
-```
 
-# todo  
+# todo  promots
 - [x][-] changes todo
-  - started: 2025-09-20T09:54:22.566356 | completed: 2025-09-20 13:54 | knowledge: 55 | include: 40738 | prompt: 41338 | cur_model: x-ai/grok-4-fast:free | compare:  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py
+  - started: 2025-09-20T11:10:55.182215 | completed: 2025-09-20 15:11 | knowledge: 25 | include: 40963 | prompt: 41533 | cur_model: x-ai/grok-4-fast:free | compare:  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py
+  - commit_summary:
+    - Commit Summary:
+    - -  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py (updated)
+  - commit_summary:
+    - Commit Summary:
+    - - todo.py (committed)
+    -   Changes: 900 lines affected
+  - commit_summary:
+    - Commit Summary:
+    - - todo.py (updated)
+    -   Changes: 910 lines affected
+  - started: 2025-09-20 14:37 | knowledge: 33 | include: 41005 | prompt: 41583 | cur_model: x-ai/grok-4-fast:free
+  - commit_summary:
+    - Commit Summary:
+    - - todo.py (updated)
+    -   Changes: 898 lines affected
+  - started: 2025-09-20 14:34 | knowledge: 12 | include: 40998 | prompt: 41555 | cur_model: x-ai/grok-4-fast:free
+  - commit_summary:
+    - Commit Summary:
+    - -  (UPDATE) -> C:\Projects\robodog\robodogcli\robodog\todo.py (updated)
+  - commit_summary:
+    - Commit Summary:
+    - - todo.py (committed)
+    -   Changes: 895 lines affected
+  - commit_summary:
+    - Commit Summary:
+    - - todo.py (updated)
+    -   Changes: 895 lines affected
+  - started: 2025-09-20 14:33 | knowledge: 12 | include: 40986 | prompt: 41543 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out:  temp\out.py
 ```knowledge
-1. On commit, we need to read the out file and re-parse it using the same functions. this way the DELETE, UPDATE, NEW file operations will be correct. 
-2. _process_manual_done is correct here  ai_out = self._file_service.safe_read_file(out_path)
-3. we dont want to write to output again during commit. 
-4. esure that the correct commit operation happens 
-
+1. fix all logging in todo.py so that it calls the task_manager format summary .format_summary
+2. this will make sure that all summary are consistent
 ```
 
 

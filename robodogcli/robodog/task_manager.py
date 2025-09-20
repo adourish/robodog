@@ -16,8 +16,8 @@ class TaskBase:
 
     @staticmethod
     def format_summary(
-            indent: str,
-            start: str,
+            indent: Optional[str] = None,
+            start: Optional[str] = None,
             end: Optional[str] = None,
             know: Optional[int] = None,
             prompt: Optional[int] = None,

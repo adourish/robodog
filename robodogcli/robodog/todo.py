@@ -52,8 +52,8 @@ class TodoService:
     FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist"}):
-        logger.debug(f"Initializing TodoService with roots: {roots}")
-        logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
+
+        logger.debug(self._task_manager.format_summary({'event': f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}"}))
         self._roots        = roots
         self._file_lines   = {}
         self._tasks        = []
@@ -70,19 +70,30 @@ class TodoService:
         # MVP: parse a `base:` directive from front-matter
         self._base_dir = self._parse_base_dir()
         
-        logger.debug(f"Base directory parsed: {self._base_dir}")
+        logger.debug(self._task_manager.format_summary({
+            'event': 'Base directory parsed',
+            'base_dir': self._base_dir
+        }))
 
         self._load_all()
         for fn in self._find_files():
             try:
                 self._mtimes[fn] = os.path.getmtime(fn)
-                logger.debug(f"Initial mtime for {fn}: {self._mtimes[fn]}")
+                logger.debug(self._task_manager.format_summary({
+                    'event': 'Initial mtime set',
+                    'file': fn,
+                    'mtime': self._mtimes[fn]
+                }))
             except Exception as e:
-                logger.warning(f"Could not get mtime for {fn}: {e}")
+                logger.warning(self._task_manager.format_summary({
+                    'event': 'Could not get mtime',
+                    'file': fn,
+                    'error': str(e)
+                }))
                 pass
 
         threading.Thread(target=self._watch_loop, daemon=True).start()
-        logger.debug("TodoService initialized successfully")
+        logger.debug(self._task_manager.format_summary({'event': 'TodoService initialized successfully'}))
 
     def _parse_task_metadata(self, full_desc: str) -> Dict:
         """
@@ -117,13 +128,20 @@ class TodoService:
                         elif key == 'prompt':
                             metadata['prompt_tokens'] = int(val) if val.isdigit() else 0
                     except ValueError:
-                        logger.debug(f"Failed to parse metadata part: {part}")
+                        logger.debug(self._task_manager.format_summary({
+                            'event': 'Failed to parse metadata part',
+                            'part': part,
+                            'error': 'ValueError'
+                        }))
         return metadata
 
     def _parse_base_dir(self) -> Optional[str]:
-        logger.debug("_parse_base_dir called")
+        logger.debug(self._task_manager.format_summary({'event': '_parse_base_dir called'}))
         for fn in self._find_files():
-            logger.debug(f"Parsing front-matter from {fn}")
+            logger.debug(self._task_manager.format_summary({
+                'event': 'Parsing front-matter',
+                'file': fn
+            }))
             content = self._file_service.safe_read_file(Path(fn))
             lines = content.splitlines()
             if not lines or lines[0].strip() != '---':
@@ -138,19 +156,25 @@ class TodoService:
                     _, _, val = stripped.partition(':')
                     base = val.strip()
                     if base:
-                        logger.debug(f"Found base dir: {base}")
+                        logger.debug(self._task_manager.format_summary({
+                            'event': 'Found base dir',
+                            'base': base
+                        }))
                         return os.path.normpath(base)
-        logger.debug("No base dir found")
+        logger.debug(self._task_manager.format_summary({'event': 'No base dir found'}))
         return None
 
     def _find_files(self) -> List[str]:
-        logger.debug("_find_files called")
+        logger.debug(self._task_manager.format_summary({'event': '_find_files called'}))
         out = []
         for r in self._roots:
             for dp, _, fns in os.walk(r):
                 if self.FILENAME in fns:
                     out.append(os.path.join(dp, self.FILENAME))
-        logger.debug(f"Found files: {out}")
+        logger.debug(self._task_manager.format_summary({
+            'event': 'Found files',
+            'files': out
+        }))
         return out
 
     def _load_all(self):
@@ -159,11 +183,14 @@ class TodoService:
         write‐flag and any adjacent ```knowledge``` block.
         Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
         """
-        logger.debug("_load_all called: Reloading all tasks from files")
+        logger.debug(self._task_manager.format_summary({'event': '_load_all called: Reloading all tasks from files'}))
         self._file_lines.clear()
         self._tasks.clear()
         for fn in self._find_files():
-            logger.debug(f"Parsing tasks from {fn}")
+            logger.debug(self._task_manager.format_summary({
+                'event': 'Parsing tasks',
+                'file': fn
+            }))
             content = self._file_service.safe_read_file(Path(fn))
             lines = content.splitlines(keepends=True)
             self._file_lines[fn] = lines
@@ -235,7 +262,11 @@ class TodoService:
                 self._tasks.append(task)
                 task_count += 1
                 i = j
-            logger.debug(f"Loaded {task_count} tasks from {fn}")
+            logger.debug(self._task_manager.format_summary({
+                'event': 'Loaded tasks',
+                'file': fn,
+                'task_count': task_count
+            }))
 
     def _watch_loop(self):
         """
@@ -243,13 +274,16 @@ class TodoService:
         On external change, re‐parse tasks, re‐emit any manually Done tasks
         with write_flag=' ' and then run the next To Do.
         """
-        logger.debug("_watch_loop started")
+        logger.debug(self._task_manager.format_summary({'event': '_watch_loop started'}))
         while True:
             for fn in self._find_files():
                 try:
                     mtime = os.path.getmtime(fn)
                 except OSError:
-                    logger.warning(f"File {fn} not found, skipping")
+                    logger.warning(self._task_manager.format_summary({
+                        'event': 'File not found, skipping',
+                        'file': fn
+                    }))
                     # file might have been deleted
                     continue
 
@@ -257,13 +291,22 @@ class TodoService:
                 ignore_time = self._watch_ignore.get(fn)
                 if ignore_time and abs(mtime - ignore_time) < 1e-3:
                     self._watch_ignore.pop(fn, None)
-                    logger.debug(f"Skipped our own write for {fn}")
+                    logger.debug(self._task_manager.format_summary({
+                        'event': 'Skipped own write',
+                        'file': fn
+                    }))
 
                 # 2) external change?
                 elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
-                    logger.debug(f"Detected external change in {fn}, reloading tasks")
+                    logger.debug(self._task_manager.format_summary({
+                        'event': 'Detected external change, reloading tasks',
+                        'file': fn
+                    }))
                     if not self._svc:
-                        logger.warning("Svc not available, skipping change processing")
+                        logger.warning(self._task_manager.format_summary({
+                            'event': 'Svc not available, skipping change processing',
+                            'file': fn
+                        }))
                         # nothing to do if service not hooked up
                         continue
 
@@ -280,11 +323,18 @@ class TodoService:
                             if STATUS_MAP.get(t.get('status_char') or ' ') == 'To Do'
                         ]
                         if next_todos:
-                            logger.info("New To Do tasks found, running next")
+                            logger.info(self._task_manager.format_summary({
+                                'event': 'New To Do tasks found, running next',
+                                'count': len(next_todos)
+                            }))
                             self.run_next_task(self._svc)
 
                     except Exception as e:
-                        logger.error(f"watch loop error: {e}")
+                        logger.error(self._task_manager.format_summary({
+                            'event': 'Watch loop error',
+                            'file': fn,
+                            'error': str(e)
+                        }))
 
                 # 3) update our stored mtime
                 self._mtimes[fn] = mtime
@@ -299,10 +349,16 @@ class TodoService:
         - After successful commit, update status to [x][x]
         - Do not re-write the output file during commit
         """
-        logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks")
+        logger.debug(self._task_manager.format_summary({
+            'event': '_process_manual_done called',
+            'task_count': len(done_tasks)
+        }))
         for task in done_tasks:
             if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
-                logger.info(f"Manual commit of task: {task['desc']}")
+                logger.info(self._task_manager.format_summary({
+                    'event': 'Manual commit of task',
+                    'desc': task['desc']
+                }))
                 # Tokens should already be populated from _load_all parsing
                 # But ensure they are set (fallback to 0 if not)
                 task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
@@ -314,10 +370,19 @@ class TodoService:
                 # Read the existing ai_out from out_path (do not regenerate or re-write)
                 out_path = self._get_ai_out_path(task)
                 if not out_path or not out_path.exists():
-                    logger.warning(f"Output path not found for manual commit: {out_path}")
+                    logger.warning(self._task_manager.format_summary({
+                        'event': 'Output path not found for manual commit',
+                        'out_path': str(out_path),
+                        'desc': task['desc']
+                    }))
                     continue
                 ai_out = self._file_service.safe_read_file(out_path)
-                logger.info(f"Read existing out: {out_path} ({len(ai_out.split())} tokens)")
+                logger.info(self._task_manager.format_summary({
+                    'event': 'Read existing out',
+                    'out_path': str(out_path),
+                    'tokens': len(ai_out.split()),
+                    'desc': task['desc']
+                }))
                 # Parse the existing ai_out
                 cur_model = self._svc.get_cur_model()
                 st = self.start_task(task, self._file_lines, cur_model)
@@ -331,7 +396,11 @@ class TodoService:
                     self._file_service.base_dir = str(basedir)
                     parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
                 except Exception as e:
-                    logger.error(f"Parsing existing AI output failed: {e}")
+                    logger.error(self._task_manager.format_summary({
+                        'event': 'Parsing existing AI output failed',
+                        'error': str(e),
+                        'desc': task['desc']
+                    }))
                     parsed_files = []
 
                 commited, compare = 0, []
@@ -341,7 +410,10 @@ class TodoService:
                     if commited > 0 or len(compare) > 0:
                         success = True
                 else:
-                    logger.info("No parsed files to commit.")
+                    logger.info(self._task_manager.format_summary({
+                        'event': 'No parsed files to commit',
+                        'desc': task['desc']
+                    }))
 
                 # After successful commit, update status to [x][x]
                 if success:
@@ -369,7 +441,10 @@ class TodoService:
                     file_lines[line_no] = new_line
                     # Write back to file
                     self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-                    logger.info(f"Updated task status to [x][x] for successful commit: {task['desc']}")
+                    logger.info(self._task_manager.format_summary({
+                        'event': 'Updated task status to [x][x] for successful commit',
+                        'desc': task['desc']
+                    }))
                     # Ignore our own write in watcher
                     self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
 
@@ -379,10 +454,13 @@ class TodoService:
                     ct = datetime.now().isoformat()
                 task['_complete_stamp'] = ct
             else:
-                logger.debug("No tasks to commit.")
+                logger.debug(self._task_manager.format_summary({'event': 'No tasks to commit'}))
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
-        logger.debug(f"Starting task: {task['desc']}")
+        logger.debug(self._task_manager.format_summary({
+            'event': 'Starting task',
+            'desc': task['desc']
+        }))
         # Ensure tokens are populated before calling task_manager
         task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
         task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
@@ -395,7 +473,10 @@ class TodoService:
         return st
         
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None):
-        logger.debug(f"Completing task: {task['desc']}")
+        logger.debug(self._task_manager.format_summary({
+            'event': 'Completing task',
+            'desc': task['desc']
+        }))
         # Ensure tokens are populated before calling task_manager
         task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
         task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
@@ -408,19 +489,19 @@ class TodoService:
         return ct
             
     def run_next_task(self, svc):
-        logger.debug("run_next_task called")
+        logger.debug(self._task_manager.format_summary({'event': 'run_next_task called'}))
         self._svc = svc
         self._load_all()
         todo = [t for t in self._tasks
                 if STATUS_MAP[t['status_char']] == 'To Do']
         if not todo:
-            logger.info("No To Do tasks found.")
+            logger.info(self._task_manager.format_summary({'event': 'No To Do tasks found'}))
             return
         self._process_one(todo[0], svc, self._file_lines)
-        logger.info("Completed one To Do task")
+        logger.info(self._task_manager.format_summary({'event': 'Completed one To Do task'}))
 
     def _gather_include_knowledge(self, task: dict, svc) -> str:
-        logger.debug("Gathering include knowledge")
+        logger.debug(self._task_manager.format_summary({'event': 'Gathering include knowledge'}))
         inc = task.get('include') or {}
         spec = inc.get('pattern','')
         if not spec:
@@ -429,10 +510,17 @@ class TodoService:
         full_spec = f"pattern={spec}{rec}"
         try:
             know = svc.include(full_spec) or ""
-            logger.debug(f"Gathered {len(know.split())} tokens from include")
+            logger.debug(self._task_manager.format_summary({
+                'event': 'Gathered include knowledge',
+                'tokens': len(know.split())
+            }))
             return know
         except Exception as e:
-            logger.error(f"Include failed for spec='{full_spec}': {e}")
+            logger.error(self._task_manager.format_summary({
+                'event': 'Include failed',
+                'spec': full_spec,
+                'error': str(e)
+            }))
             return ""
 
 
@@ -445,7 +533,7 @@ class TodoService:
         For DELETE files, delete the matched file if it exists; prioritize DELETE over NEW even if both flags are set.
         matchedfilename remains relative for reporting.
         """
-        logger.debug("_write_parsed_files called")
+        logger.debug(self._task_manager.format_summary({'event': '_write_parsed_files called'}))
         result = 0
         compare: List[str] = []
         basedir = Path(task['file']).parent if task else Path.cwd()
@@ -467,12 +555,22 @@ class TodoService:
                 delete_path = Path(matchedfilename) if matchedfilename else None
                 if commit_file and delete_path and delete_path.exists():
                     self._file_service.delete_file(delete_path)
-                    logger.info(f"Deleted file: {delete_path} (matched: {matchedfilename})")
+                    logger.info(self._task_manager.format_summary({
+                        'event': 'Deleted file',
+                        'path': str(delete_path),
+                        'matched': matchedfilename
+                    }))
                     result += 1
                 elif not delete_path:
-                    logger.warning(f"No matched path for DELETE: {filename}")
+                    logger.warning(self._task_manager.format_summary({
+                        'event': 'No matched path for DELETE',
+                        'filename': filename
+                    }))
                 else:
-                    logger.info(f"DELETE file not found: {delete_path}")
+                    logger.info(self._task_manager.format_summary({
+                        'event': 'DELETE file not found',
+                        'path': str(delete_path)
+                    }))
                 compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
                 continue  # No further action for deletes
 
@@ -483,27 +581,54 @@ class TodoService:
                     dst_path = self._file_service.resolve_path(relative_path)  # Destination relative
                     if src_path.exists():
                         self._file_service.copy_file(src_path, dst_path)
-                        logger.info(f"Copied file: {src_path} -> {dst_path} (relative: {relative_path})")
+                        logger.info(self._task_manager.format_summary({
+                            'event': 'Copied file',
+                            'src': str(src_path),
+                            'dst': str(dst_path),
+                            'relative': relative_path
+                        }))
                         result += 1
                     else:
-                        logger.warning(f"Source for COPY not found: {src_path}")
+                        logger.warning(self._task_manager.format_summary({
+                            'event': 'Source for COPY not found',
+                            'src': str(src_path)
+                        }))
                 elif is_new:
                     # For NEW, resolve relative to base_dir
                     new_path = self._file_service.resolve_path(relative_path)
                     self._file_service.write_file(new_path, content)
-                    logger.info(f"Created NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
+                    logger.info(self._task_manager.format_summary({
+                        'event': 'Created NEW file',
+                        'path': str(new_path),
+                        'relative': relative_path,
+                        'matched': matchedfilename
+                    }))
                     result += 1
                 elif is_update:
                     # For UPDATE, use matched path
                     new_path = Path(matchedfilename)
                     if new_path.exists():
                         self._file_service.write_file(new_path, content)
-                        logger.info(f"Updated file: {new_path} (matched: {matchedfilename})")
+                        logger.info(self._task_manager.format_summary({
+                            'event': 'Updated file',
+                            'path': str(new_path),
+                            'matched': matchedfilename
+                        }))
                         result += 1
                     else:
-                        logger.warning(f"Path for UPDATE not found: {new_path}")
+                        logger.warning(self._task_manager.format_summary({
+                            'event': 'Path for UPDATE not found',
+                            'path': str(new_path)
+                        }))
                 else:
-                    logger.warning(f"Unknown action for {filename}: new={is_new}, update={is_update}, delete={is_delete}, copy={is_copy}")
+                    logger.warning(self._task_manager.format_summary({
+                        'event': 'Unknown action',
+                        'filename': filename,
+                        'new': is_new,
+                        'update': is_update,
+                        'delete': is_delete,
+                        'copy': is_copy
+                    }))
 
             short_compare = parsed.get('short_compare', '')
             if is_delete:
@@ -527,7 +652,11 @@ class TodoService:
         
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code):
         out_path = self._get_ai_out_path(task)
-        logger.info(f"Write AI out: {out_path} ({len(ai_out.split())} tokens)")
+        logger.info(self._task_manager.format_summary({
+            'event': 'Write AI out',
+            'out_path': str(out_path),
+            'tokens': len(ai_out.split())
+        }))
         if out_path:
             self._backup_and_write_output(svc, out_path, ai_out)
     
@@ -539,24 +668,39 @@ class TodoService:
         return out_path
     
     def _process_one(self, task: dict, svc, file_lines_map: dict):
-        logger.info(f"Processing task: {task['desc']}")
+        logger.info(self._task_manager.format_summary({
+            'event': 'Processing task',
+            'desc': task['desc']
+        }))
         basedir = Path(task['file']).parent
         self._base_dir = str(basedir)
         self._file_service.base_dir = str(basedir)  # Set base_dir for relative resolutions
-        logger.debug(f"Base dir: {self._base_dir}")
+        logger.debug(self._task_manager.format_summary({
+            'event': 'Base dir set',
+            'base_dir': self._base_dir
+        }))
         include_text = self._gather_include_knowledge(task, svc)
         task['_include_tokens'] = len(include_text.split())
         task['include_tokens'] = task['_include_tokens']
-        logger.info(f"Include tokens: {task['_include_tokens']}")
+        logger.info(self._task_manager.format_summary({
+            'event': 'Include tokens',
+            'tokens': task['_include_tokens']
+        }))
         knowledge_text = task.get('knowledge') or ""
         task['_know_tokens'] = len(knowledge_text.split())
         task['knowledge_tokens'] = task['_know_tokens']
-        logger.info(f"Knowledge tokens: {task['_know_tokens']}")
+        logger.info(self._task_manager.format_summary({
+            'event': 'Knowledge tokens',
+            'tokens': task['_know_tokens']
+        }))
         out_path = self._get_ai_out_path(task)
         prompt = self._prompt_builder.build_task_prompt(task, self._base_dir, str(out_path), knowledge_text, include_text)
         task['_prompt_tokens'] = len(prompt.split())
         task['prompt_tokens'] = task['_prompt_tokens']
-        logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
+        logger.info(self._task_manager.format_summary({
+            'event': 'Prompt tokens',
+            'tokens': task['_prompt_tokens']
+        }))
         cur_model = svc.get_cur_model()
         st = self.start_task(task, file_lines_map, cur_model)
         task['_start_stamp'] = st  # Ensure start stamp is set
@@ -564,19 +708,37 @@ class TodoService:
         try:
             ai_out = svc.ask(prompt)
         except Exception as e:
-            logger.error(f"LLM call failed: {e}")
+            logger.error(self._task_manager.format_summary({
+                'event': 'LLM call failed',
+                'error': str(e),
+                'desc': task['desc']
+            }))
             ai_out = ""
 
         # Added check for ai_out issues
         if not ai_out:
-            logger.warning("No AI output generated for task. Running one more time.")
+            logger.warning(self._task_manager.format_summary({
+                'event': 'No AI output generated for task. Running one more time.',
+                'desc': task['desc']
+            }))
             ai_out = svc.ask(prompt)
             if not ai_out:
-                logger.error("No AI output generated for task. Failed.")
+                logger.error(self._task_manager.format_summary({
+                    'event': 'No AI output generated for task. Failed.',
+                    'desc': task['desc']
+                }))
             else:
-                logger.info(f"AI output length: {len(ai_out)} characters")
+                logger.info(self._task_manager.format_summary({
+                    'event': 'AI output length',
+                    'chars': len(ai_out),
+                    'desc': task['desc']
+                }))
         else:
-            logger.info(f"AI output length: {len(ai_out)} characters")
+            logger.info(self._task_manager.format_summary({
+                'event': 'AI output length',
+                'chars': len(ai_out),
+                'desc': task['desc']
+            }))
 
         # Write AI output immediately
         self._write_full_ai_output(svc, task, ai_out, 0)
@@ -585,7 +747,11 @@ class TodoService:
         try:
             parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
         except Exception as e:
-            logger.error(f"Parsing AI output failed: {e}")
+            logger.error(self._task_manager.format_summary({
+                'event': 'Parsing AI output failed',
+                'error': str(e),
+                'desc': task['desc']
+            }))
             parsed_files = []
 
         trunc_code = 0
@@ -620,7 +786,10 @@ class TodoService:
         commit_line = f"{indent}- [x][ ] {full_desc}\n"
         file_lines[line_no] = commit_line
         self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-        logger.info(f"Updated task status to [x][ ] : {task['desc']}")
+        logger.info(self._task_manager.format_summary({
+            'event': 'Updated task status to [x][ ]',
+            'desc': task['desc']
+        }))
         self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
 
         # If auto-commit and success, update to [x][x] and call complete_task
@@ -634,16 +803,25 @@ class TodoService:
             done_line = f"{indent}- [x][x] {full_desc}\n"
             file_lines[line_no] = done_line
             self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-            logger.info(f"Auto-committed and updated to [x][x]: {task['desc']}")
+            logger.info(self._task_manager.format_summary({
+                'event': 'Auto-committed and updated to [x][x]',
+                'desc': task['desc']
+            }))
             self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
             self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
         elif not auto_commit:
-            logger.info(f"Manual commit pending for task (write_flag=' '): {task['desc']}")
+            logger.info(self._task_manager.format_summary({
+                'event': 'Manual commit pending for task (write_flag=\' \')',
+                'desc': task['desc']
+            }))
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
-        logger.debug(f"Resolving path: {frag}")
+        logger.debug(self._task_manager.format_summary({
+            'event': 'Resolving path',
+            'frag': frag
+        }))
         srf = self._file_service.resolve_path(frag)
         return srf
 
-# original file length: 1042 lines
+# original file length: 1308 lines
 # updated file length: 1308 lines
