@@ -6,6 +6,7 @@ import re
 import time
 import threading
 import logging
+import traceback
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -285,7 +286,8 @@ class TodoService:
                             self.run_next_task(self._svc)
 
                     except Exception as e:
-                        logger.error(f"watch loop error: {e}")
+                        tb = traceback.format_exc()
+                        logger.error(f"watch loop error: {e}\n{tb}")
 
                 # 3) update our stored mtime
                 self._mtimes[fn] = mtime
@@ -346,35 +348,9 @@ class TodoService:
 
                 # After successful commit, update status to [x][x]
                 if success:
-                    file_lines = self._file_lines[task['file']]
-                    line_no = task['line_no']
-                    indent = task['indent']
-                    # Reconstruct full line with metadata
-                    clean_desc = task['desc']
-                    metadata_parts = []
-                    if task.get('_start_stamp'):
-                        metadata_parts.append(f"started: {task['_start_stamp']}")
-                    if task.get('_complete_stamp'):
-                        metadata_parts.append(f"completed: {task['_complete_stamp']}")
-                    if task.get('knowledge_tokens', 0) > 0:
-                        metadata_parts.append(f"knowledge: {task['knowledge_tokens']}")
-                    if task.get('include_tokens', 0) > 0:
-                        metadata_parts.append(f"include: {task['include_tokens']}")
-                    if task.get('prompt_tokens', 0) > 0:
-                        metadata_parts.append(f"prompt: {task['prompt_tokens']}")
-                    full_desc = clean_desc
-                    if metadata_parts:
-                        full_desc += ' | ' + ' | '.join(metadata_parts)
-                    # Update the line to [x][x] full_desc
-                    new_line = f"{indent}- [x][x] {full_desc}\n"
-                    file_lines[line_no] = new_line
-                    # Write back to file
-                    self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-                    logger.info(f"Updated task status to [x][x] for successful commit: {task['desc']}")
-                    # Ignore our own write in watcher
-                    self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
+                    logger.info("Commit completed")
 
-                ct = self.complete_task(task, self._file_lines, cur_model, 0, compare)
+                ct = self.complete_task(task, self._file_lines, cur_model, 0, compare, True)
                 # Preserve or set stamp if task_manager returns None
                 if ct is None:
                     ct = datetime.now().isoformat()
@@ -395,13 +371,13 @@ class TodoService:
         task['_start_stamp'] = st  # Ensure start stamp is set on task
         return st
         
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None):
+    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False):
         logger.debug(f"Completing task: {task['desc']}")
         # Ensure tokens are populated before calling task_manager
         task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
         task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
         task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
-        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation, compare)
+        ct = self._task_manager.complete_task(task, file_lines_map, cur_model, truncation, compare, commit)
         # Preserve or set stamp if task_manager returns None
         if ct is None:
             ct = datetime.now().isoformat()
@@ -615,53 +591,7 @@ class TodoService:
             logger.error(f"Parsing AI output failed: {e}")
             parsed_files = []
 
-        trunc_code = 0
-        compare: List[str] = []
-        success = bool(parsed_files and (len(parsed_files) > 0))
-        write_flag = task.get('write_flag')
-        auto_commit = write_flag is None or write_flag != ' '
-
-        # Update task line to [x][ ] (committed or pending)
-        file_lines = file_lines_map[task['file']]
-        line_no = task['line_no']
-        indent = task['indent']
-        # Reconstruct full line with metadata
-        clean_desc = task['desc']
-        metadata_parts = []
-        if task.get('_start_stamp'):
-            metadata_parts.append(f"started: {task['_start_stamp']}")
-        if task.get('knowledge_tokens', 0) > 0:
-            metadata_parts.append(f"knowledge: {task['knowledge_tokens']}")
-        if task.get('include_tokens', 0) > 0:
-            metadata_parts.append(f"include: {task['include_tokens']}")
-        if task.get('prompt_tokens', 0) > 0:
-            metadata_parts.append(f"prompt: {task['prompt_tokens']}")
-        full_desc = clean_desc
-        if metadata_parts:
-            full_desc += ' | ' + ' | '.join(metadata_parts)
-        # Mark as [x][ ] initially
-        commit_line = f"{indent}- [x][ ] {full_desc}\n"
-        file_lines[line_no] = commit_line
-        self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-        logger.info(f"Updated task status to [x][ ] : {task['desc']}")
-        self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
-
-        # If auto-commit and success, update to [x][x] and call complete_task
-        if auto_commit and success:
-            ct = datetime.now().isoformat()
-            task['_complete_stamp'] = ct
-            metadata_parts.append(f"completed: {ct}")
-            full_desc = clean_desc
-            if metadata_parts:
-                full_desc += ' | ' + ' | '.join(metadata_parts)
-            done_line = f"{indent}- [x][x] {full_desc}\n"
-            file_lines[line_no] = done_line
-            self._file_service.write_file(Path(task['file']), ''.join(file_lines))
-            logger.info(f"Auto-committed and updated to [x][x]: {task['desc']}")
-            self._watch_ignore[task['file']] = os.path.getmtime(task['file'])
-            self.complete_task(task, file_lines_map, cur_model, trunc_code, compare)
-        elif not auto_commit:
-            logger.info(f"Manual commit pending for task (write_flag=' '): {task['desc']}")
+        logger.info(f"Manual commit pending for task (write_flag=' '): {task['desc']}")
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")
