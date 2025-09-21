@@ -372,7 +372,7 @@ class TodoService:
         return st
         
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False):
-        logger.info(f"Completing task: {task['desc']} commit:" + str(commit))
+        logger.debug(f"Completing task: {task['desc']}")
         # Ensure tokens are populated before calling task_manager
         task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
         task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
@@ -531,10 +531,17 @@ class TodoService:
                     f"Incount: {task.get('include_tokens', 0)}, "  # Note: incount vs include
                     f"Include: {task.get('include_tokens', 0)}, "  # Assuming include is the same
                     f"Cur_model: {task.get('cur_model', '')}, "  # cur_model from task or svc
+                    f"Delta_median_percent: {delta_median:.1f}%, "
+                    f"Delta_avg_percent: {delta_avg:.1f}%, "
+                    f"Delta_peak_percent: {delta_peak:.1f}%, "
+                    f"Delta_median_tokens: {abs_delta_median}, "
+                    f"Delta_avg_tokens: {abs_delta_avg}, "
+                    f"Delta_peak_tokens: {abs_delta_peak}, "
                     f"Committed: {result}, "
                     f"Truncation: 0, "
                     f"Compare: {compare}"
                 )
+                logger.info(f"Full compare details: {compare}")
 
         return result, compare
 

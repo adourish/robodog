@@ -314,7 +314,7 @@ class RobodogService:
         return knowledge
 
     # Default exclude directories
-    DEFAULT_EXCLUDE_DIRS = {"node_modules", "dist", "temp", "diffoutput"}
+    DEFAULT_EXCLUDE_DIRS = {"node_modules", "dist", "diffoutput"}
 
     def search_files(self, patterns="*", recursive=True, roots=None, exclude_dirs=None):
         if isinstance(patterns, str):

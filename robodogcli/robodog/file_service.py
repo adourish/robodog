@@ -18,7 +18,7 @@ class FileService:
         logger.debug(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}")
         self._roots = roots
         self._base_dir = base_dir
-        self._exclude_dirs = {"node_modules", "dist", "temp", "diffoutput"}
+        self._exclude_dirs = {"node_modules", "dist", "diffoutput"}
         self._backupFolder = backupFolder
     @property
     def base_dir(self) -> Optional[str]:
@@ -64,7 +64,7 @@ class FileService:
         """Find files matching the given glob pattern."""
         logger.debug(f"find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
         if svc:
-            return svc.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
+            return self.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
         logger.warning("Svc not provided, returning empty list")
         return []
     
@@ -83,42 +83,12 @@ class FileService:
         logger.debug("No matching file found")
         return None
     
-    def resolve_path(self, frag: str) -> Optional[Path]:
+    def resolve_path(self, frag: str, svc) -> Optional[Path]:
+
+        candidate = self.find_matching_file(frag, {'pattern':'*','recursive':True}, svc)
         """Resolve a file fragment to an absolute path."""
         logger.debug(f"Resolving path for frag: {frag}")
-        if not frag:
-            return None
-        
-        f = frag.strip('"').strip('`')
-        
-        # Simple filename in base_dir
-        if self._base_dir and not any(sep in f for sep in (os.sep,'/','\\')):
-            candidate = Path(self._base_dir) / f
-            logger.info(f"Resolved to base_dir candidate: {candidate}")
-            return candidate.resolve()
-        
-        # Path with separators in base_dir
-        if self._base_dir and any(sep in f for sep in ('/','\\')):
-            candidate = Path(self._base_dir) / Path(f)
-            candidate.parent.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Resolved to base_dir path candidate: {candidate}")
-            return candidate.resolve()
-        
-        # Search in roots
-        search_roots = ([self._base_dir] if self._base_dir else []) + self._roots
-        for root in search_roots:
-            cand = Path(root) / f
-            if cand.is_file():
-                logger.info(f"Found in roots: {cand}")
-                return cand.resolve()
-        
-        # Create in first root
-        p = Path(f)
-        base = Path(self._roots[0]) / p.parent
-        base.mkdir(parents=True, exist_ok=True)
-        created = (base / p.name).resolve()
-        logger.debug(f"Created new path: {created}")
-        return created
+        return candidate
     
     def safe_read_file(self, path: Path) -> str:
         """Safely read a file, handling binary files and encoding issues."""

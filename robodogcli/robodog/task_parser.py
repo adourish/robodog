@@ -101,8 +101,8 @@ class TaskParser:
                     key = sub.group('key')
                     pat = sub.group('pattern').strip('"').strip('`')
                     rec = bool(sub.group('rec'))
-                    if key == 'focus':
-                        task['out'] = {'pattern': pat, 'recursive': rec}
+                    if key == 'out':
+                        task['out'] = sub.group('out')
                     else:
                         task[key] = {'pattern': pat, 'recursive': rec}
                     logger.debug("Found sub-entry key: %s, pattern: %s, recursive: %s", key, pat, rec)
