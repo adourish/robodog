@@ -705,7 +705,7 @@ class TodoService:
                 abs_delta_avg = statistics.mean(update_abs_deltas)
                 abs_delta_peak = max(update_abs_deltas)
                 # Log in task_manager format
-                logger.info(
+                logger.debug(
                     f"Task UPDATE logging - Indent: {task.get('indent', '')}, "
                     f"Start: {task.get('_start_stamp', '')}, "
                     f"End: {task.get('_complete_stamp', '')}, "
@@ -836,7 +836,7 @@ class TodoService:
                 abs_delta_avg = statistics.mean(update_abs_deltas)
                 abs_delta_peak = max(update_abs_deltas)
                 # Log in task_manager format
-                logger.info(
+                logger.debug(
                     f"Task UPDATE logging - Indent: {task.get('indent', '')}, "
                     f"Start: {task.get('_start_stamp', '')}, "
                     f"End: {task.get('_complete_stamp', '')}, "
@@ -1000,7 +1000,7 @@ class TodoService:
     # ----------------------------------------------------------------
     # 3) tweak your write routine so you never do Path(None)
     # ----------------------------------------------------------------
-    def _write_parsed_files(self,
+    def _write_parsed_filesb(self,
                             parsed_files: Dict[str,str],
                             task: Dict[str,Any],
                             manual: bool) -> Tuple[bool, Optional[str]]:
@@ -1011,7 +1011,8 @@ class TodoService:
         # try AI-specified path first
         for parsed in parsed_files:
             content = parsed['content']
-            new_path = self._get_ai_out_path(task)
+            new_path = parsed_files.get('filename')
+            self._file_service.resolve
             logger.info("_write_parsed_files" + new_path)
             # fallback to whatever filename you parsed out of the file
             if not new_path:
