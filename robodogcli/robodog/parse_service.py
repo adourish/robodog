@@ -85,12 +85,16 @@ class ParseService:
         # Log for each file: action, filename, original/updated/delta/percentage
         for obj in parsed:
             filename = obj.get('filename', '')
+            originalfilename = obj.get('originalfilename', filename)
+            matchedfilename = obj.get('matchedfilename', filename)
             original_tokens = obj.get('original_tokens', 0)
             new_tokens = obj.get('new_tokens', 0)
             abs_delta = obj.get('abs_delta_tokens', 0)
             percent_delta = obj.get('percent_delta', 0.0)
             action = 'NEW' if obj.get('new') else 'UPDATE' if obj.get('update') else 'DELETE' if obj.get('delete') else 'COPY' if obj.get('copy') else 'UPDATE'
             logger.info(f"{action} {filename}: (original={original_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={percent_delta:.1f}%)")
+            logger.debug(f"  - originalfilename: {originalfilename}")
+            logger.debug(f"  - matchedfilename: {matchedfilename}")
 
         logger.debug("Completed parse_llm_output")
         return parsed
@@ -618,21 +622,3 @@ class ParseService:
         body = obj.get('content','')
         obj['content'] = parts[0] + (f"\n{body}" if not obj['delete'] else "")
 
-    def _write_side_by_side_diffsb(self, parsed, out_path, fs):
-        if not fs: return
-        diffdir = Path(out_path or self._base_dir or '.').parent / 'diffoutput'
-        fs.ensure_dir(diffdir)
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        for obj in parsed:
-            sbs = obj.get('diff_sbs','')
-            if not sbs: continue
-            stem = Path(obj['filename']).stem
-            suf = Path(obj['filename']).suffix or '.md'
-            name = f"diff-sbs-{stem}-{ts}{suf}"
-            try:
-                fs.write_file(diffdir / name, sbs)
-            except Exception:
-                pass
-
-# original file length: 1096 lines
-# updated file length: 1111 lines

@@ -300,14 +300,14 @@ class TodoService:
         by combining with the folder of todoFilename, and skip any
         that don’t exist on disk.
         """
-        logger.info(f"_process_manual_done called with {len(done_tasks)} tasks, todoFilename={todoFilename!r}")
+        logger.info(f"_process_manual_done called with {len(done_tasks)} tasks, todoFilename={todoFilename}")
 
         # derive the folder containing the todo.md that was edited
         base_folder = None
         if todoFilename:
             try:
                 base_folder = Path(todoFilename).parent
-                logger.info("Process manual base folder:" + base_folder)    
+                logger.info("Process manual base folder:" + str(base_folder))    
             except Exception:
                 logger.warning(f"Could not determine parent folder of {todoFilename}")
                 base_folder = None
@@ -412,8 +412,6 @@ class TodoService:
                 ct = datetime.now().isoformat()
             task['_complete_stamp'] = ct
 
-        # end for
-
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
         logger.debug(f"Starting task: {task['desc']}")
         # Ensure tokens are populated before calling task_manager
@@ -468,8 +466,6 @@ class TodoService:
             logger.error(f"Include failed for spec='{full_spec}': {e}")
             return ""
 
-
-
     # --- modified write-and-report method ---
     def _write_parsed_files(self, parsed_files: List[dict], task: dict = None, commit_file: bool= False, base_folder: str = "") -> tuple[int, List[str]]:
         """
@@ -479,7 +475,7 @@ class TodoService:
         matchedfilename remains relative for reporting.
         Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
         """
-        logger.debug("_write_parsed_files called")
+        logger.info("_write_parsed_files called commit file: " + str(base_folder))
         result = 0
         compare: List[str] = []
         basedir = Path(task['file']).parent if task else Path.cwd()
@@ -491,7 +487,8 @@ class TodoService:
             content = parsed['content']
             # completeness check
             filename = parsed.get('filename', '')
-            matchedfilename = parsed.get('matchedfilename', '')  # Relative path for NEW files
+            originalfilename = parsed.get('originalfilename', filename)
+            matchedfilename = parsed.get('matchedfilename', filename)  # Relative path for NEW files
             relative_path = parsed.get('relative_path', filename)
             is_new = parsed.get('new', False)
             is_delete = parsed.get('delete', False)
@@ -506,11 +503,19 @@ class TodoService:
             abs_delta = new_tokens - orig_tokens  # Absolute delta token count
             token_delta = ((new_tokens - orig_tokens) / orig_tokens * 100) if orig_tokens > 0 else 100.0 if new_tokens > 0 else 0.0
 
-            # Per-file logging for all updates, new, etc.
-            logger.info(f"File: {filename}, Original tokens: {orig_tokens}, Updated tokens: {new_tokens}, Delta tokens: {abs_delta}, Percentage change: {token_delta:.1f}%")
+            # Determine action
+            action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
+
+            # Per-file logging in the specified format
+            logger.info(f"{action} {filename}: (original={orig_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={token_delta:.1f}%)")
+
+            # Enhanced logging including originalfilename and matchedfilename
+            logger.debug(f"  - originalfilename: {originalfilename}")
+            logger.debug(f"  - matchedfilename: {matchedfilename}")
 
             # Prioritize DELETE: delete if flagged, regardless of other flags
             if is_delete:
+                logger.info(f"Delete file: {matchedfilename}")
                 delete_path = Path(matchedfilename) if matchedfilename else None
                 if commit_file and delete_path and delete_path.exists():
                     self._file_service.delete_file(delete_path)
@@ -578,26 +583,7 @@ class TodoService:
                 abs_delta_avg = statistics.mean(update_abs_deltas)
                 abs_delta_peak = max(update_abs_deltas)
                 # Log in task_manager format
-                logger.debug(
-                    f"Task UPDATE logging - Indent: {task.get('indent', '')}, "
-                    f"Start: {task.get('_start_stamp', '')}, "
-                    f"End: {task.get('_complete_stamp', '')}, "
-                    f"Know: {task.get('knowledge_tokens', 0)}, "
-                    f"Prompt: {task.get('prompt_tokens', 0)}, "
-                    f"Incount: {task.get('include_tokens', 0)}, "  # Note: incount vs include
-                    f"Include: {task.get('include_tokens', 0)}, "  # Assuming include is the same
-                    f"Cur_model: {task.get('cur_model', '')}, "  # cur_model from task or svc
-                    f"Delta_median_percent: {delta_median:.1f}%, "
-                    f"Delta_avg_percent: {delta_avg:.1f}%, "
-                    f"Delta_peak_percent: {delta_peak:.1f}%, "
-                    f"Delta_median_tokens: {abs_delta_median}, "
-                    f"Delta_avg_tokens: {abs_delta_avg}, "
-                    f"Delta_peak_tokens: {abs_delta_peak}, "
-                    f"Committed: {result}, "
-                    f"Truncation: 0, "
-                    f"Compare: {compare}"
-                )
-                logger.info(f"Full compare details: {compare}")
+                logger.info(f"Task UPDATE stats: median_delta_percent={delta_median:.1f}%, avg_delta_percent={delta_avg:.1f}%, peak_delta_percent={delta_peak:.1f}%, median_delta_tokens={abs_delta_median}, avg_delta_tokens={abs_delta_avg}, peak_delta_tokens={abs_delta_peak}")
 
         return result, compare
 
@@ -621,7 +607,8 @@ class TodoService:
             content = parsed['content']
             # completeness check
             filename = parsed.get('filename', '')
-            matchedfilename = parsed.get('matchedfilename', '')  # Relative path for NEW files
+            originalfilename = parsed.get('originalfilename', filename)
+            matchedfilename = parsed.get('matchedfilename', filename)  # Relative path for NEW files
             relative_path = parsed.get('relative_path', filename)
             is_new = parsed.get('new', False)
             is_delete = parsed.get('delete', False)
@@ -637,8 +624,15 @@ class TodoService:
             abs_delta = new_tokens - orig_tokens  # Absolute delta token count
             token_delta = ((new_tokens - orig_tokens) / orig_tokens * 100) if orig_tokens > 0 else 100.0 if new_tokens > 0 else 0.0
 
-            # Per-file logging for all updates, new, etc.
-            logger.info(f"File: {filename}, Original tokens: {orig_tokens}, Updated tokens: {new_tokens}, Delta tokens: {abs_delta}, Percentage change: {token_delta:.1f}%")
+            # Determine action
+            action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
+
+            # Per-file logging in the specified format
+            logger.info(f"{action} {filename}: (original={orig_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={token_delta:.1f}%)")
+
+            # Enhanced logging including originalfilename and matchedfilename
+            logger.debug(f"  - originalfilename: {originalfilename}")
+            logger.debug(f"  - matchedfilename: {matchedfilename}")
 
             # Prioritize DELETE: delete if flagged, regardless of other flags
             if is_delete:
@@ -676,7 +670,7 @@ class TodoService:
                     new_path = Path(matchedfilename)
                     if new_path.exists():
                         # self._file_service.write_file(new_path, content)
-                        logger.info(f"Not Updated file: {new_path} (matched: {matchedfilename})")
+                        logger.info(f"Test UPDATE file: {new_path} (matched: {matchedfilename})")
                         # Enhanced UPDATE logging: calculate and log deltas
                         update_deltas.append(token_delta)
                         update_abs_deltas.append(abs_delta)
@@ -709,26 +703,7 @@ class TodoService:
                 abs_delta_avg = statistics.mean(update_abs_deltas)
                 abs_delta_peak = max(update_abs_deltas)
                 # Log in task_manager format
-                logger.debug(
-                    f"Task UPDATE logging - Indent: {task.get('indent', '')}, "
-                    f"Start: {task.get('_start_stamp', '')}, "
-                    f"End: {task.get('_complete_stamp', '')}, "
-                    f"Know: {task.get('knowledge_tokens', 0)}, "
-                    f"Prompt: {task.get('prompt_tokens', 0)}, "
-                    f"Incount: {task.get('include_tokens', 0)}, "  # Note: incount vs include
-                    f"Include: {task.get('include_tokens', 0)}, "  # Assuming include is the same
-                    f"Cur_model: {task.get('cur_model', '')}, "  # cur_model from task or svc
-                    f"Delta_median_percent: {delta_median:.1f}%, "
-                    f"Delta_avg_percent: {delta_avg:.1f}%, "
-                    f"Delta_peak_percent: {delta_peak:.1f}%, "
-                    f"Delta_median_tokens: {abs_delta_median}, "
-                    f"Delta_avg_tokens: {abs_delta_avg}, "
-                    f"Delta_peak_tokens: {abs_delta_peak}, "
-                    f"Committed: {result}, "
-                    f"Truncation: 0, "
-                    f"Compare: {compare}"
-                )   
-                logger.info(f"Full compare details: {compare}")
+                logger.info(f"Task UPDATE stats: median_delta_percent={delta_median:.1f}%, avg_delta_percent={delta_avg:.1f}%, peak_delta_percent={delta_peak:.1f}%, median_delta_tokens={abs_delta_median}, avg_delta_tokens={abs_delta_avg}, peak_delta_tokens={abs_delta_peak}")
 
         return result, compare
 
@@ -755,146 +730,15 @@ class TodoService:
         logger.debug(f"Resolved AI out path: {out_path}")
         return out_path
 
-    def _process_manual_donee(self, done_tasks, todo_filename):
-        """
-        Process tasks that have been manually marked done.
-        Always resolves any relative `out:` paths against the folder
-        containing the todo_filename.
-        Returns a list of (task, out_path) for all files actually written.
-        """
-        # 1) figure out base folder
-        try:
-            base_folder = Path(todo_filename).parent if todo_filename else Path.cwd()
-        except Exception:
-            self.logger.warning(f"Could not determine parent folder of {todo_filename!r}, using cwd")
-            base_folder = Path.cwd()
-
-        written = []
-        for task in done_tasks:
-
-            out_path = self._get_ai_out_path(task, base_folder=base_folder)
-            if not out_spec:
-                self.logger.warning(f"Task {task.get('id')} has no `out:` specified — skipping")
-                continue
-
-            # 2) resolve out_path
-            out_path = Path(out_spec)
-            if not out_path.is_absolute():
-                out_path = base_folder / out_path
-            out_path = out_path.resolve()
-
-            # 3) ensure directories exist
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # 4) render content (you may need to adapt this to your actual code)
-            #    for example, maybe you call self._render_task or similar
-            content = task.get('parsed_content', '')
-            if not content and 'text' in task:
-                content = task['text']
-
-            # 5) write it out
-            self._file_service.write_file(out_path, content)
-
-            self.logger.info(f"Wrote manual-done task {task.get('id')} → {out_path}")
-            written.append((task, out_path))
-
-        return written
-    def _process_manual_done(self, done_tasks: list, todoFilename: str = ""):
-        """
-        Iterate all manually-completed tasks, normalize their output paths
-        by combining with the folder of todoFilename, and skip any
-        that don’t exist on disk.
-        """
-        logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks, todoFilename={todoFilename!r}")
-
-        # derive the folder containing the todo.md that was edited
-        base_folder = None
-        if todoFilename:
-            try:
-                base_folder = Path(todoFilename).parent
-            except Exception:
-                logger.warning(f"Could not determine parent folder of {todoFilename}")
-                base_folder = None
-
-        for task in done_tasks:
-            # only act on tasks that were manually marked Done (status_char='x') with write_flag=' '
-            if STATUS_MAP.get(task.get('status_char')) != 'Done' or task.get('write_flag') != ' ':
-                continue
-
-            logger.info(f"Manual commit of task: {task['desc']}")
-
-            # ensure token counts exist
-            task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
-            task['include_tokens']   = task.get('include_tokens', task.get('_include_tokens', 0))
-            task['prompt_tokens']    = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
-
-            # ensure a start stamp
-            if task.get('_start_stamp') is None:
-                task['_start_stamp'] = datetime.now().isoformat()
-
-            # figure out where the AI output file actually lives
-
-            out_path = self._get_ai_out_path(task, base_folder=base_folder)
-            logger.info(f"Reading existing out: {out_path} ")
-            # read the existing AI output
-            ai_out = self._file_service.safe_read_file(out_path)
-            logger.info(f"Read existing out: {out_path} ({len(ai_out.split())} tokens)")
-
-            # re-parse it just like a normal complete
-            cur_model = self._svc.get_cur_model()
-            # mark as started if needed
-            st = self.start_task(task, self._file_lines, cur_model)
-            if st is None:
-                st = task['_start_stamp']
-            task['_start_stamp'] = st
-
-            try:
-                basedir = Path(task['file']).parent
-                self._file_service.base_dir = str(basedir)
-                parsed_files = (
-                    self.parser.parse_llm_output(
-                        ai_out,
-                        base_dir=str(basedir),
-                        file_service=self._file_service,
-                        ai_out_path=out_path,
-                        task=task,
-                        svc=self._svc
-                    )
-                    if ai_out else []
-                )
-            except Exception as e:
-                logger.error(f"Parsing existing AI output failed: {e}")
-                parsed_files = []
-
-            # write out parsed files, collect compare info
-            committed, compare = 0, []
-            success = False
-            if parsed_files:
-                committed, compare = self._write_parsed_files(parsed_files, task, True)
-                success = (committed > 0 or bool(compare))
-            else:
-                logger.info("No parsed files to commit.")
-
-            if success:
-                logger.info("Commit completed")
-
-            # finally mark the task done in todo.md
-            ct = self.complete_task(task, self._file_lines, cur_model, 0, compare, True)
-            if ct is None:
-                ct = datetime.now().isoformat()
-            task['_complete_stamp'] = ct
-
-        # end for
-
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
-        logger.debug(f"_process_manual_done called with  tasks, todoFilename={todoFilename!r}")
+        logger.debug(f"_process_one called with task, todoFilename={todoFilename!r}")
 
         # derive the folder containing the todo.md that was edited
         base_folder = None
         if todoFilename:
             try:
                 base_folder = Path(todoFilename).parent
-                logger.info("Process manual base folder:" + base_folder)  
+                logger.info("Process base folder:" + str(base_folder))  
             except Exception:
                 logger.warning(f"Could not determine parent folder of {todoFilename}")
                 base_folder = None
@@ -960,7 +804,7 @@ class TodoService:
         truncation = 0.0  # Assuming no truncation
         ct = self.complete_task(task, file_lines_map, cur_model, truncation, compare, False)
         task['_complete_stamp'] = ct  # Ensure complete stamp is set
-        logger.info(f"Manual commit pending for task (write_flag=' '): {task['desc']}")
+        logger.info(f"Task processed: {task['desc']}")
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")
@@ -1047,5 +891,6 @@ class TodoService:
         filename = m.group(1)
         flag     = m.group(2)
         return filename, flag
+
 # original file length: 1042 lines
 # updated file length: 1374 lines

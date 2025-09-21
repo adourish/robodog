@@ -66,8 +66,8 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 
 # todo  promots
-- [~][-] logging in todo
-  - started: N/A | prompt_tokens: 44807 | include_tokens: 44218 | knowledge_tokens: 43 | cur_model: x-ai/grok-4-fast:free
+- [x][-] logging in todo
+  - started: 2025-09-21T10:36:33.597765 | completed: 2025-09-21 14:37 | knowledge: 43 | include: 44218 | prompt: 44807 | cur_model: x-ai/grok-4-fast:free | compare: O:4202 N:3628 D:-574 (UPDATE, delta_tokens=-571, delta_percent=-13.6%) -> C:\Projects\robodog\robodogcli\robodog\todo.py, O:2370 N:2355 D:-15 (UPDATE, delta_tokens=-12, delta_percent=-0.5%) -> C:\Projects\robodog\robodogcli\robodog\parse_service.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out: out.py recursive
 ```knowledge
