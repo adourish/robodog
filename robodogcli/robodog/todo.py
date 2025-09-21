@@ -537,7 +537,7 @@ class TodoService:
         matchedfilename remains relative for reporting.
         Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
         """
-        logger.info("_write_parsed_files called commit file: " + str(base_folder))
+        logger.info("_write_parsed files base folder: " + str(base_folder))
         try:
             result = 0
             compare: List[str] = []
@@ -574,9 +574,9 @@ class TodoService:
                     logger.info(f"{action} {filename}: (original={orig_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={token_delta:.1f}%)")
 
                     # Enhanced logging including originalfilename and matchedfilename
-                    logger.debug(f"  - originalfilename: {originalfilename}")
-                    logger.debug(f"  - matchedfilename: {matchedfilename}")
-
+                    logger.info(f"  - originalfilename: {originalfilename}")
+                    logger.info(f"  - matchedfilename: {matchedfilename}")
+                    logger.info(f"  - relative_path: {relative_path}")
                     # Prioritize DELETE: delete if flagged, regardless of other flags
                     if is_delete:
                         logger.info(f"Delete file: {matchedfilename}")
@@ -605,10 +605,12 @@ class TodoService:
                                 logger.warning(f"Source for COPY not found: {src_path}")
                         elif is_new:
                             # For NEW, resolve relative to base_dir
-                            new_path = self._file_service.resolve_path(relative_path, self._svc)
+                            # create the new file under the todo.md folder + relative_path
+                            new_path = basedir / relative_path
                             self._file_service.write_file(new_path, content)
-                            logger.info(f"Created NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
+                            logger.info(f"Created NEW file at: {new_path} (relative: {relative_path})")
                             result += 1
+                            
                         elif is_update:
                             # For UPDATE, use matched path
                             new_path = Path(matchedfilename)
