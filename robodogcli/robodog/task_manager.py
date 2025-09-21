@@ -246,9 +246,7 @@ class TaskManager(TaskBase):
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str,
                       truncation: float = 0, compare: Optional[List[str]] = None, commit: bool = False):
         """Mark a task as completed (Doing -> Done), including inline compare info."""
-        if self.STATUS_MAP[task['status_char']] != 'Doing':
-            return
-
+        logger.info("complete task:" + task['desc'])
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
         file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][-] {desc}\n"

@@ -66,10 +66,10 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
 
 
 # todo  promots
-- [x][ ] logging in todo
-  - started: 2025-09-20T19:23:02.397993 | completed: 2025-09-20 23:24 | knowledge: 43 | include: 43919 | prompt: 44508 | cur_model: x-ai/grok-4-fast:free | compare: O:2370 N:2367 D:-3 (UPDATE, delta_tokens=0, delta_percent=0.0%) -> C:\Projects\robodog\robodogcli\robodog\cli.py
+- [x][-] logging in todo
+  - started: 2025-09-21T02:14:01.370922 | completed: 2025-09-21 06:14 | knowledge: 43 | include: 0 | prompt: 0 | cur_model: x-ai/grok-4-fast:free | compare: O:1136 N:1133 D:-3 (UPDATE, delta_tokens=0, delta_percent=0.0%) -> C:\Projects\robodog\robodogcli\robodog\cli.py
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
-  - out:  out.py recursive
+  - out: out.py recursive
 ```knowledge
 1. in parse_llm_output
 2. for each file, add the old/new token count if an update
