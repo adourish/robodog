@@ -886,7 +886,7 @@ class TodoService:
 
         # end for
 
-    def _process_oneb(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
+    def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
         logger.debug(f"_process_manual_done called with  tasks, todoFilename={todoFilename!r}")
 
         # derive the folder containing the todo.md that was edited
