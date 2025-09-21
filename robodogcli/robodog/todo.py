@@ -274,7 +274,7 @@ class TodoService:
                         self._load_all()
                         done_tasks = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'Done']
                                          
-                        self._process_manual_done(done_tasks fn)
+                        self._process_manual_done(done_tasks, fn)
 
                         # b) then run the next To Do task, if any remain
                         next_todos = [
@@ -294,47 +294,188 @@ class TodoService:
 
             time.sleep(1)
 
-    def _extract_out_path(task_or_dict) -> Path | None:
+    def _process_manual_done(self, done_tasks: list, todoFilename: str = ""):
         """
-        Given a task (which may be a Path, a str, or a dict containing
-        a path under one of several keys), return a pathlib.Path or None.
+        Iterate all manually-completed tasks, normalize their output paths
+        by combining with the folder of todoFilename, and skip any
+        that don’t exist on disk.
         """
-        # If it’s already a Path
-        if isinstance(task_or_dict, Path):
-            return task_or_dict
+        logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks, todoFilename={todoFilename!r}")
 
-        # If it’s a string
-        if isinstance(task_or_dict, str):
-            return Path(task_or_dict)
+        # derive the folder containing the todo.md that was edited
+        base_folder = None
+        if todoFilename:
+            try:
+                base_folder = Path(todoFilename).parent
+            except Exception:
+                logger.warning(f"Could not determine parent folder of {todoFilename}")
+                base_folder = None
 
-        # If it’s a dict, look for known keys:
-        if isinstance(task_or_dict, dict):
-            for key in ("out_path", "path", "file"):
-                raw = task_or_dict.get(key)
-                if raw:
-                    return Path(raw)
-        # Unrecognized type or missing data
-        return None
+        for task in done_tasks:
+            # only act on tasks that were manually marked Done (status_char='x') with write_flag=' '
+            if STATUS_MAP.get(task.get('status_char')) != 'Done' or task.get('write_flag') != ' ':
+                continue
 
+            logger.info(f"Manual commit of task: {task['desc']}")
 
-    def _process_manual_done(self, done_tasks: list[Path | str | dict], todoFilename: str = ""):
+            # ensure token counts exist
+            task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
+            task['include_tokens']   = task.get('include_tokens', task.get('_include_tokens', 0))
+            task['prompt_tokens']    = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
+
+            # ensure a start stamp
+            if task.get('_start_stamp') is None:
+                task['_start_stamp'] = datetime.now().isoformat()
+
+            # figure out where the AI output file actually lives
+            raw_out = task.get('out')
+            out_path = None
+
+            # case 1: user supplied a literal string path
+            if isinstance(raw_out, str) and raw_out.strip():
+                p = Path(raw_out)
+                if not p.is_absolute() and base_folder:
+                    p = base_folder / p
+                out_path = p
+
+            # case 2: user supplied a dict { pattern, recursive }
+            elif isinstance(raw_out, dict):
+                pattern = raw_out.get('pattern', "")
+                # first try resolving via the FileService (e.g. glob in roots)
+                try:
+                    cand = self._file_service.resolve_path(pattern, self._svc)
+                except Exception:
+                    cand = None
+                if cand:
+                    out_path = cand
+                else:
+                    # fallback: treat it as a literal under the same folder
+                    if base_folder and pattern:
+                        out_path = base_folder / pattern
+
+            # nothing to do if we still don't have a path
+            if not out_path:
+                logger.warning(f"No valid 'out' path for manual commit: {raw_out!r}")
+                continue
+
+            # sanity check
+            if not out_path.exists():
+                logger.warning(f"Output path not found on disk for manual commit: {out_path}")
+                continue
+
+            # read the existing AI output
+            ai_out = self._file_service.safe_read_file(out_path)
+            logger.info(f"Read existing out: {out_path} ({len(ai_out.split())} tokens)")
+
+            # re-parse it just like a normal complete
+            cur_model = self._svc.get_cur_model()
+            # mark as started if needed
+            st = self.start_task(task, self._file_lines, cur_model)
+            if st is None:
+                st = task['_start_stamp']
+            task['_start_stamp'] = st
+
+            try:
+                basedir = Path(task['file']).parent
+                self._file_service.base_dir = str(basedir)
+                parsed_files = (
+                    self.parser.parse_llm_output(
+                        ai_out,
+                        base_dir=str(basedir),
+                        file_service=self._file_service,
+                        ai_out_path=out_path,
+                        task=task,
+                        svc=self._svc
+                    )
+                    if ai_out else []
+                )
+            except Exception as e:
+                logger.error(f"Parsing existing AI output failed: {e}")
+                parsed_files = []
+
+            # write out parsed files, collect compare info
+            committed, compare = 0, []
+            success = False
+            if parsed_files:
+                committed, compare = self._write_parsed_files(parsed_files, task, True)
+                success = (committed > 0 or bool(compare))
+            else:
+                logger.info("No parsed files to commit.")
+
+            if success:
+                logger.info("Commit completed")
+
+            # finally mark the task done in todo.md
+            ct = self.complete_task(task, self._file_lines, cur_model, 0, compare, True)
+            if ct is None:
+                ct = datetime.now().isoformat()
+            task['_complete_stamp'] = ct
+
+        # end for
+
+    def _process_manual_donec(self, done_tasks: list[Path | str | dict], todoFilename: str = ""):
         """
         Iterate all manually-completed tasks, normalize their output paths,
         and skip any that don’t exist on disk.
         """
-        for entry in done_tasks:
-            out_path = self._extract_out_path(entry)
+        # … now do your normal “process a real file” logic here …
+        # e.g. self._move_to_archive(out_path) or whatever
+        logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks")
+        for task in done_tasks:
+            if STATUS_MAP[task['status_char']] == 'Done' and task.get('write_flag') == ' ':
+                logger.info(f"Manual commit of task: {task['desc']}")
+                # Tokens should already be populated from _load_all parsing
+                # But ensure they are set (fallback to 0 if not)
+                task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
+                task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
+                task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
+                # Ensure start stamp is set before task_manager call
+                if task.get('_start_stamp') is None:
+                    task['_start_stamp'] = datetime.now().isoformat()
+                # Read the existing ai_out from out_path (do not regenerate or re-write)
+                out_path = task['out']
+                if not out_path or not out_path.exists():
+                    logger.warning(f"Output path not found for manual commit: {out_path}")
+                    continue
+                ai_out = self._file_service.safe_read_file(out_path)
+                logger.info(f"Read existing out: {out_path} ({len(ai_out.split())} tokens)")
+                # Parse the existing ai_out
+                cur_model = self._svc.get_cur_model()
+                st = self.start_task(task, self._file_lines, cur_model)
+                # Preserve or set stamp if task_manager returns None
+                if st is None:
+                    st = task['_start_stamp']
+                task['_start_stamp'] = st
 
-            if not out_path:
-                self.logger.warning(f"Could not extract a path from task {entry!r}. Skipping.")
-                continue
+                try:
+                    basedir = Path(task['file']).parent
+                    self._file_service.base_dir = str(basedir)
+                    parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
+                except Exception as e:
+                    logger.error(f"Parsing existing AI output failed: {e}")
+                    parsed_files = []
 
-            if not out_path.exists():
-                self.logger.warning(f"Output path does not exist: {out_path!s}. Skipping.")
-                continue
+                commited, compare = 0, []
+                success = False
+                if parsed_files:
+                    commited, compare = self._write_parsed_files(parsed_files, task, True)
+                    if commited > 0 or len(compare) > 0:
+                        success = True
+                else:
+                    logger.info("No parsed files to commit.")
 
-            # … now do your normal “process a real file” logic here …
-            # e.g. self._move_to_archive(out_path) or whatever
+                # After successful commit, update status to [x][x]
+                if success:
+                    logger.info("Commit completed")
+
+                ct = self.complete_task(task, self._file_lines, cur_model, 0, compare, True)
+                # Preserve or set stamp if task_manager returns None
+                if ct is None:
+                    ct = datetime.now().isoformat()
+                task['_complete_stamp'] = ct
+            else:
+                logger.debug("No tasks to commit.")
+
 
     def _process_manual_doneb(self, done_tasks: list):
         """
@@ -868,21 +1009,21 @@ class TodoService:
         parsed_files might contain { 'filename': 'todo.md', 'content': '…' }
         """
         # try AI-specified path first
-        new_path = self._get_ai_out_path(task)
+        for parsed in parsed_files:
+            content = parsed['content']
+            new_path = self._get_ai_out_path(task)
+            logger.info("_write_parsed_files" + new_path)
+            # fallback to whatever filename you parsed out of the file
+            if not new_path:
+                new_path = parsed_files.get('filename')
 
-        # fallback to whatever filename you parsed out of the file
-        if not new_path:
-            new_path = parsed_files.get('filename')
+            if not new_path:
+                # still nothing → abort
+                logger.error("Output path not found for manual commit, aborting.")
+                return False, None
 
-        if not new_path:
-            # still nothing → abort
-            logger.error("Output path not found for manual commit, aborting.")
-            return False, None
-
-        # now new_path is guaranteed to be a str
-        from .file_service import FileService
-        fs = FileService()
-        fs.write_file(new_path, parsed_files.get('content', ''))
+            # now new_path is guaranteed to be a str
+            self._file_service.write_file(new_path, content)
         return True, new_path
 
     # ----------------------------------------------------------------
