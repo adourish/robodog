@@ -597,7 +597,7 @@ class ParseService:
         obj['new_tokens'] = len(upd.split()) if upd else 0
         obj['abs_delta_tokens'] = obj['new_tokens'] - obj['original_tokens']
         obj['percent_delta'] = ((obj['new_tokens'] - obj['original_tokens']) / obj['original_tokens'] * 100) if obj['original_tokens'] > 0 else 100.0 if obj['new_tokens'] > 0 else 0.0
-        obj['short_compare'] = f"O:{obj['original_tokens']} N:{obj['new_tokens']} D:{obj['abs_delta_tokens']}"
+        obj['short_compare'] = f"(O/N/D/P {obj['original_tokens']}/{obj['new_tokens']}/{obj['abs_delta_tokens']}/{obj['percent_delta']})"
 
     def _determine_flagsb(self, obj, matched):
         flag = obj.get('flag','').upper()
