@@ -16,7 +16,7 @@ import statistics  # Added for calculating median, avg, peak
 import tiktoken
 from pydantic import BaseModel, RootModel
 import yaml   # ensure PyYAML is installed
-
+from typing import Any, Tuple
 try:
     from .parse_service import ParseService
 except ImportError:
@@ -274,7 +274,7 @@ class TodoService:
                         self._load_all()
                         done_tasks = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'Done']
                                          
-                        self._process_manual_done(done_tasks)
+                        self._process_manual_done(done_tasks fn)
 
                         # b) then run the next To Do task, if any remain
                         next_todos = [
@@ -283,7 +283,7 @@ class TodoService:
                         ]
                         if next_todos:
                             logger.info("New To Do tasks found, running next")
-                            self.run_next_task(self._svc)
+                            self.run_next_task(self._svc, fn)
 
                     except Exception as e:
                         tb = traceback.format_exc()
@@ -294,7 +294,49 @@ class TodoService:
 
             time.sleep(1)
 
-    def _process_manual_done(self, done_tasks: list):
+    def _extract_out_path(task_or_dict) -> Path | None:
+        """
+        Given a task (which may be a Path, a str, or a dict containing
+        a path under one of several keys), return a pathlib.Path or None.
+        """
+        # If it’s already a Path
+        if isinstance(task_or_dict, Path):
+            return task_or_dict
+
+        # If it’s a string
+        if isinstance(task_or_dict, str):
+            return Path(task_or_dict)
+
+        # If it’s a dict, look for known keys:
+        if isinstance(task_or_dict, dict):
+            for key in ("out_path", "path", "file"):
+                raw = task_or_dict.get(key)
+                if raw:
+                    return Path(raw)
+        # Unrecognized type or missing data
+        return None
+
+
+    def _process_manual_done(self, done_tasks: list[Path | str | dict], todoFilename: str = ""):
+        """
+        Iterate all manually-completed tasks, normalize their output paths,
+        and skip any that don’t exist on disk.
+        """
+        for entry in done_tasks:
+            out_path = self._extract_out_path(entry)
+
+            if not out_path:
+                self.logger.warning(f"Could not extract a path from task {entry!r}. Skipping.")
+                continue
+
+            if not out_path.exists():
+                self.logger.warning(f"Output path does not exist: {out_path!s}. Skipping.")
+                continue
+
+            # … now do your normal “process a real file” logic here …
+            # e.g. self._move_to_archive(out_path) or whatever
+
+    def _process_manual_doneb(self, done_tasks: list):
         """
         When a task is manually marked Done:
         - Use the same processing logic as _process_one for consistency
@@ -315,7 +357,7 @@ class TodoService:
                 if task.get('_start_stamp') is None:
                     task['_start_stamp'] = datetime.now().isoformat()
                 # Read the existing ai_out from out_path (do not regenerate or re-write)
-                out_path = self._get_ai_out_path(task)
+                out_path = task['out']
                 if not out_path or not out_path.exists():
                     logger.warning(f"Output path not found for manual commit: {out_path}")
                     continue
@@ -384,7 +426,7 @@ class TodoService:
         task['_complete_stamp'] = ct  # Ensure complete stamp is set on task
         return ct
             
-    def run_next_task(self, svc):
+    def run_next_task(self, svc, todoFilename: str = ""):
         logger.debug("run_next_task called")
         self._svc = svc
         self._load_all()
@@ -393,7 +435,7 @@ class TodoService:
         if not todo:
             logger.info("No To Do tasks found.")
             return
-        self._process_one(todo[0], svc, self._file_lines)
+        self._process_one(todo[0], svc, self._file_lines, todoFilename=todoFilename)
         logger.info("Completed one To Do task")
 
     def _gather_include_knowledge(self, task: dict, svc) -> str:
@@ -471,7 +513,7 @@ class TodoService:
                 if is_copy:
                     # For COPY: resolve source and destination, copy file
                     src_path = Path(matchedfilename)  # Assume matched is source
-                    dst_path = self._file_service.resolve_path(relative_path)  # Destination relative
+                    dst_path = self._file_service.resolve_path(relative_path, self._svc)  # Destination relative
                     if src_path.exists():
                         self._file_service.copy_file(src_path, dst_path)
                         logger.info(f"Copied file: {src_path} -> {dst_path} (relative: {relative_path})")
@@ -480,7 +522,7 @@ class TodoService:
                         logger.warning(f"Source for COPY not found: {src_path}")
                 elif is_new:
                     # For NEW, resolve relative to base_dir
-                    new_path = self._file_service.resolve_path(relative_path)
+                    new_path = self._file_service.resolve_path(relative_path, self._svc)
                     self._file_service.write_file(new_path, content)
                     logger.info(f"Created NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
                     result += 1
@@ -602,7 +644,7 @@ class TodoService:
                 if is_copy:
                     # For COPY: resolve source and destination, copy file
                     src_path = Path(matchedfilename)  # Assume matched is source
-                    dst_path = self._file_service.resolve_path(relative_path)  # Destination relative
+                    dst_path = self._file_service.resolve_path(relative_path, self._svc)  # Destination relative
                     if src_path.exists():
                         # self._file_service.copy_file(src_path, dst_path)
                         logger.info(f"Test COPY file: {src_path} -> {dst_path} (relative: {relative_path})")
@@ -611,7 +653,7 @@ class TodoService:
                         logger.warning(f"Source for COPY not found: {src_path}")
                 elif is_new:
                     # For NEW, resolve relative to base_dir
-                    new_path = self._file_service.resolve_path(relative_path)
+                    new_path = self._file_service.resolve_path(relative_path, self._svc)
                     # self._file_service.write_file(new_path, content)
                     logger.info(f"Test NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
                     result += 1
@@ -692,11 +734,11 @@ class TodoService:
         out_pat = task.get('out', {}).get('pattern','')
         if not out_pat:
             return
-        out_path = self._file_service.resolve_path(out_pat)
+        out_path = self._file_service.resolve_path(out_pat, self._svc)
         logger.debug(f"Resolved AI out path: {out_path}")
         return out_path
     
-    def _process_one(self, task: dict, svc, file_lines_map: dict):
+    def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
         logger.info(f"Processing task: {task['desc']}")
         basedir = Path(task['file']).parent
         self._base_dir = str(basedir)
@@ -762,8 +804,101 @@ class TodoService:
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
         logger.debug(f"Resolving path: {frag}")
-        srf = self._file_service.resolve_path(frag)
+        srf = self._file_service.resolve_path(frag, self._svc)
         return srf
 
+    # ----------------------------------------------------------------
+    # 1) drop-in search_files()
+    # ----------------------------------------------------------------
+    def search_files(self, pattern: str, recursive: bool = False) -> List[str]:
+        """
+        Find files matching `pattern` under cwd (or self.root_dir if you have one).
+        """
+        base = getattr(self, 'root_dir', Path.cwd())
+        base = Path(base)
+        if recursive:
+            matches = base.rglob(pattern)
+        else:
+            matches = base.glob(pattern)
+        return [str(p) for p in matches if p.is_file()]
+
+    # ----------------------------------------------------------------
+    # 2) drop-in _get_ai_out_path()
+    # ----------------------------------------------------------------
+    def _get_ai_out_path(self, task: Dict[str,Any]) -> Optional[str]:
+        """
+        task['out'] may be:
+          - a string → return it  
+          - a dict { pattern:str, recursive:bool } → glob it  
+          - missing or empty → return None
+        """
+        raw = task.get('out')
+        if not raw:
+            return None
+
+        # if they already gave us a literal string path
+        if isinstance(raw, str):
+            return raw
+
+        # otherwise expect a dict
+        pattern = raw.get('pattern')
+        recursive = bool(raw.get('recursive', False))
+        if not pattern:
+            logger.warning("task['out'] dict has no 'pattern' key: %r", raw)
+            return None
+
+        matches = self.search_files(pattern, recursive)
+        if not matches:
+            logger.warning("no files matching pattern %r", pattern)
+            return None
+        if len(matches) > 1:
+            logger.warning("multiple files matching %r, using %r", pattern, matches[0])
+        # return first (or only) match
+        return matches[0]
+
+    # ----------------------------------------------------------------
+    # 3) tweak your write routine so you never do Path(None)
+    # ----------------------------------------------------------------
+    def _write_parsed_files(self,
+                            parsed_files: Dict[str,str],
+                            task: Dict[str,Any],
+                            manual: bool) -> Tuple[bool, Optional[str]]:
+        """
+        example signature based on your traceback.
+        parsed_files might contain { 'filename': 'todo.md', 'content': '…' }
+        """
+        # try AI-specified path first
+        new_path = self._get_ai_out_path(task)
+
+        # fallback to whatever filename you parsed out of the file
+        if not new_path:
+            new_path = parsed_files.get('filename')
+
+        if not new_path:
+            # still nothing → abort
+            logger.error("Output path not found for manual commit, aborting.")
+            return False, None
+
+        # now new_path is guaranteed to be a str
+        from .file_service import FileService
+        fs = FileService()
+        fs.write_file(new_path, parsed_files.get('content', ''))
+        return True, new_path
+
+    # ----------------------------------------------------------------
+    # optional: if you also need to extract filenames/flags from LLM headers
+    # ----------------------------------------------------------------
+    def _extract_filename_and_flag(self, header: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        parse a markdown code-fence info string like:
+          ```python filename=foo.py flag=XYZ
+        """
+        import re
+        m = re.search(r'```[^\s]*\s+filename=(\S+)(?:\s+flag=(\S+))?', header)
+        if not m:
+            return None, None
+        filename = m.group(1)
+        flag     = m.group(2)
+        return filename, flag
 # original file length: 1042 lines
 # updated file length: 1374 lines
