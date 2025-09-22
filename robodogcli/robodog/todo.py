@@ -319,14 +319,13 @@ class TodoService:
                         try:
                             # re‐parse all todo.md files into self._tasks
                             self._load_all()
-                            done_tasks = [t for t in self._tasks if STATUS_MAP[t['status_char']] == 'Done']
-                                 
-                            self._process_manual_done(done_tasks, fn)
 
                             # b) then run the next To Do task, if any remain
                             next_todos = [
                                 t for t in self._tasks
-                                if STATUS_MAP.get(t.get('status_char') or ' ') == 'To Do'
+                                if t.get('status_char') == ' '
+                                or t.get('write_flag')  == ' '
+                                or t.get('plan_flag')   == ' '
                             ]
                             if next_todos:
                                 logger.info("New To Do tasks found, running next")
@@ -376,9 +375,9 @@ class TodoService:
 
                 # ensure token counts exist
                 task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
-                task['include_tokens']   = task.get('include_tokens', task.get('_include_tokens', 0))
-                task['prompt_tokens']    = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
-                task['plan_tokens']      = task.get('plan_tokens', 0)  # New
+                task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
+                task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
+                task['plan_tokens'] = task.get('plan_tokens', 0)  # New
 
                 # ensure a start stamp
                 if task.get('_start_stamp') is None:
@@ -536,13 +535,21 @@ class TodoService:
         try:
             self._svc = svc
             self._load_all()
-            todo = [t for t in self._tasks
-                    if STATUS_MAP[t['status_char']] == 'To Do']
+            # Find next task based on flags for three-step process
+            # Priority: plan_flag ' ' first, then write_flag ' ' (LLM), then status ' ' with flags 'x' for commit
+            plan_pending = [t for t in self._tasks if (t.get('plan_flag') or 'x') == ' ' and STATUS_MAP.get(t['status_char'], 'Ignore') != 'Ignore']
+            llm_pending = [t for t in self._tasks if not plan_pending and (t.get('write_flag') or 'x') == ' ' and STATUS_MAP.get(t['status_char'], 'Ignore') != 'Ignore']
+            commit_pending = [t for t in self._tasks if not plan_pending and not llm_pending and STATUS_MAP.get(t['status_char'], 'Ignore') == 'To Do' and t.get('write_flag') == 'x' and t.get('plan_flag') == 'x']
+            
+            todo = plan_pending + llm_pending + commit_pending
             if not todo:
-                logger.info("No To Do tasks found.")
+                logger.info("No pending tasks found for any step.")
                 return
-            self._process_one(todo[0], svc, self._file_lines, todoFilename=todoFilename)
-            logger.info("Completed one To Do task")
+            next_task = todo[0]
+            step = 'plan' if next_task in plan_pending else 'llm' if next_task in llm_pending else 'commit'
+            logger.info(f"Running next {step} step for task: {next_task['desc']}")
+            self._process_one(next_task, svc, self._file_lines, todoFilename=todoFilename)
+            logger.info(f"Completed {step} step")
         except Exception as e:
             logger.exception(f"Error running next task: {e}")
             traceback.print_exc()
@@ -845,95 +852,69 @@ class TodoService:
             task['knowledge_tokens'] = task['_know_tokens']
             logger.info(f"Knowledge tokens: {task['_know_tokens']}")
 
-            # Step 1: Planning - generate/update plan.md if plan_flag is ' ' or None
-            plan_flag = task.get('plan_flag')
-            if plan_flag in [None, ' ']:
+            # Determine which step to run based on flags
+            plan_flag = task.get('plan_flag', 'x')
+            write_flag = task.get('write_flag', 'x')
+            status = task.get('status_char', 'x')
+            logger.warning(f'Runnig next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]')
+            if plan_flag == ' ':
+                # Step 1: Planning
+                logger.warning("Step 1: Running planning")
                 plan_content = self._generate_plan(task, svc, base_folder)
                 if plan_content:
                     task['plan_tokens'] = len(plan_content.split())
                     logger.info(f"Plan tokens: {task['plan_tokens']}")
-                else:
-                    logger.warning("Plan generation failed or skipped")
-            else:
-                logger.info(f"Planning skipped: plan_flag={plan_flag}")
-
-            out_path = self._get_ai_out_path(task, base_folder=base_folder)
-            prompt = self._prompt_builder.build_task_prompt(task, self._base_dir, str(out_path), knowledge_text, include_text)
-            task['_prompt_tokens'] = len(prompt.split())
-            task['prompt_tokens'] = task['_prompt_tokens']
-            logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
-            cur_model = svc.get_cur_model()
-            task['cur_model'] = cur_model  # Set cur_model for logging
-            st = self.start_task(task, file_lines_map, cur_model)
-            task['_start_stamp'] = st  # Ensure start stamp is set
-
-            # Step 2: Run LLM task
-            try:
+                st = self.start_task(task, file_lines_map, svc.get_cur_model())
+                task['_start_stamp'] = st
+            elif status == ' ':
+                # Step 2: LLM Task (after planning)
+                logger.warning("Step 2: Running LLM task using plan.md")
+                out_path = self._get_ai_out_path(task, base_folder=base_folder)
+                # Include plan.md in knowledge for step 2
+                plan_knowledge = ""
+                plan_spec = task.get('plan', {'pattern': 'plan.md', 'recursive': False})
+                plan_path = self._get_ai_out_path({'out': plan_spec}, base_folder=base_folder)
+                if plan_path and plan_path.exists():
+                    plan_content = self._file_service.safe_read_file(plan_path)
+                    plan_knowledge = f"Plan from plan.md:\n{plan_content}\n"
+                    logger.info("Included plan.md in LLM prompt")
+                prompt = self._prompt_builder.build_task_prompt(
+                    task, self._base_dir, str(out_path), knowledge_text + plan_knowledge, include_text
+                )
+                task['_prompt_tokens'] = len(prompt.split())
+                task['prompt_tokens'] = task['_prompt_tokens']
+                logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
+                cur_model = svc.get_cur_model()
+                task['cur_model'] = cur_model
+                st = self.start_task(task, file_lines_map, cur_model)
+                task['_start_stamp'] = st
                 ai_out = svc.ask(prompt)
-            except Exception as e:
-                logger.exception(f"LLM call failed: {e}")
-                traceback.print_exc()
-                ai_out = ""
-
-            # Added check for ai_out issues
-            if not ai_out:
-                logger.warning("No AI output generated for task. Running one more time.")
-                try:
+                if not ai_out:
+                    logger.warning("No AI output generated, retrying once")
                     ai_out = svc.ask(prompt)
-                    if not ai_out:
-                        logger.error("No AI output generated for task. Failed.")
-                    else:
-                        logger.info(f"AI output length: {len(ai_out)} characters")
-                except Exception as e:
-                    logger.exception(f"Second LLM call failed: {e}")
-                    traceback.print_exc()
+                self._write_full_ai_output(svc, task, ai_out, 0, base_folder=base_folder)
+                # Parse but do not commit yet
+                parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
+                committed, compare = self._write_parsed_files(parsed_files, task, False, base_folder=base_folder)
+                logger.info(f"LLM step: {committed} files parsed (not committed)")
+            elif status == 'x' and write_flag == ' ' and plan_flag == 'x':
+                # Step 3: Commit
+                logger.warning("Step 3: Committing LLM response")
+                raw_out = task.get('out')
+                out_path = self._get_ai_out_path(task, base_folder=base_folder)
+                if out_path and out_path.exists():
+                    ai_out = self._file_service.safe_read_file(out_path)
+                    parsed_files = self.parser.parse_llm_output_commit(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc)
+                    committed, compare = self._write_parsed_files(parsed_files, task, True, base_folder=base_folder)
+                    logger.info(f"Commit step: {committed} files committed")
+                    truncation = 0.0
+                    ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), truncation, compare, True)
+                    task['_complete_stamp'] = ct
+                else:
+                    logger.warning("No out file for commit")
             else:
-                logger.info(f"AI output length: {len(ai_out)} characters")
+                logger.info(f"No step to run: status={status}, write={write_flag}, plan={plan_flag}")
 
-            # Write AI output immediately
-            self._write_full_ai_output(svc, task, ai_out, 0, base_folder=base_folder)
-
-            # parse and report before writing
-            try:
-                parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc) if ai_out else []
-                logger.debug(f"Parsed {len(parsed_files)} files from AI output")
-            except Exception as e:
-                logger.exception(f"Parsing AI output failed: {e}")
-                traceback.print_exc()
-                parsed_files = []
-
-            commited, compare = 0, []
-            success = False
-            if parsed_files:
-                try:
-                    commited, compare = self._write_parsed_files(parsed_files, task, False, base_folder=base_folder)
-                    if commited > 0 or len(compare) > 0:
-                        success = True
-                    logger.info(f"Committed {commited} files from LLM output, success: {success}")
-                except Exception as e:
-                    logger.exception(f"Error writing parsed files: {e}")
-                    traceback.print_exc()
-            else:
-                logger.info("No parsed files to commit.")
-
-            # Step 3: Commit (if write_flag is ' ')
-            write_flag = task.get('write_flag')
-            if write_flag == ' ':
-                logger.info("Step 3: Committing changes")
-                try:
-                    # Re-parse and commit
-                    parsed_files_commit = self.parser.parse_llm_output_commit(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=self._svc)
-                    committed_commit, compare_commit = self._write_parsed_files(parsed_files_commit, task, True, base_folder=base_folder)
-                    logger.info(f"Commit step: {committed_commit} files committed")
-                except Exception as e:
-                    logger.exception(f"Commit step failed: {e}")
-                    traceback.print_exc()
-            else:
-                logger.info(f"Commit skipped: write_flag={write_flag}")
-
-            truncation = 0.0  # Assuming no truncation
-            ct = self.complete_task(task, file_lines_map, cur_model, truncation, compare, False)
-            task['_complete_stamp'] = ct  # Ensure complete stamp is set
             logger.info(f"Task processed: {task['desc']}")
         except Exception as e:
             logger.exception(f"Error processing task {task['desc']}: {e}")
