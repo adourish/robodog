@@ -29,9 +29,10 @@ logger = logging.getLogger(__name__)
 # Enhanced to support third bracket for planning step
 TASK_RE = re.compile(
     r'^(\s*)-\s*'                  # indent + "- "
-    r'\[(?P<status>[ x~])\]'       # first [status]
+    r'(?:\s*\[(?P<plan>[ x~-])\])?'   # step 1: [plan_flag] for three-step process
+    r'\[(?P<status>[ x~])\]'       # step 2: execution [status]
     r'(?:\s*\[(?P<write>[ x~-])\])?'  # optional [write_flag], whitespace allowed
-    r'(?:\s*\[(?P<plan>[ x~-])\])?'   # optional [plan_flag] for three-step process
+
     r'\s*(?P<desc>.+)$'            # space + desc (including potential metadata)
 )
 SUB_RE = re.compile(
@@ -145,7 +146,7 @@ class TodoService:
             return {'desc': full_desc.strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
 
     def _parse_base_dir(self) -> Optional[str]:
-        logger.info("_parse_base_dir called")
+        logger.debug("_parse_base_dir called")
         try:
             for fn in self._find_files():
                 logger.info(f"Parsing front-matter from {fn}")
@@ -222,9 +223,9 @@ class TodoService:
                         'file': fn,
                         'line_no': i,
                         'indent': indent,
+                        'plan_flag': plan_flag,  # New field
                         'status_char': status,
                         'write_flag': write_flag,
-                        'plan_flag': plan_flag,  # New field
                         'desc': desc,
                         'include': None,
                         'in': None,
@@ -291,7 +292,7 @@ class TodoService:
         with write_flag=' ' and then run the next To Do.
         Added logging for watch events.
         """
-        logger.info("_watch_loop started")
+        logger.debug("_watch_loop started")
         while True:
             try:
                 for fn in self._find_files():
@@ -344,7 +345,7 @@ class TodoService:
 
             time.sleep(1)
 
-    def _process_manual_done(self, done_tasks: list, todoFilename: str = ""):
+    def _process_manual_done_backup(self, done_tasks: list, todoFilename: str = ""):
         """
         Iterate all manually-completed tasks, normalize their output paths
         by combining with the folder of todoFilename, and skip any
@@ -537,13 +538,13 @@ class TodoService:
             self._load_all()
             # Find next task based on flags for three-step process
             # Priority: plan_flag ' ' first, then write_flag ' ' (LLM), then status ' ' with flags 'x' for commit
-            plan_pending = [t for t in self._tasks if (t.get('plan_flag') or 'x') == ' ' and STATUS_MAP.get(t['status_char'], 'Ignore') != 'Ignore']
-            llm_pending = [t for t in self._tasks if not plan_pending and (t.get('write_flag') or 'x') == ' ' and STATUS_MAP.get(t['status_char'], 'Ignore') != 'Ignore']
+            plan_pending = [t for t in self._tasks if (t.get('plan_flag') or 'x') == ' ']
+            llm_pending = [t for t in self._tasks if not plan_pending and (t.get('status_char') or 'x') == ' ']
             commit_pending = [t for t in self._tasks if not plan_pending and not llm_pending and STATUS_MAP.get(t['status_char'], 'Ignore') == 'To Do' and t.get('write_flag') == 'x' and t.get('plan_flag') == 'x']
             
             todo = plan_pending + llm_pending + commit_pending
             if not todo:
-                logger.info("No pending tasks found for any step.")
+                logger.warning("No pending tasks found for any step.")
                 return
             next_task = todo[0]
             step = 'plan' if next_task in plan_pending else 'llm' if next_task in llm_pending else 'commit'
