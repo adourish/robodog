@@ -68,6 +68,9 @@ class PromptBuilder:
             "T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. "
             "For deletion tasks, strictly follow P: use exact filenames, no content after directive. For new files, include the relative path as specified in O."
         )
+        parts.append(
+            "U. Always generate or update a file named 'plan.md' summarizing the task plan, changes, and next steps. Use 'NEW' if creating or 'UPDATE' if modifying."
+        )
 
         return "\n".join(parts)
     @staticmethod
@@ -104,6 +107,9 @@ class PromptBuilder:
         
         parts.append("S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R.")
         parts.append(f"T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. For deletion tasks, strictly follow P: use exact filenames (e.g., 'src/app.ts DELETE'), no content after directive, especially when reviewing structures like 'src' or deleting TypeScript files. Examples: For 'review the folder structure for my application and mark/delete the files', output '// file: src/app.ts DELETE' for each file in src. For 'delete the typescript files under src', list each like '// file: src/main.ts DELETE'.")
+        parts.append(
+            "U. Always generate or update a file named 'plan.md' summarizing the task plan, changes, and next steps. Use 'NEW' if creating or 'UPDATE' if modifying."
+        )
         return "\n".join(parts)
 
 
@@ -142,6 +148,9 @@ class PromptBuilder:
         
         parts.append("T. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U.")
         parts.append(f"U. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. For deletion tasks, strictly follow P: use exact filenames (e.g., 'src/app.ts DELETE'), no content after directive, especially when reviewing structures like 'src' or deleting TypeScript files. Examples: For 'review the folder structure for my application and mark/delete the files', output '// file: src/app.ts DELETE' for each file in src. For 'delete the typescript files under src', list each like '// file: src/main.ts DELETE'.")
+        parts.append(
+            "V. Always generate or update a file named 'plan.md' summarizing the task plan, changes, and next steps. Use 'NEW' if creating or 'UPDATE' if modifying."
+        )
         return "\n".join(parts)
 
 # original file length: 169 lines

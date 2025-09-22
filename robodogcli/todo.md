@@ -82,10 +82,11 @@ support these operations from the mcp handler
 
 # todo  promots
 - [x][-] logging in todo
-  - started: 2025-09-21T23:32:07.547350 | completed: 2025-09-22 03:32 | knowledge: 31 | include: 44810 | prompt: 45283 | cur_model: x-ai/grok-4-fast:free | compare: UPDATE C:\Projects\robodog\robodogcli\robodog\todo.py O:3299 N:3296 D:-3 , NEW plan.md O:0 N:584 D:584
+  - started: 2025-09-21T23:44:43.241707 | completed: 2025-09-22 03:45 | knowledge: 26 | include: 45053 | prompt: 45546 | cur_model: x-ai/grok-4-fast:free | compare: UPDATE C:\Projects\robodog\robodogcli\robodog\prompt_builder.py O:1905 N:2097 D:192 , UPDATE C:\Projects\robodog\robodogcli\robodog\parse_service.py O:2319 N:1890 D:-429 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo.py O:3299 N:628 D:-2671 
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out: out.py recursive
 ```knowledge
 1. enhance the prompt builder and todo to support more file operations
-2. always create/update a NEW/UPDATE file called plan.md. use this file to create your plan to execute the task
+2. enhance the prompt to support COPY_FILE, DELETE_FILE, CREATE_DIR, DELETE_DIR from the mcp handler
+ 
 ```
