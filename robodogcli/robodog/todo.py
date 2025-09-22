@@ -571,28 +571,29 @@ class TodoService:
                     action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
 
                     # Per-file logging in the specified format
-                    logger.info(f"{action} {filename}: (original={orig_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={token_delta:.1f}%)")
+                    logger.info(f"{action} {filename} {originalfilename} {matchedfilename}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)")
 
                     # Enhanced logging including originalfilename and matchedfilename
-                    logger.info(f"  - originalfilename: {originalfilename}")
-                    logger.info(f"  - matchedfilename: {matchedfilename}")
-                    logger.info(f"  - relative_path: {relative_path}")
+                    logger.debug(f"  - originalfilename: {originalfilename}")
+                    logger.debug(f"  - matchedfilename: {matchedfilename}")
+                    logger.debug(f"  - relative_path: {relative_path}")
                     # Prioritize DELETE: delete if flagged, regardless of other flags
-                    if is_delete:
-                        logger.info(f"Delete file: {matchedfilename}")
-                        delete_path = Path(matchedfilename) if matchedfilename else None
-                        if commit_file and delete_path and delete_path.exists():
-                            self._file_service.delete_file(delete_path)
-                            logger.info(f"Deleted file: {delete_path} (matched: {matchedfilename})")
-                            result += 1
-                        elif not delete_path:
-                            logger.warning(f"No matched path for DELETE: {filename}")
-                        else:
-                            logger.info(f"DELETE file not found: {delete_path}")
-                        compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
-                        continue  # No further action for deletes
-
                     if commit_file:
+                        if is_delete:
+                            logger.info(f"Delete file: {matchedfilename}")
+                            delete_path = Path(matchedfilename) if matchedfilename else None
+                            if commit_file and delete_path and delete_path.exists():
+                                self._file_service.delete_file(delete_path)
+                                logger.info(f"Deleted file: {delete_path} (matched: {matchedfilename})")
+                                result += 1
+                            elif not delete_path:
+                                logger.warning(f"No matched path for DELETE: {filename}")
+                            else:
+                                logger.info(f"DELETE file not found: {delete_path}")
+                            compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
+                            continue  # No further action for deletes
+
+
                         if is_copy:
                             # For COPY: resolve source and destination, copy file
                             src_path = Path(matchedfilename)  # Assume matched is source
@@ -664,139 +665,6 @@ class TodoService:
 
         return result, compare
 
-    def _test_write_parsed_files(self, parsed_files: List[dict], task: dict = None, commit_file: bool = False, base_folder: str = "") -> tuple[int, List[str]]:
-        """
-        Write parsed files and compare tokens using parse_service object properties, return results and compare list
-        For NEW files, resolve path relative to todo.md folder (base_dir) and create full path.
-        For DELETE files, delete the matched file if it exists; prioritize DELETE over NEW even if both flags are set.
-        matchedfilename remains relative for reporting.
-        Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
-        """
-        logger.debug("_test_write_parsed_files called")
-        result = 0
-        compare: List[str] = []
-        basedir = Path(task['file']).parent if task else Path.cwd()
-        self._file_service.base_dir = str(basedir)  # Set base_dir for relative path resolution
-        update_deltas = []  # Collect deltas for UPDATE logging
-        update_abs_deltas = []  # Collect absolute deltas for UPDATE logging
-
-        try:
-            for parsed in parsed_files:
-                try:
-                    content = parsed['content']
-                    # completeness check
-                    filename = parsed.get('filename', '')
-                    originalfilename = parsed.get('originalfilename', filename)
-                    matchedfilename = parsed.get('matchedfilename', filename)  # Relative path for NEW files
-                    relative_path = parsed.get('relative_path', filename)
-                    is_new = parsed.get('new', False)
-                    is_delete = parsed.get('delete', False)
-                    is_copy = parsed.get('copy', False)
-                    is_update = parsed.get('update', False)
-                    if not is_new and not is_copy and not is_delete and not is_update:
-                        is_update = True
-
-                    new_path = None
-                    orig_content = parsed.get('original_content', '')  # Assume parsed has original for diff calc
-                    orig_tokens = len(orig_content.split()) if orig_content else 0
-                    new_tokens = len(content.split()) if content else 0
-                    abs_delta = new_tokens - orig_tokens  # Absolute delta token count
-                    token_delta = ((new_tokens - orig_tokens) / orig_tokens * 100) if orig_tokens > 0 else 100.0 if new_tokens > 0 else 0.0
-
-                    # Determine action
-                    action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
-
-                    # Per-file logging in the specified format
-                    logger.info(f"{action} {filename}: (original={orig_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={token_delta:.1f}%)")
-
-                    # Enhanced logging including originalfilename and matchedfilename
-                    logger.debug(f"  - originalfilename: {originalfilename}")
-                    logger.debug(f"  - matchedfilename: {matchedfilename}")
-
-                    # Prioritize DELETE: delete if flagged, regardless of other flags
-                    if is_delete:
-                        delete_path = Path(matchedfilename) if matchedfilename else None
-                        if commit_file and delete_path and delete_path.exists():
-                            # self._file_service.delete_file(delete_path)
-                            logger.info(f"Test DELETE of file: {delete_path} (matched: {matchedfilename})")
-                            result += 1
-                        elif not delete_path:
-                            logger.warning(f"No matched path for DELETE: {filename}")
-                        else:
-                            logger.info(f"DELETE file not found: {delete_path}")
-                        compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
-                        continue  # No further action for deletes
-
-                    if commit_file:
-                        if is_copy:
-                            # For COPY: resolve source and destination, copy file
-                            src_path = Path(matchedfilename)  # Assume matched is source
-                            dst_path = self._file_service.resolve_path(relative_path, self._svc)  # Destination relative
-                            if src_path.exists():
-                                # self._file_service.copy_file(src_path, dst_path)
-                                logger.info(f"Test COPY file: {src_path} -> {dst_path} (relative: {relative_path})")
-                                result += 1
-                            else:
-                                logger.warning(f"Source for COPY not found: {src_path}")
-                        elif is_new:
-                            # For NEW, resolve relative to base_dir
-                            new_path = self._file_service.resolve_path(relative_path, self._svc)
-                            # self._file_service.write_file(new_path, content)
-                            logger.info(f"Test NEW file at: {new_path} (relative: {relative_path}, matched: {matchedfilename})")
-                            result += 1
-                        elif is_update:
-                            # For UPDATE, use matched path
-                            new_path = Path(matchedfilename)
-                            if new_path.exists():
-                                # self._file_service.write_file(new_path, content)
-                                logger.info(f"Test UPDATE file: {new_path} (matched: {matchedfilename})")
-                                # Enhanced UPDATE logging: calculate and log deltas
-                                update_deltas.append(token_delta)
-                                update_abs_deltas.append(abs_delta)
-                                logger.info(f"UPDATE details for {filename}: Tokens original={orig_tokens}, new={new_tokens}, delta_tokens={abs_delta}, delta_percent={token_delta:.1f}%")
-                                result += 1
-                            else:
-                                logger.warning(f"Path for UPDATE not found: {new_path}")
-                        else:
-                            logger.warning(f"Unknown action for {filename}: new={is_new}, update={is_update}, delete={is_delete}, copy={is_copy}")
-
-                    short_compare = parsed.get('short_compare', '')
-                    if is_delete:
-                        compare.append(f"{short_compare} (DELETE) -> {matchedfilename}")
-                    elif is_copy:
-                        compare.append(f"{short_compare} (COPY) -> {matchedfilename}")
-                    elif is_new:
-                        compare.append(f"{short_compare} (NEW) -> {matchedfilename}")
-                    elif is_update:
-                        compare.append(f"{short_compare} (UPDATE, delta_tokens={abs_delta}, delta_percent={token_delta:.1f}%) -> {matchedfilename}")
-                    else:
-                        compare.append(short_compare)
-                except Exception as e:
-                    logger.exception(f"Error in test write parsed files for {parsed.get('filename', 'unknown')}: {e}")
-                    traceback.print_exc()
-                    continue
-        except Exception as e:
-            logger.exception(f"Error in _test_write_parsed_files: {e}")
-            traceback.print_exc()
-
-        # Aggregate UPDATE logging: full compare details with stats (median, avg, peak delta)
-        if update_deltas and commit_file:
-            try:
-                if len(update_deltas) > 0:
-                    delta_median = statistics.median(update_deltas)
-                    delta_avg = statistics.mean(update_deltas)
-                    delta_peak = max(update_deltas)
-                    abs_delta_median = statistics.median(update_abs_deltas)
-                    abs_delta_avg = statistics.mean(update_abs_deltas)
-                    abs_delta_peak = max(update_abs_deltas)
-                    # Log in task_manager format
-                    logger.info(f"Task UPDATE stats: median_delta_percent={delta_median:.1f}%, avg_delta_percent={delta_avg:.1f}%, peak_delta_percent={delta_peak:.1f}%, median_delta_tokens={abs_delta_median}, avg_delta_tokens={abs_delta_avg}, peak_delta_tokens={abs_delta_peak}")
-            except Exception as e:
-                logger.exception(f"Error calculating UPDATE stats: {e}")
-                traceback.print_exc()
-
-        return result, compare
-
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
         if not out_path:
             return
@@ -818,20 +686,35 @@ class TodoService:
             traceback.print_exc()
     
     def _get_ai_out_path(self, task, base_folder: str = ""):
-        try:
-            out_pat = task.get('out', {}).get('pattern','')
-            if not out_pat:
-                logger.debug(f"No AI out path: {out_pat}")
-                return
-            
-            logger.debug(f"Resoling AI out path: {out_pat}")
-            out_path = self._file_service.resolve_path(out_pat, self._svc)
-            logger.debug(f"Resolved AI out path: {out_path}")
-            return out_path
-        except Exception as e:
-            logger.exception(f"Error getting AI out path: {e}")
-            traceback.print_exc()
-            return None
+        # figure out where the AI output file actually lives
+        raw_out = task.get('out')
+        out_path = None
+
+        # case 1: user supplied a literal string path
+        if isinstance(raw_out, str) and raw_out.strip():
+            p = Path(raw_out)
+            if not p.is_absolute() and base_folder:
+                p = base_folder / p
+            out_path = p
+
+        # case 2: user supplied a dict { pattern, recursive }
+        elif isinstance(raw_out, dict):
+            pattern = raw_out.get('pattern', "")
+            # first try resolving via the FileService (e.g. glob in roots)
+            try:
+                cand = self._file_service.resolve_path(pattern, self._svc)
+            except Exception as e:
+                logger.exception(f"Error resolving pattern {pattern}: {e}")
+                cand = None
+            if cand:
+                out_path = cand
+            else:
+                # fallback: treat it as a literal under the same folder
+                if base_folder and pattern:
+                    out_path = base_folder / pattern
+
+        return out_path
+
 
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
         logger.debug(f"_process_one called with task, todoFilename={todoFilename!r}")
@@ -908,7 +791,7 @@ class TodoService:
             success = False
             if parsed_files:
                 try:
-                    commited, compare = self._write_parsed_files(parsed_files, task, True, base_folder=base_folder)
+                    commited, compare = self._write_parsed_files(parsed_files, task, False, base_folder=base_folder)
                     if commited > 0 or len(compare) > 0:
                         success = True
                 except Exception as e:
@@ -954,66 +837,8 @@ class TodoService:
             traceback.print_exc()
             return []
 
-    # ----------------------------------------------------------------
-    # 2) drop-in _get_ai_out_path()
-    # ----------------------------------------------------------------
-    def _get_ai_out_pathb(self, task: Dict[str,Any]) -> Optional[str]:
-        """
-        task['out'] may be:
-          - a string → return it  
-          - a dict { pattern:str, recursive:bool } → glob it  
-          - missing or empty → return None
-        """
-        try:
-            raw = task.get('out')
-            if not raw:
-                return None
-            
-            logger.info("raw out candidate:" +raw[0])
-            candidate = self._file_service.find_matching_file(raw[0], {'pattern':'*','recursive':True}, self._svc)
-            logger.info("out candidate:" +candidate)
-            # if they already gave us a literal string path
-            
-            return candidate
-        except Exception as e:
-            logger.exception(f"Error getting AI out pathb: {e}")
-            traceback.print_exc()
-            return None
 
-    def _get_ai_out_pathc(self, task, base_folder=None):
-        """
-        Compute an output Path from task['out'], which may be a string
-        or a single‐element list/tuple.  If it's not absolute and
-        base_folder is known, we resolve it against base_folder.
-        """
-        try:
-            raw = task.get('out')
-            if raw is None:
-                raise ValueError(f"Task missing 'out': {task!r}")
 
-            # normalize (string or [string])
-            if isinstance(raw, (list, tuple)):
-                if not raw:
-                    raise ValueError(f"Empty 'out' list in task {task!r}")
-                candidate = raw[0]
-            else:
-                candidate = raw
-
-            # log safely
-            logger.info(f"raw out candidate: {candidate!r}")
-
-            # build path
-            out_path = Path(candidate)
-            if base_folder and not out_path.is_absolute():
-                out_path = base_folder / out_path
-
-            logger.info(f"resolved AI out path: {out_path}")
-            return out_path
-        except Exception as e:
-            logger.exception(f"Error getting AI out pathc: {e}")
-            traceback.print_exc()
-            return None
-    # ----------------------------------------------------------------
     # optional: if you also need to extract filenames/flags from LLM headers
     # ----------------------------------------------------------------
     def _extract_filename_and_flag(self, header: str) -> Tuple[Optional[str], Optional[str]]:
