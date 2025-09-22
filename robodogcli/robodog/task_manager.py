@@ -250,9 +250,9 @@ class TaskManager(TaskBase):
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
         if commit:
-            file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][x] {desc}\n"   
+            file_lines_map[fn][ln] = f"{indent}- [x][x][x] {desc}\n"   
         else:
-            file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][-] {desc}\n"  
+            file_lines_map[fn][ln] = f"{indent}- [x][x][-] {desc}\n"  
 
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         start = task.get('_start_stamp', '')

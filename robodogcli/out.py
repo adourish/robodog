@@ -179,7 +179,7 @@ class TodoService:
                 for dp, _, fns in os.walk(r):
                     if self.FILENAME in fns:
                         out.append(os.path.join(dp, self.FILENAME))
-            logger.debug(f"Found files: {out}")
+            logger.info(f"Found files: {out}")
             return out
         except Exception as e:
             logger.exception(f"Error finding todo files: {e}")
@@ -192,7 +192,7 @@ class TodoService:
         Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
         Added logging for task loading.
         """
-        logger.info("_load_all called: Reloading all tasks from files")
+        logger.debug("_load_all called: Reloading all tasks from files")
         try:
             self._file_lines.clear()
             self._tasks.clear()
@@ -291,7 +291,7 @@ class TodoService:
         with write_flag=' ' and then run the next To Do.
         Added logging for watch events.
         """
-        logger.info("_watch_loop started")
+        logger.debug("_watch_loop started")
         while True:
             try:
                 for fn in self._find_files():
@@ -352,7 +352,7 @@ class TodoService:
         that don’t exist on disk.
         Added logging for manual processing.
         """
-        logger.info(f"Commit step call called with {len(done_tasks)} tasks, todoFilename={todoFilename}")
+        logger.info(f"_process_manual_done called with {len(done_tasks)} tasks, todoFilename={todoFilename}")
 
         # derive the folder containing the todo.md that was edited
         base_folder = None
