@@ -537,7 +537,7 @@ class TodoService:
         matchedfilename remains relative for reporting.
         Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
         """
-        logger.info("_write_parsed files base folder: " + str(base_folder))
+        logger.debug("_write_parsed files base folder: " + str(base_folder))
         try:
             result = 0
             compare: List[str] = []
@@ -571,7 +571,7 @@ class TodoService:
                     action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
 
                     # Per-file logging in the specified format
-                    logger.info(f"{action} {filename} {originalfilename} {matchedfilename}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)")
+                    logger.info(f"{action} {relative_path}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)")
 
                     # Enhanced logging including originalfilename and matchedfilename
                     logger.debug(f"  - originalfilename: {originalfilename}")
@@ -636,7 +636,7 @@ class TodoService:
                     elif is_new:
                         compare.append(f"NEW {matchedfilename} {short_compare}")
                     elif is_update:
-                        compare.append(f"UPDATE {matchedfilename} {short_compare} D/P {abs_delta}/{token_delta:.1f}%")
+                        compare.append(f"UPDATE {matchedfilename} {short_compare} ")
                     else:
                         compare.append(short_compare)
                 except Exception as e:

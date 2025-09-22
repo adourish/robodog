@@ -92,7 +92,7 @@ class ParseService:
             abs_delta = obj.get('abs_delta_tokens', 0)
             percent_delta = obj.get('percent_delta', 0.0)
             action = 'NEW' if obj.get('new') else 'UPDATE' if obj.get('update') else 'DELETE' if obj.get('delete') else 'COPY' if obj.get('copy') else 'UPDATE'
-            logger.info(f"{action} {filename}: (original={original_tokens}, updated={new_tokens}, delta={abs_delta}, percentage={percent_delta:.1f}%)")
+            logger.info(f"{action} {filename}: (O/U/D/P {original_tokens}/{new_tokens}/{abs_delta}/{percent_delta:.1f}%)")
             logger.debug(f"  - originalfilename: {originalfilename}")
             logger.debug(f"  - matchedfilename: {matchedfilename}")
 

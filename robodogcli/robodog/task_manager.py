@@ -249,7 +249,10 @@ class TaskManager(TaskBase):
         logger.info("complete task:" + task['desc'])
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][-] {desc}\n"
+        if commit:
+            file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][x] {desc}\n"   
+        else:
+            file_lines_map[fn][ln] = f"{indent}- [{self.REVERSE_STATUS['Done']}][-] {desc}\n"  
 
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         start = task.get('_start_stamp', '')
@@ -268,7 +271,7 @@ class TaskManager(TaskBase):
             file_lines_map[fn][idx] = summary
         else:
             file_lines_map[fn].insert(idx, summary)
-
+        logger.info(summary)
         self.write_file(fn, file_lines_map[fn])
         task['status_char'] = self.REVERSE_STATUS['Done']
 
