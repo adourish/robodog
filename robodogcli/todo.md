@@ -81,8 +81,8 @@ support these operations from the mcp handler
 
 
 # todo  promots
-- [x][-] logging in todo
-  - started: 2025-09-21T23:44:43.241707 | completed: 2025-09-22 03:45 | knowledge: 26 | include: 45053 | prompt: 45546 | cur_model: x-ai/grok-4-fast:free | compare: UPDATE C:\Projects\robodog\robodogcli\robodog\prompt_builder.py O:1905 N:2097 D:192 , UPDATE C:\Projects\robodog\robodogcli\robodog\parse_service.py O:2319 N:1890 D:-429 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo.py O:3299 N:628 D:-2671 
+- [~][-] logging in todo
+  - started: N/A | prompt_tokens: 45562 | include_tokens: 45069 | knowledge_tokens: 26 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out: out.py recursive
 ```knowledge

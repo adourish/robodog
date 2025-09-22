@@ -87,7 +87,7 @@ class ParseService:
             filename = obj.get('filename', '')
             originalfilename = obj.get('originalfilename', filename)
             matchedfilename = obj.get('matchedfilename', filename)
-            relative_path = parsed.get('relative_path', filename)
+            relative_path = obj.get('relative_path', filename)
             original_tokens = obj.get('original_tokens', 0)
             new_tokens = obj.get('new_tokens', 0)
             abs_delta = obj.get('abs_delta_tokens', 0)
