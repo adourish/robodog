@@ -71,6 +71,7 @@ class TaskParser:
             
             indent = m.group(1)
             status = m.group('status')
+            plan_flag  = m.group('plan')
             write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
             desc = m.group('desc').strip()
             
@@ -79,11 +80,13 @@ class TaskParser:
                 'line_no': i,
                 'indent': indent,
                 'status_char': status,
+                'plan_flag': plan_flag,
                 'write_flag': write_flag,
                 'desc': desc,
                 'include': None,
                 'in': None,
                 'out': None,
+                'plan': None,
                 'knowledge': '',
                 '_start_stamp': None,
                 '_know_tokens': 0,
