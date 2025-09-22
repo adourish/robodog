@@ -53,7 +53,7 @@ class ChangesList(RootModel[List[Change]]):
 class TodoService:
     FILENAME = 'todo.md'
 
-    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist"}):
+    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}):
         logger.debug(f"Initializing TodoService with roots: {roots}")
         logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
         try:

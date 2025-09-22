@@ -87,7 +87,7 @@ def parse_cmd(line):
 def _init_services(args):
 
     diff_service = DiffService(60)
-    exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist"}
+    exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist", "diffoutput"}
     # 1) core Robodog service + parser
     svc    = RobodogService(args.config, exclude_dirs=exclude_dirs,  backupFolder=args.backupFolder)
     parser = ParseService(base_dir=None, backupFolder=args.backupFolder, diff_service=diff_service)
@@ -312,7 +312,7 @@ def main():
                         help='set root logging level')
     parser.add_argument('--backupFolder', default=r'c:\temp',
                         help='folder to store focus-file backups')
-    parser.add_argument('--excludeDirs', default='node_modules,dist',
+    parser.add_argument('--excludeDirs', default='node_modules,dist,diffout',
                         help='comma-separated list of directories to exclude')
     args = parser.parse_args()
 

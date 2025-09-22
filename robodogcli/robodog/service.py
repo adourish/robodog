@@ -28,7 +28,7 @@ class RobodogService:
         #    If svc.todo is set later by the CLI, include() will pick up svc.todo._roots.
         #    Otherwise we default to cwd.
         self._roots = [os.getcwd()]
-        self._exclude_dirs = exclude_dirs or {"node_modules", "dist"}
+        self._exclude_dirs = exclude_dirs or {"node_modules", "dist", "diffoutput"}
         self.stashes = {}
         self.backupFolder = backupFolder
         self.file_service = file_service
