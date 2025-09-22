@@ -324,7 +324,7 @@ class TodoService:
         by combining with the folder of todoFilename, and skip any
         that don’t exist on disk.
         """
-        logger.info(f"_process_manual_done called with {len(done_tasks)} tasks, todoFilename={todoFilename}")
+        logger.debug(f"_process_manual_done called with {len(done_tasks)} tasks, todoFilename={todoFilename}")
 
         # derive the folder containing the todo.md that was edited
         base_folder = None

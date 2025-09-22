@@ -71,7 +71,21 @@ e.g, compare: <filename.ext> (o/n/d tokens:193/253/36) c=18.7%, <filename2.ext> 
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
   - out: out.py recursive
 ```knowledge
-1. do not change any logic
-2. do not remove any logic
-3. add error handling so the stack trace is logged for errors,
+1. enhance the prompt builder and todo to support more file operations
+2. DELETE_DIR
+3. RENAME
+4. CREATE_DIR
+5. DELETE_FILE
+support these operations from the mcp handler
+```
+
+
+# todo  promots
+- [x][-] logging in todo
+  - started: 2025-09-21T23:32:07.547350 | completed: 2025-09-22 03:32 | knowledge: 31 | include: 44810 | prompt: 45283 | cur_model: x-ai/grok-4-fast:free | compare: UPDATE C:\Projects\robodog\robodogcli\robodog\todo.py O:3299 N:3296 D:-3 , NEW plan.md O:0 N:584 D:584
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py    recursive`
+  - out: out.py recursive
+```knowledge
+1. enhance the prompt builder and todo to support more file operations
+2. always create/update a NEW/UPDATE file called plan.md. use this file to create your plan to execute the task
 ```
