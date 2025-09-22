@@ -186,6 +186,17 @@ class TodoService:
             logger.exception(f"Error finding todo files: {e}")
             return []
 
+    def _normalize_task_flags(self):
+        """
+        Make sure every task always has plan_flag, status_char and write_flag set
+        to one of ' ', '~', 'x', '-' (never None).
+        """
+        for t in self._tasks:
+            # default to ' ' when the regex group was missing
+            t['plan_flag']   = t.get('plan_flag')   or ' '
+            t['status_char'] = t.get('status_char') or ' '
+            t['write_flag']  = t.get('write_flag')  or ' '
+
     def _load_all(self):
         """
         Parse each todo.md into tasks, capturing optional second‐bracket
@@ -536,11 +547,18 @@ class TodoService:
         try:
             self._svc = svc
             self._load_all()
+            self._normalize_task_flags()
+
             # Find next task based on flags for three-step process
             # Priority: plan_flag ' ' first, then write_flag ' ' (LLM), then status ' ' with flags 'x' for commit
-            plan_pending = [t for t in self._tasks if (t.get('plan_flag') or 'x') == ' ']
-            llm_pending = [t for t in self._tasks if not plan_pending and (t.get('status_char') or 'x') == ' ']
-            commit_pending = [t for t in self._tasks if not plan_pending and not llm_pending and STATUS_MAP.get(t['status_char'], 'Ignore') == 'To Do' and t.get('write_flag') == 'x' and t.get('plan_flag') == 'x']
+            plan_pending   = [t for t in self._tasks if t['plan_flag']   == ' ']
+            llm_pending    = [t for t in self._tasks
+                              if t['plan_flag']   != ' '
+                             and t['status_char'] == ' ']
+            commit_pending = [t for t in self._tasks
+                              if t['plan_flag']   != ' '
+                             and t['status_char'] != ' '
+                             and t['write_flag'] == ' ']
             
             todo = plan_pending + llm_pending + commit_pending
             if not todo:
