@@ -764,13 +764,13 @@ class TodoService:
             if plan_flag == ' ':
                 # Step 1: Planning
                 logger.warning("Step 1: Running planning")
-                st = self.start_task(task, file_lines_map, svc.get_cur_model(), 1)
+                st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 1)
                 plan_content = self._generate_plan(task, svc, base_folder)
                 if plan_content:
                     task['plan_tokens'] = len(plan_content.split())
                     logger.info(f"Plan tokens: {task['plan_tokens']}")
                 
-                ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, None, False, 1)
+                ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, None, False, 1)
                 task['_start_stamp'] = st
             elif status == ' ':
                 # Step 2: LLM Task (after planning)
@@ -803,12 +803,12 @@ class TodoService:
                 parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
                 committed, compare = self._write_parsed_files(parsed_files, task, False, base_folder=base_folder, current_filename=None)
                 logger.info(f"LLM step: {committed} files parsed (not committed)")
-                ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, compare, True, 2)
+                ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, compare, True, 2)
                 task['_complete_stamp'] = ct
             elif status == 'x' and write_flag == ' ' and plan_flag == 'x':
                 # Step 3: Commit
                 logger.warning("Step 3: Committing LLM response")
-                st = self.start_task(task, file_lines_map, cur_model, 3)
+                st = self.start_task(task, file_lines_map, elf._svc.get_cur_model(), 3)
                 raw_out = task.get('out')
                 out_path = self._get_ai_out_path(task, base_folder=base_folder)
                 if out_path and out_path.exists():
