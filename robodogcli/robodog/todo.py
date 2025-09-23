@@ -699,9 +699,9 @@ class TodoService:
                     logger.info(f"{action} {relative_path}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)")
 
                     # Enhanced logging including originalfilename and matchedfilename
-                    logger.info(f"  - originalfilename: {originalfilename}")
-                    logger.info(f"  - matchedfilename: {matchedfilename}")
-                    logger.info(f"  - relative_path: {relative_path}")
+                    logger.debug(f"  - originalfilename: {originalfilename}")
+                    logger.debug(f"  - matchedfilename: {matchedfilename}")
+                    logger.debug(f"  - relative_path: {relative_path}")
                     # Prioritize DELETE: delete if flagged, regardless of other flags
                     if commit_file:
                         if is_delete:
@@ -773,21 +773,6 @@ class TodoService:
             logger.exception(f"Error in _write_parsed_files: {e}")
             traceback.print_exc()
 
-        # Aggregate UPDATE logging: full compare details with stats (median, avg, peak delta)
-        if update_deltas and commit_file:
-            try:
-                if len(update_deltas) > 0:
-                    delta_median = statistics.median(update_deltas)
-                    delta_avg = statistics.mean(update_deltas)
-                    delta_peak = max(update_deltas)
-                    abs_delta_median = statistics.median(update_abs_deltas)
-                    abs_delta_avg = statistics.mean(update_abs_deltas)
-                    abs_delta_peak = max(update_abs_deltas)
-                    # Log in task_manager format
-                    logger.info(f"Task UPDATE stats: median_delta_percent={delta_median:.1f}%, avg_delta_percent={delta_avg:.1f}%, peak_delta_percent={delta_peak:.1f}%, median_delta_tokens={abs_delta_median}, avg_delta_tokens={abs_delta_avg}, peak_delta_tokens={abs_delta_peak}")
-            except Exception as e:
-                logger.exception(f"Error calculating UPDATE stats: {e}")
-                traceback.print_exc()
 
         return result, compare
 
