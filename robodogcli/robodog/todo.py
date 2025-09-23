@@ -92,14 +92,37 @@ class TodoService:
             logger.exception(f"Error during initialization of TodoService: {e}")
             raise
 
+    def sanitize_desc(self, desc: str) -> str:
+        """
+        Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
+        Called to clean desc after parsing or before rebuilding.
+        """
+        logger.debug(f"Sanitizing desc: {desc[:100]}...")
+        # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ]
+        flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*$'
+        while re.search(flag_pattern, desc):
+            desc = re.sub(flag_pattern, '', desc).rstrip()
+            logger.debug(f"Stripped trailing flag, new desc: {desc[:100]}...")
+        # Also strip any extra | metadata if desc was contaminated
+        if ' | ' in desc:
+            desc = desc.split(' | ')[0].strip()
+            logger.debug(f"Stripped metadata contamination, clean desc: {desc[:100]}...")
+        logger.debug(f"Sanitized desc: {desc[:100]}...")
+        return desc
+
     def _parse_task_metadata(self, full_desc: str) -> Dict:
         """
         Parse the task description for metadata like started, completed, knowledge_tokens, etc.
         Returns a dict with parsed values and the clean description.
         Enhanced logging for metadata parsing.
+        Now includes sanitize_desc to prevent flag appending.
         """
         logger.debug(f"Parsing metadata for task desc: {full_desc}")
         try:
+            # First, sanitize the full_desc to remove any trailing flags
+            full_desc = self.sanitize_desc(full_desc)
+            logger.debug(f"Sanitized full_desc: {full_desc}")
+            
             metadata = {
                 'desc': full_desc.strip(),
                 '_start_stamp': None,
@@ -112,11 +135,8 @@ class TodoService:
             # Split by | to separate desc from metadata
             parts = [p.strip() for p in full_desc.split('|') if p.strip()]
             if len(parts) > 1:
-                metadata['desc'] = parts[0]  # Clean desc is the first part
-                # Clean desc from trailing [ - ] patterns to fix appending issue
-                while metadata['desc'].strip().endswith('[ - ]'):
-                    metadata['desc'] = re.sub(r'\s*\[ - \]\s*$', '', metadata['desc']).strip()
-                logger.info(f"Clean desc: {metadata['desc']}, metadata parts: {len(parts)-1}")
+                metadata['desc'] = self.sanitize_desc(parts[0])  # Sanitize the desc part
+                logger.info(f"Clean desc after split: {metadata['desc']}, metadata parts: {len(parts)-1}")
                 # Parse metadata parts
                 for part in parts[1:]:
                     if ':' in part:
@@ -142,19 +162,27 @@ class TodoService:
                                 logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}")
                         except ValueError:
                             logger.warning(f"Failed to parse metadata part: {part}")
-            logger.debug(f"Parsed metadata: {metadata}")
+            logger.debug(f"Final parsed metadata: {metadata}")
             return metadata
         except Exception as e:
             logger.exception(f"Error parsing task metadata for '{full_desc}': {e}")
-            return {'desc': full_desc.strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
+            # Fallback: return sanitized desc with defaults
+            return {'desc': self.sanitize_desc(full_desc).strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
 
     def _rebuild_task_line(self, task: dict) -> str:
         """
         Safely reconstruct a task line to prevent flag appending issues.
+        Now includes sanitization of desc before rebuilding.
         Format: indent - [plan][status][write] desc | metadata
         """
+        logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
+        # Sanitize desc first to ensure no trailing flags
+        clean_desc = self.sanitize_desc(task['desc'])
+        task['desc'] = clean_desc  # Update task with sanitized desc
+        logger.debug(f"Sanitized desc in rebuild: {clean_desc[:50]}...")
+        
         flags = f"[{task.get('plan_flag', ' ')}][{task.get('status_char', ' ')}][{task.get('write_flag', ' ')}]"
-        line = task['indent'] + "- " + flags + " " + task['desc']
+        line = task['indent'] + "- " + flags + " " + clean_desc
         # Append metadata if present
         meta_parts = []
         if task.get('_start_stamp'):
@@ -219,12 +247,20 @@ class TodoService:
         """
         Make sure every task always has plan_flag, status_char and write_flag set
         to one of ' ', '~', 'x', '-' (never None).
+        Now with logging for normalization.
         """
-        for t in self._tasks:
+        logger.debug("Normalizing task flags")
+        changed = 0
+        for i, t in enumerate(self._tasks):
+            orig_flags = f"P:{t.get('plan_flag')} S:{t.get('status_char')} W:{t.get('write_flag')}"
             # default to ' ' when the regex group was missing
             t['plan_flag']   = t.get('plan_flag')   or ' '
             t['status_char'] = t.get('status_char') or ' '
             t['write_flag']  = t.get('write_flag')  or ' '
+            if orig_flags != f"P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}":
+                changed += 1
+                logger.debug(f"Normalized task {i}: {orig_flags} -> P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}")
+        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}")
 
     def _load_all(self):
         """
@@ -232,6 +268,7 @@ class TodoService:
         write‐flag, third bracket for planning, and any adjacent ```knowledge``` block.
         Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
         Added logging for task loading.
+        Now includes post-parsing sanitization in _load_all.
         """
         logger.debug("_load_all called: Reloading all tasks from files")
         try:
@@ -260,7 +297,7 @@ class TodoService:
                     metadata = self._parse_task_metadata(full_desc)
                     desc     = metadata.pop('desc')
                     # Additional cleaning for trailing flags in desc to fix appending issue
-                    desc = re.sub(r'\s*\[- \]\s*$', '', desc).strip()
+                    desc = self.sanitize_desc(desc)
                     task     = {
                         'file': fn,
                         'line_no': i,
@@ -287,7 +324,7 @@ class TodoService:
                     }
                     task.update(metadata)  # Add parsed metadata (tokens, stamps)
 
-                    logger.info(f"Loaded task {task_count}: flags P:{plan_flag} S:{status} W:{write_flag}, desc length {len(desc)}")
+                    logger.info(f"Loaded task {task_count}: flags P:{plan_flag} S:{status} W:{write_flag}, desc length {len(desc)} (sanitized)")
 
                     # scan sub‐entries (include, in, focus, plan)
                     j = i + 1
@@ -324,6 +361,10 @@ class TodoService:
                     total_tasks += 1
                     i = j
                 logger.info(f"Loaded {task_count} tasks from {fn}")
+            # Post-load sanitization for all tasks
+            for i, t in enumerate(self._tasks):
+                t['desc'] = self.sanitize_desc(t['desc'])
+                logger.debug(f"Post-load sanitized task {i} desc: {t['desc'][:50]}...")
             logger.info(f"Total tasks loaded across all files: {total_tasks}")
         except Exception as e:
             logger.exception(f"Error in _load_all: {e}")
@@ -419,7 +460,7 @@ class TodoService:
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
-            # Use rebuilt line for safe update
+            # Use rebuilt line for safe update (with sanitized desc)
             rebuilt_line = self._rebuild_task_line(task)
             # Assuming task_manager.complete_task can take the rebuilt line or update accordingly
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
@@ -503,7 +544,7 @@ class TodoService:
         try:
             # Determine plan path
             plan_spec = task.get('plan') or {'pattern': 'plan.md', 'recursive': False}
-            plan_path = self._get_ai_out_path({'out': plan_spec}, base_folder=base_folder)
+            plan_path = self._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
             if not plan_path:
                 plan_path = base_folder / 'plan.md' if base_folder else Path('plan.md')
                 logger.info(f"Default plan path: {plan_path}")
@@ -551,6 +592,7 @@ class TodoService:
         matchedfilename remains relative for reporting.
         Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
         Added logging for planning step files.
+        Now sanitizes desc in logging to avoid flag contamination in logs.
         """
         logger.debug("_write_parsed files base folder: " + str(base_folder))
         try:
@@ -578,7 +620,7 @@ class TodoService:
                         is_update = parsed.get('update', False)
                         if filename == 'plan.md':  # Special handling for plan.md
                             plan_files_written += 1
-                            logger.info(f"Writing plan file: {filename} (new: {is_new}, update: {is_update})")
+                            logger.info(f"Writing plan file: {relative_path} (new: {is_new}, update: {is_update})")
                         if not is_new and not is_copy and not is_delete and not is_update:
                             is_update = True
                         new_path = None
@@ -591,8 +633,9 @@ class TodoService:
                         # Determine action
                         action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
 
-                        # Per-file logging in the specified format
-                        logger.info(f"Write {action} {relative_path}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}")
+                        # Per-file logging in the specified format (sanitize relative_path if needed)
+                        clean_relative = self.sanitize_desc(relative_path)
+                        logger.info(f"Write {action} {clean_relative}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}")
 
                         # Enhanced logging including originalfilename and matchedfilename
                         logger.debug(f"  - originalfilename: {originalfilename}")
@@ -642,7 +685,8 @@ class TodoService:
                                     # Enhanced UPDATE logging: calculate and log deltas
                                     update_deltas.append(token_delta)
                                     update_abs_deltas.append(abs_delta)
-                                    logger.info(f"UPDATE details for {filename}: (o/n/d/p {orig_tokens}/{new_tokens}/{abs_delta}{token_delta:.1f}%)")
+                                    clean_rel = self.sanitize_desc(relative_path)
+                                    logger.info(f"Created for {filename} {relative_path}: (o/n/d/p {orig_tokens}/{new_tokens}/{abs_delta}{token_delta:.1f}%) relative: {clean_rel}")
                                     result += 1
                                 else:
                                     logger.warning(f"Path for UPDATE not found: {new_path}")
@@ -821,7 +865,7 @@ class TodoService:
                 # Include plan.md in knowledge for step 2
                 plan_knowledge = ""
                 plan_spec = task.get('plan', {'pattern': 'plan.md', 'recursive': False})
-                plan_path = self._get_ai_out_path({'out': plan_spec}, base_folder=base_folder)
+                plan_path = self._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
                 if plan_path and plan_path.exists():
                     plan_content = self._file_service.safe_read_file(plan_path)
                     plan_knowledge = f"Plan from plan.md:\n{plan_content}\n"
@@ -933,5 +977,5 @@ class TodoService:
             traceback.print_exc()
             return None, None
 
-# original file length: 1042 lines
-# updated file length: 1185 lines
+# original file length: 1185 lines
+# updated file length: 1250 lines
