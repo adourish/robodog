@@ -216,14 +216,20 @@ class TaskManager(TaskBase):
         if self.watcher:
             self.watcher.ignore_next_change(filepath)
 
-    def start_task(self, task: dict, file_lines_map: dict, cur_model: str):
+    def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
         """Mark a task as started (To Do -> Doing)."""
         if self.STATUS_MAP[task['status_char']] != 'To Do':
             return
 
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
-        file_lines_map[fn][ln] = f"{indent}- [x][~][-] {desc}\n"
+
+        if step == 1:
+            file_lines_map[fn][ln] = f"{indent}- [~][-][-] {desc}\n"
+        elif step ==2:
+            file_lines_map[fn][ln] = f"{indent}- [x][~][-] {desc}\n"
+        elif step ==3:
+            file_lines_map[fn][ln] = f"{indent}- [x][x][~] {desc}\n"
 
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         task['_start_stamp'] = stamp
@@ -244,15 +250,18 @@ class TaskManager(TaskBase):
         task['status_char'] = self.REVERSE_STATUS['Doing']
 
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str,
-                      truncation: float = 0, compare: Optional[List[str]] = None, commit: bool = False):
+                      truncation: float = 0, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
         """Mark a task as completed (Doing -> Done), including inline compare info."""
         logger.info("complete task:" + task['desc'])
         fn, ln = task['file'], task['line_no']
         indent, desc = task['indent'], task['desc']
-        if commit:
-            file_lines_map[fn][ln] = f"{indent}- [x][x][x] {desc}\n"   
-        else:
-            file_lines_map[fn][ln] = f"{indent}- [x][x][-] {desc}\n"  
+        if step == 1:
+            file_lines_map[fn][ln] = f"{indent}- [x][-][-] {desc}\n"
+        elif step ==2:
+            file_lines_map[fn][ln] = f"{indent}- [x][x][-] {desc}\n"
+        elif step ==3:
+            file_lines_map[fn][ln] = f"{indent}- [x][x][x] {desc}\n"
+
 
         stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         start = task.get('_start_stamp', '')
