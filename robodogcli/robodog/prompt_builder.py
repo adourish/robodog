@@ -110,6 +110,8 @@ class PromptBuilder:
         parts.append(
             "U. Always generate or update a file named 'plan.md' summarizing the task plan, changes, and next steps. Use 'NEW' if creating or 'UPDATE' if modifying."
         )
+        parts.append("V. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T.")
+
         return "\n".join(parts)
 
 

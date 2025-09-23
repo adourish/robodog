@@ -96,32 +96,41 @@ class TodoService:
         """
         Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
         Called to clean desc after parsing or before rebuilding.
+        Enhanced to robustly remove all trailing flag patterns, including multiples, and handle flags before pipes ('|').
         """
         logger.debug(f"Sanitizing desc: {desc[:100]}...")
-        # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ]
-        flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*$'
-        while re.search(flag_pattern, desc):
-            desc = re.sub(flag_pattern, '', desc).rstrip()
-            logger.debug(f"Stripped trailing flag, new desc: {desc[:100]}...")
-        # Also strip any extra | metadata if desc was contaminated
+        # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ], possibly multiple
+        # Also handles cases where flags are before a metadata pipe '|'
+        flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
+        pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'  # Flags before pipe
+        while re.search(flag_pattern, desc) or re.search(pipe_flag_pattern, desc):
+            # Remove trailing flags before pipe or end
+            desc = re.sub(flag_pattern, '', desc)
+            # Remove flags immediately before pipe
+            desc = re.sub(pipe_flag_pattern, '|', desc)
+            desc = desc.rstrip()  # Clean up whitespace
+            logger.debug(f"Stripped trailing/multiple flags, new desc: {desc[:100]}...")
+        # Also strip any extra | metadata if desc was contaminated (ensure only one leading desc part)
         if ' | ' in desc:
-            desc = desc.split(' | ')[0].strip()
-            logger.debug(f"Stripped metadata contamination, clean desc: {desc[:100]}...")
-        logger.debug(f"Sanitized desc: {desc[:100]}...")
+            desc = desc.split(' | ')[0].strip()  # Take only the first part as desc
+            logger.debug(f"Stripped metadata contamination (pre-pipe), clean desc: {desc[:100]}...")
+        # Final strip of any lingering bracket patterns at end
+        desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
+        logger.debug(f"Final sanitized desc: {desc[:100]}...")
         return desc
 
     def _parse_task_metadata(self, full_desc: str) -> Dict:
         """
         Parse the task description for metadata like started, completed, knowledge_tokens, etc.
         Returns a dict with parsed values and the clean description.
-        Enhanced logging for metadata parsing.
-        Now includes sanitize_desc to prevent flag appending.
+        Enhanced: Ensure desc is isolated cleanly from flags/metadata before sanitization.
+        Strip any flag-like patterns from the end of desc even if followed by ' | metadata'.
         """
         logger.debug(f"Parsing metadata for task desc: {full_desc}")
         try:
-            # First, sanitize the full_desc to remove any trailing flags
+            # First, sanitize the full_desc to remove any trailing flags, regardless of pipes
             full_desc = self.sanitize_desc(full_desc)
-            logger.debug(f"Sanitized full_desc: {full_desc}")
+            logger.debug(f"Sanitized full_desc (flags removed): {full_desc}")
             
             metadata = {
                 'desc': full_desc.strip(),
@@ -132,12 +141,12 @@ class TodoService:
                 'prompt_tokens': 0,
                 'plan_tokens': 0,  # New for planning step
             }
-            # Split by | to separate desc from metadata
+            # Split by | to separate desc from metadata, but only after final sanitization
             parts = [p.strip() for p in full_desc.split('|') if p.strip()]
             if len(parts) > 1:
-                metadata['desc'] = self.sanitize_desc(parts[0])  # Sanitize the desc part
-                logger.info(f"Clean desc after split: {metadata['desc']}, metadata parts: {len(parts)-1}")
-                # Parse metadata parts
+                metadata['desc'] = self.sanitize_desc(parts[0])  # Re-sanitize the desc part post-split
+                logger.info(f"Clean desc after metadata split: {metadata['desc']}, metadata parts: {len(parts)-1}")
+                # Parse metadata parts (now safe from flag contamination)
                 for part in parts[1:]:
                     if ':' in part:
                         key, val = [s.strip() for s in part.split(':', 1)]
@@ -162,6 +171,8 @@ class TodoService:
                                 logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}")
                         except ValueError:
                             logger.warning(f"Failed to parse metadata part: {part}")
+            # Final validation: Ensure desc has no trailing flags post-parsing
+            metadata['desc'] = self.sanitize_desc(metadata['desc'])
             logger.debug(f"Final parsed metadata: {metadata}")
             return metadata
         except Exception as e:
@@ -172,34 +183,52 @@ class TodoService:
     def _rebuild_task_line(self, task: dict) -> str:
         """
         Safely reconstruct a task line to prevent flag appending issues.
-        Now includes sanitization of desc before rebuilding.
-        Format: indent - [plan][status][write] desc | metadata
+        Enhanced: Always start with a fully sanitized desc, add flags only once, append metadata separately.
+        Add validation to prevent flag duplication by stripping any existing flags from desc before adding new ones.
         """
         logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
-        # Sanitize desc first to ensure no trailing flags
+        # Sanitize desc first to ensure no trailing flags or duplicates
         clean_desc = self.sanitize_desc(task['desc'])
         task['desc'] = clean_desc  # Update task with sanitized desc
-        logger.debug(f"Sanitized desc in rebuild: {clean_desc[:50]}...")
+        logger.debug(f"Sanitized desc in rebuild (no existing flags): {clean_desc[:50]}...")
         
-        flags = f"[{task.get('plan_flag', ' ')}][{task.get('status_char', ' ')}][{task.get('write_flag', ' ')}]"
+        # Build flags string: Ensure single set of flags, no duplicates
+        plan_char = task.get('plan_flag', ' ') if task.get('plan_flag') else ' '
+        status_char = task.get('status_char', ' ') if task.get('status_char') else ' '
+        write_char = task.get('write_flag', ' ') if task.get('write_flag') else ' '
+        # Validation: Log if any char is invalid
+        if plan_char not in ' x~-':
+            logger.warning(f"Invalid plan_flag '{plan_char}' for task, defaulting to ' '")
+            plan_char = ' '
+        if status_char not in ' x~-':
+            logger.warning(f"Invalid status_char '{status_char}' for task, defaulting to ' '")
+            status_char = ' '
+        if write_char not in ' x~-':
+            logger.warning(f"Invalid write_flag '{write_char}' for task, defaulting to ' '")
+            write_char = ' '
+        
+        flags = f"[{plan_char}][{status_char}][{write_char}]"
         line = task['indent'] + "- " + flags + " " + clean_desc
-        # Append metadata if present
+        # Append metadata if present (safely, after sanitized desc)
         meta_parts = []
         if task.get('_start_stamp'):
             meta_parts.append(f"started: {task['_start_stamp']}")
         if task.get('_complete_stamp'):
             meta_parts.append(f"completed: {task['_complete_stamp']}")
-        if task.get('knowledge_tokens'):
+        if task.get('knowledge_tokens', 0) > 0:
             meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
-        if task.get('include_tokens'):
+        if task.get('include_tokens', 0) > 0:
             meta_parts.append(f"include: {task['include_tokens']}")
-        if task.get('prompt_tokens'):
+        if task.get('prompt_tokens', 0) > 0:
             meta_parts.append(f"prompt: {task['prompt_tokens']}")
-        if task.get('plan_tokens'):
+        if task.get('plan_tokens', 0) > 0:
             meta_parts.append(f"plan: {task['plan_tokens']}")
         if meta_parts:
             line += " | " + " | ".join(meta_parts)
-        logger.debug(f"Rebuilt task line: {line[:100]}...")
+        # Final validation: Ensure no duplicate flags in the rebuilt line
+        if re.search(r'\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]', line):
+            logger.error(f"Potential flag duplication detected in rebuilt line: {line[:200]}...")
+        logger.debug(f"Rebuilt task line (validated, no duplicates): {line[:100]}...")
         return line
 
     def _parse_base_dir(self) -> Optional[str]:
@@ -460,9 +489,20 @@ class TodoService:
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
-            # Use rebuilt line for safe update (with sanitized desc)
+            # Use rebuilt line for safe update (with sanitized desc and single flags)
             rebuilt_line = self._rebuild_task_line(task)
-            # Assuming task_manager.complete_task can take the rebuilt line or update accordingly
+            # Force full line rewrite by updating the file with the rebuilt line
+            # This overwrites any accumulated flags from previous appends
+            fn = task['file']
+            line_no = task['line_no']
+            lines = file_lines_map.get(fn, [])
+            if 0 <= line_no < len(lines):
+                lines[line_no] = rebuilt_line + '\n'  # Overwrite the entire line
+                file_lines_map[fn] = lines
+                # Write back to file immediately to prevent accumulation
+                self._file_service.write_file(Path(fn), ''.join(lines))
+                logger.info(f"Forced full line rewrite for task at line {line_no} in {fn} to prevent flag appending")
+            # Now proceed with task_manager.complete_task
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
             # Preserve or set stamp if task_manager returns None
             if ct is None:
@@ -981,4 +1021,4 @@ class TodoService:
             return None, None
 
 # original file length: 1185 lines
-# updated file length: 1250 lines
+# updated file length: 1305 lines
