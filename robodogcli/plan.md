@@ -1,47 +1,77 @@
-# file: plan.md
-# Task Plan: Add Logging to file_service.py
+# file: plan.md NEW
+# Plan to Fix Appending Flags in Task Descriptions
 
 ## Task Summary
-The task is to enhance the `file_service.py` module by adding comprehensive logging to its methods. This improves traceability, debugging, and monitoring of file operations without altering the core functionality.
+The task is to diagnose and resolve the issue where task descriptions in `todo.md` accumulate extra checkbox flags (e.g., `[x][x][x] [-] [-] [-] [-]`) with each run or update. This appending corrupts the task description, making it unreadable and breaking parsing logic in `TodoService`. The goal is to ensure task descriptions remain clean, with flags managed only in their designated brackets (plan, status, write).
 
-## Planned Changes
-1. **Add Logging in Existing Methods**:
-   - In `__init__`: Log initialization details including roots and exclude_dirs.
-   - In `search_files`: Log search parameters (patterns, roots, exclusions) and total matches.
-   - In `find_files_by_pattern` and `find_matching_file`: Log search results and matches.
-   - In `resolve_path`: Log resolution attempts and outcomes.
-   - In `safe_read_file` and `binary_read`: Log read operations, token counts, and any errors (e.g., binary detection).
-   - In `write_file`: Log write attempts, atomic vs. fallback, and success with token counts.
-   - In `ensure_dir`, `delete_file`, `append_file`, `delete_dir`, `rename`, `copy_file`: Add entry/exit logs, successes, and errors.
+**Key Problem**: Flags are being appended to the end of the `desc` field during task rebuilding or metadata parsing, likely due to incomplete cleaning in `_parse_task_metadata` or `_rebuild_task_line` in `todo.py`.
 
-2. **Logging Levels**:
-   - DEBUG: Method entry/exit, detailed parameters (e.g., full paths, patterns).
-   - INFO: Successful operations (e.g., "Successfully read file: X, Y tokens", "Search completed: Z files matched").
-   - WARNING: Non-critical issues (e.g., "Root directory not found: X", "Binary content detected").
-   - ERROR: Failures (e.g., "Failed to read X: reason").
+## Analysis
+- **Root Cause Identification**:
+  - In `todo.py`, the `_parse_task_metadata` method splits on `|` and cleans trailing `[ - ]`, but it may not handle multiple or varied flag patterns (e.g., `[x]`, `[-]`, or combinations).
+  - The `_rebuild_task_line` reconstructs lines but assumes a clean `desc`; if `desc` already has appended flags from prior runs, they persist and new ones are added.
+  - During task updates (e.g., in `complete_task`), metadata like timestamps and tokens is appended via `|`, but flag contamination in `desc` isn't fully stripped.
+  - Regex in `TASK_RE` captures flags but doesn't prevent description pollution during reloading.
 
-3. **No Structural Changes**:
-   - Preserve all existing logic, imports, and structure.
-   - Ensure logging is non-intrusive (no performance impact in production).
-   - File remains self-contained and executable.
+- **Reproduction**:
+  - Run a task multiple times: Observe `desc` growing with flags like `[ - ]` at the end.
+  - Check logs: Look for patterns in `_load_all` or `_process_one` where `desc` is modified without full sanitization.
 
-4. **plan.md Update**:
-   - This file itself is being updated (not NEW) to reflect the plan and changes.
-   - Add section for verification and next steps.
+- **Impact**:
+  - Breaks task readability and parsing (e.g., `TASK_RE` may fail on malformed lines).
+  - Increases token count unnecessarily in prompts.
+  - Affects planning/execution steps if descriptions become too long.
 
-## Implementation Steps
-1. Review current logging: Some DEBUG/INFO logs exist; enhance for completeness.
-2. Insert logs strategically: At method start/end, key operations (e.g., mkdir, os.walk, read/write).
-3. Test: Ensure logs appear correctly without breaking functionality (e.g., no exceptions in logging).
-4. Line Count: Original ~223 lines; expected addition ~12 lines for logs.
+## Proposed Changes
+Update `todo.py` to prevent flag appending:
+
+1. **Enhance Cleaning in `_parse_task_metadata`**:
+   - Use a robust regex to strip all trailing flag patterns (e.g., `\s*\[ [x~-] \]\s*$`) repeatedly until no more matches.
+   - Ensure `desc` is always trimmed after splitting on `|`.
+
+2. **Improve `_rebuild_task_line`**:
+   - Validate `desc` before reconstruction: Strip any embedded flags.
+   - Only append metadata if clean; log warnings for contaminated `desc`.
+
+3. **Add Validation in `_load_all`**:
+   - After parsing each task, run a post-clean on `desc` to remove any detected flags.
+   - Introduce a `sanitize_desc` helper method.
+
+4. **Logging and Error Handling**:
+   - Add debug logs in `_parse_task_metadata` and `_rebuild_task_line` to trace `desc` changes.
+   - If contamination detected, log an error and auto-clean.
+
+5. **No New Files Needed**:
+   - All changes are in-place updates to `todo.py`.
+   - Test with existing `todo.md` samples.
+
+**File Changes**:
+- **todo.py**: Update parsing and rebuilding logic (approx. 50-100 lines modified in `_parse_task_metadata`, `_rebuild_task_line`, and `_load_all`).
 
 ## Next Steps
-- **Verification**: Run unit tests on FileService methods; check logs for all paths (success/error).
-- **Integration**: Ensure logs integrate with global logging config (e.g., colorlog in CLI).
-- **Future Enhancements**: Add log levels configurable via args; consider structured logging (JSON) for production.
-- **Related Tasks**: If needed, propagate logs to dependent services (e.g., TodoService file ops).
+1. **Immediate (Planning/Testing)**:
+   - Reproduce the issue: Create a test `todo.md` with a task, run `/todo` multiple times, inspect appended flags.
+   - Review code: Focus on `todo.py` lines 300-500 (metadata parsing and line rebuilding).
 
-This update ensures better observability in file operations, aiding debugging in multi-root environments.
+2. **Implementation**:
+   - Update `_parse_task_metadata`: Add loop to strip multiple trailing flags.
+   - Update `_rebuild_task_line`: Integrate sanitization.
+   - Add unit tests for cleaning (new method in `todo.py`).
+
+3. **Verification**:
+   - Run full task cycle 3-5 times: Confirm no appending.
+   - Check token counts: Ensure `prompt_tokens` doesn't inflate.
+   - Update this `plan.md` with results.
+
+4. **Deployment**:
+   - Commit changes to `todo.py`.
+   - Monitor next `/todo` runs for issues.
+
+**Estimated Effort**: 2-4 hours (analysis + implementation + testing).
+**Risks**: Minimal; changes are defensive cleaning. Backup `todo.md` before testing.
+
+**Original file length**: 0 lines (new file)  
+**Updated file length**: 45 lines
 
 # original file length: 0 lines
-# updated file length: 85 lines
+# updated file length: 45 lines

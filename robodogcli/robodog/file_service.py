@@ -20,6 +20,8 @@ class FileService:
         self._base_dir = base_dir
         self._exclude_dirs = {"node_modules", "dist", "diffoutput"}
         self._backupFolder = backupFolder
+        logger.info(f"FileService initialized with {len(roots)} roots and exclude_dirs: {self._exclude_dirs}")
+    
     @property
     def base_dir(self) -> Optional[str]:
         return self._base_dir
@@ -28,25 +30,33 @@ class FileService:
     def base_dir(self, value: str):
         logger.debug(f"Setting base_dir to: {value}")
         self._base_dir = value
+        logger.info(f"Base directory updated to: {value}")
     
     def search_files(self, patterns="*", recursive=True, roots=None, exclude_dirs=None):
+        logger.debug(f"Searching files with patterns: {patterns}, recursive: {recursive}")
         if isinstance(patterns, str):
             patterns = patterns.split("|")
         else:
             patterns = list(patterns)
         exclude_dirs = set(exclude_dirs or self._exclude_dirs)
         matches = []
-        for root in roots or []:
+        roots_to_search = roots or self._roots
+        logger.info(f"Searching in {len(roots_to_search)} roots with {len(patterns)} patterns, excluding {exclude_dirs}")
+        for root in roots_to_search:
             if not os.path.isdir(root):
+                logger.warning(f"Root directory not found: {root}")
                 continue
             if recursive:
                 for dirpath, dirnames, filenames in os.walk(root):
+                    # Filter out excluded directories
                     dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+                    logger.debug(f"Scanning directory: {dirpath}, filtered dirnames: {dirnames}")
                     for fn in filenames:
                         full = os.path.join(dirpath, fn)
                         for pat in patterns:
                             if fnmatch.fnmatch(full, pat) or fnmatch.fnmatch(fn, pat):
                                 matches.append(full)
+                                logger.debug(f"Matched file: {full} with pattern: {pat}")
                                 break
             else:
                 for fn in os.listdir(root):
@@ -56,21 +66,22 @@ class FileService:
                     for pat in patterns:
                         if fnmatch.fnmatch(full, pat) or fnmatch.fnmatch(fn, pat):
                             matches.append(full)
+                            logger.debug(f"Matched file (non-recursive): {full} with pattern: {pat}")
                             break
+        logger.info(f"Search completed: {len(matches)} files matched")
         return matches
 
 
     def find_files_by_pattern(self, pattern: str, recursive: bool, svc=None) -> List[str]:
         """Find files matching the given glob pattern."""
         logger.debug(f"find_files_by_pattern called with pattern: {pattern}, recursive: {recursive}")
-        if svc:
-            return self.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
-        logger.warning("Svc not provided, returning empty list")
-        return []
+        found = self.search_files(patterns=pattern, recursive=recursive, roots=self._roots)
+        logger.info(f"Found {len(found)} files matching pattern '{pattern}'")
+        return found
     
     def find_matching_file(self, filename: str, include_spec: dict, svc=None) -> Optional[Path]:
         """Find a file by name based on the include pattern."""
-        logger.debug(f"find_matching_file called for {filename}")
+        logger.debug(f"find_matching_file called for {filename} with spec: {include_spec}")
         files = self.find_files_by_pattern(
             include_spec['pattern'], 
             include_spec.get('recursive', False),
@@ -78,16 +89,15 @@ class FileService:
         )
         for f in files:
             if Path(f).name == filename:
-                logger.debug(f"Matching file found: {f}")
+                logger.info(f"Matching file found: {f}")
                 return Path(f)
         logger.debug("No matching file found")
         return None
     
     def resolve_path(self, frag: str, svc) -> Optional[Path]:
-
-        candidate = self.find_matching_file(frag, {'pattern':'*','recursive':True}, svc)
-        """Resolve a file fragment to an absolute path."""
         logger.debug(f"Resolving path for frag: {frag}")
+        candidate = self.find_matching_file(frag, {'pattern':'*','recursive':True}, svc)
+        logger.info(f"Resolved path for {frag}: {candidate}")
         return candidate
     
     def safe_read_file(self, path: Path) -> str:
@@ -96,19 +106,23 @@ class FileService:
         try:
             # Check for binary content
             with open(path, 'rb') as bf:
-                if b'\x00' in bf.read(1024):
+                sample = bf.read(1024)
+                if b'\x00' in sample:
+                    logger.warning(f"Binary content detected for {path}, treating as binary")
                     raise UnicodeDecodeError("binary", b"", 0, 1, "null")
             content = path.read_text(encoding='utf-8')
-            logger.debug(f"Successfully read file, {len(content.split())} tokens")
+            token_count = len(content.split())
+            logger.info(f"Successfully read file: {path}, {token_count} tokens")
             return content
-        except UnicodeDecodeError:
-            logger.warning(f"Binary content detected for {path}, trying with ignore")
+        except UnicodeDecodeError as ude:
+            logger.warning(f"Binary content detected for {path}, trying with ignore: {ude}")
             try:
                 content = path.read_text(encoding='utf-8', errors='ignore')
-                logger.debug(f"Read with ignore, {len(content.split())} tokens")
+                token_count = len(content.split())
+                logger.info(f"Read with ignore: {path}, {token_count} tokens")
                 return content
             except Exception as e:
-                logger.error(f"Failed to read {path}: {e}")
+                logger.error(f"Failed to read {path} with ignore: {e}")
                 return ""
         except Exception as e:
             logger.error(f"Failed to read {path}: {e}")
@@ -118,7 +132,9 @@ class FileService:
         """Safely read a file as binary."""
         logger.debug(f"Binary read of: {path.absolute()}")
         try:
-            return path.read_bytes()
+            content = path.read_bytes()
+            logger.info(f"Successfully read binary file: {path}, {len(content)} bytes")
+            return content
         except Exception as e:
             logger.error(f"Failed to read binary {path}: {e}")
             return b""
@@ -130,10 +146,12 @@ class FileService:
         """
         path = Path(path)
         logger.debug(f"Writing file {path} (atomic, with fsync and fallback)")
+        token_count = len(content.split())
 
         # 1) ensure parent directories exist
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"Ensured parent directories for {path}")
         except Exception as e:
             logger.error(f"Failed to create parent dirs for {path}: {e}")
             # Proceed anyway—if mkdir failed for reasons other than exists, write may still work
@@ -147,17 +165,18 @@ class FileService:
                 prefix=path.name + ".",
                 suffix=".tmp"
             )
+            logger.debug(f"Created temp file: {tmp_name}")
 
             # 3) write, flush, fsync
             with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
                 tmp_file.write(content)
                 tmp_file.flush()
                 os.fsync(tmp_file.fileno())
+                logger.debug(f"Wrote and synced temp file for {path}")
 
             # 4) atomic replace (overwrites or creates)
             os.replace(tmp_name, str(path))
             tmp_name = None  # prevent cleanup in finally
-            token_count = len(content.split())
             logger.info(f"Written (atomic): {path} ({token_count} tokens)")
 
         except Exception as atomic_exc:
@@ -166,12 +185,12 @@ class FileService:
             try:
                 if tmp_name and os.path.exists(tmp_name):
                     os.remove(tmp_name)
+                    logger.debug(f"Cleaned up temp file {tmp_name}")
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(content)
                     f.flush()
                     os.fsync(f.fileno())
-                token_count = len(content.split())
-                logger.debug(f"Written (fallback): {path} ({token_count} tokens)")
+                logger.info(f"Written (fallback): {path} ({token_count} tokens)")
             except Exception as fallback_exc:
                 logger.error(f"Fallback write also failed for {path}: {fallback_exc}")
 
@@ -180,40 +199,73 @@ class FileService:
             if tmp_name and os.path.exists(tmp_name):
                 try:
                     os.remove(tmp_name)
+                    logger.debug(f"Cleaned up stray temp file {tmp_name}")
                 except Exception:
-                    pass
+                    logger.warning(f"Failed to clean up temp file {tmp_name}")
 
     def ensure_dir(self, path: Path, parents: bool = True, exist_ok: bool = True):
         """Ensure directory exists, creating parents if needed."""
-        path.mkdir(parents=parents, exist_ok=exist_ok)
+        logger.debug(f"Ensuring directory: {path}")
+        try:
+            path.mkdir(parents=parents, exist_ok=exist_ok)
+            logger.info(f"Ensured directory: {path}")
+        except Exception as e:
+            logger.error(f"Failed to ensure directory {path}: {e}")
 
     def delete_file(self, path: Path):
         """Delete a file if it exists."""
+        logger.debug(f"Deleting file: {path}")
         if path.exists():
-            path.unlink()
+            try:
+                path.unlink()
+                logger.info(f"Deleted file: {path}")
+            except Exception as e:
+                logger.error(f"Failed to delete file {path}: {e}")
+        else:
+            logger.warning(f"File not found for deletion: {path}")
 
     def append_file(self, path: Path, content: str):
         """Append content to a file, creating directories if needed."""
-        self.ensure_dir(path.parent)
-        with path.open('a', encoding='utf-8') as f:
-            f.write(content)
+        logger.debug(f"Appending to file: {path}")
+        try:
+            self.ensure_dir(path.parent)
+            with path.open('a', encoding='utf-8') as f:
+                f.write(content)
+            logger.info(f"Appended to file: {path}, {len(content.split())} tokens")
+        except Exception as e:
+            logger.error(f"Failed to append to file {path}: {e}")
 
     def delete_dir(self, path: Path, recursive: bool = False):
         """Delete a directory, optionally recursive."""
-        if recursive:
-            shutil.rmtree(path)
-        else:
-            path.rmdir()
+        logger.debug(f"Deleting directory: {path}, recursive: {recursive}")
+        try:
+            if recursive:
+                shutil.rmtree(path)
+            else:
+                path.rmdir()
+            logger.info(f"Deleted directory: {path} (recursive: {recursive})")
+        except Exception as e:
+            logger.error(f"Failed to delete directory {path}: {e}")
 
     def rename(self, src: Path, dst: Path):
         """Rename or move a file/directory."""
-        self.ensure_dir(dst.parent)
-        src.rename(dst)
+        logger.debug(f"Renaming: {src} -> {dst}")
+        try:
+            self.ensure_dir(dst.parent)
+            src.rename(dst)
+            logger.info(f"Renamed: {src} -> {dst}")
+        except Exception as e:
+            logger.error(f"Failed to rename {src} to {dst}: {e}")
 
     def copy_file(self, src: Path, dst: Path):
         """Copy a file."""
-        self.ensure_dir(dst.parent)
-        shutil.copy2(src, dst)
+        logger.debug(f"Copying file: {src} -> {dst}")
+        try:
+            self.ensure_dir(dst.parent)
+            shutil.copy2(src, dst)
+            logger.info(f"Copied file: {src} -> {dst}")
+        except Exception as e:
+            logger.error(f"Failed to copy file {src} to {dst}: {e}")
 
-# original file length: 142 lines
-# updated file length: 159 lines
+# original file length: 223 lines
+# updated file length: 223 lines

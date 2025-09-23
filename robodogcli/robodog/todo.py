@@ -113,6 +113,9 @@ class TodoService:
             parts = [p.strip() for p in full_desc.split('|') if p.strip()]
             if len(parts) > 1:
                 metadata['desc'] = parts[0]  # Clean desc is the first part
+                # Clean desc from trailing [ - ] patterns to fix appending issue
+                while metadata['desc'].strip().endswith('[ - ]'):
+                    metadata['desc'] = re.sub(r'\s*\[ - \]\s*$', '', metadata['desc']).strip()
                 logger.info(f"Clean desc: {metadata['desc']}, metadata parts: {len(parts)-1}")
                 # Parse metadata parts
                 for part in parts[1:]:
@@ -144,6 +147,32 @@ class TodoService:
         except Exception as e:
             logger.exception(f"Error parsing task metadata for '{full_desc}': {e}")
             return {'desc': full_desc.strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
+
+    def _rebuild_task_line(self, task: dict) -> str:
+        """
+        Safely reconstruct a task line to prevent flag appending issues.
+        Format: indent - [plan][status][write] desc | metadata
+        """
+        flags = f"[{task.get('plan_flag', ' ')}][{task.get('status_char', ' ')}][{task.get('write_flag', ' ')}]"
+        line = task['indent'] + "- " + flags + " " + task['desc']
+        # Append metadata if present
+        meta_parts = []
+        if task.get('_start_stamp'):
+            meta_parts.append(f"started: {task['_start_stamp']}")
+        if task.get('_complete_stamp'):
+            meta_parts.append(f"completed: {task['_complete_stamp']}")
+        if task.get('knowledge_tokens'):
+            meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
+        if task.get('include_tokens'):
+            meta_parts.append(f"include: {task['include_tokens']}")
+        if task.get('prompt_tokens'):
+            meta_parts.append(f"prompt: {task['prompt_tokens']}")
+        if task.get('plan_tokens'):
+            meta_parts.append(f"plan: {task['plan_tokens']}")
+        if meta_parts:
+            line += " | " + " | ".join(meta_parts)
+        logger.debug(f"Rebuilt task line: {line[:100]}...")
+        return line
 
     def _parse_base_dir(self) -> Optional[str]:
         logger.debug("_parse_base_dir called")
@@ -230,6 +259,8 @@ class TodoService:
                     # Parse metadata and clean desc
                     metadata = self._parse_task_metadata(full_desc)
                     desc     = metadata.pop('desc')
+                    # Additional cleaning for trailing flags in desc to fix appending issue
+                    desc = re.sub(r'\s*\[- \]\s*$', '', desc).strip()
                     task     = {
                         'file': fn,
                         'line_no': i,
@@ -255,6 +286,8 @@ class TodoService:
                         '_complete_stamp': None,
                     }
                     task.update(metadata)  # Add parsed metadata (tokens, stamps)
+
+                    logger.info(f"Loaded task {task_count}: flags P:{plan_flag} S:{status} W:{write_flag}, desc length {len(desc)}")
 
                     # scan sub‐entries (include, in, focus, plan)
                     j = i + 1
@@ -386,6 +419,9 @@ class TodoService:
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
+            # Use rebuilt line for safe update
+            rebuilt_line = self._rebuild_task_line(task)
+            # Assuming task_manager.complete_task can take the rebuilt line or update accordingly
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
             # Preserve or set stamp if task_manager returns None
             if ct is None:
@@ -628,6 +664,12 @@ class TodoService:
                     logger.exception(f"Error processing parsed file {parsed.get('filename', 'unknown')}: {e}")
                     traceback.print_exc()
                     continue
+            # Enhanced UPDATE summary logging if any updates occurred
+            if update_deltas:
+                median_delta = statistics.median(update_deltas)
+                avg_delta = statistics.mean(update_deltas)
+                peak_delta = max(update_deltas)
+                logger.info(f"UPDATE summary: median {median_delta:.1f}%, avg {avg_delta:.1f}%, peak {peak_delta:.1f}% across {len(update_deltas)} files")
             logger.info(f"Plan files written: {plan_files_written}")
         except Exception as e:
             logger.exception(f"Error in _write_parsed_files: {e}")
@@ -892,4 +934,4 @@ class TodoService:
             return None, None
 
 # original file length: 1042 lines
-# updated file length: 1352 lines
+# updated file length: 1185 lines
