@@ -529,7 +529,7 @@ class TodoService:
             for parsed in parsed_files:
                 try:
                     filename = parsed.get('filename', '')
-                    if filename == None or filename == current_filename:
+                    if current_filename == None or filename == current_filename:
                         content = parsed['content']
                         # completeness check
                         filename = parsed.get('filename', '')
