@@ -543,11 +543,14 @@ class TodoService:
         logger.info(f"Generating plan for task: {task['desc']}")
         try:
             # Determine plan path
-            plan_spec = task.get('plan') or {'pattern': 'plan.md', 'recursive': False}
+            plan_spec = task.get('plan') or {'pattern': 'plan.md', 'recursive': True}
             plan_path = self._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
             if not plan_path:
                 plan_path = base_folder / 'plan.md' if base_folder else Path('plan.md')
                 logger.info(f"Default plan path: {plan_path}")
+
+            logger.info(f"Plan plan_path:{plan_path} base_folder:{base_folder}")
+            self._write_plan(self._svc, plan_path=plan_path,  content='')
 
             # Build planning prompt
             plan_prompt = self._prompt_builder.build_task_prompt(
@@ -556,7 +559,7 @@ class TodoService:
                 out_path=str(plan_path),
                 knowledge_text=task.get('knowledge', ''),
                 include_text=self._gather_include_knowledge(task, svc)
-            ) + "\n\nFocus on planning: Summarize the task, outline changes, and list next steps in plan.md."
+            ) + f"\n\nFocus on planning: Summarize the task, outline changes, and list next steps in the plan file {plan_path}."
 
             # Generate plan
             plan_content = svc.ask(plan_prompt)
@@ -722,6 +725,16 @@ class TodoService:
 
         return result, compare
 
+    def _write_plan(self, svc, plan_path: Path, content: str):
+        if not plan_path:
+            return
+        try:
+            self._file_service.write_file(plan_path, content)
+            logger.info(f"Wrote plan to: {plan_path}")
+        except Exception as e:
+            logger.exception(f"Failed to backup and write output to {out_path}: {e}")
+            traceback.print_exc()
+
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
         if not out_path:
             return
@@ -742,6 +755,7 @@ class TodoService:
             logger.exception(f"Error writing full AI output: {e}")
             traceback.print_exc()
     
+
     def _get_ai_out_path(self, task, base_folder: str = ""):
         # figure out where the AI output file actually lives
         raw_out = task.get('out')
@@ -771,17 +785,6 @@ class TodoService:
                     out_path = base_folder / pattern
 
         return out_path
-
-        
-    def _write_full_plan_output(self, svc, task, ai_out, trunc_code, base_folder: str="" ):
-        try:
-            out_path = self._get_ai_out_path(task, base_folder=base_folder)
-            logger.info(f"Write plan out: {out_path} ({len(ai_out.split())} tokens)")
-            if out_path:
-                self._backup_and_write_output(svc, out_path, ai_out)
-        except Exception as e:
-            logger.exception(f"Error writing full AI output: {e}")
-            traceback.print_exc()
     
     def _get_plan_out_path(self, task, base_folder: str = ""):
         # figure out where the AI output file actually lives
