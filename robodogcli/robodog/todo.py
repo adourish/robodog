@@ -607,19 +607,10 @@ class TodoService:
                 logger.warning("No plan content generated")
                 return ""
 
-            # Parse and write plan (treat as UPDATE or NEW)
-            parsed_plan = self.parser.parse_llm_output(
-                plan_content,
-                base_dir=str(base_folder) if base_folder else '',
-                file_service=self._file_service,
-                ai_out_path=str(plan_path),
-                task={'desc': f"Plan for {task['desc']}"},
-                svc=svc
-            )
-            committed, _ = self._write_parsed_files(parsed_plan, task, True, base_folder, 'plan.md')
+            self._write_plan(self._svc, plan_path=plan_path, content=plan_content)      
             plan_tokens = len(plan_content.split())
             task['plan_tokens'] = plan_tokens
-            logger.info(f"Plan generated and committed: {committed} files, {plan_tokens} tokens")
+            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens")
             return plan_content
         except Exception as e:
             logger.exception(f"Error generating plan: {e}")
