@@ -516,7 +516,7 @@ class TodoService:
         Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
         Added logging for planning step files.
         """
-        logger.info("_write_parsed files base folder: " + str(base_folder))
+        logger.debug("_write_parsed files base folder: " + str(base_folder))
         try:
             result = 0
             compare: List[str] = []
@@ -556,7 +556,7 @@ class TodoService:
                         action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
 
                         # Per-file logging in the specified format
-                        logger.info(f"{action} {relative_path}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)")
+                        logger.info(f"Write {action} {relative_path}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}")
 
                         # Enhanced logging including originalfilename and matchedfilename
                         logger.debug(f"  - originalfilename: {originalfilename}")
@@ -808,7 +808,7 @@ class TodoService:
             elif status == 'x' and write_flag == ' ' and plan_flag == 'x':
                 # Step 3: Commit
                 logger.warning("Step 3: Committing LLM response")
-                st = self.start_task(task, file_lines_map, elf._svc.get_cur_model(), 3)
+                st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 3)
                 raw_out = task.get('out')
                 out_path = self._get_ai_out_path(task, base_folder=base_folder)
                 if out_path and out_path.exists():
