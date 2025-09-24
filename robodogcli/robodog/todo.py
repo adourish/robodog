@@ -57,7 +57,7 @@ class TodoService:
     FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}):
-        logger.debug(f"Initializing TodoService with roots: {roots}")
+        logger.info(f"Initializing TodoService with roots: {roots}", extra={'log_color': 'HIGHLIGHT'})
         logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
         try:
             self._roots        = roots
@@ -76,7 +76,7 @@ class TodoService:
             # MVP: parse a `base:` directive from front-matter
             self._base_dir = self._parse_base_dir()
             
-            logger.info(f"Base directory parsed: {self._base_dir}")
+            logger.info(f"Base directory parsed: {self._base_dir}", extra={'log_color': 'HIGHLIGHT'})
 
             self._load_all()
             for fn in self._find_files():
@@ -84,12 +84,12 @@ class TodoService:
                     self._mtimes[fn] = os.path.getmtime(fn)
                     logger.debug(f"Initial mtime for {fn}: {self._mtimes[fn]}")
                 except Exception as e:
-                    logger.exception(f"Could not get mtime for {fn}: {e}")
+                    logger.exception(f"Could not get mtime for {fn}: {e}", extra={'log_color': 'DELTA'})
                     pass
             threading.Thread(target=self._watch_loop, daemon=True).start()
-            logger.debug("TodoService initialized successfully")
+            logger.info("TodoService initialized successfully", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
-            logger.exception(f"Error during initialization of TodoService: {e}")
+            logger.exception(f"Error during initialization of TodoService: {e}", extra={'log_color': 'DELTA'})
             raise
 
     def sanitize_desc(self, desc: str) -> str:
@@ -146,7 +146,7 @@ class TodoService:
             parts = [p.strip() for p in full_desc.split('|') if p.strip()]
             if len(parts) > 1:
                 metadata['desc'] = self.sanitize_desc(parts[0])  # Re-sanitize the desc part post-split
-                logger.info(f"Clean desc after metadata split: {metadata['desc']}, metadata parts: {len(parts)-1}")
+                logger.info(f"Clean desc after metadata split: {metadata['desc']}, metadata parts: {len(parts)-1}", extra={'log_color': 'HIGHLIGHT'})
                 # Parse metadata parts (now safe from flag contamination)
                 for part in parts[1:]:
                     if ':' in part:
@@ -154,30 +154,30 @@ class TodoService:
                         try:
                             if key == 'started':
                                 metadata['_start_stamp'] = val if val.lower() != 'none' else None
-                                logger.info(f"Parsed started: {metadata['_start_stamp']}")
+                                logger.info(f"Parsed started: {metadata['_start_stamp']}", extra={'log_color': 'HIGHLIGHT'})
                             elif key == 'completed':
                                 metadata['_complete_stamp'] = val if val.lower() != 'none' else None
-                                logger.info(f"Parsed completed: {metadata['_complete_stamp']}")
+                                logger.info(f"Parsed completed: {metadata['_complete_stamp']}", extra={'log_color': 'HIGHLIGHT'})
                             elif key == 'knowledge':
                                 metadata['knowledge_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed knowledge tokens: {metadata['knowledge_tokens']}")
+                                logger.info(f"Parsed knowledge tokens: {metadata['knowledge_tokens']}", extra={'log_color': 'PERCENT'})
                             elif key == 'include':
                                 metadata['include_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed include tokens: {metadata['include_tokens']}")
+                                logger.info(f"Parsed include tokens: {metadata['include_tokens']}", extra={'log_color': 'PERCENT'})
                             elif key == 'prompt':
                                 metadata['prompt_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed prompt tokens: {metadata['prompt_tokens']}")
+                                logger.info(f"Parsed prompt tokens: {metadata['prompt_tokens']}", extra={'log_color': 'PERCENT'})
                             elif key == 'plan':  # Enhanced: Parse plan_tokens
                                 metadata['plan_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}")
+                                logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}", extra={'log_color': 'PERCENT'})
                         except ValueError:
-                            logger.warning(f"Failed to parse metadata part: {part}")
+                            logger.warning(f"Failed to parse metadata part: {part}", extra={'log_color': 'DELTA'})
             # Final validation: Ensure desc has no trailing flags post-parsing
             metadata['desc'] = self.sanitize_desc(metadata['desc'])
             logger.debug(f"Final parsed metadata: {metadata}")
             return metadata
         except Exception as e:
-            logger.exception(f"Error parsing task metadata for '{full_desc}': {e}")
+            logger.exception(f"Error parsing task metadata for '{full_desc}': {e}", extra={'log_color': 'DELTA'})
             # Fallback: return sanitized desc with defaults
             return {'desc': self.sanitize_desc(full_desc).strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
 
@@ -200,13 +200,13 @@ class TodoService:
         write_char = task.get('write_flag', ' ') if task.get('write_flag') else ' '
         # Validation: Log if any char is invalid
         if plan_char not in ' x~-':
-            logger.warning(f"Invalid plan_flag '{plan_char}' for task, defaulting to ' '")
+            logger.warning(f"Invalid plan_flag '{plan_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
             plan_char = ' '
         if status_char not in ' x~-':
-            logger.warning(f"Invalid status_char '{status_char}' for task, defaulting to ' '")
+            logger.warning(f"Invalid status_char '{status_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
             status_char = ' '
         if write_char not in ' x~-':
-            logger.warning(f"Invalid write_flag '{write_char}' for task, defaulting to ' '")
+            logger.warning(f"Invalid write_flag '{write_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
             write_char = ' '
         
         flags = f"[{plan_char}][{status_char}][{write_char}]"
@@ -229,15 +229,15 @@ class TodoService:
             line += " | " + " | ".join(meta_parts)
         # Final validation: Ensure no duplicate flags in the rebuilt line
         if re.search(r'\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]', line):
-            logger.error(f"Potential flag duplication detected in rebuilt line: {line[:200]}...")
+            logger.error(f"Potential flag duplication detected in rebuilt line: {line[:200]}...", extra={'log_color': 'DELTA'})
         logger.debug(f"Rebuilt task line (validated, no duplicates): {line[:100]}...")
         return line
 
     def _parse_base_dir(self) -> Optional[str]:
-        logger.debug("_parse_base_dir called")
+        logger.info("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
         try:
             for fn in self._find_files():
-                logger.info(f"Parsing front-matter from {fn}")
+                logger.info(f"Parsing front-matter from {fn}", extra={'log_color': 'HIGHLIGHT'})
                 content = self._file_service.safe_read_file(Path(fn))
                 lines = content.splitlines()
                 if not lines or lines[0].strip() != '---':
@@ -252,12 +252,12 @@ class TodoService:
                         _, _, val = stripped.partition(':')
                         base = val.strip()
                         if base:
-                            logger.info(f"Found base dir: {base}")
+                            logger.info(f"Found base dir: {base}", extra={'log_color': 'HIGHLIGHT'})
                             return os.path.normpath(base)
-            logger.info("No base dir found")
+            logger.info("No base dir found", extra={'log_color': 'HIGHLIGHT'})
             return None
         except Exception as e:
-            logger.exception(f"Error parsing base dir: {e}")
+            logger.exception(f"Error parsing base dir: {e}", extra={'log_color': 'DELTA'})
             return None
 
     def _find_files(self) -> List[str]:
@@ -268,10 +268,10 @@ class TodoService:
                 for dp, _, fns in os.walk(r):
                     if self.FILENAME in fns:
                         out.append(os.path.join(dp, self.FILENAME))
-            logger.debug(f"Found files: {out}")
+            logger.info(f"Found {len(out)} todo files", extra={'log_color': 'HIGHLIGHT'})
             return out
         except Exception as e:
-            logger.exception(f"Error finding todo files: {e}")
+            logger.exception(f"Error finding todo files: {e}", extra={'log_color': 'DELTA'})
             return []
 
     def _normalize_task_flags(self):
@@ -280,7 +280,7 @@ class TodoService:
         to one of ' ', '~', 'x', '-' (never None).
         Now with logging for normalization.
         """
-        logger.debug("Normalizing task flags")
+        logger.info("Normalizing task flags", extra={'log_color': 'HIGHLIGHT'})
         changed = 0
         for i, t in enumerate(self._tasks):
             orig_flags = f"P:{t.get('plan_flag')} S:{t.get('status_char')} W:{t.get('write_flag')}"
@@ -291,7 +291,7 @@ class TodoService:
             if orig_flags != f"P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}":
                 changed += 1
                 logger.debug(f"Normalized task {i}: {orig_flags} -> P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}")
-        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}")
+        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}", extra={'log_color': 'PERCENT'})
 
     def _load_all(self):
         """
@@ -301,13 +301,13 @@ class TodoService:
         Added logging for task loading.
         Now includes post-parsing sanitization in _load_all. Enhanced to parse plan_tokens from metadata.
         """
-        logger.debug("_load_all called: Reloading all tasks from files")
+        logger.info("_load_all called: Reloading all tasks from files", extra={'log_color': 'HIGHLIGHT'})
         try:
             self._file_lines.clear()
             self._tasks.clear()
             total_tasks = 0
             for fn in self._find_files():
-                logger.info(f"Parsing tasks from {fn}")
+                logger.info(f"Parsing tasks from {fn}", extra={'log_color': 'HIGHLIGHT'})
                 content = self._file_service.safe_read_file(Path(fn))
                 lines = content.splitlines(keepends=True)
                 self._file_lines[fn] = lines
@@ -355,7 +355,7 @@ class TodoService:
                     }
                     task.update(metadata)  # Add parsed metadata (tokens, stamps)
 
-                    logger.info(f"Loaded task {task_count}: flags P:{plan_flag} S:{status} W:{write_flag}, desc length {len(desc)} (sanitized)")
+                    logger.info(f"Loaded task {task_count}: flags P:{plan_flag} S:{status} W:{write_flag}, desc length {len(desc)} (sanitized)", extra={'log_color': 'HIGHLIGHT'})
 
                     # scan sub‐entries (include, in, focus, plan)
                     j = i + 1
@@ -384,21 +384,21 @@ class TodoService:
                         know_tokens = len(''.join(fence).split())
                         task['_know_tokens'] = know_tokens
                         task['knowledge_tokens'] = know_tokens  # Override if metadata had different value
-                        logger.info(f"Loaded knowledge for task {task_count}: {know_tokens} tokens")
+                        logger.info(f"Loaded knowledge for task {task_count}: {know_tokens} tokens", extra={'log_color': 'PERCENT'})
                         j += 1  # skip closing ``` line
 
                     self._tasks.append(task)
                     task_count += 1
                     total_tasks += 1
                     i = j
-                logger.info(f"Loaded {task_count} tasks from {fn}")
+                logger.info(f"Loaded {task_count} tasks from {fn}", extra={'log_color': 'PERCENT'})
             # Post-load sanitization for all tasks
             for i, t in enumerate(self._tasks):
                 t['desc'] = self.sanitize_desc(t['desc'])
                 logger.debug(f"Post-load sanitized task {i} desc: {t['desc'][:50]}...")
-            logger.info(f"Total tasks loaded across all files: {total_tasks}")
+            logger.info(f"Total tasks loaded across all files: {total_tasks}", extra={'log_color': 'PERCENT'})
         except Exception as e:
-            logger.exception(f"Error in _load_all: {e}")
+            logger.exception(f"Error in _load_all: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
 
     def _watch_loop(self):
@@ -408,14 +408,14 @@ class TodoService:
         with write_flag=' ' and then run the next To Do.
         Added logging for watch events.
         """
-        logger.debug("_watch_loop started")
+        logger.info("_watch_loop started", extra={'log_color': 'HIGHLIGHT'})
         while True:
             try:
                 for fn in self._find_files():
                     try:
                         mtime = os.path.getmtime(fn)
                     except OSError:
-                        logger.warning(f"File {fn} not found, skipping")
+                        logger.warning(f"File {fn} not found, skipping", extra={'log_color': 'DELTA'})
                         # file might have been deleted
                         continue
 
@@ -427,9 +427,9 @@ class TodoService:
 
                     # 2) external change?
                     elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
-                        logger.info(f"Detected external change in {fn}, reloading tasks")
+                        logger.info(f"Detected external change in {fn}, reloading tasks", extra={'log_color': 'DELTA'})
                         if not self._svc:
-                            logger.warning("Svc not available, skipping change processing")
+                            logger.warning("Svc not available, skipping change processing", extra={'log_color': 'DELTA'})
                             # nothing to do if service not hooked up
                             continue
 
@@ -445,24 +445,24 @@ class TodoService:
                                 or t.get('plan_flag')   == ' '
                             ]
                             if next_todos:
-                                logger.info("New To Do tasks found, running next")
+                                logger.info(f"New To Do tasks found ({len(next_todos)}), running next", extra={'log_color': 'HIGHLIGHT'})
                                 self.run_next_task(self._svc, fn)
 
                         except Exception as e:
-                            logger.exception(f"Watch loop error processing {fn}: {e}")
+                            logger.exception(f"Watch loop error processing {fn}: {e}", extra={'log_color': 'DELTA'})
                             traceback.print_exc()
 
                     # 3) update our stored mtime
                     self._mtimes[fn] = mtime
 
             except Exception as e:
-                logger.exception(f"Error in watch loop: {e}")
+                logger.exception(f"Error in watch loop: {e}", extra={'log_color': 'DELTA'})
                 traceback.print_exc()
 
             time.sleep(1)
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
-        logger.info(f"Starting task: {task['desc']} (model: {cur_model})")
+        logger.info(f"Starting task: {task['desc']} (model: {cur_model}, step: {step})", extra={'log_color': 'HIGHLIGHT'})
         try:
             # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
@@ -475,17 +475,17 @@ class TodoService:
                 st = datetime.now().isoformat()
             task['_start_stamp'] = st  # Ensure start stamp is set on task
             # Enhanced logging: Include plan_tokens, knowledge_tokens, include_tokens
-            logger.info(f"Task started: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}")
+            logger.info(f"Task started: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}", extra={'log_color': 'PERCENT'})
             return st
         except Exception as e:
-            logger.exception(f"Error starting task {task['desc']}: {e}")
+            logger.exception(f"Error starting task {task['desc']}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             st = datetime.now().isoformat()
             task['_start_stamp'] = st
             return st
             
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
-        logger.info(f"Completing task: {task['desc']} (model: {cur_model}, commit: {commit})")
+        logger.info(f"Completing task: {task['desc']} (model: {cur_model}, commit: {commit}, step: {step})", extra={'log_color': 'HIGHLIGHT'})
         try:
             # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
@@ -504,7 +504,7 @@ class TodoService:
                 file_lines_map[fn] = lines
                 # Write back to file immediately to prevent accumulation
                 self._file_service.write_file(Path(fn), ''.join(lines))
-                logger.info(f"Forced full line rewrite for task at line {line_no} in {fn} to prevent flag appending")
+                logger.info(f"Forced full line rewrite for task at line {line_no} in {fn} to prevent flag appending", extra={'log_color': 'HIGHLIGHT'})
             # Now proceed with task_manager.complete_task
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
             # Preserve or set stamp if task_manager returns None
@@ -512,17 +512,17 @@ class TodoService:
                 ct = datetime.now().isoformat()
             task['_complete_stamp'] = ct  # Ensure complete stamp is set on task
             # Enhanced logging: Include plan_tokens, knowledge_tokens, include_tokens
-            logger.info(f"Task completed: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}")
+            logger.info(f"Task completed: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}", extra={'log_color': 'PERCENT'})
             return ct
         except Exception as e:
-            logger.exception(f"Error completing task {task['desc']}: {e}")
+            logger.exception(f"Error completing task {task['desc']}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             ct = datetime.now().isoformat()
             task['_complete_stamp'] = ct
             return ct
             
     def run_next_task(self, svc, todoFilename: str = ""):
-        logger.info("run_next_task called")
+        logger.info("run_next_task called", extra={'log_color': 'HIGHLIGHT'})
         try:
             self._svc = svc
             self._load_all()
@@ -541,19 +541,19 @@ class TodoService:
             
             todo = plan_pending + llm_pending + commit_pending
             if not todo:
-                logger.warning("No pending tasks found for any step.")
+                logger.warning("No pending tasks found for any step.", extra={'log_color': 'DELTA'})
                 return
             next_task = todo[0]
             step = 'plan' if next_task in plan_pending else 'llm' if next_task in llm_pending else 'commit'
-            logger.info(f"Running next {step} step for task: {next_task['desc']}")
+            logger.info(f"Running next {step} step for task: {next_task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             self._process_one(next_task, svc, self._file_lines, todoFilename=todoFilename)
-            logger.info(f"Completed {step} step")
+            logger.info(f"Completed {step} step", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
-            logger.exception(f"Error running next task: {e}")
+            logger.exception(f"Error running next task: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
 
     def _gather_include_knowledge(self, task: dict, svc) -> str:
-        logger.info("Gathering include knowledge")
+        logger.info("Gathering include knowledge", extra={'log_color': 'HIGHLIGHT'})
         try:
             inc = task.get('include') or {}
             spec = inc.get('pattern','')
@@ -567,14 +567,14 @@ class TodoService:
                 include_tokens = len(know.split())
                 task['_include_tokens'] = include_tokens
                 task['include_tokens'] = include_tokens  # Update task
-                logger.info(f"Gathered include knowledge: {include_tokens} tokens from spec '{full_spec}'")
+                logger.info(f"Gathered include knowledge: {include_tokens} tokens from spec '{full_spec}'", extra={'log_color': 'PERCENT'})
                 return know
             except Exception as e:
-                logger.exception(f"Include failed for spec='{full_spec}': {e}")
+                logger.exception(f"Include failed for spec='{full_spec}': {e}", extra={'log_color': 'DELTA'})
                 traceback.print_exc()
                 return ""
         except Exception as e:
-            logger.exception("Error in _gather_include_knowledge: {e}")
+            logger.exception(f"Error in _gather_include_knowledge: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return ""
 
@@ -584,16 +584,16 @@ class TodoService:
         Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
         Uses a specialized prompt for planning. Enhanced for token efficiency and performance.
         """
-        logger.info(f"Generating plan for task: {task['desc']}")
+        logger.info(f"Generating plan for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
         try:
             # Determine plan path
             plan_spec = task.get('plan') or {'pattern': 'plan.md', 'recursive': True}
             plan_path = self._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
             if not plan_path:
                 plan_path = base_folder / 'plan.md' if base_folder else Path('plan.md')
-                logger.info(f"Default plan path: {plan_path}")
+                logger.info(f"Default plan path: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
 
-            logger.info(f"Plan plan_path:{plan_path} base_folder:{base_folder}")
+            logger.info(f"Plan plan_path:{plan_path} base_folder:{base_folder}", extra={'log_color': 'HIGHLIGHT'})
             self._write_plan(self._svc, plan_path=plan_path,  content='')
 
             # Build planning prompt (enhanced for performance: concise, token-aware)
@@ -608,16 +608,16 @@ class TodoService:
             # Generate plan (use shorter max_tokens for efficiency if possible)
             plan_content = svc.ask(plan_prompt)
             if not plan_content:
-                logger.warning("No plan content generated")
+                logger.warning("No plan content generated", extra={'log_color': 'DELTA'})
                 return ""
 
             self._write_plan(self._svc, plan_path=plan_path, content=plan_content)      
             plan_tokens = len(plan_content.split())
             task['plan_tokens'] = plan_tokens
-            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens (efficient plan for task performance)")
+            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens (efficient plan for task performance)", extra={'log_color': 'PERCENT'})
             return plan_content
         except Exception as e:
-            logger.exception(f"Error generating plan: {e}")
+            logger.exception(f"Error generating plan: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return ""
 
@@ -632,7 +632,7 @@ class TodoService:
         Added logging for planning step files. Now includes plan_tokens in token logging.
         Now sanitizes desc in logging to avoid flag contamination in logs.
         """
-        logger.debug("_write_parsed files base folder: " + str(base_folder))
+        logger.info("_write_parsed_files base folder: " + str(base_folder), extra={'log_color': 'HIGHLIGHT'})
         try:
             result = 0
             compare: List[str] = []
@@ -658,7 +658,7 @@ class TodoService:
                         is_update = parsed.get('update', False)
                         if filename == 'plan.md':  # Special handling for plan.md
                             plan_files_written += 1
-                            logger.info(f"Writing plan file: {relative_path} (new: {is_new}, update: {is_update})")
+                            logger.info(f"Writing plan file: {relative_path} (new: {is_new}, update: {is_update})", extra={'log_color': 'HIGHLIGHT'})
                         if not is_new and not is_copy and not is_delete and not is_update:
                             is_update = True
                         new_path = None
@@ -674,7 +674,7 @@ class TodoService:
                         # Per-file logging in the specified format (sanitize relative_path if needed). Enhanced: Include plan_tokens if available
                         clean_relative = self.sanitize_desc(relative_path)
                         plan_t = task.get('plan_tokens', 0) if task else 0
-                        logger.info(f"Write {action} {clean_relative}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}")
+                        logger.info(f"Write {action} {clean_relative}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}", extra={'log_color': 'PERCENT'})
 
                         # Enhanced logging including originalfilename and matchedfilename
                         logger.debug(f"  - originalfilename: {originalfilename}")
@@ -683,16 +683,16 @@ class TodoService:
                         # Prioritize DELETE: delete if flagged, regardless of other flags
                         if commit_file:
                             if is_delete:
-                                logger.info(f"Delete file: {matchedfilename}")
+                                logger.info(f"Delete file: {matchedfilename}", extra={'log_color': 'DELTA'})
                                 delete_path = Path(matchedfilename) if matchedfilename else None
                                 if commit_file and delete_path and delete_path.exists():
                                     self._file_service.delete_file(delete_path)
-                                    logger.info(f"Deleted file: {delete_path} (matched: {matchedfilename})")
+                                    logger.info(f"Deleted file: {delete_path} (matched: {matchedfilename})", extra={'log_color': 'DELTA'})
                                     result += 1
                                 elif not delete_path:
-                                    logger.warning(f"No matched path for DELETE: {filename}")
+                                    logger.warning(f"No matched path for DELETE: {filename}", extra={'log_color': 'DELTA'})
                                 else:
-                                    logger.info(f"DELETE file not found: {delete_path}")
+                                    logger.info(f"DELETE file not found: {delete_path}", extra={'log_color': 'DELTA'})
                                 compare.append(f"{parsed.get('short_compare', '')} (DELETE) -> {matchedfilename}")
                                 continue  # No further action for deletes
 
@@ -703,16 +703,16 @@ class TodoService:
                                 dst_path = self._file_service.resolve_path(relative_path, self._svc)  # Destination relative
                                 if src_path.exists():
                                     self._file_service.copy_file(src_path, dst_path)
-                                    logger.info(f"Copied file: {src_path} -> {dst_path} (relative: {relative_path})")
+                                    logger.info(f"Copied file: {src_path} -> {dst_path} (relative: {relative_path})", extra={'log_color': 'HIGHLIGHT'})
                                     result += 1
                                 else:
-                                    logger.warning(f"Source for COPY not found: {src_path}")
+                                    logger.warning(f"Source for COPY not found: {src_path}", extra={'log_color': 'DELTA'})
                             elif is_new:
                                 # For NEW, resolve relative to base_dir
                                 # create the new file under the todo.md folder + relative_path
                                 new_path = basedir / relative_path
                                 self._file_service.write_file(new_path, content)
-                                logger.info(f"Created NEW file at: {new_path} (relative: {relative_path})")
+                                logger.info(f"Created NEW file at: {new_path} (relative: {relative_path})", extra={'log_color': 'HIGHLIGHT'})
                                 result += 1
                                 
                             elif is_update:
@@ -720,18 +720,18 @@ class TodoService:
                                 new_path = Path(matchedfilename)
                                 if new_path.exists():
                                     self._file_service.write_file(new_path, content)
-                                    logger.info(f"Updated file: {new_path} (matched: {matchedfilename})")
+                                    logger.info(f"Updated file: {new_path} (matched: {matchedfilename})", extra={'log_color': 'HIGHLIGHT'})
                                     # Enhanced UPDATE logging: calculate and log deltas
                                     update_deltas.append(token_delta)
                                     update_abs_deltas.append(abs_delta)
                                     clean_rel = self.sanitize_desc(relative_path)
                                     plan_t = task.get('plan_tokens', 0) if task else 0
-                                    logger.info(f"Updated for {filename} {clean_rel}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)")
+                                    logger.info(f"Updated for {filename} {clean_rel}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)", extra={'log_color': 'PERCENT'})
                                     result += 1
                                 else:
-                                    logger.warning(f"Path for UPDATE not found: {new_path}")
+                                    logger.warning(f"Path for UPDATE not found: {new_path}", extra={'log_color': 'DELTA'})
                             else:
-                                logger.warning(f"Unknown action for {filename}: new={is_new}, update={is_update}, delete={is_delete}, copy={is_copy}")
+                                logger.warning(f"Unknown action for {filename}: new={is_new}, update={is_update}, delete={is_delete}, copy={is_copy}", extra={'log_color': 'DELTA'})
 
                         short_compare = parsed.get('short_compare', '')
                         if is_delete:
@@ -745,7 +745,7 @@ class TodoService:
                         else:
                             compare.append(short_compare)
                 except Exception as e:
-                    logger.exception(f"Error processing parsed file {parsed.get('filename', 'unknown')}: {e}")
+                    logger.exception(f"Error processing parsed file {parsed.get('filename', 'unknown')}: {e}", extra={'log_color': 'DELTA'})
                     traceback.print_exc()
                     continue
             # Enhanced UPDATE summary logging if any updates occurred
@@ -753,10 +753,10 @@ class TodoService:
                 median_delta = statistics.median(update_deltas)
                 avg_delta = statistics.mean(update_deltas)
                 peak_delta = max(update_deltas)
-                logger.info(f"UPDATE summary: median {median_delta:.1f}%, avg {avg_delta:.1f}%, peak {peak_delta:.1f}% across {len(update_deltas)} files")
-            logger.info(f"Plan files written: {plan_files_written}")
+                logger.info(f"UPDATE summary: median {median_delta:.1f}%, avg {avg_delta:.1f}%, peak {peak_delta:.1f}% across {len(update_deltas)} files", extra={'log_color': 'HIGHLIGHT'})
+            logger.info(f"Plan files written: {plan_files_written}", extra={'log_color': 'PERCENT'})
         except Exception as e:
-            logger.exception(f"Error in _write_parsed_files: {e}")
+            logger.exception(f"Error in _write_parsed_files: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
 
 
@@ -767,9 +767,9 @@ class TodoService:
             return
         try:
             self._file_service.write_file(plan_path, content)
-            logger.info(f"Wrote plan to: {plan_path}")
+            logger.info(f"Wrote plan to: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
-            logger.exception(f"Failed to backup and write output to {plan_path}: {e}")
+            logger.exception(f"Failed to backup and write plan to {plan_path}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
@@ -777,19 +777,19 @@ class TodoService:
             return
         try:
             self._file_service.write_file(out_path, content)
-            logger.info(f"Backed up and wrote output to: {out_path}")
+            logger.info(f"Backed up and wrote output to: {out_path}", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
-            logger.exception(f"Failed to backup and write output to {out_path}: {e}")
+            logger.exception(f"Failed to backup and write output to {out_path}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
         
     def _write_full_ai_output(self, svc, task, ai_out, trunc_code, base_folder: str="" ):
         try:
             out_path = self._get_ai_out_path(task, base_folder=base_folder)
-            logger.info(f"Write AI out: {out_path} ({len(ai_out.split())} tokens)")
+            logger.info(f"Write AI out: {out_path} ({len(ai_out.split())} tokens)", extra={'log_color': 'HIGHLIGHT'})
             if out_path:
                 self._backup_and_write_output(svc, out_path, ai_out)
         except Exception as e:
-            logger.exception(f"Error writing full AI output: {e}")
+            logger.exception(f"Error writing full AI output: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
     
 
@@ -812,7 +812,7 @@ class TodoService:
             try:
                 cand = self._file_service.resolve_path(pattern, self._svc)
             except Exception as e:
-                logger.exception(f"Error resolving pattern {pattern}: {e}")
+                logger.exception(f"Error resolving pattern {pattern}: {e}", extra={'log_color': 'DELTA'})
                 cand = None
             if cand:
                 out_path = cand
@@ -842,7 +842,7 @@ class TodoService:
             try:
                 cand = self._file_service.resolve_path(pattern, self._svc)
             except Exception as e:
-                logger.exception(f"Error resolving pattern {pattern}: {e}")
+                logger.exception(f"Error resolving plan pattern {pattern}: {e}", extra={'log_color': 'DELTA'})
                 cand = None
             if cand:
                 out_path = cand
@@ -854,21 +854,21 @@ class TodoService:
         return out_path
 
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
-        logger.info(f"_process_one called with task, todoFilename={todoFilename!r}")
+        logger.info(f"_process_one called with task, todoFilename={todoFilename!r}", extra={'log_color': 'HIGHLIGHT'})
 
         # derive the folder containing the todo.md that was edited
         base_folder = None
         if todoFilename:
             try:
                 base_folder = Path(todoFilename).parent
-                logger.info("Process base folder: " + str(base_folder))  
+                logger.info("Process base folder: " + str(base_folder), extra={'log_color': 'HIGHLIGHT'})  
             except Exception as e:
-                logger.exception(f"Could not determine parent folder of {todoFilename}: {e}")
+                logger.exception(f"Could not determine parent folder of {todoFilename}: {e}", extra={'log_color': 'DELTA'})
                 traceback.print_exc()
                 base_folder = None
 
         try:
-            logger.info(f"Processing task: {task['desc']}")
+            logger.info(f"Processing task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             basedir = Path(task['file']).parent
             self._base_dir = str(basedir)
             self._file_service.base_dir = str(basedir)  # Set base_dir for relative resolutions
@@ -876,31 +876,31 @@ class TodoService:
             include_text = self._gather_include_knowledge(task, svc)
             task['_include_tokens'] = len(include_text.split())
             task['include_tokens'] = task['_include_tokens']
-            logger.info(f"Include tokens: {task['_include_tokens']}")
+            logger.info(f"Include tokens: {task['_include_tokens']}", extra={'log_color': 'PERCENT'})
             knowledge_text = task.get('knowledge') or ""
             task['_know_tokens'] = len(knowledge_text.split())
             task['knowledge_tokens'] = task['_know_tokens']
-            logger.info(f"Knowledge tokens: {task['_know_tokens']}")
+            logger.info(f"Knowledge tokens: {task['_know_tokens']}", extra={'log_color': 'PERCENT'})
 
             # Determine which step to run based on flags
             plan_flag = task.get('plan_flag', 'x')
             write_flag = task.get('write_flag', 'x')
             status = task.get('status_char', 'x')
-            logger.warning(f'Runnig next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]')
+            logger.warning(f'Runnig next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]', extra={'log_color': 'DELTA'})
             if plan_flag == ' ':
                 # Step 1: Planning
-                logger.warning("Step 1: Running planning")
+                logger.warning("Step 1: Running planning", extra={'log_color': 'HIGHLIGHT'})
                 st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 1)
                 plan_content = self._generate_plan(task, svc, base_folder)
                 if plan_content:
                     task['plan_tokens'] = len(plan_content.split())
-                    logger.info(f"Plan tokens: {task['plan_tokens']}")
+                    logger.info(f"Plan tokens: {task['plan_tokens']}", extra={'log_color': 'PERCENT'})
                 
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, None, False, 1)
                 task['_start_stamp'] = st
             elif status == ' ':
                 # Step 2: LLM Task (after planning)
-                logger.warning("Step 2: Running LLM task using plan.md")
+                logger.warning("Step 2: Running LLM task using plan.md", extra={'log_color': 'HIGHLIGHT'})
                 out_path = self._get_ai_out_path(task, base_folder=base_folder)
                 # Include plan.md in knowledge for step 2
                 plan_knowledge = ""
@@ -909,31 +909,31 @@ class TodoService:
                 if plan_path and plan_path.exists():
                     plan_content = self._file_service.safe_read_file(plan_path)
                     plan_knowledge = f"Plan from plan.md:\n{plan_content}\n"
-                    logger.info("Included plan.md in LLM prompt")
+                    logger.info("Included plan.md in LLM prompt", extra={'log_color': 'HIGHLIGHT'})
                 prompt = self._prompt_builder.build_task_prompt(
                     task, self._base_dir, str(out_path), knowledge_text + plan_knowledge, include_text
                 )
                 task['_prompt_tokens'] = len(prompt.split())
                 task['prompt_tokens'] = task['_prompt_tokens']
-                logger.info(f"Prompt tokens: {task['_prompt_tokens']}")
+                logger.info(f"Prompt tokens: {task['_prompt_tokens']}", extra={'log_color': 'PERCENT'})
                 cur_model = svc.get_cur_model()
                 task['cur_model'] = cur_model
                 st = self.start_task(task, file_lines_map, cur_model, 2)
                 task['_start_stamp'] = st
                 ai_out = svc.ask(prompt)
                 if not ai_out:
-                    logger.warning("No AI output generated, retrying once")
+                    logger.warning("No AI output generated, retrying once", extra={'log_color': 'DELTA'})
                     ai_out = svc.ask(prompt)
                 self._write_full_ai_output(svc, task, ai_out, 0, base_folder=base_folder)
                 # Parse but do not commit yet
                 parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
                 committed, compare = self._write_parsed_files(parsed_files, task, False, base_folder=base_folder, current_filename=None)
-                logger.info(f"LLM step: {committed} files parsed (not committed)")
+                logger.info(f"LLM step: {committed} files parsed (not committed)", extra={'log_color': 'PERCENT'})
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, compare, True, 2)
                 task['_complete_stamp'] = ct
             elif status == 'x' and write_flag == ' ' and plan_flag == 'x':
                 # Step 3: Commit
-                logger.warning("Step 3: Committing LLM response")
+                logger.warning("Step 3: Committing LLM response", extra={'log_color': 'HIGHLIGHT'})
                 st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 3)
                 raw_out = task.get('out')
                 out_path = self._get_ai_out_path(task, base_folder=base_folder)
@@ -941,29 +941,29 @@ class TodoService:
                     ai_out = self._file_service.safe_read_file(out_path)
                     parsed_files = self.parser.parse_llm_output_commit(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc)
                     committed, compare = self._write_parsed_files(parsed_files, task, True, base_folder=base_folder, current_filename=None)
-                    logger.info(f"Commit step: {committed} files committed")
+                    logger.info(f"Commit step: {committed} files committed", extra={'log_color': 'PERCENT'})
                     truncation = 0.0
                     
                 else:
-                    logger.warning("No out file for commit")
+                    logger.warning("No out file for commit", extra={'log_color': 'DELTA'})
 
                 ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, compare, True, 3)
                 task['_complete_stamp'] = ct
             else:
-                logger.info(f"No step to run: status={status}, write={write_flag}, plan={plan_flag}")
+                logger.info(f"No step to run: status={status}, write={write_flag}, plan={plan_flag}", extra={'log_color': 'DELTA'})
 
-            logger.info(f"Task processed: {task['desc']}")
+            logger.info(f"Task processed: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
-            logger.exception(f"Error processing task {task['desc']}: {e}")
+            logger.exception(f"Error processing task {task['desc']}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
 
     def _resolve_path(self, frag: str) -> Optional[Path]:
-        logger.info(f"Resolving path: {frag}")
+        logger.info(f"Resolving path: {frag}", extra={'log_color': 'HIGHLIGHT'})
         try:
             srf = self._file_service.resolve_path(frag, self._svc)
             return srf
         except Exception as e:
-            logger.exception(f"Error resolving path {frag}: {e}")
+            logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
 
@@ -975,47 +975,3 @@ class TodoService:
         Find files matching `pattern` under cwd (or self.root_dir if you have one).
         Added logging for search results.
         """
-        logger.info(f"Searching files with pattern '{pattern}', recursive={recursive}")
-        try:
-            base = getattr(self, 'root_dir', Path.cwd())
-            base = Path(base)
-            if recursive:
-                matches = base.rglob(pattern)
-            else:
-                matches = base.glob(pattern)
-            result = [str(p) for p in matches if p.is_file()]
-            logger.info(f"Search found {len(result)} matches")
-            return result
-        except Exception as e:
-            logger.exception(f"Error searching files with pattern {pattern}: {e}")
-            traceback.print_exc()
-            return []
-
-
-
-    # optional: if you also need to extract filenames/flags from LLM headers
-    # ----------------------------------------------------------------
-    def _extract_filename_and_flag(self, header: str) -> Tuple[Optional[str], Optional[str]]:
-        """
-        parse a markdown code-fence info string like:
-          ```python filename=foo.py flag=XYZ
-        Added logging for extraction.
-        """
-        logger.info(f"Extracting filename and flag from: {header}")
-        try:
-            import re
-            m = re.search(r'```[^\s]*\s+filename=(\S+)(?:\s+flag=(\S+))?', header)
-            if not m:
-                logger.debug("No match found in header")
-                return None, None
-            filename = m.group(1)
-            flag     = m.group(2)
-            logger.info(f"Extracted: filename={filename}, flag={flag}")
-            return filename, flag
-        except Exception as e:
-            logger.exception(f"Error extracting filename and flag from {header}: {e}")
-            traceback.print_exc()
-            return None, None
-
-# original file length: 1305 lines
-# updated file length: 1425 lines
