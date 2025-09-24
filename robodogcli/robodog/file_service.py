@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import fnmatch
 import shutil
+import traceback  # Added for stack traces
 logger = logging.getLogger(__name__)
 
 
@@ -123,9 +124,11 @@ class FileService:
                 return content
             except Exception as e:
                 logger.error(f"Failed to read {path} with ignore: {e}")
+                logger.error(traceback.format_exc())  # Added stack trace
                 return ""
         except Exception as e:
             logger.error(f"Failed to read {path}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
             return ""
 
     def binary_read(self, path: Path) -> bytes:
@@ -137,6 +140,7 @@ class FileService:
             return content
         except Exception as e:
             logger.error(f"Failed to read binary {path}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
             return b""
 
     def write_file(self, path: Path, content: str):
@@ -154,6 +158,7 @@ class FileService:
             logger.debug(f"Ensured parent directories for {path}")
         except Exception as e:
             logger.error(f"Failed to create parent dirs for {path}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
             # Proceed anyway—if mkdir failed for reasons other than exists, write may still work
 
         tmp_name = None
@@ -181,6 +186,7 @@ class FileService:
 
         except Exception as atomic_exc:
             logger.warning(f"Atomic write failed for {path}: {atomic_exc}")
+            logger.error(traceback.format_exc())  # Added stack trace
             # fallback: simple write
             try:
                 if tmp_name and os.path.exists(tmp_name):
@@ -193,6 +199,7 @@ class FileService:
                 logger.info(f"Written (fallback): {path} ({token_count} tokens)")
             except Exception as fallback_exc:
                 logger.error(f"Fallback write also failed for {path}: {fallback_exc}")
+                logger.error(traceback.format_exc())  # Added stack trace
 
         finally:
             # Cleanup stray temp file if something went wrong
@@ -202,6 +209,7 @@ class FileService:
                     logger.debug(f"Cleaned up stray temp file {tmp_name}")
                 except Exception:
                     logger.warning(f"Failed to clean up temp file {tmp_name}")
+                    logger.error(traceback.format_exc())  # Added stack trace
 
     def ensure_dir(self, path: Path, parents: bool = True, exist_ok: bool = True):
         """Ensure directory exists, creating parents if needed."""
@@ -211,6 +219,7 @@ class FileService:
             logger.info(f"Ensured directory: {path}")
         except Exception as e:
             logger.error(f"Failed to ensure directory {path}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
 
     def delete_file(self, path: Path):
         """Delete a file if it exists."""
@@ -221,6 +230,7 @@ class FileService:
                 logger.info(f"Deleted file: {path}")
             except Exception as e:
                 logger.error(f"Failed to delete file {path}: {e}")
+                logger.error(traceback.format_exc())  # Added stack trace
         else:
             logger.warning(f"File not found for deletion: {path}")
 
@@ -234,6 +244,7 @@ class FileService:
             logger.info(f"Appended to file: {path}, {len(content.split())} tokens")
         except Exception as e:
             logger.error(f"Failed to append to file {path}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
 
     def delete_dir(self, path: Path, recursive: bool = False):
         """Delete a directory, optionally recursive."""
@@ -246,6 +257,7 @@ class FileService:
             logger.info(f"Deleted directory: {path} (recursive: {recursive})")
         except Exception as e:
             logger.error(f"Failed to delete directory {path}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
 
     def rename(self, src: Path, dst: Path):
         """Rename or move a file/directory."""
@@ -256,6 +268,7 @@ class FileService:
             logger.info(f"Renamed: {src} -> {dst}")
         except Exception as e:
             logger.error(f"Failed to rename {src} to {dst}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
 
     def copy_file(self, src: Path, dst: Path):
         """Copy a file."""
@@ -266,6 +279,7 @@ class FileService:
             logger.info(f"Copied file: {src} -> {dst}")
         except Exception as e:
             logger.error(f"Failed to copy file {src} to {dst}: {e}")
+            logger.error(traceback.format_exc())  # Added stack trace
 
 # original file length: 223 lines
-# updated file length: 223 lines
+# updated file length: 248 lines

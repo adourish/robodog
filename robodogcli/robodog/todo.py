@@ -593,13 +593,13 @@ class TodoService:
             self._write_plan(self._svc, plan_path=plan_path,  content='')
 
             # Build planning prompt
-            plan_prompt = self._prompt_builder.build_task_prompt(
+            plan_prompt = self._prompt_builder.build_plan_prompt(
                 task,
                 basedir=str(base_folder) if base_folder else '',
                 out_path=str(plan_path),
                 knowledge_text=task.get('knowledge', ''),
                 include_text=self._gather_include_knowledge(task, svc)
-            ) + f"\n\nFocus on planning: Summarize the task, outline changes, and list next steps in the plan file {plan_path}."
+            ) 
 
             # Generate plan
             plan_content = svc.ask(plan_prompt)
