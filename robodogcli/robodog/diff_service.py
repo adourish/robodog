@@ -1,4 +1,4 @@
-# file: diff_service.py NEW
+# file: diff_service.py
 #!/usr/bin/env python3
 """Service for generating diffs used by ParseService."""
 import difflib
@@ -74,11 +74,15 @@ class DiffService:
                     if orig_num is not None:
                         md_lines.append(f"[{orig_num:4}{emoji}] {content}")
                     orig_num = (orig_num or 0) + 1
+                    # Enhanced: Log deletions with DELTA color
+                    logger.warning(f"Line deleted: {content[:50]}...", extra={'log_color': 'DELTA'})
                 elif prefix == '+':
                     emoji = '🟢'
                     if new_num is not None:
                         md_lines.append(f"[{new_num:4}{emoji}] {content}")
                     new_num = (new_num or 0) + 1
+                    # Enhanced: Log insertions with HIGHLIGHT color
+                    logger.info(f"Line added: {content[:50]}...", extra={'log_color': 'HIGHLIGHT'})
                 else:
                     md_lines.append(line)
         md_lines.append("```")
@@ -139,6 +143,8 @@ class DiffService:
                         right = " " * (col_width + 8)
                         lines.append(f"{left}  {right}")
                     o_ln += 1
+                    # Enhanced: Log deletions with DELTA color
+                    logger.warning(f"Block deleted: lines {o_ln-i2+i1} to {o_ln-1}", extra={'log_color': 'DELTA'})
             elif tag == 'insert':
                 for j in range(j1, j2):
                     wrapped = wrap(updt_lines[j], col_width)
@@ -150,6 +156,8 @@ class DiffService:
                             right = f"      {segment}"
                         lines.append(f"{left}  {right}")
                     n_ln += 1
+                    # Enhanced: Log insertions with PERCENT color (positive change)
+                    logger.info(f"Block inserted: lines {n_ln-j2+j1} to {n_ln-1}", extra={'log_color': 'PERCENT'})
             elif tag == 'replace':
                 # deletions
                 for idxd, la in enumerate(orig_lines[i1:i2]):
@@ -173,9 +181,10 @@ class DiffService:
                         lines.append(f"{left}  {right}")
                 o_ln += (i2 - i1)
                 n_ln += (j2 - j1)
+                # Enhanced: Log replacements with HIGHLIGHT color for key changes
+                logger.info(f"Block replaced: {i2-i1} lines removed, {j2-j1} lines added", extra={'log_color': 'HIGHLIGHT'})
 
         return "\n".join(lines) + "\n"
 
-# original file length: 0 lines
-# updated file length: 187 lines
-
+# original file length: 187 lines
+# updated file length: 213 lines

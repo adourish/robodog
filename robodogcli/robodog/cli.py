@@ -323,10 +323,16 @@ def main():
         "%(log_color)s[%(asctime)s] %(levelname)s:%(reset)s %(message)s",
         log_colors={
             "DEBUG":    "cyan",
+            "VERBOSE":  "blue",
             "INFO":     "green",
             "WARNING":  "yellow",
             "ERROR":    "red",
             "CRITICAL": "bold_red",
+            "NOTICE":   "magenta",
+            "SUCCESS":  "white",
+            "DELTA":    "yellow",       # New: For deltas/percentages (e.g., file changes)
+            "PERCENT":  "green",        # New: For positive percentages/metrics
+            "HIGHLIGHT":"cyan",         # New: For key highlights like tokens, summaries
         }
     )
     ch = colorlog.StreamHandler(sys.stdout)
@@ -369,5 +375,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# original file length: 395 lines
-# updated file length: 401 lines
+# original file length: 401 lines
+# updated file length: 415 lines

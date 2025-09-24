@@ -55,22 +55,29 @@ class PromptBuilder:
             "Do not include any content after the directive for deleted files. IMPORTANT: When the task involves reviewing folder structure or marking/deleting files, "
             "always use the DELETE tag for files to be removed, and ensure no code content follows the directive."
         )
+        # Enhanced: Always generate/update plan.md first using build_plan_prompt for better task execution performance
+        parts.insert(idx + 2,
+            "Q. Before generating code, always generate or update a 'plan.md' file using the specialized planning prompt (build_plan_prompt). "
+            "This plan should outline high-level summary, key changes, and next steps. Include it in your knowledge for efficient execution. "
+            "Use 'NEW' if creating or 'UPDATE' if modifying plan.md to improve task performance and structure."
+        )
 
         if include_text:
-            parts.append(f"Q. Review included files:\n{include_text}")
+            parts.append(f"R. Review included files:\n{include_text}")
 
         if knowledge_text:
-            parts.append(f"R. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
+            parts.append(f"S. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
 
         parts.append(
-            "S. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R."
+            "T. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S."
         )
         parts.append(
-            "T. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. "
-            "For deletion tasks, strictly follow P: use exact filenames, no content after directive. For new files, include the relative path as specified in O."
+            "U. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. "
+            "For deletion tasks, strictly follow P: use exact filenames, no content after directive. For new files, include the relative path as specified in O. "
+            "Always reference the generated plan.md for structured, efficient execution."
         )
         parts.append(
-            "U. Always generate or update a file named 'plan.md' summarizing the task plan, changes, and next steps. Use 'NEW' if creating or 'UPDATE' if modifying."
+            "V. Log all relevant tokens (plan_tokens, knowledge_tokens, include_tokens, prompt_tokens) in metadata for performance tracking."
         )
 
         return "\n".join(parts)
@@ -83,23 +90,23 @@ class PromptBuilder:
         knowledge_text: str = "",
         include_text: str = ""
     ) -> str:
-        """Build a concise prompt specifically for generating or updating plan.md."""
+        """Build a concise prompt specifically for generating or updating plan.md. Enhanced for better task execution performance."""
         parts = [
-            "Instructions for Planning:",
-            "Generate a concise plan.md file summarizing the task, outlining proposed changes, and listing next steps.",
-            "A. Output only the content for plan.md: Start with a high-level task summary.",
-            "B. Outline key changes to files or code structure based on the task description and knowledge.",
-            "C. List actionable next steps in bullet points.",
-            "D. Keep it focused and brief—no code generation, no file directives, no extra commentary.",
-            "E. Use the task description, knowledge, and includes to inform the plan.",
+            "Instructions for Planning: Generate a structured plan.md to optimize task execution performance.",
+            "A. Output only the content for plan.md: Start with a high-level task summary based on the description.",
+            "B. Analyze included files and knowledge to outline key changes to files/code structure. Prioritize efficiency and minimal modifications.",
+            "C. List actionable next steps in numbered bullets, focusing on performance improvements (e.g., token efficiency, step-wise execution).",
+            "D. Include token estimates: plan_tokens (this plan), knowledge_tokens, include_tokens from provided data.",
+            "E. Keep it focused, brief, and performance-oriented—no code generation, no file directives, no extra commentary. Aim for under 500 tokens.",
+            "F. Use the task description, knowledge, and includes to inform a high-performance plan. Suggest optimizations like parallel steps or reduced prompts.",
             "Task Description: " + task.get("desc", ""),
-            "Knowledge: " + (knowledge_text or "None"),
-            "Included Files Summary: " + (include_text or "None"),
-            "Output Path: " + out_path,
-            "End with the plan content only."
+            "Knowledge (knowledge_tokens: " + str(len(knowledge_text.split()) if knowledge_text else 0) + "): " + (knowledge_text or "None"),
+            "Included Files Summary (include_tokens: " + str(len(include_text.split()) if include_text else 0) + "): " + (include_text or "None"),
+            "Output Path: " + out_path + " (Estimate plan_tokens here for logging).",
+            "End with the plan content only. Ensure the plan enhances overall task execution speed and efficiency."
         ]
         return "\n".join(parts)
 
 
-# original file length: 169 lines
-# updated file length: 215 lines
+# original file length: 215 lines
+# updated file length: 295 lines

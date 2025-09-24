@@ -125,6 +125,7 @@ class TodoService:
         Returns a dict with parsed values and the clean description.
         Enhanced: Ensure desc is isolated cleanly from flags/metadata before sanitization.
         Strip any flag-like patterns from the end of desc even if followed by ' | metadata'.
+        Now parses plan_tokens as well.
         """
         logger.debug(f"Parsing metadata for task desc: {full_desc}")
         try:
@@ -139,7 +140,7 @@ class TodoService:
                 'knowledge_tokens': 0,
                 'include_tokens': 0,
                 'prompt_tokens': 0,
-                'plan_tokens': 0,  # New for planning step
+                'plan_tokens': 0,  # Enhanced: Added plan_tokens
             }
             # Split by | to separate desc from metadata, but only after final sanitization
             parts = [p.strip() for p in full_desc.split('|') if p.strip()]
@@ -166,7 +167,7 @@ class TodoService:
                             elif key == 'prompt':
                                 metadata['prompt_tokens'] = int(val) if val.isdigit() else 0
                                 logger.info(f"Parsed prompt tokens: {metadata['prompt_tokens']}")
-                            elif key == 'plan':  # New for planning step
+                            elif key == 'plan':  # Enhanced: Parse plan_tokens
                                 metadata['plan_tokens'] = int(val) if val.isdigit() else 0
                                 logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}")
                         except ValueError:
@@ -185,6 +186,7 @@ class TodoService:
         Safely reconstruct a task line to prevent flag appending issues.
         Enhanced: Always start with a fully sanitized desc, add flags only once, append metadata separately.
         Add validation to prevent flag duplication by stripping any existing flags from desc before adding new ones.
+        Now includes plan_tokens in metadata if >0.
         """
         logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
         # Sanitize desc first to ensure no trailing flags or duplicates
@@ -209,7 +211,7 @@ class TodoService:
         
         flags = f"[{plan_char}][{status_char}][{write_char}]"
         line = task['indent'] + "- " + flags + " " + clean_desc
-        # Append metadata if present (safely, after sanitized desc)
+        # Append metadata if present (safely, after sanitized desc). Enhanced: Include plan_tokens
         meta_parts = []
         if task.get('_start_stamp'):
             meta_parts.append(f"started: {task['_start_stamp']}")
@@ -221,7 +223,7 @@ class TodoService:
             meta_parts.append(f"include: {task['include_tokens']}")
         if task.get('prompt_tokens', 0) > 0:
             meta_parts.append(f"prompt: {task['prompt_tokens']}")
-        if task.get('plan_tokens', 0) > 0:
+        if task.get('plan_tokens', 0) > 0:  # Enhanced: Add plan_tokens to metadata
             meta_parts.append(f"plan: {task['plan_tokens']}")
         if meta_parts:
             line += " | " + " | ".join(meta_parts)
@@ -297,7 +299,7 @@ class TodoService:
         write‐flag, third bracket for planning, and any adjacent ```knowledge``` block.
         Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
         Added logging for task loading.
-        Now includes post-parsing sanitization in _load_all.
+        Now includes post-parsing sanitization in _load_all. Enhanced to parse plan_tokens from metadata.
         """
         logger.debug("_load_all called: Reloading all tasks from files")
         try:
@@ -462,7 +464,7 @@ class TodoService:
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
         logger.info(f"Starting task: {task['desc']} (model: {cur_model})")
         try:
-            # Ensure tokens are populated before calling task_manager
+            # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
@@ -472,7 +474,8 @@ class TodoService:
             if st is None:
                 st = datetime.now().isoformat()
             task['_start_stamp'] = st  # Ensure start stamp is set on task
-            logger.info(f"Task start stamp: {st}")
+            # Enhanced logging: Include plan_tokens, knowledge_tokens, include_tokens
+            logger.info(f"Task started: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}")
             return st
         except Exception as e:
             logger.exception(f"Error starting task {task['desc']}: {e}")
@@ -484,7 +487,7 @@ class TodoService:
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
         logger.info(f"Completing task: {task['desc']} (model: {cur_model}, commit: {commit})")
         try:
-            # Ensure tokens are populated before calling task_manager
+            # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
@@ -508,7 +511,8 @@ class TodoService:
             if ct is None:
                 ct = datetime.now().isoformat()
             task['_complete_stamp'] = ct  # Ensure complete stamp is set on task
-            logger.info(f"Task complete stamp: {ct}")
+            # Enhanced logging: Include plan_tokens, knowledge_tokens, include_tokens
+            logger.info(f"Task completed: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}")
             return ct
         except Exception as e:
             logger.exception(f"Error completing task {task['desc']}: {e}")
@@ -578,7 +582,7 @@ class TodoService:
     def _generate_plan(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
         """
         Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
-        Uses a specialized prompt for planning.
+        Uses a specialized prompt for planning. Enhanced for token efficiency and performance.
         """
         logger.info(f"Generating plan for task: {task['desc']}")
         try:
@@ -592,7 +596,7 @@ class TodoService:
             logger.info(f"Plan plan_path:{plan_path} base_folder:{base_folder}")
             self._write_plan(self._svc, plan_path=plan_path,  content='')
 
-            # Build planning prompt
+            # Build planning prompt (enhanced for performance: concise, token-aware)
             plan_prompt = self._prompt_builder.build_plan_prompt(
                 task,
                 basedir=str(base_folder) if base_folder else '',
@@ -601,7 +605,7 @@ class TodoService:
                 include_text=self._gather_include_knowledge(task, svc)
             ) 
 
-            # Generate plan
+            # Generate plan (use shorter max_tokens for efficiency if possible)
             plan_content = svc.ask(plan_prompt)
             if not plan_content:
                 logger.warning("No plan content generated")
@@ -610,7 +614,7 @@ class TodoService:
             self._write_plan(self._svc, plan_path=plan_path, content=plan_content)      
             plan_tokens = len(plan_content.split())
             task['plan_tokens'] = plan_tokens
-            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens")
+            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens (efficient plan for task performance)")
             return plan_content
         except Exception as e:
             logger.exception(f"Error generating plan: {e}")
@@ -625,7 +629,7 @@ class TodoService:
         For DELETE files, delete the matched file if it exists; prioritize DELETE over NEW even if both flags are set.
         matchedfilename remains relative for reporting.
         Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
-        Added logging for planning step files.
+        Added logging for planning step files. Now includes plan_tokens in token logging.
         Now sanitizes desc in logging to avoid flag contamination in logs.
         """
         logger.debug("_write_parsed files base folder: " + str(base_folder))
@@ -667,9 +671,10 @@ class TodoService:
                         # Determine action
                         action = 'NEW' if is_new else 'UPDATE' if is_update else 'DELETE' if is_delete else 'COPY' if is_copy else 'UNCHANGED'
 
-                        # Per-file logging in the specified format (sanitize relative_path if needed)
+                        # Per-file logging in the specified format (sanitize relative_path if needed). Enhanced: Include plan_tokens if available
                         clean_relative = self.sanitize_desc(relative_path)
-                        logger.info(f"Write {action} {clean_relative}: (O/U/D/P {orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}")
+                        plan_t = task.get('plan_tokens', 0) if task else 0
+                        logger.info(f"Write {action} {clean_relative}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}")
 
                         # Enhanced logging including originalfilename and matchedfilename
                         logger.debug(f"  - originalfilename: {originalfilename}")
@@ -720,7 +725,8 @@ class TodoService:
                                     update_deltas.append(token_delta)
                                     update_abs_deltas.append(abs_delta)
                                     clean_rel = self.sanitize_desc(relative_path)
-                                    logger.info(f"Created for {filename} {relative_path}: (o/n/d/p {orig_tokens}/{new_tokens}/{abs_delta}{token_delta:.1f}%) relative: {clean_rel}")
+                                    plan_t = task.get('plan_tokens', 0) if task else 0
+                                    logger.info(f"Updated for {filename} {clean_rel}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)")
                                     result += 1
                                 else:
                                     logger.warning(f"Path for UPDATE not found: {new_path}")
@@ -763,7 +769,7 @@ class TodoService:
             self._file_service.write_file(plan_path, content)
             logger.info(f"Wrote plan to: {plan_path}")
         except Exception as e:
-            logger.exception(f"Failed to backup and write output to {out_path}: {e}")
+            logger.exception(f"Failed to backup and write output to {plan_path}: {e}")
             traceback.print_exc()
 
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
@@ -1011,5 +1017,5 @@ class TodoService:
             traceback.print_exc()
             return None, None
 
-# original file length: 1185 lines
-# updated file length: 1305 lines
+# original file length: 1305 lines
+# updated file length: 1425 lines

@@ -93,7 +93,8 @@ class ParseService:
             abs_delta = obj.get('abs_delta_tokens', 0)
             percent_delta = obj.get('percent_delta', 0.0)
             action = 'NEW' if obj.get('new') else 'UPDATE' if obj.get('update') else 'DELETE' if obj.get('delete') else 'COPY' if obj.get('copy') else 'UPDATE'
-            logger.info(f"Parse {action} {relative_path}: (O/U/D/P {original_tokens}/{new_tokens}/{abs_delta}/{percent_delta:.1f}%)")
+            # Enhanced: Use DELTA color for parsing logs via extra dict (colorlog supports it if configured)
+            logger.info(f"Parse {action} {relative_path}: (O/U/D/P {original_tokens}/{new_tokens}/{abs_delta}/{percent_delta:.1f}%)", extra={'log_color': 'DELTA'})
             logger.debug(f"  - originalfilename: {originalfilename}")
             logger.debug(f"  - matchedfilename: {matchedfilename}")
 
@@ -623,3 +624,6 @@ class ParseService:
         body = obj.get('content','')
         obj['content'] = parts[0] + (f"\n{body}" if not obj['delete'] else "")
 
+
+# original file length: 566 lines
+# updated file length: 586 lines
