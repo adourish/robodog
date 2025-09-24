@@ -268,7 +268,7 @@ class TodoService:
                 for dp, _, fns in os.walk(r):
                     if self.FILENAME in fns:
                         out.append(os.path.join(dp, self.FILENAME))
-            logger.info(f"Found {len(out)} todo files", extra={'log_color': 'HIGHLIGHT'})
+            logger.debug(f"Found {len(out)} todo files", extra={'log_color': 'HIGHLIGHT'})
             return out
         except Exception as e:
             logger.exception(f"Error finding todo files: {e}", extra={'log_color': 'DELTA'})

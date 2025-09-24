@@ -12,6 +12,23 @@ from pprint import pprint
 # third-party for colored logs
 # pip install colorlog
 import colorlog
+logger = logging.getLogger('robodog.mcphandler')
+# Enhanced: Add colorama for Windows/PowerShell ANSI support
+try:
+    import colorama
+    colorama.init(autoreset=True)  # Initialize for Windows console/ANSI compatibility
+    WINDOWS_ANSI_ENABLED = True
+    logger.debug("Colorama initialized for ANSI support on Windows/PowerShell", extra={'log_color': 'HIGHLIGHT'})
+except ImportError:
+    logger.warning("Colorama not installed; install with 'pip install colorama' for better Windows color support", extra={'log_color': 'DELTA'})
+    WINDOWS_ANSI_ENABLED = False
+
+# Detect if running in PowerShell (basic check via environment vars)
+if os.name == 'nt' and 'PSModulePath' in os.environ:
+    POWERSHELL_ENV = True
+    logger.info("Detected PowerShell environment; ANSI colors may need colorama for full support", extra={'log_color': 'HIGHLIGHT'})
+else:
+    POWERSHELL_ENV = False
 # cli.py (somewhere near the top)
 from service        import RobodogService
 from parse_service  import ParseService
@@ -342,6 +359,15 @@ def main():
     fh.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s'))
     root.addHandler(fh)
 
+    # Enhanced: Test custom colors on startup if in PowerShell/Windows
+    if POWERSHELL_ENV and WINDOWS_ANSI_ENABLED:
+        logger.info("PowerShell detected with colorama; testing custom colors...", extra={'log_color': 'HIGHLIGHT'})
+        logger.info("Standard INFO (green) and custom HIGHLIGHT (cyan) should show.", extra={'log_color': 'HIGHLIGHT'})
+        logger.warning("Standard WARNING (yellow) and custom DELTA (yellow) should match.", extra={'log_color': 'DELTA'})
+        logger.debug("Standard DEBUG (cyan) and custom PERCENT (green) for positive changes.", extra={'log_color': 'PERCENT'})
+    elif POWERSHELL_ENV:
+        logger.warning("PowerShell detected without full ANSI support; install colorama for better colors.", extra={'log_color': 'WARNING'})
+
     logging.info("Starting robodog")
 
     svc, parser = _init_services(args)
@@ -375,5 +401,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# original file length: 401 lines
-# updated file length: 415 lines
+# original file length: 415 lines
+# updated file length: 456 lines

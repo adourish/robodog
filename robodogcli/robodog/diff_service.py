@@ -21,7 +21,7 @@ class DiffService:
         """
         Enhanced unified diff with emojis and file line numbers, formatted as Markdown.
         """
-        logger.debug(f"DiffService: generating improved MD diff for {filename}")
+        logger.debug(f"DiffService: generating improved MD diff for {filename}", extra={'log_color': 'HIGHLIGHT'})
         orig_lines = original.splitlines()
         updt_lines = updated.splitlines()
         unified = list(difflib.unified_diff(
@@ -75,14 +75,14 @@ class DiffService:
                         md_lines.append(f"[{orig_num:4}{emoji}] {content}")
                     orig_num = (orig_num or 0) + 1
                     # Enhanced: Log deletions with DELTA color
-                    logger.warning(f"Line deleted: {content[:50]}...", extra={'log_color': 'DELTA'})
+                    logger.debug(f"Line deleted: {content[:50]}...", extra={'log_color': 'DELTA'})
                 elif prefix == '+':
                     emoji = '🟢'
                     if new_num is not None:
                         md_lines.append(f"[{new_num:4}{emoji}] {content}")
                     new_num = (new_num or 0) + 1
                     # Enhanced: Log insertions with HIGHLIGHT color
-                    logger.info(f"Line added: {content[:50]}...", extra={'log_color': 'HIGHLIGHT'})
+                    logger.debug(f"Line added: {content[:50]}...", extra={'log_color': 'HIGHLIGHT'})
                 else:
                     md_lines.append(line)
         md_lines.append("```")
@@ -92,7 +92,7 @@ class DiffService:
         """
         Side-by-side diff with emojis and wrapping.
         """
-        logger.debug(f"DiffService: generating side-by-side diff for {filename}")
+        logger.debug(f"DiffService: generating side-by-side diff for {filename}", extra={'log_color': 'HIGHLIGHT'})
         orig_lines = original.splitlines()
         updt_lines = updated.splitlines()
         matcher = SequenceMatcher(None, orig_lines, updt_lines)
@@ -186,5 +186,5 @@ class DiffService:
 
         return "\n".join(lines) + "\n"
 
-# original file length: 187 lines
-# updated file length: 213 lines
+# original file length: 213 lines
+# updated file length: 225 lines
