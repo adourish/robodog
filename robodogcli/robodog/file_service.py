@@ -104,6 +104,9 @@ class FileService:
     def safe_read_file(self, path: Path) -> str:
         """Safely read a file, handling binary files and encoding issues."""
         logger.debug(f"Safe read of: {path.absolute()}", extra={'log_color': 'HIGHLIGHT'})
+        if not path.exists():
+            logger.warning(f"File not found: {path.absolute()}", extra={'log_color': 'DELTA'})
+            return ""
         try:
             # Check for binary content
             with open(path, 'rb') as bf:
@@ -134,6 +137,9 @@ class FileService:
     def binary_read(self, path: Path) -> bytes:
         """Safely read a file as binary."""
         logger.debug(f"Binary read of: {path.absolute()}", extra={'log_color': 'HIGHLIGHT'})
+        if not path.exists():
+            logger.warning(f"Binary file not found: {path.absolute()}", extra={'log_color': 'DELTA'})
+            return b""
         try:
             content = path.read_bytes()
             logger.info(f"Successfully read binary file: {path}, {len(content)} bytes", extra={'log_color': 'HIGHLIGHT'})
@@ -283,4 +289,4 @@ class FileService:
             logger.error(traceback.format_exc(), extra={'log_color': 'DELTA'})  # Added stack trace
 
 # original file length: 280 lines
-# updated file length: 312 lines
+# updated file length: 283 lines

@@ -915,7 +915,7 @@ class TodoService:
                 )
                 task['_prompt_tokens'] = len(prompt.split())
                 task['prompt_tokens'] = task['_prompt_tokens']
-                logger.info(f"Prompt tokens: {task['_prompt_tokens']}", extra={'log_color': 'PERCENT'})
+                logger.debug(f"Prompt tokens: {task['_prompt_tokens']}", extra={'log_color': 'PERCENT'})
                 cur_model = svc.get_cur_model()
                 task['cur_model'] = cur_model
                 st = self.start_task(task, file_lines_map, cur_model, 2)

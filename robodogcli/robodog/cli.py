@@ -16,7 +16,7 @@ logger = logging.getLogger('robodog.mcphandler')
 # Enhanced: Add colorama for Windows/PowerShell ANSI support
 try:
     import colorama
-    colorama.init(autoreset=True)  # Initialize for Windows console/ANSI compatibility
+    colorama.init(autoreset=True, strip=False)  # Initialize with strip=False to preserve ANSI even if not needed
     WINDOWS_ANSI_ENABLED = True
     logger.debug("Colorama initialized for ANSI support on Windows/PowerShell", extra={'log_color': 'HIGHLIGHT'})
 except ImportError:
@@ -287,6 +287,7 @@ def interact(svc: RobodogService):
 
                 elif cmd == "rest":
                     svc.stream = False
+                    logging.stream = False
                     logging.info("Switched to REST mode.")
 
                 elif cmd == "todo":
@@ -302,6 +303,32 @@ def interact(svc: RobodogService):
             _line = f"\nUser: {line}"
             _resp = svc.ask(_line)
             print(f"{_resp}")
+
+def enable_powershell_ansi():
+    """
+    Attempt to enable virtual terminal processing for ANSI colors in PowerShell on Windows.
+    Checks and sets the registry key if possible (requires admin rights; otherwise, warn).
+    This is to fix color issues in PowerShell 5.1 and earlier without external tweaks.
+    """
+    if os.name != 'nt' or not POWERSHELL_ENV:
+        return
+    try:
+        import winreg
+        key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Console"
+        reg_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ | winreg.KEY_WRITE)
+        vt_level, vt_type = winreg.QueryValueEx(reg_key, "VirtualTerminalLevel")
+        if vt_level == 0:
+            winreg.SetValueEx(reg_key, "VirtualTerminalLevel", 0, winreg.REG_DWORD, 1)
+            print("Enabled VirtualTerminalLevel=1 for ANSI colors in PowerShell. Restart PowerShell for changes to take effect.")
+        else:
+            print(f"VirtualTerminalLevel already set to {vt_level}. Colors should work.")
+        winreg.CloseKey(reg_key)
+    except ImportError:
+        logger.warning("winreg module available only on Windows.")
+    except PermissionError:
+        logger.warning("Requires admin to set VirtualTerminalLevel. Run PowerShell as admin once to fix colors, or enable manually via registry.")
+    except Exception as e:
+        logger.warning(f"Could not set VirtualTerminalLevel: {e}. ANSI colors may not display.")
 
 def main():
     parser = argparse.ArgumentParser(prog="robodog",
@@ -332,6 +359,10 @@ def main():
     parser.add_argument('--excludeDirs', default='node_modules,dist,diffout',
                         help='comma-separated list of directories to exclude')
     args = parser.parse_args()
+
+    # Enhanced: Enable Virtual Terminal for ANSI colors in PowerShell
+    if POWERSHELL_ENV and WINDOWS_ANSI_ENABLED:
+        enable_powershell_ansi()
 
     # configure colored logging
     root = logging.getLogger()
@@ -365,6 +396,7 @@ def main():
         logger.info("Standard INFO (green) and custom HIGHLIGHT (cyan) should show.", extra={'log_color': 'HIGHLIGHT'})
         logger.warning("Standard WARNING (yellow) and custom DELTA (yellow) should match.", extra={'log_color': 'DELTA'})
         logger.debug("Standard DEBUG (cyan) and custom PERCENT (green) for positive changes.", extra={'log_color': 'PERCENT'})
+        logger.info("If colors are missing in PowerShell, enable via registry (VirtualTerminalLevel=1) or restart PowerShell.", extra={'log_color': 'HIGHLIGHT'})
     elif POWERSHELL_ENV:
         logger.warning("PowerShell detected without full ANSI support; install colorama for better colors.", extra={'log_color': 'WARNING'})
 
@@ -401,5 +433,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# original file length: 415 lines
-# updated file length: 456 lines
+# original file length: 456 lines
+# updated file length: 465 lines

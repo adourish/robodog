@@ -157,7 +157,7 @@ class DiffService:
                         lines.append(f"{left}  {right}")
                     n_ln += 1
                     # Enhanced: Log insertions with PERCENT color (positive change)
-                    logger.info(f"Block inserted: lines {n_ln-j2+j1} to {n_ln-1}", extra={'log_color': 'PERCENT'})
+                    logger.debug(f"Block inserted: lines {n_ln-j2+j1} to {n_ln-1}", extra={'log_color': 'PERCENT'})
             elif tag == 'replace':
                 # deletions
                 for idxd, la in enumerate(orig_lines[i1:i2]):
