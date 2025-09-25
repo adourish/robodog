@@ -58,8 +58,8 @@ class PromptBuilder:
         # Enhanced: Always generate/update plan.md first using build_plan_prompt for better task execution performance
         parts.insert(idx + 2,
             "Q. Before generating code, always generate or update a 'plan.md' file using the specialized planning prompt (build_plan_prompt). "
-            "This plan should outline high-level summary, key changes, and next steps. Include it in your knowledge for efficient execution. "
-            "Use 'NEW' if creating or 'UPDATE' if modifying plan.md to improve task performance and structure."
+            "This plan should outline high-level summary, key changes, and next steps. . "
+            "Use 'NEW' if creating or 'UPDATE' if modifying plan.md."
         )
 
         if include_text:
@@ -76,9 +76,7 @@ class PromptBuilder:
             "For deletion tasks, strictly follow P: use exact filenames, no content after directive. For new files, include the relative path as specified in O. "
             "Always reference the generated plan.md for structured, efficient execution."
         )
-        parts.append(
-            "V. Log all relevant tokens (plan_tokens, knowledge_tokens, include_tokens, prompt_tokens) in metadata for performance tracking."
-        )
+
 
         return "\n".join(parts)
 
@@ -90,15 +88,14 @@ class PromptBuilder:
         knowledge_text: str = "",
         include_text: str = ""
     ) -> str:
-        """Build a concise prompt specifically for generating or updating plan.md. Enhanced for better task execution performance."""
+        """Build a concise prompt specifically for generating or updating plan.md. Enhanced for better task execution of the changes."""
         parts = [
-            "Instructions for Planning: Generate a structured plan.md to optimize task execution performance.",
+            "Instructions for Planning: Generate a structured plan.md to optimize task execution of the changes.",
             "A. Output only the content for plan.md: Start with a high-level task summary based on the description.",
-            "B. Analyze included files and knowledge to outline key changes to files/code structure. Prioritize efficiency and minimal modifications.",
-            "C. List actionable next steps in numbered bullets, focusing on performance improvements (e.g., token efficiency, step-wise execution).",
-            "D. Include token estimates: plan_tokens (this plan), knowledge_tokens, include_tokens from provided data.",
-            "E. Keep it focused, brief, and performance-oriented—no code generation, no file directives, no extra commentary. Aim for under 500 tokens.",
-            "F. Use the task description, knowledge, and includes to inform a high-performance plan. Suggest optimizations like parallel steps or reduced prompts.",
+            "B. Analyze included files and knowledge to outline key changes to files/code structure. ",
+            "C. List actionable next steps in numbered bullets",
+            "E. Keep it focused, brief, and no file directives, no extra commentary. Aim for under 500 tokens.",
+            "F. Use the task description, knowledge, and includes to inform a effective plan. ",
             "Task Description: " + task.get("desc", ""),
             "Knowledge (knowledge_tokens: " + str(len(knowledge_text.split()) if knowledge_text else 0) + "): " + (knowledge_text or "None"),
             "Included Files Summary (include_tokens: " + str(len(include_text.split()) if include_text else 0) + "): " + (include_text or "None"),

@@ -614,7 +614,7 @@ class TodoService:
             self._write_plan(self._svc, plan_path=plan_path, content=plan_content)      
             plan_tokens = len(plan_content.split())
             task['plan_tokens'] = plan_tokens
-            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens (efficient plan for task performance)", extra={'log_color': 'PERCENT'})
+            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens ", extra={'log_color': 'PERCENT'})
             return plan_content
         except Exception as e:
             logger.exception(f"Error generating plan: {e}", extra={'log_color': 'DELTA'})
