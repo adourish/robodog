@@ -90,12 +90,13 @@ class PromptBuilder:
     ) -> str:
         """Build a concise prompt specifically for generating or updating plan.md. Enhanced for better task execution of the changes."""
         parts = [
-            "Instructions for Planning: Generate a structured plan.md to optimize task execution of the changes.",
+            "Generate a structured plan.md that outlines only the required high-level steps to implement the requested changes. Do not suggest performance or architectural optimizations.",
             "A. Output only the content for plan.md: Start with a high-level task summary based on the description.",
             "B. Analyze included files and knowledge to outline key changes to files/code structure. ",
             "C. List actionable next steps in numbered bullets",
             "E. Keep it focused, brief, and no file directives, no extra commentary. Aim for under 500 tokens.",
             "F. Use the task description, knowledge, and includes to inform a effective plan. ",
+            "G. No performance tuning, code optimization, or best-practice editorializing—only list the files to change and the sequential steps needed."
             "Task Description: " + task.get("desc", ""),
             "Knowledge (knowledge_tokens: " + str(len(knowledge_text.split()) if knowledge_text else 0) + "): " + (knowledge_text or "None"),
             "Included Files Summary (include_tokens: " + str(len(include_text.split()) if include_text else 0) + "): " + (include_text or "None"),
