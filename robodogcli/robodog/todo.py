@@ -730,6 +730,10 @@ class TodoService:
                                     result += 1
                                 else:
                                     logger.warning(f"Path for UPDATE not found: {new_path}", extra={'log_color': 'DELTA'})
+                                    new_path = basedir / relative_path
+                                    self._file_service.write_file(new_path, content)
+                                    logger.info(f"Created NEW file at: {new_path} (relative: {relative_path})", extra={'log_color': 'HIGHLIGHT'})
+                                    result += 1
                             else:
                                 logger.warning(f"Unknown action for {filename}: new={is_new}, update={is_update}, delete={is_delete}, copy={is_copy}", extra={'log_color': 'DELTA'})
 
