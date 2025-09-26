@@ -131,7 +131,7 @@ class TodoService:
         logger.debug(f"Parsing metadata for task desc: {full_desc}")
         try:
             # First, sanitize the full_desc to remove any trailing flags, regardless of pipes
-            full_desc = self.sanitize_desc(full_desc)
+            full_desc = self._todo_util.sanitize_desc(full_desc)
             logger.debug(f"Sanitized full_desc (flags removed): {full_desc}")
             
             metadata = {
@@ -146,7 +146,7 @@ class TodoService:
             # Split by | to separate desc from metadata, but only after final sanitization
             parts = [p.strip() for p in full_desc.split('|') if p.strip()]
             if len(parts) > 1:
-                metadata['desc'] = self.sanitize_desc(parts[0])  # Re-sanitize the desc part post-split
+                metadata['desc'] = self._todo_util.sanitize_desc(parts[0])  # Re-sanitize the desc part post-split
                 logger.info(f"Clean desc after metadata split: {metadata['desc']}, metadata parts: {len(parts)-1}", extra={'log_color': 'HIGHLIGHT'})
                 # Parse metadata parts (now safe from flag contamination)
                 for part in parts[1:]:
@@ -174,13 +174,13 @@ class TodoService:
                         except ValueError:
                             logger.warning(f"Failed to parse metadata part: {part}", extra={'log_color': 'DELTA'})
             # Final validation: Ensure desc has no trailing flags post-parsing
-            metadata['desc'] = self.sanitize_desc(metadata['desc'])
+            metadata['desc'] = self._todo_util.sanitize_desc(metadata['desc'])
             logger.debug(f"Final parsed metadata: {metadata}")
             return metadata
         except Exception as e:
             logger.exception(f"Error parsing task metadata for '{full_desc}': {e}", extra={'log_color': 'DELTA'})
             # Fallback: return sanitized desc with defaults
-            return {'desc': self.sanitize_desc(full_desc).strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
+            return {'desc': self._todo_util.sanitize_desc(full_desc).strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
 
     def _rebuild_task_line(self, task: dict) -> str:
         """
@@ -191,7 +191,7 @@ class TodoService:
         """
         logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
         # Sanitize desc first to ensure no trailing flags or duplicates
-        clean_desc = self.sanitize_desc(task['desc'])
+        clean_desc = self._todo_util.sanitize_desc(task['desc'])
         task['desc'] = clean_desc  # Update task with sanitized desc
         logger.debug(f"Sanitized desc in rebuild (no existing flags): {clean_desc[:50]}...")
         
@@ -329,7 +329,7 @@ class TodoService:
                     metadata = self._parse_task_metadata(full_desc)
                     desc     = metadata.pop('desc')
                     # Additional cleaning for trailing flags in desc to fix appending issue
-                    desc = self.sanitize_desc(desc)
+                    desc = self._todo_util.sanitize_desc(desc)
                     task     = {
                         'file': fn,
                         'line_no': i,
@@ -395,7 +395,7 @@ class TodoService:
                 logger.info(f"Loaded {task_count} tasks from {fn}", extra={'log_color': 'PERCENT'})
             # Post-load sanitization for all tasks
             for i, t in enumerate(self._tasks):
-                t['desc'] = self.sanitize_desc(t['desc'])
+                t['desc'] = self._todo_util.sanitize_desc(t['desc'])
                 logger.debug(f"Post-load sanitized task {i} desc: {t['desc'][:50]}...")
             logger.info(f"Total tasks loaded across all files: {total_tasks}", extra={'log_color': 'PERCENT'})
         except Exception as e:

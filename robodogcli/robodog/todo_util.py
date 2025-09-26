@@ -282,3 +282,30 @@ class TodoUtilService:
                     out_path = base_folder / pattern
 
         return out_path
+
+    def sanitize_desc(self, desc: str) -> str:
+            """
+            Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
+            Called to clean desc after parsing or before rebuilding.
+            Enhanced to robustly remove all trailing flag patterns, including multiples, and handle flags before pipes ('|').
+            """
+            logger.debug(f"Sanitizing desc: {desc[:100]}...")
+            # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ], possibly multiple
+            # Also handles cases where flags are before a metadata pipe '|'
+            flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
+            pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'  # Flags before pipe
+            while re.search(flag_pattern, desc) or re.search(pipe_flag_pattern, desc):
+                # Remove trailing flags before pipe or end
+                desc = re.sub(flag_pattern, '', desc)
+                # Remove flags immediately before pipe
+                desc = re.sub(pipe_flag_pattern, '|', desc)
+                desc = desc.rstrip()  # Clean up whitespace
+                logger.debug(f"Stripped trailing/multiple flags, new desc: {desc[:100]}...")
+            # Also strip any extra | metadata if desc was contaminated (ensure only one leading desc part)
+            if ' | ' in desc:
+                desc = desc.split(' | ')[0].strip()  # Take only the first part as desc
+                logger.debug(f"Stripped metadata contamination (pre-pipe), clean desc: {desc[:100]}...")
+            # Final strip of any lingering bracket patterns at end
+            desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
+            logger.debug(f"Final sanitized desc: {desc[:100]}...")
+            return desc
