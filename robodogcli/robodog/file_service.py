@@ -38,7 +38,7 @@ class FileService:
  
   
 
-    def _get_comment_style_for_extension(filename: str) -> str:
+    def _get_comment_style_for_extension(self, filename: str) -> str:
         """
         Determine the correct single‐line comment prefix for a given filename.
         Examples:
@@ -76,7 +76,7 @@ class FileService:
             '.swift':'// ',
             '.rs':   '// ',
             # Java/Objective‐C block (you’ll only get the prefix here)
-            '.java': '/* ',
+            '.java': '// ',
             '.php':  '// ',
             # JS/TS/JSX/TSX
             '.js':   '// ',
@@ -84,14 +84,14 @@ class FileService:
             '.jsx':  '// ',
             '.tsx':  '// ',
             # CSS/SCSS
-            '.css':  '/* ',
-            '.scss': '/* ',
+            '.css':  '// ',
+            '.scss': '// ',
             # HTML‐style (also Markdown & XML & JSON)
-            '.html': '<!-- ',
-            '.htm':  '<!-- ',
+            '.html': '// ',
+            '.htm':  '// ',
             '.xml':  '<!-- ',
             '.json': '<!-- ',
-            '.md':   '<!-- ',
+            '.md':   '# ',
         }
         ext = Path(filename).suffix.lower()
         prefix = _COMMENT_PREFIXES.get(ext)
@@ -103,26 +103,6 @@ class FileService:
             extra={'log_color': 'DELTA'}
         )
         return "# "
-
-    def _get_comment_style_for_extension(self, filename: str) -> str:
-        """
-        Determine the correct comment style based on file extension.
-        Supports .py (#), .js/.ts (//), .java (/* */), .xml/.json (<!-- -->).
-        Returns the full directive prefix (e.g., "# file: ") or empty if unknown.
-        """
-        
-        ext = Path(filename).suffix.lower()
-        if ext == '.py':
-            return "# "
-        elif ext in {'.js', '.ts'}:
-            return "// "
-        elif ext == '.java':
-            return "/* "
-        elif ext in {'.xml', '.json'}:
-            return "<!-- "
-        else:
-            logger.warning(f"Unknown extension '{ext}' for {filename}, defaulting to '# '", extra={'log_color': 'DELTA'})
-            return "# "
 
     def _fix_comment_directive(self, content: str, filename: str) -> str:
         """

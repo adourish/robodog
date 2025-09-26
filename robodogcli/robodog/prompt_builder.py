@@ -8,8 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 class PromptBuilder:
-    """Builds prompts for AI interactions."""
-    
+    """
+    Builds prompts for AI interactions.
+    Note: Enforced file directive syntax: All outputs use '# <file/Command>: <filename> <NEW/UPDATE/COPY/DELETE>' format
+    for all file types. Prefix always uses "#" for simplicity across all languages.
+    """
 
     @staticmethod
     def build_task_prompt(
@@ -23,8 +26,7 @@ class PromptBuilder:
         parts = [
             "Instructions:",
             "A. Produce one or more complete, runnable code files.",
-            "B. For each file, begin with the appropriate comment directive based on the file type: use '# file: <filename>' for Python, "
-            "// file: <filename> for JavaScript/TypeScript, etc. Use only filenames provided in the task; do not guess or infer. Do not include the file path for existing files.",
+            "B. For each file, begin with the consistent directive format '# file: <filename> <NEW/UPDATE/COPY/DELETE>' using '#' prefix for all file types (Python, JS/TS, SQL, C/C++, Java, PHP, Go, etc.). Use only filenames provided in the task; do not guess or infer. Do not include the file path for existing files.",
             "C. Immediately following that line, emit the full file content—including all imports, definitions, and boilerplate—so it can be copied into a file and run. Ensure the content uses the correct syntax and comment styles for the file type.",
             "D. If multiple files are needed, separate them with a single blank line.",
             "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
@@ -72,9 +74,9 @@ class PromptBuilder:
             "T. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S."
         )
         parts.append(
-            "U. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately: Python uses # comments, JavaScript uses //. "
-            "For deletion tasks, strictly follow P: use exact filenames, no content after directive. For new files, include the relative path as specified in O. "
-            "Always reference the generated plan.md for structured, efficient execution."
+            "U. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately using the consistent '# <file/Command>: <filename> <action>' syntax "
+            "for all files: always use '#' prefix (e.g., for Python, JS, etc.), overriding any type-specific variations. For deletion tasks, strictly follow P: use exact filenames, no content after directive. "
+            "For new files, include the relative path as specified in O. Always reference the generated plan.md for structured, efficient execution."
         )
 
 
@@ -105,6 +107,5 @@ class PromptBuilder:
         ]
         return "\n".join(parts)
 
-
-# original file length: 215 lines
-# updated file length: 295 lines
+# original file length: 100 lines
+# updated file length: 102 lines

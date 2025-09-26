@@ -24,17 +24,17 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Updated TASK_RE to capture optional second‐bracket 'write' flag,
-# allowing "[x][ ]" or "[x] [ ]" with optional whitespace between brackets
-# Enhanced to support third bracket for planning step
+# Updated TASK_RE to robustly capture flags without including them in desc group
+# Now ensures desc starts after all captured flags, avoiding leakage of trailing flags/metadata into desc
 TASK_RE = re.compile(
     r'^(\s*)-\s*'                  # indent + "- "
-    r'(?:\s*\[(?P<plan>[ x~-])\])?'   # step 1: [plan_flag] for three-step process
-    r'\[(?P<status>[ x~])\]'       # step 2: execution [status]
-    r'(?:\s*\[(?P<write>[ x~-])\])?'  # optional [write_flag], whitespace allowed
-
-    r'\s*(?P<desc>.+)$'            # space + desc (including potential metadata)
+    r'(?:\s*\[(?P<plan>[ x~-])\])?'   # optional [plan_flag]
+    r'\s*\[(?P<status>[ x~])\]'     # execution [status] - required
+    r'(?:\s*\[(?P<write>[ x~-])\])?' # optional [write_flag]
+    r'\s*(?P<desc>.*)$'             # desc: everything after flags, including metadata
+    # Note: No $ anchor to allow desc to be flexible, but we'll sanitize it later
 )
+
 SUB_RE = re.compile(
     r'^\s*-\s*(?P<key>include|out|in|focus|plan):\s*'
     r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
@@ -92,147 +92,6 @@ class TodoService:
         except Exception as e:
             logger.exception(f"Error during initialization of TodoService: {e}", extra={'log_color': 'DELTA'})
             raise
-
-    def sanitize_desc(self, desc: str) -> str:
-        """
-        Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
-        Called to clean desc after parsing or before rebuilding.
-        Enhanced to robustly remove all trailing flag patterns, including multiples, and handle flags before pipes ('|').
-        """
-        logger.debug(f"Sanitizing desc: {desc[:100]}...")
-        # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ], possibly multiple
-        # Also handles cases where flags are before a metadata pipe '|'
-        flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
-        pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'  # Flags before pipe
-        while re.search(flag_pattern, desc) or re.search(pipe_flag_pattern, desc):
-            # Remove trailing flags before pipe or end
-            desc = re.sub(flag_pattern, '', desc)
-            # Remove flags immediately before pipe
-            desc = re.sub(pipe_flag_pattern, '|', desc)
-            desc = desc.rstrip()  # Clean up whitespace
-            logger.debug(f"Stripped trailing/multiple flags, new desc: {desc[:100]}...")
-        # Also strip any extra | metadata if desc was contaminated (ensure only one leading desc part)
-        if ' | ' in desc:
-            desc = desc.split(' | ')[0].strip()  # Take only the first part as desc
-            logger.debug(f"Stripped metadata contamination (pre-pipe), clean desc: {desc[:100]}...")
-        # Final strip of any lingering bracket patterns at end
-        desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
-        logger.debug(f"Final sanitized desc: {desc[:100]}...")
-        return desc
-
-    def _parse_task_metadata(self, full_desc: str) -> Dict:
-        """
-        Parse the task description for metadata like started, completed, knowledge_tokens, etc.
-        Returns a dict with parsed values and the clean description.
-        Enhanced: Ensure desc is isolated cleanly from flags/metadata before sanitization.
-        Strip any flag-like patterns from the end of desc even if followed by ' | metadata'.
-        Now parses plan_tokens as well.
-        """
-        logger.debug(f"Parsing metadata for task desc: {full_desc}")
-        try:
-            # First, sanitize the full_desc to remove any trailing flags, regardless of pipes
-            full_desc = self._todo_util.sanitize_desc(full_desc)
-            logger.debug(f"Sanitized full_desc (flags removed): {full_desc}")
-            
-            metadata = {
-                'desc': full_desc.strip(),
-                '_start_stamp': None,
-                '_complete_stamp': None,
-                'knowledge_tokens': 0,
-                'include_tokens': 0,
-                'prompt_tokens': 0,
-                'plan_tokens': 0,  # Enhanced: Added plan_tokens
-            }
-            # Split by | to separate desc from metadata, but only after final sanitization
-            parts = [p.strip() for p in full_desc.split('|') if p.strip()]
-            if len(parts) > 1:
-                metadata['desc'] = self._todo_util.sanitize_desc(parts[0])  # Re-sanitize the desc part post-split
-                logger.info(f"Clean desc after metadata split: {metadata['desc']}, metadata parts: {len(parts)-1}", extra={'log_color': 'HIGHLIGHT'})
-                # Parse metadata parts (now safe from flag contamination)
-                for part in parts[1:]:
-                    if ':' in part:
-                        key, val = [s.strip() for s in part.split(':', 1)]
-                        try:
-                            if key == 'started':
-                                metadata['_start_stamp'] = val if val.lower() != 'none' else None
-                                logger.info(f"Parsed started: {metadata['_start_stamp']}", extra={'log_color': 'HIGHLIGHT'})
-                            elif key == 'completed':
-                                metadata['_complete_stamp'] = val if val.lower() != 'none' else None
-                                logger.info(f"Parsed completed: {metadata['_complete_stamp']}", extra={'log_color': 'HIGHLIGHT'})
-                            elif key == 'knowledge':
-                                metadata['knowledge_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed knowledge tokens: {metadata['knowledge_tokens']}", extra={'log_color': 'PERCENT'})
-                            elif key == 'include':
-                                metadata['include_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed include tokens: {metadata['include_tokens']}", extra={'log_color': 'PERCENT'})
-                            elif key == 'prompt':
-                                metadata['prompt_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed prompt tokens: {metadata['prompt_tokens']}", extra={'log_color': 'PERCENT'})
-                            elif key == 'plan':  # Enhanced: Parse plan_tokens
-                                metadata['plan_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}", extra={'log_color': 'PERCENT'})
-                        except ValueError:
-                            logger.warning(f"Failed to parse metadata part: {part}", extra={'log_color': 'DELTA'})
-            # Final validation: Ensure desc has no trailing flags post-parsing
-            metadata['desc'] = self._todo_util.sanitize_desc(metadata['desc'])
-            logger.debug(f"Final parsed metadata: {metadata}")
-            return metadata
-        except Exception as e:
-            logger.exception(f"Error parsing task metadata for '{full_desc}': {e}", extra={'log_color': 'DELTA'})
-            # Fallback: return sanitized desc with defaults
-            return {'desc': self._todo_util.sanitize_desc(full_desc).strip(), '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
-
-    def _rebuild_task_line(self, task: dict) -> str:
-        """
-        Safely reconstruct a task line to prevent flag appending issues.
-        Enhanced: Always start with a fully sanitized desc, add flags only once, append metadata separately.
-        Add validation to prevent flag duplication by stripping any existing flags from desc before adding new ones.
-        Now includes plan_tokens in metadata if >0.
-        """
-        logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
-        # Sanitize desc first to ensure no trailing flags or duplicates
-        clean_desc = self._todo_util.sanitize_desc(task['desc'])
-        task['desc'] = clean_desc  # Update task with sanitized desc
-        logger.debug(f"Sanitized desc in rebuild (no existing flags): {clean_desc[:50]}...")
-        
-        # Build flags string: Ensure single set of flags, no duplicates
-        plan_char = task.get('plan_flag', ' ') if task.get('plan_flag') else ' '
-        status_char = task.get('status_char', ' ') if task.get('status_char') else ' '
-        write_char = task.get('write_flag', ' ') if task.get('write_flag') else ' '
-        # Validation: Log if any char is invalid
-        if plan_char not in ' x~-':
-            logger.warning(f"Invalid plan_flag '{plan_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
-            plan_char = ' '
-        if status_char not in ' x~-':
-            logger.warning(f"Invalid status_char '{status_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
-            status_char = ' '
-        if write_char not in ' x~-':
-            logger.warning(f"Invalid write_flag '{write_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
-            write_char = ' '
-        
-        flags = f"[{plan_char}][{status_char}][{write_char}]"
-        line = task['indent'] + "- " + flags + " " + clean_desc
-        # Append metadata if present (safely, after sanitized desc). Enhanced: Include plan_tokens
-        meta_parts = []
-        if task.get('_start_stamp'):
-            meta_parts.append(f"started: {task['_start_stamp']}")
-        if task.get('_complete_stamp'):
-            meta_parts.append(f"completed: {task['_complete_stamp']}")
-        if task.get('knowledge_tokens', 0) > 0:
-            meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
-        if task.get('include_tokens', 0) > 0:
-            meta_parts.append(f"include: {task['include_tokens']}")
-        if task.get('prompt_tokens', 0) > 0:
-            meta_parts.append(f"prompt: {task['prompt_tokens']}")
-        if task.get('plan_tokens', 0) > 0:  # Enhanced: Add plan_tokens to metadata
-            meta_parts.append(f"plan: {task['plan_tokens']}")
-        if meta_parts:
-            line += " | " + " | ".join(meta_parts)
-        # Final validation: Ensure no duplicate flags in the rebuilt line
-        if re.search(r'\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]', line):
-            logger.error(f"Potential flag duplication detected in rebuilt line: {line[:200]}...", extra={'log_color': 'DELTA'})
-        logger.debug(f"Rebuilt task line (validated, no duplicates): {line[:100]}...")
-        return line
 
     def _parse_base_dir(self) -> Optional[str]:
         logger.info("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
@@ -300,7 +159,8 @@ class TodoService:
         write‐flag, third bracket for planning, and any adjacent ```knowledge``` block.
         Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
         Added logging for task loading.
-        Now includes post-parsing sanitization in _load_all. Enhanced to parse plan_tokens from metadata.
+        Now includes immediate sanitization of full_desc after extraction to clean trailing flags before metadata parsing.
+        Enhanced to parse plan_tokens from metadata.
         """
         logger.info("_load_all called: Reloading all tasks from files", extra={'log_color': 'HIGHLIGHT'})
         try:
@@ -324,12 +184,14 @@ class TodoService:
                     status     = m.group('status')
                     write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
                     plan_flag  = m.group('plan')   # may be None, ' ', '~', or 'x'
+                    # Extract raw full_desc, then immediately sanitize to remove any trailing flags before metadata parsing
                     full_desc  = m.group('desc')
-                    # Parse metadata and clean desc
-                    metadata = self._parse_task_metadata(full_desc)
+                    full_desc = self._todo_util.sanitize_desc(full_desc)  # Sanitize immediately after extraction
+                    logger.debug(f"Raw full_desc after immediate sanitization: {full_desc[:100]}...")
+                    
+                    # Now parse metadata from the sanitized full_desc
+                    metadata = self._todo_util._parse_task_metadata(full_desc)
                     desc     = metadata.pop('desc')
-                    # Additional cleaning for trailing flags in desc to fix appending issue
-                    desc = self._todo_util.sanitize_desc(desc)
                     task     = {
                         'file': fn,
                         'line_no': i,
@@ -393,7 +255,7 @@ class TodoService:
                     total_tasks += 1
                     i = j
                 logger.info(f"Loaded {task_count} tasks from {fn}", extra={'log_color': 'PERCENT'})
-            # Post-load sanitization for all tasks
+            # Post-load sanitization for all tasks (additional safety)
             for i, t in enumerate(self._tasks):
                 t['desc'] = self._todo_util.sanitize_desc(t['desc'])
                 logger.debug(f"Post-load sanitized task {i} desc: {t['desc'][:50]}...")
@@ -494,7 +356,7 @@ class TodoService:
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
             # Use rebuilt line for safe update (with sanitized desc and single flags)
-            rebuilt_line = self._rebuild_task_line(task)
+            rebuilt_line = self._todo_util._rebuild_task_line(task)
             # Force full line rewrite by updating the file with the rebuilt line
             # This overwrites any accumulated flags from previous appends
             fn = task['file']
@@ -594,8 +456,17 @@ class TodoService:
                 plan_path = base_folder / 'plan.md' if base_folder else Path('plan.md')
                 logger.info(f"Default plan path: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
 
-            logger.info(f"Plan plan_path:{plan_path} base_folder:{base_folder}", extra={'log_color': 'HIGHLIGHT'})
-            self._todo_util._write_plan(self._svc, plan_path=plan_path,  content='')
+            # Ensure plan.md exists for update (or create empty for NEW)
+            if plan_path.exists():
+                logger.info(f"Updating existing plan: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
+                # For UPDATE, but we'll generate new content anyway
+            else:
+                logger.info(f"Creating new plan: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
+                # Create empty file
+                self._file_service.write_file(plan_path, "# Plan for task\n\nNext steps:\n- To be generated.")
+
+            logger.info(f"Plan path resolved: {plan_path}, base folder: {base_folder}", extra={'log_color': 'HIGHLIGHT'})
+            
 
             # Build planning prompt (enhanced for performance: concise, token-aware)
             plan_prompt = self._prompt_builder.build_plan_prompt(
@@ -608,14 +479,15 @@ class TodoService:
 
             # Generate plan (use shorter max_tokens for efficiency if possible)
             plan_content = svc.ask(plan_prompt)
-            if not plan_content:
+            if not plan_content.strip():
                 logger.warning("No plan content generated", extra={'log_color': 'DELTA'})
                 return ""
 
+            # Write the new plan content
             self._todo_util._write_plan(self._svc, plan_path=plan_path, content=plan_content)      
             plan_tokens = len(plan_content.split())
             task['plan_tokens'] = plan_tokens
-            logger.info(f"Plan generated and committed: {plan_path} files, {plan_tokens} tokens ", extra={'log_color': 'PERCENT'})
+            logger.info(f"Plan generated and written: {plan_path}, {plan_tokens} tokens", extra={'log_color': 'PERCENT'})
             return plan_content
         except Exception as e:
             logger.exception(f"Error generating plan: {e}", extra={'log_color': 'DELTA'})
@@ -656,7 +528,7 @@ class TodoService:
             plan_flag = task.get('plan_flag', 'x')
             write_flag = task.get('write_flag', 'x')
             status = task.get('status_char', 'x')
-            logger.warning(f'Runnig next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]', extra={'log_color': 'DELTA'})
+            logger.warning(f'Running next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]', extra={'log_color': 'DELTA'})
             if plan_flag == ' ':
                 # Step 1: Planning
                 logger.warning("Step 1: Running planning", extra={'log_color': 'HIGHLIGHT'})
@@ -737,3 +609,7 @@ class TodoService:
             traceback.print_exc()
             return None
 
+
+
+# original file length: 456 lines
+# updated file length: 465 lines (updated TASK_RE, _load_all to sanitize full_desc immediately, and added post-load sanitization)

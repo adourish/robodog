@@ -1,6 +1,6 @@
-# file: todo.py
+# file: todo_util.py
 #!/usr/bin/env python3
-"""Todo task management and execution service."""
+"""Utility functions for TodoService, including metadata parsing and desc sanitization."""
 import os
 import re
 import time
@@ -10,21 +10,26 @@ import traceback
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 import statistics  # Added for calculating median, avg, peak
 
 import tiktoken
 from pydantic import BaseModel, RootModel
 import yaml   # ensure PyYAML is installed
-from typing import Any, Tuple
+from typing import Any
 logger = logging.getLogger(__name__)
 try:
     from .parse_service import ParseService
 except ImportError:
     from parse_service import ParseService
+try:
+    from .file_service import FileService
+except ImportError:
+    from file_service import FileService
+
 class TodoUtilService:
     def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}):
-        logger.info(f"Initializing TodoService with roots: {roots}", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"Initializing TodoUtilService with roots: {roots}", extra={'log_color': 'HIGHLIGHT'})
         logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
         try:
             self._roots        = roots
@@ -46,6 +51,151 @@ class TodoUtilService:
         except Exception as e:
             logger.exception(f"Error during initialization of TodoService: {e}", extra={'log_color': 'DELTA'})
             raise
+
+    # --- Enhanced sanitize_desc method ---
+    def sanitize_desc(self, desc: str) -> str:
+        """
+        Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
+        Called to clean desc after parsing or before rebuilding.
+        Enhanced to robustly remove all trailing flag patterns, including multiples, and handle flags before pipes ('|').
+        """
+        logger.debug(f"Sanitizing desc: {desc[:100]}...")
+        # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ], possibly multiple
+        # Also handles cases where flags are before a metadata pipe '|'
+        flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
+        pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'  # Flags before pipe
+        while re.search(flag_pattern, desc) or re.search(pipe_flag_pattern, desc):
+            # Remove trailing flags before pipe or end
+            desc = re.sub(flag_pattern, '', desc)
+            # Remove flags immediately before pipe
+            desc = re.sub(pipe_flag_pattern, '|', desc)
+            desc = desc.rstrip()  # Clean up whitespace
+            logger.debug(f"Stripped trailing/multiple flags, new desc: {desc[:100]}...")
+        # Also strip any extra | metadata if desc was contaminated (ensure only one leading desc part)
+        if ' | ' in desc:
+            desc = desc.split(' | ')[0].strip()  # Take only the first part as desc
+            logger.debug(f"Stripped metadata contamination (pre-pipe), clean desc: {desc[:100]}...")
+        # Final strip of any lingering bracket patterns at end
+        desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
+        logger.debug(f"Final sanitized desc: {desc[:100]}...")
+        return desc
+
+    # --- Enhanced _parse_task_metadata method ---
+    def _parse_task_metadata(self, full_desc: str) -> Dict:
+        """
+        Parse the task description for metadata like started, completed, knowledge_tokens, etc.
+        Returns a dict with parsed values and the clean description.
+        Enhanced: Call sanitize_desc on full_desc at entry to remove any flags; re-sanitize post-metadata split.
+        Ensure final task['desc'] is clean and free of trailing flags.
+        Now parses plan_tokens as well.
+        """
+        logger.debug(f"Parsing metadata for task desc: {full_desc}")
+        try:
+            # First, sanitize the full_desc to remove any trailing flags, regardless of pipes, at entry
+            full_desc = self.sanitize_desc(full_desc)
+            logger.debug(f"Sanitized full_desc (flags removed at entry): {full_desc}")
+            
+            metadata = {
+                'desc': full_desc.strip(),
+                '_start_stamp': None,
+                '_complete_stamp': None,
+                'knowledge_tokens': 0,
+                'include_tokens': 0,
+                'prompt_tokens': 0,
+                'plan_tokens': 0,  # Enhanced: Added plan_tokens
+            }
+            # Split by | to separate desc from metadata, but only after sanitization
+            parts = [p.strip() for p in full_desc.split('|') if p.strip()]
+            if len(parts) > 1:
+                metadata['desc'] = self.sanitize_desc(parts[0])  # Re-sanitize the desc part post-split to ensure no flags leaked
+                logger.info(f"Clean desc after metadata split: {metadata['desc']}, metadata parts: {len(parts)-1}", extra={'log_color': 'HIGHLIGHT'})
+                # Parse metadata parts (now safe from flag contamination)
+                for part in parts[1:]:
+                    if ':' in part:
+                        key, val = [s.strip() for s in part.split(':', 1)]
+                        try:
+                            if key == 'started':
+                                metadata['_start_stamp'] = val if val.lower() != 'none' else None
+                                logger.info(f"Parsed started: {metadata['_start_stamp']}", extra={'log_color': 'HIGHLIGHT'})
+                            elif key == 'completed':
+                                metadata['_complete_stamp'] = val if val.lower() != 'none' else None
+                                logger.info(f"Parsed completed: {metadata['_complete_stamp']}", extra={'log_color': 'HIGHLIGHT'})
+                            elif key == 'knowledge':
+                                metadata['knowledge_tokens'] = int(val) if val.isdigit() else 0
+                                logger.info(f"Parsed knowledge tokens: {metadata['knowledge_tokens']}", extra={'log_color': 'PERCENT'})
+                            elif key == 'include':
+                                metadata['include_tokens'] = int(val) if val.isdigit() else 0
+                                logger.info(f"Parsed include tokens: {metadata['include_tokens']}", extra={'log_color': 'PERCENT'})
+                            elif key == 'prompt':
+                                metadata['prompt_tokens'] = int(val) if val.isdigit() else 0
+                                logger.info(f"Parsed prompt tokens: {metadata['prompt_tokens']}", extra={'log_color': 'PERCENT'})
+                            elif key == 'plan':  # Enhanced: Parse plan_tokens
+                                metadata['plan_tokens'] = int(val) if val.isdigit() else 0
+                                logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}", extra={'log_color': 'PERCENT'})
+                        except ValueError:
+                            logger.warning(f"Failed to parse metadata part: {part}", extra={'log_color': 'DELTA'})
+            # Final validation: Re-sanitize desc post-parsing to ensure it's completely clean
+            metadata['desc'] = self.sanitize_desc(metadata['desc'])
+            logger.debug(f"Final parsed metadata with clean desc: {metadata}")
+            return metadata
+        except Exception as e:
+            logger.exception(f"Error parsing task metadata for '{full_desc}': {e}", extra={'log_color': 'DELTA'})
+            # Fallback: return sanitized desc with defaults
+            clean_fallback = self.sanitize_desc(full_desc).strip()
+            return {'desc': clean_fallback, '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
+
+    # --- Enhanced _rebuild_task_line method ---
+    def _rebuild_task_line(self, task: dict) -> str:
+        """
+        Safely reconstruct a task line to prevent flag appending issues.
+        Enhanced: Always start with a fully sanitized desc from task['desc']; add flags only once, append metadata separately.
+        Add validation to prevent flag duplication by ensuring desc has no trailing flags before building.
+        Now includes plan_tokens in metadata if >0.
+        """
+        logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
+        # Start with fully sanitized desc to ensure no trailing flags or duplicates (re-sanitize for safety)
+        clean_desc = self.sanitize_desc(task['desc'])
+        task['desc'] = clean_desc  # Update task with sanitized desc for consistency
+        logger.debug(f"Sanitized desc in rebuild (no existing flags): {clean_desc[:50]}...")
+        
+        # Build flags string: Ensure single set of flags, no duplicates
+        plan_char = task.get('plan_flag', ' ') if task.get('plan_flag') else ' '
+        status_char = task.get('status_char', ' ') if task.get('status_char') else ' '
+        write_char = task.get('write_flag', ' ') if task.get('write_flag') else ' '
+        # Validation: Log if any char is invalid and default to ' '
+        if plan_char not in ' x~-':
+            logger.warning(f"Invalid plan_flag '{plan_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
+            plan_char = ' '
+        if status_char not in ' x~-':
+            logger.warning(f"Invalid status_char '{status_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
+            status_char = ' '
+        if write_char not in ' x~-':
+            logger.warning(f"Invalid write_flag '{write_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
+            write_char = ' '
+        
+        flags = f"[{plan_char}][{status_char}][{write_char}]"
+        line = task['indent'] + "- " + flags + " " + clean_desc
+        # Append metadata if present (safely, after sanitized desc). Enhanced: Include plan_tokens
+        meta_parts = []
+        if task.get('_start_stamp'):
+            meta_parts.append(f"started: {task['_start_stamp']}")
+        if task.get('_complete_stamp'):
+            meta_parts.append(f"completed: {task['_complete_stamp']}")
+        if task.get('knowledge_tokens', 0) > 0:
+            meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
+        if task.get('include_tokens', 0) > 0:
+            meta_parts.append(f"include: {task['include_tokens']}")
+        if task.get('prompt_tokens', 0) > 0:
+            meta_parts.append(f"prompt: {task['prompt_tokens']}")
+        if task.get('plan_tokens', 0) > 0:  # Enhanced: Add plan_tokens to metadata
+            meta_parts.append(f"plan: {task['plan_tokens']}")
+        if meta_parts:
+            line += " | " + " | ".join(meta_parts)
+        # Final validation: Ensure no duplicate flags in the rebuilt line (after appending metadata)
+        if re.search(r'\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[', line):
+            logger.error(f"Potential flag duplication detected in rebuilt line: {line[:200]}...", extra={'log_color': 'DELTA'})
+        logger.debug(f"Rebuilt task line (validated, no duplicates): {line[:100]}...")
+        return line
 
     # --- modified write-and-report method ---
     def _write_parsed_files(self, parsed_files: List[dict], task: dict = None, commit_file: bool= False, base_folder: str = "", current_filename: str = None) -> tuple[int, List[str]]:
@@ -232,7 +382,7 @@ class TodoUtilService:
         if isinstance(raw_out, str) and raw_out.strip():
             p = Path(raw_out)
             if not p.is_absolute() and base_folder:
-                p = base_folder / p
+                p = Path(base_folder) / p
             out_path = p
 
         # case 2: user supplied a dict { pattern, recursive }
@@ -249,12 +399,12 @@ class TodoUtilService:
             else:
                 # fallback: treat it as a literal under the same folder
                 if base_folder and pattern:
-                    out_path = base_folder / pattern
+                    out_path = Path(base_folder) / pattern
 
         return out_path
     
     def _get_plan_out_path(self, task, base_folder: str = ""):
-        # figure out where the AI output file actually lives
+        # figure out where the plan.md file actually lives (similar to _get_ai_out_path)
         raw_out = task.get('plan')
         out_path = None
 
@@ -262,7 +412,7 @@ class TodoUtilService:
         if isinstance(raw_out, str) and raw_out.strip():
             p = Path(raw_out)
             if not p.is_absolute() and base_folder:
-                p = base_folder / p
+                p = Path(base_folder) / p
             out_path = p
 
         # case 2: user supplied a dict { pattern, recursive }
@@ -279,7 +429,7 @@ class TodoUtilService:
             else:
                 # fallback: treat it as a literal under the same folder
                 if base_folder and pattern:
-                    out_path = base_folder / pattern
+                    out_path = Path(base_folder) / pattern
 
         return out_path
 
@@ -309,3 +459,7 @@ class TodoUtilService:
             desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
             logger.debug(f"Final sanitized desc: {desc[:100]}...")
             return desc
+
+
+# original file length: 325 lines
+# updated file length: 360 lines (enhanced _parse_task_metadata with entry sanitization and post-split re-sanitization, updated _rebuild_task_line with validation, and fixed typo in prompt tokens parsing)
