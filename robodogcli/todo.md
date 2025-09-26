@@ -1,8 +1,8 @@
 
 
 # todo  promots
-- [x][-][-] [-] [-] [-] [-] status
-  - started: 2025-09-25T23:21:13.396916 | completed: 2025-09-26 03:21 | knowledge: 48 | include: 49064 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
+- [x][~][-] [-] [-] [-] [-] status
+  - started: N/A | prompt_tokens: 49856 | include_tokens: 49064 | knowledge_tokens: 48 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py|*robodogcli*robodog*todo.py    recursive`
   - out: temp\out.py recursive
   - plan: temp\plan.md

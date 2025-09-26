@@ -671,7 +671,7 @@ class TodoService:
             elif status == ' ':
                 # Step 2: LLM Task (after planning)
                 logger.warning("Step 2: Running LLM task using plan.md", extra={'log_color': 'HIGHLIGHT'})
-                out_path = self._get_ai_out_path(task, base_folder=base_folder)
+                out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
                 # Include plan.md in knowledge for step 2
                 plan_knowledge = ""
                 plan_spec = task.get('plan', {'pattern': 'plan.md', 'recursive': False})
