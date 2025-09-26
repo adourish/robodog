@@ -53,6 +53,7 @@ try:
     from .todo_util           import TodoUtilService
     from .task_parser import TaskParser
     from .prompt_builder import PromptBuilder
+    from .throttle_spinner import ThrottledSpinner
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
@@ -65,6 +66,7 @@ except ImportError:
     from task_manager import TaskManager
     from task_parser import TaskParser
     from prompt_builder import PromptBuilder
+    from throttle_spinner import ThrottledSpinner
 
 
 
@@ -108,14 +110,16 @@ def _init_services(args):
 
     diff_service = DiffService(60)
     exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist", "diffoutput"}
+
+    spin = ThrottledSpinner(interval=0.2)         # or at most once per 50 chunks
     # 1) core Robodog service + parser
     svc    = RobodogService(args.config, exclude_dirs=exclude_dirs,  backupFolder=args.backupFolder)
-    parser = ParseService(base_dir=None, backupFolder=args.backupFolder, diff_service=diff_service)
-    svc.parse_service = parser
+
 
     # 2) file‐service (for ad hoc file lookups and reads)
     svc.file_service = FileService(roots=args.folders, base_dir=None, backupFolder=args.backupFolder)
-
+    parser = ParseService(base_dir=None, backupFolder=args.backupFolder, diff_service=diff_service, file_service=svc.file_service)
+    svc.parse_service = parser
     # Inject file_service into parser and service
     parser.file_service = svc.file_service
     svc.file_service = svc.file_service

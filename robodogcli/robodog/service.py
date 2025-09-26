@@ -20,8 +20,9 @@ import logging
 from typing import List, Optional
 logger = logging.getLogger('robodog.service')
 
+
 class RobodogService:
-    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None , backupFolder:str = None, file_service: Optional[object] = None):
+    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None , backupFolder:str = None, file_service: Optional[object] = None, spin: object = None):
         # --- load YAML config and LLM setup ---
         self._load_config(config_path)
         # --- ensure we always have a _roots attribute ---
@@ -32,6 +33,7 @@ class RobodogService:
         self.stashes = {}
         self.backupFolder = backupFolder
         self.file_service = file_service
+        self._spin = spin
         self._init_llm(api_key)
 
     def _load_config(self, config_path):
@@ -103,66 +105,15 @@ class RobodogService:
             presence_penalty=self.presence_penalty,
             stream=self.stream,
         )
-        spinner = [
-            "[•-----]",
-            "[-•----]",
-            "[--•---]",
-            "[---•--]",
-            "[----•-]",
-            "[-----•]",
-            "[----•-]",
-            "[---•--]",
-            "[--•---]",
-            "[-•----]",
-            "[•-----]",
-            "[-•----]",
-            "[--•---]",
-            "[---•--]",
-            "[----•-]",
-            "[-----•]",
-            "[----•-]",
-            "[---•--]",
-            "[--•---]",
-            "[-•----]",
-            "[•-----]",
-            "[-•----]",
-            "[--•---]",
-            "[---•--]",
-            "[----•-]",
-            "[-----•]",
-            "[----•-]",
-            "[---•--]",
-            "[--•---]",
-            "[-•----]",
-        ]
-        idx    = 0
-        std = 0
         answer = ""
         if self.stream:
             for chunk in resp:
-                # accumulate the streamed text
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
+                    self._spin.spin()
                     answer += delta
 
-                # grab the last line (or everything if no newline yet)
-                last_line = answer.splitlines()[-1] if "\n" in answer else answer
-
-                # pick our fighter‐vs‐fighter frame
-                
-                if std % 50 == 0:
-                    frame = spinner[idx % len(spinner)]
-                    sys.stdout.write(
-                        f"\r{frame}  {last_line[:60]}{'…' if len(last_line) > 60 else ''}"
-                    )
-                    sys.stdout.flush()
-                    sys.stdout.write(f"\x1b]0;{last_line[:60].strip()}…\x07")
-                    sys.stdout.flush()
-
-                idx += 1
-                std += 1
-            # done streaming!
-            sys.stdout.write("\n\n")
+            
         else:
             answer = resp.choices[0].message.content.strip()
         return answer

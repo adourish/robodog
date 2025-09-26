@@ -96,7 +96,7 @@ class TodoService:
             raise
 
     def _parse_base_dir(self) -> Optional[str]:
-        logger.info("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
+        logger.debug("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
         try:
             for fn in self._find_files():
                 logger.info(f"Parsing front-matter from {fn}", extra={'log_color': 'HIGHLIGHT'})
@@ -172,7 +172,7 @@ class TodoService:
         Now includes immediate sanitization of full_desc after extraction to clean trailing flags before metadata parsing.
         Enhanced to parse plan_tokens from metadata.
         """
-        logger.info("_load_all called: Reloading all tasks from files", extra={'log_color': 'HIGHLIGHT'})
+        logger.debug("_load_all called: Reloading all tasks from files", extra={'log_color': 'HIGHLIGHT'})
         try:
             self._file_lines.clear()
             self._tasks.clear()
@@ -282,7 +282,7 @@ class TodoService:
         with write_flag=' ' and then run the next To Do.
         Added logging for watch events.
         """
-        logger.info("_watch_loop started", extra={'log_color': 'HIGHLIGHT'})
+        logger.debug("_watch_loop started", extra={'log_color': 'HIGHLIGHT'})
         while True:
             try:
                 for fn in self._find_files():

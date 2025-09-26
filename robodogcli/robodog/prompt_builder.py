@@ -64,19 +64,27 @@ class PromptBuilder:
             "Use 'NEW' if creating or 'UPDATE' if modifying plan.md."
         )
 
+        # Insert Salesforce-specific instructions
+        parts.insert(idx + 3,
+            "R. For Salesforce tasks: Generate valid Apex classes (.cls) with proper structure (public class, methods with @AuraEnabled if needed). "
+            "For metadata files (.object-meta.xml), ensure correct XML format compliant with Salesforce schema. Include examples in prompts for Apex syntax and XML structure. "
+            "Validate syntax for .cls (e.g., public virtual class with constructors) and metadata (e.g., <CustomObject> root)."
+        )
+
         if include_text:
-            parts.append(f"R. Review included files:\n{include_text}")
+            parts.append(f"S. Review included files:\n{include_text}")
 
         if knowledge_text:
-            parts.append(f"S. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
+            parts.append(f"T. Complete each of the tasks/goals/requests in task knowledge:\n{knowledge_text}")
 
         parts.append(
-            "T. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S."
+            "U. Verify that your response complies with each of the rules and requirements detailed in A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T."
         )
         parts.append(
-            "U. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately using the consistent '# <file/Command>: <filename> <action>' syntax "
+            "V. Produce one or more complete, runnable code files. Do not truncate. Handle file types appropriately using the consistent '# <file/Command>: <filename> <action>' syntax "
             "for all files: always use '#' prefix (e.g., for Python, JS, etc.), overriding any type-specific variations. For deletion tasks, strictly follow P: use exact filenames, no content after directive. "
-            "For new files, include the relative path as specified in O. Always reference the generated plan.md for structured, efficient execution."
+            "For new files, include the relative path as specified in O. Always reference the generated plan.md for structured, efficient execution. "
+            "For Salesforce: Ensure Apex .cls files compile without errors; metadata XML must be schema-valid."
         )
 
 
@@ -98,7 +106,9 @@ class PromptBuilder:
             "C. List actionable next steps in numbered bullets",
             "E. Keep it focused, brief, and no file directives, no extra commentary. Aim for under 500 tokens.",
             "F. Use the task description, knowledge, and includes to inform a effective plan. ",
-            "G. No performance tuning, code optimization, or best-practice editorializing—only list the files to change and the sequential steps needed."
+            "G. No performance tuning, code optimization, or best-practice editorializing—only list the files to change and the sequential steps needed.",
+            # Added Salesforce-specific guidance for plans
+            "H. For Salesforce tasks: Note specific files like .cls (Apex classes) and .object-meta.xml; outline metadata schema compliance and Apex syntax validation.",
             "Task Description: " + task.get("desc", ""),
             "Knowledge (knowledge_tokens: " + str(len(knowledge_text.split()) if knowledge_text else 0) + "): " + (knowledge_text or "None"),
             "Included Files Summary (include_tokens: " + str(len(include_text.split()) if include_text else 0) + "): " + (include_text or "None"),
@@ -107,5 +117,5 @@ class PromptBuilder:
         ]
         return "\n".join(parts)
 
-# original file length: 100 lines
-# updated file length: 102 lines
+# original file length: 102 lines
+# updated file length: 115 lines
