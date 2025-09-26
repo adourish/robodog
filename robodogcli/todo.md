@@ -2,8 +2,8 @@
 
 # todo  promots
 - [x][~][-] [-] [-] [-] [-] status
-  - started: N/A | prompt_tokens: 49856 | include_tokens: 49064 | knowledge_tokens: 48 | cur_model: x-ai/grok-4-fast:free
-  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py|*robodogcli*robodog*todo.py    recursive`
+  - started: N/A | prompt_tokens: 63864 | include_tokens: 63072 | knowledge_tokens: 48 | cur_model: x-ai/grok-4-fast:free
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py|*robodogcli*robodog*todo_util.py    recursive`
   - out: temp\out.py recursive
   - plan: temp\plan.md
 ```knowledge
