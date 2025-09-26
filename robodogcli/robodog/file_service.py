@@ -10,6 +10,7 @@ import fnmatch
 import shutil
 import traceback  # Added for stack traces
 logger = logging.getLogger(__name__)
+import re
 
 
 class FileService:
@@ -33,6 +34,139 @@ class FileService:
         self._base_dir = value
         logger.info(f"Base directory updated to: {value}", extra={'log_color': 'HIGHLIGHT'})
     
+
+ 
+  
+
+    def _get_comment_style_for_extension(filename: str) -> str:
+        """
+        Determine the correct single‐line comment prefix for a given filename.
+        Examples:
+        .py   → "# "
+        .js   → "// "
+        .java → "/* "
+        .xml  → "<!-- "
+        .sql  → "-- "
+        .md   → "<!-- "
+        Falls back to "# " if the extension is unknown.
+        """
+           # Map extensions to their single‐line comment prefixes
+        _COMMENT_PREFIXES = {
+            # Hash‐style
+            '.py':   '# ',
+            '.rb':   '# ',
+            '.sh':   '# ',
+            '.bash': '# ',
+            '.zsh':  '# ',
+            '.yml':  '# ',
+            '.yaml': '# ',
+            '.txt':  '# ',   # plain text, just use hash
+            # Double‐dash (SQL)
+            '.sql':  '-- ',
+            # C‐style and derivatives
+            '.c':    '// ',
+            '.h':    '// ',
+            '.cpp':  '// ',
+            '.cc':   '// ',
+            '.cxx':  '// ',
+            '.hpp':  '// ',
+            '.cs':   '// ',
+            '.go':   '// ',
+            '.kt':   '// ',
+            '.swift':'// ',
+            '.rs':   '// ',
+            # Java/Objective‐C block (you’ll only get the prefix here)
+            '.java': '/* ',
+            '.php':  '// ',
+            # JS/TS/JSX/TSX
+            '.js':   '// ',
+            '.ts':   '// ',
+            '.jsx':  '// ',
+            '.tsx':  '// ',
+            # CSS/SCSS
+            '.css':  '/* ',
+            '.scss': '/* ',
+            # HTML‐style (also Markdown & XML & JSON)
+            '.html': '<!-- ',
+            '.htm':  '<!-- ',
+            '.xml':  '<!-- ',
+            '.json': '<!-- ',
+            '.md':   '<!-- ',
+        }
+        ext = Path(filename).suffix.lower()
+        prefix = _COMMENT_PREFIXES.get(ext)
+        if prefix:
+            return prefix
+        logger.warning(
+            "Unknown extension '%s' for %s, defaulting to '# '",
+            ext, filename,
+            extra={'log_color': 'DELTA'}
+        )
+        return "# "
+
+    def _get_comment_style_for_extension(self, filename: str) -> str:
+        """
+        Determine the correct comment style based on file extension.
+        Supports .py (#), .js/.ts (//), .java (/* */), .xml/.json (<!-- -->).
+        Returns the full directive prefix (e.g., "# file: ") or empty if unknown.
+        """
+        
+        ext = Path(filename).suffix.lower()
+        if ext == '.py':
+            return "# "
+        elif ext in {'.js', '.ts'}:
+            return "// "
+        elif ext == '.java':
+            return "/* "
+        elif ext in {'.xml', '.json'}:
+            return "<!-- "
+        else:
+            logger.warning(f"Unknown extension '{ext}' for {filename}, defaulting to '# '", extra={'log_color': 'DELTA'})
+            return "# "
+
+    def _fix_comment_directive(self, content: str, filename: str) -> str:
+        """
+        Check existing content for a comment directive and fix if incorrect or missing.
+        Scans for the first line matching the directive pattern and prepends the correct one if needed.
+        Logs the fix applied. Enhanced to handle multi-line comments like XML (<!-- -->) and ensure closing tags.
+        For XML/JSON, ensure the directive starts with <!-- and ends with --> if it's a single-line directive.
+        """
+        logger.debug(f"Checking comment directive for {filename}", extra={'log_color': 'HIGHLIGHT'})
+        lines = content.splitlines()
+        directive_pattern = re.compile(r'^(#|//|/\*|< !--)\s*file:\s*(?P<fname>[^ \n]+)')
+        existing_directive = None
+        for i, line in enumerate(lines):
+            match = directive_pattern.match(line.strip())
+            if match:
+                existing_directive = (match.group(1), match.group('fname'))
+                break
+
+        correct_style = self._get_comment_style_for_extension(filename)
+        correct_prefix = f"{correct_style}file: {Path(filename).name}"
+        # For XML/JSON, ensure it's a full comment with closing -->
+        if correct_style == "<!-- " and existing_directive and existing_directive[0] != "<!-- ":
+            # If mismatched, replace the line with correct XML comment
+            if i < len(lines):
+                lines[i] = f"{correct_prefix} -->"
+                logger.info(f"Fixed XML directive in {filename}: Wrapped with <!-- and -->", extra={'log_color': 'HIGHLIGHT'})
+            else:
+                lines.insert(0, f"{correct_prefix} -->")
+                logger.info(f"Prepended and closed XML directive for missing comment in {filename}", extra={'log_color': 'HIGHLIGHT'})
+            return '\n'.join(lines)
+
+        if not existing_directive:
+            logger.info(f"No directive found in {filename}, adding: {correct_prefix}", extra={'log_color': 'HIGHLIGHT'})
+            lines.insert(0, correct_prefix)
+            return '\n'.join(lines)
+        elif existing_directive[0] != correct_style.strip():
+            logger.info(f"Incorrect directive in {filename}: '{existing_directive[0]}' -> '{correct_style}file: {filename}'", extra={'log_color': 'HIGHLIGHT'})
+            # Replace the existing line
+            lines[i] = f"{correct_prefix} --> " if correct_style == "<!-- " else f"{correct_prefix}"  # Ensure XML closing if applicable
+            return '\n'.join(lines)
+        else:
+            logger.debug(f"Correct directive already present in {filename}", extra={'log_color': 'HIGHLIGHT'})
+            return content
+
     def search_files(self, patterns="*", recursive=True, roots=None, exclude_dirs=None):
         logger.info(f"Searching files with patterns: {patterns}, recursive: {recursive}", extra={'log_color': 'HIGHLIGHT'})
         if isinstance(patterns, str):
@@ -102,7 +236,7 @@ class FileService:
         return candidate
     
     def safe_read_file(self, path: Path) -> str:
-        """Safely read a file, handling binary files and encoding issues."""
+        """Safely read a file, handling binary files and encoding issues. Enhanced to fix comment directives after reading."""
         logger.debug(f"Safe read of: {path.absolute()}", extra={'log_color': 'HIGHLIGHT'})
         if not path.exists():
             logger.warning(f"File not found: {path.absolute()}", extra={'log_color': 'DELTA'})
@@ -115,6 +249,9 @@ class FileService:
                     logger.warning(f"Binary content detected for {path}, treating as binary", extra={'log_color': 'DELTA'})
                     raise UnicodeDecodeError("binary", b"", 0, 1, "null")
             content = path.read_text(encoding='utf-8')
+            # Enhanced: Apply directive fix after reading to ensure consistency
+            content = self._fix_comment_directive(content, path.name)
+            logger.debug(f"Applied post-read directive fix for {path.name}")
             token_count = len(content.split())
             logger.info(f"Successfully read file: {path}, {token_count} tokens", extra={'log_color': 'HIGHLIGHT'})
             return content
@@ -122,6 +259,10 @@ class FileService:
             logger.warning(f"Binary content detected for {path}, trying with ignore: {ude}", extra={'log_color': 'DELTA'})
             try:
                 content = path.read_text(encoding='utf-8', errors='ignore')
+                # Enhanced: Still try to fix directive if possible, even on ignored content
+                if len(content) > 0:
+                    content = self._fix_comment_directive(content, path.name)
+                    logger.debug(f"Applied post-read directive fix on ignored content for {path.name}")
                 token_count = len(content.split())
                 logger.info(f"Read with ignore: {path}, {token_count} tokens", extra={'log_color': 'HIGHLIGHT'})
                 return content
@@ -153,10 +294,15 @@ class FileService:
         """
         Atomically write `content` to `path`, creating directories as needed.
         If atomic replace fails, falls back to a simple write.
+        Applies cleanup mechanism to ensure correct comment directive based on file type. Enhanced to always apply fix before writing.
         """
         path = Path(path)
-        logger.debug(f"Writing file {path} (atomic, with fsync and fallback)", extra={'log_color': 'HIGHLIGHT'})
+        logger.debug(f"Writing file {path} (atomic, with fsync, fallback, and directive cleanup)", extra={'log_color': 'HIGHLIGHT'})
         token_count = len(content.split())
+
+        # Enhanced: Apply directive cleanup before writing, ensuring correct style
+        content = self._fix_comment_directive(content, path.name)
+        logger.debug(f"Applied pre-write directive fix for {path.name}")
 
         # 1) ensure parent directories exist
         try:
@@ -245,6 +391,8 @@ class FileService:
         logger.debug(f"Appending to file: {path}", extra={'log_color': 'HIGHLIGHT'})
         try:
             self.ensure_dir(path.parent)
+            # Enhanced: Apply directive fix to appended content as well
+            content = self._fix_comment_directive(content, path.name)
             with path.open('a', encoding='utf-8') as f:
                 f.write(content)
             token_count = len(content.split())
@@ -288,5 +436,5 @@ class FileService:
             logger.error(f"Failed to copy file {src} to {dst}: {e}", extra={'log_color': 'DELTA'})
             logger.error(traceback.format_exc(), extra={'log_color': 'DELTA'})  # Added stack trace
 
-# original file length: 280 lines
-# updated file length: 283 lines
+# original file length: 325 lines
+# updated file length: 360 lines
