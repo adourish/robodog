@@ -110,7 +110,8 @@ class RobodogService:
             for chunk in resp:
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
-                    self._spin.spin()
+                    # fix the spin
+                    # self._spin.spin()
                     answer += delta
 
             
