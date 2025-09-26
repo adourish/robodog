@@ -1,0 +1,2 @@
+# file: - Modify todo.py
+Update _load_all() to load all tasks but process only one pending task per run_next_task(); add state tracking (e.g., current_task_index) to resume without reloading everything.

@@ -1,0 +1,2 @@
+# file: - Adjust todo.py _process_one()
+Handle single task processing, update task flags post-execution, and skip completed tasks based on progress index or flags.

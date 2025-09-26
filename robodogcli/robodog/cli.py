@@ -37,6 +37,7 @@ from file_watcher   import FileWatcher
 from task_parser    import TaskParser
 from task_manager   import TaskManager
 from prompt_builder import PromptBuilder
+from todo_util           import TodoUtilService
 from todo           import TodoService
 from diff_service   import DiffService  # newly added
 # support both "python -m robodog.cli" and "python cli.py" invocations:
@@ -49,6 +50,7 @@ try:
     from .file_service import FileService
     from .file_watcher import FileWatcher
     from .task_manager import TaskManager
+    from .todo_util           import TodoUtilService
     from .task_parser import TaskParser
     from .prompt_builder import PromptBuilder
 except ImportError:
@@ -59,6 +61,7 @@ except ImportError:
     from models import TaskModel, Change, ChangesList, IncludeSpec
     from file_service import FileService
     from file_watcher import FileWatcher
+    from todo_util           import TodoUtilService
     from task_manager import TaskManager
     from task_parser import TaskParser
     from prompt_builder import PromptBuilder
@@ -135,9 +138,10 @@ def _init_services(args):
 
     # 5) prompt builder for formalizing AI prompts
     svc.prompt_builder = PromptBuilder()
+    todo_util = TodoUtilService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher, svc.file_service, exclude_dirs=exclude_dirs)
 
     # 6) todo runner / watcher
-    svc.todo = TodoService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher, svc.file_service, exclude_dirs=exclude_dirs)
+    svc.todo = TodoService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher, svc.file_service, exclude_dirs=exclude_dirs, todo_util=todo_util)
 
 
 
