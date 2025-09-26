@@ -26,13 +26,15 @@ logger = logging.getLogger(__name__)
 
 # Updated TASK_RE to robustly capture flags without including them in desc group
 # Now ensures desc starts after all captured flags, avoiding leakage of trailing flags/metadata into desc
+# Also uses non-greedy matching and anchors to prevent trailing content leakage
 TASK_RE = re.compile(
     r'^(\s*)-\s*'                  # indent + "- "
     r'(?:\s*\[(?P<plan>[ x~-])\])?'   # optional [plan_flag]
     r'\s*\[(?P<status>[ x~])\]'     # execution [status] - required
     r'(?:\s*\[(?P<write>[ x~-])\])?' # optional [write_flag]
-    r'\s*(?P<desc>.*)$'             # desc: everything after flags, including metadata
-    # Note: No $ anchor to allow desc to be flexible, but we'll sanitize it later
+    r'(?:\s*\|\s*(?P<metadata>.*?))?' # optional metadata after |
+    r'\s*(?P<desc>.*?)(?=\s*\[|$)'  # desc: capture up to next [ or end, non-greedy
+    # Enhanced: Use (?=\s*\[|$) to stop before any trailing [, ensuring no flags leak into desc
 )
 
 SUB_RE = re.compile(
@@ -138,12 +140,20 @@ class TodoService:
         """
         Make sure every task always has plan_flag, status_char and write_flag set
         to one of ' ', '~', 'x', '-' (never None).
-        Now with logging for normalization.
+        Now with logging for normalization. Enhanced: Detect and log if desc contains "[-]" as contamination.
         """
         logger.info("Normalizing task flags", extra={'log_color': 'HIGHLIGHT'})
         changed = 0
+        contaminated = 0
         for i, t in enumerate(self._tasks):
             orig_flags = f"P:{t.get('plan_flag')} S:{t.get('status_char')} W:{t.get('write_flag')}"
+            desc_has_flag = bool(re.search(r'\[\s*-\s*\]', t.get('desc', '')))
+            if desc_has_flag:
+                logger.warning(f"Task {i} desc contaminated with '[-]': {t['desc'][:100]}...", extra={'log_color': 'DELTA'})
+                contaminated += 1
+                # Sanitize desc by removing the contamination
+                t['desc'] = self._todo_util.sanitize_desc(t['desc'])
+                logger.debug(f"Sanitized contaminated desc for task {i}: {t['desc'][:50]}...")
             # default to ' ' when the regex group was missing
             t['plan_flag']   = t.get('plan_flag')   or ' '
             t['status_char'] = t.get('status_char') or ' '
@@ -151,7 +161,7 @@ class TodoService:
             if orig_flags != f"P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}":
                 changed += 1
                 logger.debug(f"Normalized task {i}: {orig_flags} -> P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}")
-        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}", extra={'log_color': 'PERCENT'})
+        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}; Contaminated: {contaminated}", extra={'log_color': 'PERCENT'})
 
     def _load_all(self):
         """
@@ -184,6 +194,7 @@ class TodoService:
                     status     = m.group('status')
                     write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
                     plan_flag  = m.group('plan')   # may be None, ' ', '~', or 'x'
+                    metadata_str = m.group('metadata')  # Optional metadata before desc
                     # Extract raw full_desc, then immediately sanitize to remove any trailing flags before metadata parsing
                     full_desc  = m.group('desc')
                     full_desc = self._todo_util.sanitize_desc(full_desc)  # Sanitize immediately after extraction
@@ -332,6 +343,27 @@ class TodoService:
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
+            # Update flags based on step: set '~' for the relevant one
+            if step == 1:  # Plan step
+                task['plan_flag'] = '~'
+                logger.info(f"Set plan_flag to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            elif step == 2:  # LLM step
+                task['status_char'] = '~'
+                logger.info(f"Set status_char to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            elif step == 3:  # Commit step
+                task['write_flag'] = '~'
+                logger.info(f"Set write_flag to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            # Rebuild and write the line immediately to todo.md
+            rebuilt_line = self._todo_util._rebuild_task_line(task)
+            fn = task['file']
+            line_no = task['line_no']
+            lines = file_lines_map.get(fn, [])
+            if 0 <= line_no < len(lines):
+                lines[line_no] = rebuilt_line + '\n'
+                file_lines_map[fn] = lines
+                self._file_service.write_file(Path(fn), ''.join(lines))
+                logger.info(f"Immediately updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan_flag']}, status={task['status_char']}, write={task['write_flag']}", extra={'log_color': 'HIGHLIGHT'})
+            # Now call task_manager.start_task
             st = self._task_manager.start_task(task, file_lines_map, cur_model, step)
             # Preserve or set stamp if task_manager returns None
             if st is None:
@@ -355,19 +387,26 @@ class TodoService:
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
-            # Use rebuilt line for safe update (with sanitized desc and single flags)
+            # Update flags based on step: set 'x' for the relevant one
+            if step == 1:  # Plan step
+                task['plan_flag'] = 'x'
+                logger.info(f"Set plan_flag to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            elif step == 2:  # LLM step
+                task['status_char'] = 'x'
+                logger.info(f"Set status_char to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            elif step == 3:  # Commit step
+                task['write_flag'] = 'x'
+                logger.info(f"Set write_flag to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            # Rebuild and write the line to todo.md
             rebuilt_line = self._todo_util._rebuild_task_line(task)
-            # Force full line rewrite by updating the file with the rebuilt line
-            # This overwrites any accumulated flags from previous appends
             fn = task['file']
             line_no = task['line_no']
             lines = file_lines_map.get(fn, [])
             if 0 <= line_no < len(lines):
-                lines[line_no] = rebuilt_line + '\n'  # Overwrite the entire line
+                lines[line_no] = rebuilt_line + '\n'
                 file_lines_map[fn] = lines
-                # Write back to file immediately to prevent accumulation
                 self._file_service.write_file(Path(fn), ''.join(lines))
-                logger.info(f"Forced full line rewrite for task at line {line_no} in {fn} to prevent flag appending", extra={'log_color': 'HIGHLIGHT'})
+                logger.info(f"Updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan_flag']}, status={task['status_char']}, write={task['write_flag']}", extra={'log_color': 'HIGHLIGHT'})
             # Now proceed with task_manager.complete_task
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
             # Preserve or set stamp if task_manager returns None
@@ -608,8 +647,3 @@ class TodoService:
             logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
-
-
-
-# original file length: 456 lines
-# updated file length: 465 lines (updated TASK_RE, _load_all to sanitize full_desc immediately, and added post-load sanitization)
