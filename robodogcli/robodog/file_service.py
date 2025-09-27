@@ -129,34 +129,32 @@ class FileService:
         correct_prefix = f"{correct_style}file: {Path(filename).name}"
 
         # For XML/JSON: If content starts with < or ?, remove leading directive to avoid comments before root
-        if is_xml_or_json and lines and (lines[0].strip().startswith(('<', '?xml'))):
-            if existing_directive and existing_directive[2] == 0:  # Directive is first line
-                logger.info(f"Removing leading directive before XML/JSON root for {filename}", extra={'log_color': 'HIGHLIGHT'})
-                # Reconstruct content without the first line
-                content = '\n'.join(lines[1:])
-                # Re-scan for directive in case it's multi-line, but don't add new one
-                lines = content.splitlines()
-                existing_directive = None  # Reset, as we removed it
-            # Do not prepend a new directive
-            existing_directive = None
-            if not existing_directive:
-                logger.info(f"No directive found for {filename} (XML/JSON root detected), not adding one to avoid pre-root comments", extra={'log_color': 'HIGHLIGHT'})
-            return content  # Return as-is, no fix needed
-
-        # For XML/JSON with no root-starting content: Ensure proper <!-- ... --> wrapping if directive exists
-        if is_xml_or_json and existing_directive:
-            # Ensure it's properly wrapped with closing -->
-            if existing_directive[0] != "<!-- ":
-                logger.info(f"Wrapping XML directive in {filename}: Using <!-- ... -->", extra={'log_color': 'HIGHLIGHT'})
-                i = existing_directive[2]
-                if i < len(lines):
-                    lines[i] = f"<!-- {correct_prefix} -->"
+        if is_xml_or_json:
+            # Enhanced: Skip all leading lines that are comments or directives until non-comment content (e.g., root element)
+            new_lines = []
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                # Skip empty lines or lines that are comments/directives at the start
+                if not stripped or stripped.startswith(('#', '//', '/*', '<!--')):
+                    logger.debug(f"Skipping leading comment/directive line for {filename}: {stripped[:50]}...", extra={'log_color': 'HIGHLIGHT'})
+                    continue
+                # Found the start of actual content (e.g., <?xml or <tag>)
+                if stripped.startswith(('<', '?xml')):
+                    logger.info(f"Found XML/JSON root at line {i+1} for {filename}, starting content from here", extra={'log_color': 'HIGHLIGHT'})
+                    new_lines = lines[i:]  # Keep from this line onward
+                    break
                 else:
-                    lines.append(f"<!-- {correct_prefix} -->")
-                content = '\n'.join(lines)
-            return content
+                    # If non-comment but not XML root, treat as normal and proceed with original logic
+                    new_lines = lines
+                    break
+            lines = new_lines if new_lines else lines
+            content = '\n'.join(lines)
 
-        # Standard logic for all files (including XML/JSON without root)
+            # After trimming leading comments, do not prepend any directive for XML/JSON
+            logger.info(f"No directive prepended for {filename} (XML/JSON root detected or leading comments skipped)", extra={'log_color': 'HIGHLIGHT'})
+            return content  # Return as-is, no fix needed for directive addition
+
+        # For non-XML/JSON or after handling above: Standard logic
         if not existing_directive:
             logger.info(f"No directive found in {filename}, adding: {correct_prefix}", extra={'log_color': 'HIGHLIGHT'})
             lines.insert(0, correct_prefix)
@@ -440,5 +438,5 @@ class FileService:
             logger.error(f"Failed to copy file {src} to {dst}: {e}", extra={'log_color': 'DELTA'})
             logger.error(traceback.format_exc(), extra={'log_color': 'DELTA'})  # Added stack trace
 
-# Original file length: 325 lines
-# Updated file length: 360 lines
+# Original file length: 360 lines
+# Updated file length: 378 lines
