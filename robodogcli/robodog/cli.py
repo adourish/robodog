@@ -383,9 +383,9 @@ def main():
         datefmt="%H:%M:%S",
         log_colors={
             "DEBUG":    "cyan",
-            "VERBOSE":  "blue",
+            "VERBOSE":  "yellow",
             "INFO":     "green",
-            "WARNING":  "yellow",
+            "WARNING":  "blue",
             "ERROR":    "red",
             "CRITICAL": "bold_red",
             "NOTICE":   "magenta",
