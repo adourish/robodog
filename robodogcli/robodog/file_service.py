@@ -110,30 +110,53 @@ class FileService:
         Scans for the first line matching the directive pattern and prepends the correct one if needed.
         Logs the fix applied. Enhanced to handle multi-line comments like XML (<!-- -->) and ensure closing tags.
         For XML/JSON, ensure the directive starts with <!-- and ends with --> if it's a single-line directive.
+        Updated: For XML/JSON files (extensions .xml, .json), do not prepend directives if content starts with < or ?, to avoid comments before root element.
+        If a leading directive exists before root, remove it. Support similar for other markup files.
         """
         logger.debug(f"Checking comment directive for {filename}", extra={'log_color': 'HIGHLIGHT'})
+        ext = Path(filename).suffix.lower()
+        is_xml_or_json = ext in ('.xml', '.json')
         lines = content.splitlines()
         directive_pattern = re.compile(r'^(#|//|/\*|< !--)\s*file:\s*(?P<fname>[^ \n]+)')
         existing_directive = None
         for i, line in enumerate(lines):
             match = directive_pattern.match(line.strip())
             if match:
-                existing_directive = (match.group(1), match.group('fname'))
+                existing_directive = (match.group(1), match.group('fname'), i)
                 break
 
         correct_style = self._get_comment_style_for_extension(filename)
         correct_prefix = f"{correct_style}file: {Path(filename).name}"
-        # For XML/JSON, ensure it's a full comment with closing -->
-        if correct_style == "<!-- " and existing_directive and existing_directive[0] != "<!-- ":
-            # If mismatched, replace the line with correct XML comment
-            if i < len(lines):
-                lines[i] = f"{correct_prefix} -->"
-                logger.info(f"Fixed XML directive in {filename}: Wrapped with <!-- and -->", extra={'log_color': 'HIGHLIGHT'})
-            else:
-                lines.insert(0, f"{correct_prefix} -->")
-                logger.info(f"Prepended and closed XML directive for missing comment in {filename}", extra={'log_color': 'HIGHLIGHT'})
-            return '\n'.join(lines)
 
+        # For XML/JSON: If content starts with < or ?, remove leading directive to avoid comments before root
+        if is_xml_or_json and lines and (lines[0].strip().startswith(('<', '?xml'))):
+            if existing_directive and existing_directive[2] == 0:  # Directive is first line
+                logger.info(f"Removing leading directive before XML/JSON root for {filename}", extra={'log_color': 'HIGHLIGHT'})
+                # Reconstruct content without the first line
+                content = '\n'.join(lines[1:])
+                # Re-scan for directive in case it's multi-line, but don't add new one
+                lines = content.splitlines()
+                existing_directive = None  # Reset, as we removed it
+            # Do not prepend a new directive
+            existing_directive = None
+            if not existing_directive:
+                logger.info(f"No directive found for {filename} (XML/JSON root detected), not adding one to avoid pre-root comments", extra={'log_color': 'HIGHLIGHT'})
+            return content  # Return as-is, no fix needed
+
+        # For XML/JSON with no root-starting content: Ensure proper <!-- ... --> wrapping if directive exists
+        if is_xml_or_json and existing_directive:
+            # Ensure it's properly wrapped with closing -->
+            if existing_directive[0] != "<!-- ":
+                logger.info(f"Wrapping XML directive in {filename}: Using <!-- ... -->", extra={'log_color': 'HIGHLIGHT'})
+                i = existing_directive[2]
+                if i < len(lines):
+                    lines[i] = f"<!-- {correct_prefix} -->"
+                else:
+                    lines.append(f"<!-- {correct_prefix} -->")
+                content = '\n'.join(lines)
+            return content
+
+        # Standard logic for all files (including XML/JSON without root)
         if not existing_directive:
             logger.info(f"No directive found in {filename}, adding: {correct_prefix}", extra={'log_color': 'HIGHLIGHT'})
             lines.insert(0, correct_prefix)
@@ -141,7 +164,8 @@ class FileService:
         elif existing_directive[0] != correct_style.strip():
             logger.info(f"Incorrect directive in {filename}: '{existing_directive[0]}' -> '{correct_style}file: {filename}'", extra={'log_color': 'HIGHLIGHT'})
             # Replace the existing line
-            lines[i] = f"{correct_prefix} --> " if correct_style == "<!-- " else f"{correct_prefix}"  # Ensure XML closing if applicable
+            i = existing_directive[2]
+            lines[i] = f"{correct_prefix} --> " if correct_style == "<!-- " else correct_prefix  # Ensure XML closing if applicable
             return '\n'.join(lines)
         else:
             logger.debug(f"Correct directive already present in {filename}", extra={'log_color': 'HIGHLIGHT'})
@@ -416,5 +440,5 @@ class FileService:
             logger.error(f"Failed to copy file {src} to {dst}: {e}", extra={'log_color': 'DELTA'})
             logger.error(traceback.format_exc(), extra={'log_color': 'DELTA'})  # Added stack trace
 
-# original file length: 325 lines
-# updated file length: 360 lines
+# Original file length: 325 lines
+# Updated file length: 360 lines
