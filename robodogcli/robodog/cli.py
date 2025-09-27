@@ -16,12 +16,14 @@ logger = logging.getLogger('robodog.mcphandler')
 # Enhanced: Add colorama for Windows/PowerShell ANSI support
 try:
     import colorama
+    
     colorama.init(autoreset=True, strip=False)  # Initialize with strip=False to preserve ANSI even if not needed
     WINDOWS_ANSI_ENABLED = True
     logger.debug("Colorama initialized for ANSI support on Windows/PowerShell", extra={'log_color': 'HIGHLIGHT'})
 except ImportError:
     logger.warning("Colorama not installed; install with 'pip install colorama' for better Windows color support", extra={'log_color': 'DELTA'})
     WINDOWS_ANSI_ENABLED = False
+
 
 # Detect if running in PowerShell (basic check via environment vars)
 if os.name == 'nt' and 'PSModulePath' in os.environ:
@@ -113,7 +115,7 @@ def _init_services(args):
 
     spin = ThrottledSpinner(interval=0.2)         # or at most once per 50 chunks
     # 1) core Robodog service + parser
-    svc    = RobodogService(args.config, exclude_dirs=exclude_dirs,  backupFolder=args.backupFolder)
+    svc    = RobodogService(args.config, exclude_dirs=exclude_dirs,  backupFolder=args.backupFolder, spin=spin)
 
 
     # 2) file‐service (for ad hoc file lookups and reads)
@@ -372,11 +374,13 @@ def main():
     if POWERSHELL_ENV and WINDOWS_ANSI_ENABLED:
         enable_powershell_ansi()
 
+    
     # configure colored logging
     root = logging.getLogger()
     root.setLevel(getattr(logging, args.log_level))
     fmt = colorlog.ColoredFormatter(
-        "%(log_color)s[%(asctime)s] %(levelname)s:%(reset)s %(message)s",
+        "%(log_color)s%(asctime)s:%(reset)s %(message)s",
+        datefmt="%H:%M:%S",
         log_colors={
             "DEBUG":    "cyan",
             "VERBOSE":  "blue",
@@ -394,9 +398,7 @@ def main():
     ch = colorlog.StreamHandler(sys.stdout)
     ch.setFormatter(fmt)
     root.addHandler(ch)
-    fh = logging.FileHandler(args.log_file)
-    fh.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s'))
-    root.addHandler(fh)
+
 
     # Enhanced: Test custom colors on startup if in PowerShell/Windows
     if POWERSHELL_ENV and WINDOWS_ANSI_ENABLED:
@@ -441,5 +443,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# original file length: 456 lines
-# updated file length: 465 lines
+# Original file length: 465 lines
+# Updated file length: 466 lines

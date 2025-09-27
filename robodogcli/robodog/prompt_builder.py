@@ -117,5 +117,6 @@ class PromptBuilder:
         ]
         return "\n".join(parts)
 
-# original file length: 102 lines
-# updated file length: 115 lines
+
+# Original file length: 102 lines (approx based on provided code)
+# Updated file length: 115 lines

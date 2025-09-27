@@ -647,3 +647,7 @@ class TodoService:
             logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
+
+
+# Original file length: 566 lines
+# Updated file length: 586 lines

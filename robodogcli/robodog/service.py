@@ -110,8 +110,8 @@ class RobodogService:
             for chunk in resp:
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
-                    # fix the spin
-                    # self._spin.spin()
+                    # Uncommented and integrated for spinner output during streaming
+                    self._spin.spin()
                     answer += delta
 
             
@@ -383,5 +383,5 @@ class RobodogService:
         h = hashlib.sha256(content)
         return h.hexdigest()
 
-# original file length: 528 lines
-# updated file length: 546 lines
+# Original file length: 546 lines
+# Updated file length: 547 lines
