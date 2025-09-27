@@ -106,6 +106,7 @@ class RobodogService:
             stream=self.stream,
         )
         answer = ""
+        self._spin.start()
         if self.stream:
             for chunk in resp:
                 delta = getattr(chunk.choices[0].delta, "content", None)
@@ -117,8 +118,10 @@ class RobodogService:
             
         else:
             answer = resp.choices[0].message.content.strip()
+            
+        self._spin.stop()
         return answer
-
+    
     # ————————————————————————————————————————————————————————————
     # MODEL / KEY MANAGEMENT
     def list_models(self):

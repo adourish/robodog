@@ -2,16 +2,14 @@
 
 
 # todo  promots
-- [x][x][x] knowledge: 60
-  - started: 2025-09-27T13:57:30.393702 | completed: 2025-09-27 17:57 | knowledge: 94 | include: 69084 | prompt: 0 | cur_model: x-ai/grok-4-fast:free | compare: UPDATE C:\Projects\robodog\robodogcli\robodog\file_service.py O:2028 N:2023 D:-5 
+- [x][x][-] 
+  - started: 2025-09-27T19:28:27.126293 | completed: 2025-09-27 23:29 | knowledge: 43 | include: 69076 | prompt: 69992 | cur_model: x-ai/grok-4-fast:free | compare: UPDATE C:\Projects\robodog\robodogcli\temp\plan.md O:293 N:280 D:-13 , UPDATE C:\Projects\robodog\robodogcli\robodog\cli.py O:1554 N:1584 D:30 
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*mcphandler.py|*robodogcli*robodog*todo_util.py    recursive`
   - out: temp\out.py recursive
   - plan: temp\plan.md
 ```knowledge
-1. in file_service _fix_comment_directive there are situations where we should NOT write or remove the directive
-2. for xml files, we cannot have any comments before the <xml> tag at the start. handle this use case. support other files like it
-3. only change the file service
-4. if the file is type xml/json, do not add any additional content to the file
-5. if the file is type xml/json, remove any comments in the first few lines look for # // <~-->
-6. no comments in xml/json files in the first few lines
+1. plan how to use the "Textual" library to switch the robodog logger to textual. I want a pip boy style ui
+2. plan which files and functions will need to be updated
+3. identify how you will prevent loss of existing features
+
 ```
