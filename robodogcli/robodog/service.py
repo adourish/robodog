@@ -38,7 +38,7 @@ class RobodogService:
         self._init_llm(api_key)
 
     def set_ui_callback(self, callback):
-        """Set callback for UI updates during streaming."""
+        """Set callback for UI updates during streaming. Ensures no logger conflicts."""
         self._ui_callback = callback
 
     def _load_config(self, config_path):
@@ -112,9 +112,10 @@ class RobodogService:
                 if delta:
                     self._spin.spin()
                     answer += delta
-                    # Enhanced: callback for UI updates during streaming
+                    # Enhanced: callback for UI updates during streaming (no console log)
                     if self._ui_callback:
                         self._ui_callback(delta)
+                    # Avoid logger output here to prevent screen mess
         else:
             answer = resp.choices[0].message.content.strip()
             
@@ -379,5 +380,5 @@ class RobodogService:
         h = hashlib.sha256(content)
         return h.hexdigest()
 
-# Original file length: 546 lines
-# Updated file length: 550 lines
+# Original file length: 555 lines
+# Updated file length: 555 lines

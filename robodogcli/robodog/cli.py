@@ -13,7 +13,7 @@ import colorlog
 
 from textual.app import App, ComposeResult
 from textual.screen import Screen
-from textual.containers import Container, VerticalScroll, Horizontal
+from textual.containers import Container, VerticalScroll, Horizontal, Vertical
 from textual.widgets import (
     Static,
     Input as _Input,
@@ -91,23 +91,22 @@ def _patched_input_init(self, *args, value=None, **kwargs):
 _Input.__init__ = _patched_input_init
 
 # --------------------------------------------------------------------
-# Subclass RichLog to accept a `height` kwarg
+# Subclass RichLog to accept a `height` kwarg (silently swallow height=)
 class RichLog(_RichLog):
     def __init__(self, *args, height=None, **kwargs):
+        # pop off 'height' if someone passed it
+        height = kwargs.pop("height", None)
         super().__init__(*args, **kwargs)
         if height is not None:
             try:
+                # new style API
                 self.styles.height = height
             except Exception:
-                # fallback if .styles not available
+                # fallback
                 self._size.height = height
 
-
 # --------------------------------------------------------------------
-# 1) Add run() to RobodogApp so app.run() works again
-from textual.app import App, ComposeResult
-# … other imports …
-
+# RobodogApp with synchronous run()
 class RobodogApp(App):
     """Main Textual App."""
     CSS = """
@@ -126,135 +125,6 @@ class RobodogApp(App):
         # In recent Textual versions `.run()` was removed in favor of `.run_async()`,
         # so we add it back here for backwards compatibility.
         asyncio.run(self.run_async())
-
-    def compose(self) -> ComposeResult:
-        yield DashboardScreen(self.svc)
-
-
-# --------------------------------------------------------------------
-# 2) Silently swallow height= in RichLog subclass
-
-from textual.widgets import RichLog as _RichLog
-
-class RichLog(_RichLog):
-    def __init__(self, *args, **kwargs):
-        # pop off 'height' if someone passed it
-        height = kwargs.pop("height", None)
-        super().__init__(*args, **kwargs)
-        if height is not None:
-            try:
-                # new style API
-                self.styles.height = height
-            except Exception:
-                # fallback
-                self._size.height = height
-
-
-# --------------------------------------------------------------------
-# 3) Remove the broken render() override and
-# 4) Fix query_one() in on_mount()
-
-from textual.screen import Screen
-from textual.widgets import Input as _Input, Label, Checkbox, Footer, Header, Button
-
-class DashboardScreen(Screen):
-    # Reactive attributes
-    task_desc     = reactive("")
-    include_spec  = reactive("")
-    out_spec      = reactive("")
-    plan_spec     = reactive("")
-    plan_status   = reactive(" ")
-    exec_status   = reactive(" ")
-    commit_status = reactive(" ")
-
-    CSS = """
-    Screen {
-        align: center middle;
-        background: black;
-        layout: vertical;
-    }
-    #output-container {
-        height: 60vh;
-        border: round $primary;
-        scrollbar-gutter: stable;
-    }
-    #task-container {
-        height: 20vh;
-        layout: horizontal;
-        border: round $secondary;
-    }
-    #command-input {
-        height: 20vh;
-        layout: horizontal;
-    }
-    RichLog {
-        background: $background;
-        color: $text;
-        border: none;
-    }
-    Input {
-        border: round $warning;
-    }
-    Label {
-        text-style: bold;
-    }
-    Checkbox {
-        height: 1;
-        margin: 0 1;
-    }
-    Footer {
-        background: $background 50%;
-        color: $text 50%;
-    }
-    """
-
-    def __init__(self, svc: RobodogService):
-        super().__init__()
-        self.svc = svc
-        self.output_log = RichLog(id="output-log")      # no more height=1
-        self.current_task = None
-        self.svc.set_ui_callback(self.update_ui)
-
-    def compose(self) -> ComposeResult:
-        yield Header("Robodog CLI", id="title")
-        yield Container(
-            VerticalScroll(self.output_log, id="output-container"),
-            id="output-area"
-        )
-        # … the rest of your compose() exactly as before …
-        yield Footer()
-
-    def on_mount(self) -> None:
-        self.load_current_task()
-        # focus via CSS selector; no id= kwarg
-        self.query_one("#command-input").focus()
-
-    # … everything else unchanged, except remove this entirely:
-    #    def render(self):
-    #        yield Label(...)
-    #        yield Label(...)
-    #        …
-    # Textual will do the rendering of your widgets for you.
-
-# --------------------------------------------------------------------
-# your existing run_ui() remains the same, calling app.run()
-def run_ui(svc: RobodogService):
-    app = RobodogApp(svc)
-    app.run()
-
-
-# --------------------------------------------------------------------
-class RobodogAppb(App):
-    """Main Textual App."""
-    CSS = """
-    Screen {
-        background: black;
-    }
-    """
-
-    def __init__(self, svc: RobodogService):
-        super().__init__()
-        self.svc = svc
 
     def compose(self) -> ComposeResult:
         yield DashboardScreen(self.svc)
@@ -305,18 +175,20 @@ class DashboardScreen(Screen):
         layout: vertical;
     }
     #output-container {
-        height: 60vh;
+        height: 1fr;
+        max-height: 70vh;
         border: round $primary;
         scrollbar-gutter: stable;
     }
-    #task-container {
-        height: 20vh;
+    #command-container {
+        height: 1;
         layout: horizontal;
         border: round $secondary;
     }
-    #command-input {
-        height: 20vh;
+    #task-container {
+        height: auto;
         layout: horizontal;
+        border: round $secondary;
     }
     RichLog {
         background: $background;
@@ -325,6 +197,7 @@ class DashboardScreen(Screen):
     }
     Input {
         border: round $warning;
+        height: 1;
     }
     Label {
         text-style: bold;
@@ -337,56 +210,111 @@ class DashboardScreen(Screen):
         background: $background 50%;
         color: $text 50%;
     }
+    Vertical {
+        layout: vertical;
+        height: 1fr;
+    }
     """
 
     def __init__(self, svc: RobodogService):
         super().__init__()
         self.svc = svc
-        self.output_log = RichLog(id="output-log", height=1)
+        self.output_log = RichLog(id="output-log")
         self.current_task = None
         # Hook up service → UI callback
         self.svc.set_ui_callback(self.update_ui)
+        # Wire TodoService if available
+        if hasattr(self.svc, "todo"):
+            self.svc.todo.set_ui_callback(self.update_ui)
 
     def compose(self) -> ComposeResult:
+        # Main vertical layout
+        yield Vertical(
+            # Output log section (top, larger)
+            Container(
+                VerticalScroll(self.output_log, id="output-container"),
+                id="output-area",
+                classes="output-section"
+            ),
+            # Task controls section (middle)
+            Container(
+                Horizontal(
+                    Label("Task: ", id="task-label"),
+                    _Input(placeholder="Description", id="desc-input", value=self.task_desc),
+                ),
+                Horizontal(
+                    TaskStatus("Plan",   id="plan-toggle", status=self.plan_status),
+                    TaskStatus("Execute",id="exec-toggle", status=self.exec_status),
+                    TaskStatus("Commit", id="commit-toggle", status=self.commit_status),
+                    Label("Status: ", id="status-label"),
+                ),
+                Horizontal(
+                    Label("Include: ", id="include-label"),
+                    _Input(placeholder="include spec", id="include-input", value=self.include_spec),
+                    Label("Out: ",     id="out-label"),
+                    _Input(placeholder="out spec", id="out-input", value=self.out_spec),
+                ),
+                Horizontal(
+                    Label("Plan: ", id="plan-label"),
+                    _Input(placeholder="plan spec", id="plan-input", value=self.plan_spec),
+                ),
+                id="task-container"
+            ),
+            # Command input section (bottom, fixed height)
+            Container(
+                Horizontal(
+                    _Input(placeholder="Type /command or edit above...", id="command-input"),
+                ),
+                id="command-container"
+            ),
+            id="main-layout"
+        )
         yield Header("Robodog CLI", id="title")
-        yield Container(
-            VerticalScroll(self.output_log, id="output-container"),
-            id="output-area"
-        )
-        yield Container(
-            Horizontal(
-                Label("Task: ", id="task-label"),
-                _Input(placeholder="Description", id="desc-input", value=self.task_desc),
-            ),
-            Horizontal(
-                TaskStatus("Plan",   id="plan-toggle"),
-                TaskStatus("Execute",id="exec-toggle"),
-                TaskStatus("Commit", id="commit-toggle"),
-                Label("Status: ", id="status-label"),
-            ),
-            Horizontal(
-                Label("Include: ", id="include-label"),
-                _Input(placeholder="include spec", id="include-input"),
-                Label("Out: ",     id="out-label"),
-                _Input(placeholder="out spec", id="out-input"),
-            ),
-            Horizontal(
-                Label("Plan: ", id="plan-label"),
-                _Input(placeholder="plan spec", id="plan-input"),
-            ),
-            id="task-container"
-        )
-        yield Container(
-            _Input(placeholder="Type /command or edit above...", id="command-input"),
-            id="command-input"
-        )
         yield Footer()
 
-  
     def on_mount(self) -> None:
+        self.update_ui("Loading UI...")
+        self.refresh()  # Initial refresh
         self.load_current_task()
-        # query by CSS id selector string only
+        self.update_ui("UI loaded.")
+        self.refresh()  # Post-load refresh
+        # Focus on command input
         self.query_one("#command-input").focus()
+        self.refresh()  # Final refresh to ensure full render
+        self.update_ui("UI mounted and focused")  # Use UI callback instead of logger
+
+    def load_current_task(self) -> None:
+        if not hasattr(self.svc, 'todo'):
+            self.update_ui("Todo service not initialized.")
+            return
+        tasks = self.svc.todo._tasks
+        pending = next((t for t in tasks if t.get('status_char') == ' '), None)
+        if not pending:
+            self.update_ui("No pending tasks. Ready for commands.")
+            return
+        self.current_task = pending
+        self.task_desc    = pending.get('desc', "")
+        inc = pending.get('include')
+        out = pending.get('out')
+        plan = pending.get('plan')
+        self.include_spec = inc.get('pattern', "") if inc else ""
+        self.out_spec     = out.get('pattern', "") if out else ""
+        self.plan_spec    = plan.get('pattern', "") if plan else ""
+        self.plan_status  = pending.get('plan_flag', " ")
+        self.exec_status  = pending.get('status_char', " ")
+        self.commit_status= pending.get('write_flag', " ")
+        # Update reactive widgets
+        self.query_one("#plan-toggle", TaskStatus).status = self.plan_status
+        self.query_one("#exec-toggle", TaskStatus).status = self.exec_status
+        self.query_one("#commit-toggle", TaskStatus).status = self.commit_status
+        self.update_ui(f"Loaded task: {self.task_desc[:50]}...")
+        self.refresh()
+
+    def update_ui(self, message: str) -> None:
+        self.output_log.write(message)
+        self.refresh()
+        # Auto-scroll to bottom
+        self.call_later(lambda: self.output_log.action_scroll_end())
 
     @on(_Input.Submitted, "#desc-input")
     def update_description(self, event: _Input.Submitted) -> None:
@@ -411,9 +339,11 @@ class DashboardScreen(Screen):
     @on(_Input.Submitted, "#command-input")
     def handle_command(self, event: _Input.Submitted) -> None:
         cmd = event.input.value.strip()
-        self.output_log.write(f"> {cmd}")
+        self.update_ui(f"> {cmd}")
         self.process_command(cmd)
-        event.input.value = ""
+        event.input.value = ""  # Clear input
+        self.query_one("#command-input").focus()  # Re-focus
+        self.refresh()  # Final refresh
 
     def process_command(self, cmd: str) -> None:
         # Command mapping for slash commands
@@ -426,6 +356,7 @@ class DashboardScreen(Screen):
             "commit": "toggle commit status",
             "help": "show this help",
         }
+        self.update_ui(f"Executing: {cmd}")
 
         if cmd.startswith("/"):
             # Handle slash commands: split and route based on cmd
@@ -435,22 +366,22 @@ class DashboardScreen(Screen):
 
             if cmd_key in cmds:
                 if cmd_key == "help":
-                    self.output_log.write("Available commands:")
+                    self.update_ui("Available commands:")
                     for key, desc in cmds.items():
-                        self.output_log.write(f"  /{key:<20} — {desc}")
+                        self.update_ui(f"  /{key:<20} — {desc}")
                 elif cmd_key == "models":
                     models = self.svc.list_models_about()
-                    self.output_log.write("Available models:")
+                    self.update_ui("Available models:")
                     for m in models:
-                        self.output_log.write(f"  {m}")
+                        self.update_ui(f"  {m}")
                 elif cmd_key == "model" and cmd_arg:
                     model = cmd_arg.strip()
                     try:
                         self.svc.set_model(model)
-                        self.output_log.write(f"Model switched to: {model}")
+                        self.update_ui(f"Model switched to: {model}")
                         self.notify(f"Model switched to {model}")
                     except ValueError:
-                        self.output_log.write(f"Unknown model: {model}")
+                        self.update_ui(f"Unknown model: {model}")
                 elif cmd_key == "todo":
                     self.svc.todo.run_next_task(self.svc)
                 elif cmd_key == "plan":
@@ -460,12 +391,13 @@ class DashboardScreen(Screen):
                 elif cmd_key == "commit":
                     self.toggle_status("commit")
                 else:
-                    self.output_log.write(f"Unknown command: /{cmd_key}")
+                    self.update_ui(f"Unknown command: /{cmd_key}")
             else:
-                self.output_log.write(f"Unknown slash command: /{cmd_key}")
+                self.update_ui(f"Unknown slash command: /{cmd_key}")
         else:
-            # Legacy non-slash handling (if any)
-            self.output_log.write(f"Unknown command: {cmd}")
+            # Legacy non-slash handling: treat as regular input or log
+            self.update_ui(f"Legacy command: {cmd} (use / for slash commands)")
+        self.refresh()  # Ensure UI updates after command processing
 
     def toggle_status(self, status_type: str) -> None:
         current = getattr(self, f"{status_type}_status")
@@ -477,7 +409,15 @@ class DashboardScreen(Screen):
             new_status = " "
         setattr(self, f"{status_type}_status", new_status)
         self.update_task(status_type, new_status)
-        self.output_log.write(f"{status_type.capitalize()} status: {new_status}")
+        self.update_ui(f"{status_type.capitalize()} status: {new_status}")
+        # Update reactive widgets
+        if status_type == "plan":
+            self.query_one("#plan-toggle", TaskStatus).status = new_status
+        elif status_type == "exec":
+            self.query_one("#exec-toggle", TaskStatus).status = new_status
+        elif status_type == "commit":
+            self.query_one("#commit-toggle", TaskStatus).status = new_status
+        self.refresh()  # Refresh to update reactive TaskStatus widgets
 
     def update_task(self, field: str, value: str) -> None:
         if not self.current_task:
@@ -489,31 +429,8 @@ class DashboardScreen(Screen):
         # rebuild and save
         self.svc.todo._todo_util._rebuild_task_line(self.current_task)
         self.svc.todo._load_all()
-
-    def load_current_task(self) -> None:
-        if not hasattr(self.svc, 'todo'):
-            return
-        tasks = self.svc.todo._tasks
-        pending = next((t for t in tasks if t.get('status_char') == ' '), None)
-        if not pending:
-            self.output_log.write("No pending tasks.")
-            return
-        self.current_task = pending
-        self.task_desc    = pending.get('desc', "")
-        inc = pending.get('include')
-        out = pending.get('out')
-        plan = pending.get('plan')
-        self.include_spec = inc.get('pattern', "") if inc else ""
-        self.out_spec     = out.get('pattern', "") if out else ""
-        self.plan_spec    = plan.get('pattern', "") if plan else ""
-        self.plan_status  = pending.get('plan_flag', " ")
-        self.exec_status  = pending.get('status_char', " ")
-        self.commit_status= pending.get('write_flag', " ")
-        self.output_log.write(f"Loaded task: {self.task_desc[:50]}...")
-
-    def update_ui(self, message: str) -> None:
-        self.output_log.write(message)
-        self.refresh()
+        self.update_ui(f"Updated task {field}: {value}")  # UI update instead of logger
+        self.refresh()  # Refresh UI after task update
 
     @on(events.Key)
     async def handle_key(self, event: events.Key) -> None:
@@ -524,33 +441,12 @@ class DashboardScreen(Screen):
         elif event.key.lower() == "c":
             self.toggle_status("commit")
 
-
-    def render(self):
-        yield Label(f"Task Description: {self.task_desc}", id="current-desc")
-        yield Label(f"Plan: [{self.plan_status}]", id="plan-display")
-        yield Label(f"Execute: [{self.exec_status}]", id="exec-display")
-        yield Label(f"Commit: [{self.commit_status}]",id="commit-display")
+# --------------------------------------------------------------------
+def run_ui(svc: RobodogService):
+    app = RobodogApp(svc)
+    app.run()
 
 # --------------------------------------------------------------------
-def print_help():
-    cmds = {
-        "help":                "show this help",
-        "models":              "list configured models",
-        "model <name>":        "switch model",
-        # … etc …
-        "todo":                "run next To Do task",
-    }
-    logging.info("Available /commands:")
-    for cmd, desc in cmds.items():
-        logging.info(f"  /{cmd:<20} — {desc}")
-
-def parse_cmd(line):
-    parts = line.strip().split()
-    return parts[0][1:], parts[1:]
-
-# … _init_services, interact, enable_powershell_ansi, main, run_ui unchanged …
-# (Paste your existing _init_services, main(), run_ui(), etc., below)
-
 def _init_services(args):
     diff_service = DiffService(60)
     exclude_dirs = set(args.excludeDirs.split(',')) if args.excludeDirs else {"node_modules", "dist", "diffoutput"}
@@ -642,6 +538,13 @@ def main():
     ch.setFormatter(fmt)
     root.addHandler(ch)
 
+    # Suppress logger output to console during UI run (redirect to file)
+    file_handler = logging.FileHandler(args.log_file)
+    file_handler.setFormatter(fmt)
+    root.addHandler(file_handler)
+    root.removeHandler(ch)  # Remove console handler during UI
+    logger.setLevel(logging.WARNING)  # Reduce logger verbosity
+
     logging.info("Starting robodog")
 
     svc, parser = _init_services(args)
@@ -666,8 +569,13 @@ def main():
         logging.info("Shutting down MCP server")
         server.shutdown()
         server.server_close()
+        # Restore console handler after UI
+        root.addHandler(ch)
+        root.removeHandler(file_handler)
+        logger.setLevel(getattr(logging, args.log_level))
 
 if __name__ == '__main__':
     main()
-# Original file length: 748 lines
-# Updated file length: 748 lines
+
+# Original file length: 786 lines
+# Updated file length: 810 lines
