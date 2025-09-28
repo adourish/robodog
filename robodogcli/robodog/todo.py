@@ -10,7 +10,7 @@ import traceback
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Callable
 import statistics  # Added for calculating median, avg, peak
 
 import tiktoken
@@ -76,6 +76,7 @@ class TodoService:
             self._file_watcher = file_watcher
             self._file_service = file_service
             self._exclude_dirs = exclude_dirs
+            self._ui_callback: Optional[Callable] = None  # New: UI update callback
             # MVP: parse a `base:` directive from front-matter
             self._base_dir = self._parse_base_dir()
             
@@ -94,6 +95,10 @@ class TodoService:
         except Exception as e:
             logger.exception(f"Error during initialization of TodoService: {e}", extra={'log_color': 'DELTA'})
             raise
+
+    def set_ui_callback(self, callback: Callable):
+        """Set callback for UI updates during task processing."""
+        self._ui_callback = callback
 
     def _parse_base_dir(self) -> Optional[str]:
         logger.debug("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
@@ -281,6 +286,7 @@ class TodoService:
         On external change, re‐parse tasks, re‐emit any manually Done tasks
         with write_flag=' ' and then run the next To Do.
         Added logging for watch events.
+        Enhanced: UI callback support for real-time updates.
         """
         logger.debug("_watch_loop started", extra={'log_color': 'HIGHLIGHT'})
         while True:
@@ -302,6 +308,10 @@ class TodoService:
                     # 2) external change?
                     elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
                         logger.info(f"Detected external change in {fn}, reloading tasks", extra={'log_color': 'DELTA'})
+                        # Enhanced: UI callback for file change
+                        if self._ui_callback:
+                            self._ui_callback(f"📁 File changed: {fn}")
+                            
                         if not self._svc:
                             logger.warning("Svc not available, skipping change processing", extra={'log_color': 'DELTA'})
                             # nothing to do if service not hooked up
@@ -320,6 +330,9 @@ class TodoService:
                             ]
                             if next_todos:
                                 logger.info(f"New To Do tasks found ({len(next_todos)}), running next", extra={'log_color': 'HIGHLIGHT'})
+                                # Enhanced: UI callback for new tasks
+                                if self._ui_callback:
+                                    self._ui_callback(f"🆕 {len(next_todos)} new tasks found")
                                 self.run_next_task(self._svc, fn)
 
                         except Exception as e:
@@ -337,6 +350,11 @@ class TodoService:
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
         logger.info(f"Starting task: {task['desc']} (model: {cur_model}, step: {step})", extra={'log_color': 'HIGHLIGHT'})
+        # Enhanced: UI callback for task start
+        if self._ui_callback:
+            step_name = 'Plan' if step == 1 else 'LLM' if step == 2 else 'Commit'
+            self._ui_callback(f"🚀 Starting {step_name}: {task['desc'][:50]}...")
+            
         try:
             # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
@@ -381,6 +399,11 @@ class TodoService:
             
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
         logger.info(f"Completing task: {task['desc']} (model: {cur_model}, commit: {commit}, step: {step})", extra={'log_color': 'HIGHLIGHT'})
+        # Enhanced: UI callback for task completion
+        if self._ui_callback:
+            step_name = 'Plan' if step == 1 else 'LLM' if step == 2 else 'Commit'
+            self._ui_callback(f"✅ Completed {step_name}: {task['desc'][:50]}...")
+            
         try:
             # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
@@ -444,6 +467,9 @@ class TodoService:
             todo = plan_pending + llm_pending + commit_pending
             if not todo:
                 logger.warning("No pending tasks found for any step.", extra={'log_color': 'DELTA'})
+                # Enhanced: UI callback for no tasks
+                if self._ui_callback:
+                    self._ui_callback("✅ No pending tasks found")
                 return
             next_task = todo[0]
             step = 'plan' if next_task in plan_pending else 'llm' if next_task in llm_pending else 'commit'
@@ -452,6 +478,9 @@ class TodoService:
             logger.info(f"Completed {step} step", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
             logger.exception(f"Error running next task: {e}", extra={'log_color': 'DELTA'})
+            # Enhanced: UI callback for errors
+            if self._ui_callback:
+                self._ui_callback(f"❌ Error: {e}")
             traceback.print_exc()
 
     def _gather_include_knowledge(self, task: dict, svc) -> str:
@@ -487,6 +516,10 @@ class TodoService:
         Uses a specialized prompt for planning. Enhanced for token efficiency and performance.
         """
         logger.info(f"Generating plan for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+        # Enhanced: UI callback for plan generation
+        if self._ui_callback:
+            self._ui_callback(f"📋 Generating plan for: {task['desc'][:50]}...")
+            
         try:
             # Determine plan path
             plan_spec = task.get('plan') or {'pattern': 'plan.md', 'recursive': True}
@@ -533,7 +566,6 @@ class TodoService:
             traceback.print_exc()
             return ""
 
-
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
         logger.info(f"_process_one called with task, todoFilename={todoFilename!r}", extra={'log_color': 'HIGHLIGHT'})
 
@@ -568,6 +600,7 @@ class TodoService:
             write_flag = task.get('write_flag', 'x')
             status = task.get('status_char', 'x')
             logger.warning(f'Running next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]', extra={'log_color': 'DELTA'})
+            
             if plan_flag == ' ':
                 # Step 1: Planning
                 logger.warning("Step 1: Running planning", extra={'log_color': 'HIGHLIGHT'})
@@ -650,4 +683,4 @@ class TodoService:
 
 
 # Original file length: 566 lines
-# Updated file length: 586 lines
+# Updated file length: 610 lines

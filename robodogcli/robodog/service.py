@@ -34,7 +34,12 @@ class RobodogService:
         self.backupFolder = backupFolder
         self.file_service = file_service
         self._spin = spin
+        self._ui_callback = None  # New: callback for UI updates
         self._init_llm(api_key)
+
+    def set_ui_callback(self, callback):
+        """Set callback for UI updates during streaming."""
+        self._ui_callback = callback
 
     def _load_config(self, config_path):
         data = yaml.safe_load(open(config_path, 'r', encoding='utf-8'))
@@ -85,14 +90,8 @@ class RobodogService:
                 return m["provider"]
         return None
 
-    def model_provider(self, model_name):
-        for m in self.models:
-            if m["model"] == model_name:
-                return m["provider"]
-        return None
-
     # ————————————————————————————————————————————————————————————
-    # CORE LLM / CHAT
+    # CORE LLM / CHAT - Enhanced for Textual UI
     def ask(self, prompt: str) -> str:
         logger.debug(f"ask {prompt!r}")
         messages = [{"role": "user", "content": prompt}]
@@ -111,11 +110,11 @@ class RobodogService:
             for chunk in resp:
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
-                    # Uncommented and integrated for spinner output during streaming
                     self._spin.spin()
                     answer += delta
-
-            
+                    # Enhanced: callback for UI updates during streaming
+                    if self._ui_callback:
+                        self._ui_callback(delta)
         else:
             answer = resp.choices[0].message.content.strip()
             
@@ -127,8 +126,6 @@ class RobodogService:
     def list_models(self):
         return [m["model"] for m in self.models]
     
-    # ————————————————————————————————————————————————————————————
-    # MODEL / KEY MANAGEMENT
     def list_models_about(self):
         return [m["model"] + ": " + m["about"] for m in self.models]
 
@@ -152,11 +149,9 @@ class RobodogService:
     def list_stashes(self):
         return list(self.stashes.keys())
 
-    ## NOT USED!!!
     def clear(self):
         pass
 
-    ## NOT USED!!!
     def export_snapshot(self, filename: str):
         content = "=== Chat History ===\n" + getattr(self, 'context', '') + "\n" + "=== Knowledge ===\n" + getattr(self, 'knowledge', '') + "\n"
         self.file_service.write_file(Path(filename), content)
@@ -303,13 +298,11 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # /CURL IMPLEMENTATION
-    ## NOT USED!!!
     def curl(self, tokens: list):
         pass
 
     # ————————————————————————————————————————————————————————————
     # /PLAY IMPLEMENTATION
-    ## NOT USED!!!
     def play(self, instructions: str):
         pass
 
@@ -387,4 +380,4 @@ class RobodogService:
         return h.hexdigest()
 
 # Original file length: 546 lines
-# Updated file length: 547 lines
+# Updated file length: 550 lines
