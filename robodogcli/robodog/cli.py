@@ -1,3 +1,4 @@
+# file: cli.py
 #!/usr/bin/env python3
 import os
 import sys
@@ -415,7 +416,20 @@ class DashboardScreen(Screen):
         event.input.value = ""
 
     def process_command(self, cmd: str) -> None:
-        if cmd.startswith("/todo"):
+        cmds = {
+            "todo": "run next To Do task",
+            "model <name>": "switch model",
+            "models": "list configured models",
+            "plan": "toggle plan status",
+            "exec": "toggle exec status",
+            "commit": "toggle commit status",
+            "help": "show this help",
+        }
+        if cmd == "/help":
+            self.output_log.write("Available commands:")
+            for cmd_name, desc in cmds.items():
+                self.output_log.write(f"  /{cmd_name:<20} — {desc}")
+        elif cmd.startswith("/todo"):
             self.svc.todo.run_next_task(self.svc)
         elif cmd.startswith("/model "):
             model = cmd.split(" ", 1)[1].strip()
@@ -641,3 +655,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# original file length: 740 lines
+# updated file length: 748 lines
