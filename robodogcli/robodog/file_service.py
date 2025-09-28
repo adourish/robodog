@@ -16,12 +16,13 @@ import re
 class FileService:
     """Handles file operations and path resolution."""
     
-    def __init__(self, roots: List[str], base_dir: str = None, backupFolder:str = None):
+    def __init__(self, roots: List[str], base_dir: str = None, backupFolder:str = None, app=None):
         logger.debug(f"Initializing FileService with roots: {roots}, base_dir: {base_dir}", extra={'log_color': 'HIGHLIGHT'})
         self._roots = roots
         self._base_dir = base_dir
         self._exclude_dirs = {"node_modules", "dist", "diffoutput"}
         self._backupFolder = backupFolder
+        self._app = app
         logger.info(f"FileService initialized with {len(roots)} roots and exclude_dirs: {self._exclude_dirs}", extra={'log_color': 'HIGHLIGHT'})
     
     @property

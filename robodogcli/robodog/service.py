@@ -22,7 +22,7 @@ logger = logging.getLogger('robodog.service')
 
 
 class RobodogService:
-    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None , backupFolder:str = None, file_service: Optional[object] = None, spin: object = None):
+    def __init__(self, config_path: str, api_key: str = None, exclude_dirs: set = None , backupFolder:str = None, file_service: Optional[object] = None, spin: object = None, app=None):
         # --- load YAML config and LLM setup ---
         self._load_config(config_path)
         # --- ensure we always have a _roots attribute ---
@@ -36,6 +36,7 @@ class RobodogService:
         self._spin = spin
         self._ui_callback = None  # New: callback for UI updates
         self._init_llm(api_key)
+        self._app = app
 
     def set_ui_callback(self, callback):
         """Set callback for UI updates during streaming. Ensures no logger conflicts."""

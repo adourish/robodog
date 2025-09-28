@@ -58,7 +58,7 @@ class ChangesList(RootModel[List[Change]]):
 class TodoService:
     FILENAME = 'todo.md'
 
-    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}, todo_util=None):
+    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}, todo_util=None, app=None):
         logger.info(f"Initializing TodoService with roots: {roots}", extra={'log_color': 'HIGHLIGHT'})
         logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
         try:
@@ -79,7 +79,7 @@ class TodoService:
             self._ui_callback: Optional[Callable] = None  # New: UI update callback
             # MVP: parse a `base:` directive from front-matter
             self._base_dir = self._parse_base_dir()
-            
+            self._app = app
             logger.info(f"Base directory parsed: {self._base_dir}", extra={'log_color': 'HIGHLIGHT'})
 
             self._load_all()

@@ -28,7 +28,7 @@ except ImportError:
     from file_service import FileService
 
 class TodoUtilService:
-    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}):
+    def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}, app=None):
         logger.info(f"Initializing TodoUtilService with roots: {roots}", extra={'log_color': 'HIGHLIGHT'})
         logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
         try:
@@ -45,6 +45,7 @@ class TodoUtilService:
             self._file_watcher = file_watcher
             self._file_service = file_service
             self._exclude_dirs = exclude_dirs
+            self._app = app
             # MVP: parse a `base:` directive from front-matter
 
 
