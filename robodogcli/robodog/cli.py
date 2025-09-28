@@ -416,6 +416,7 @@ class DashboardScreen(Screen):
         event.input.value = ""
 
     def process_command(self, cmd: str) -> None:
+        # Command mapping for slash commands
         cmds = {
             "todo": "run next To Do task",
             "model <name>": "switch model",
@@ -425,32 +426,45 @@ class DashboardScreen(Screen):
             "commit": "toggle commit status",
             "help": "show this help",
         }
-        if cmd == "/help":
-            self.output_log.write("Available commands:")
-            for cmd_name, desc in cmds.items():
-                self.output_log.write(f"  /{cmd_name:<20} — {desc}")
-        elif cmd.startswith("/todo"):
-            self.svc.todo.run_next_task(self.svc)
-        elif cmd.startswith("/model "):
-            model = cmd.split(" ", 1)[1].strip()
-            try:
-                self.svc.set_model(model)
-                self.output_log.write(f"Model switched to: {model}")
-                self.notify(f"Model switched to {model}")
-            except ValueError:
-                self.output_log.write(f"Unknown model: {model}")
-        elif cmd.startswith("/models"):
-            models = self.svc.list_models_about()
-            self.output_log.write("Available models:")
-            for m in models:
-                self.output_log.write(f"  {m}")
-        elif cmd in ["/plan", "P"]:
-            self.toggle_status("plan")
-        elif cmd in ["/exec", "E"]:
-            self.toggle_status("exec")
-        elif cmd in ["/commit", "C"]:
-            self.toggle_status("commit")
+
+        if cmd.startswith("/"):
+            # Handle slash commands: split and route based on cmd
+            parts = cmd[1:].strip().split(maxsplit=1)  # Split at most once for /model <name>
+            cmd_key = parts[0]
+            cmd_arg = parts[1] if len(parts) > 1 else None
+
+            if cmd_key in cmds:
+                if cmd_key == "help":
+                    self.output_log.write("Available commands:")
+                    for key, desc in cmds.items():
+                        self.output_log.write(f"  /{key:<20} — {desc}")
+                elif cmd_key == "models":
+                    models = self.svc.list_models_about()
+                    self.output_log.write("Available models:")
+                    for m in models:
+                        self.output_log.write(f"  {m}")
+                elif cmd_key == "model" and cmd_arg:
+                    model = cmd_arg.strip()
+                    try:
+                        self.svc.set_model(model)
+                        self.output_log.write(f"Model switched to: {model}")
+                        self.notify(f"Model switched to {model}")
+                    except ValueError:
+                        self.output_log.write(f"Unknown model: {model}")
+                elif cmd_key == "todo":
+                    self.svc.todo.run_next_task(self.svc)
+                elif cmd_key == "plan":
+                    self.toggle_status("plan")
+                elif cmd_key == "exec":
+                    self.toggle_status("exec")
+                elif cmd_key == "commit":
+                    self.toggle_status("commit")
+                else:
+                    self.output_log.write(f"Unknown command: /{cmd_key}")
+            else:
+                self.output_log.write(f"Unknown slash command: /{cmd_key}")
         else:
+            # Legacy non-slash handling (if any)
             self.output_log.write(f"Unknown command: {cmd}")
 
     def toggle_status(self, status_type: str) -> None:
@@ -655,6 +669,5 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# original file length: 740 lines
-# updated file length: 748 lines
+# Original file length: 748 lines
+# Updated file length: 748 lines
