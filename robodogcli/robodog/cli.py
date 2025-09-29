@@ -42,6 +42,7 @@ from prompt_builder import PromptBuilder
 from todo_util           import TodoUtilService
 from todo           import TodoService
 from diff_service   import DiffService  # newly added
+from app            import RobodogApp   # Added import for RobodogApp integration
 # support both "python -m robodog.cli" and "python cli.py" invocations:
 try:
     from .service import RobodogService
@@ -56,6 +57,7 @@ try:
     from .task_parser import TaskParser
     from .prompt_builder import PromptBuilder
     from .throttle_spinner import ThrottledSpinner
+    from .app import RobodogApp  # Added relative import for RobodogApp
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
@@ -69,6 +71,7 @@ except ImportError:
     from task_parser import TaskParser
     from prompt_builder import PromptBuilder
     from throttle_spinner import ThrottledSpinner
+    from app import RobodogApp  # Direct import for RobodogApp
 
 
 
@@ -153,9 +156,11 @@ def _init_services(args):
 
     return svc, parser
 
-def interact(svc: RobodogService):
+def interact(svc: RobodogService, app_instance: RobodogApp):  # Modified to accept app_instance
     prompt_symbol = lambda: f"[{svc.cur_model}]{'»' if svc.stream else '>'} "
     logging.info("robodog CLI — type /help to list commands.")
+    # Sample messages for RobodogApp integration
+    sample_messages = ["echo test", "help", "/help"]  # Predefined sample patterns
     while True:
         try:
             line = input(prompt_symbol()).strip()
@@ -301,7 +306,13 @@ def interact(svc: RobodogService):
                     logging.info("Switched to REST mode.")
 
                 elif cmd == "todo":
+                    # Optionally integrate app log for /todo
                     svc.todo.run_next_task(svc)
+                    # Log app state if needed
+                    if hasattr(app_instance, 'get_log'):
+                        logs = app_instance.get_log()
+                        if logs:
+                            logging.info(f"App logs after todo: {len(logs)} entries")
 
                 else:
                     logging.error("unknown /cmd: %s", cmd)
@@ -310,9 +321,21 @@ def interact(svc: RobodogService):
                 logging.exception("Error processing command")
 
         else:
-            _line = f"\nUser: {line}"
-            _resp = svc.ask(_line)
-            print(f"{_resp}")
+            # Check for sample messages to route to RobodogApp
+            if line in sample_messages:
+                logging.info(f"Routing sample message '{line}' to RobodogApp")
+                app_instance.display_command(f"Sample: {line}")  # Use display_command for echoing
+                app_instance.run_command(line)  # Call run_command for processing
+                # Optionally log the app's output
+                logs = app_instance.get_log()
+                if logs:
+                    for log in logs[-2:]:  # Last two for brevity
+                        print(f"App: {log}")
+            else:
+                # Original non-/ handling preserved
+                _line = f"\nUser: {line}"
+                _resp = svc.ask(_line)
+                print(f"{_resp}")
 
 def enable_powershell_ansi():
     """
@@ -413,6 +436,9 @@ def main():
     logging.info("Starting robodog")
 
     svc, parser = _init_services(args)
+    
+    # Instantiate RobodogApp instance after services for integration
+    app_instance = RobodogApp()
 
     server = run_robodogmcp(
         host    = args.host,
@@ -434,7 +460,7 @@ def main():
         logging.info("Startup model set to %s", svc.cur_model)
 
     try:
-        interact(svc)
+        interact(svc, app_instance)  # Pass app_instance to interact
     finally:
         logging.info("Shutting down MCP server")
         server.shutdown()
@@ -443,5 +469,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# Original file length: 465 lines
-# Updated file length: 466 lines
+# Original file length: 466 lines
+# Updated file length: 502 lines
