@@ -144,7 +144,7 @@ class DiffService:
                         lines.append(f"{left}  {right}")
                     o_ln += 1
                     # Enhanced: Log deletions with DELTA color
-                    logger.warning(f"Block deleted: lines {o_ln-i2+i1} to {o_ln-1}", extra={'log_color': 'DELTA'})
+                    logger.debug(f"Block deleted: lines {o_ln-i2+i1} to {o_ln-1}", extra={'log_color': 'DELTA'})
             elif tag == 'insert':
                 for j in range(j1, j2):
                     wrapped = wrap(updt_lines[j], col_width)
