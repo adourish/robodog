@@ -32,7 +32,7 @@ class PromptBuilder:
             "E. You can find the <filename.ext> in the Included files knowledge. You will need to modify these files based on the task description and task knowledge.",
             "F. Use the Task description, included knowledge, and any task-specific knowledge when generating each file.",
             "G. Verify that every file is syntactically correct, self-contained, and immediately executable.",
-            "H. Add a comment with the original file length and the updated file length.",
+            "H. Verify the original file length and the updated file length. ensure that no content was dropped.",
             "I. Make the changes needed to achieve the requested goal.",
             "J. Review the task description and task knowledge to ensure compliance with requirements and instructions.",
             "K. Enhance parse_llm_output to include filename, originalfilename, matched filename.",
