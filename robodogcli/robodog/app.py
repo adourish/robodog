@@ -1,3 +1,4 @@
+# file: app.py
 #!/usr/bin/env python3
 import sys
 from typing import List, Union
@@ -41,14 +42,48 @@ class RobodogApp:
         """
         self._log.clear()
 
+    def format_plan_start(self, task_desc: str) -> str:
+        """Format the start of a planning message."""
+        return f"🚀 Starting Plan: {task_desc}"
+
+    def format_plan_progress(self, update: str) -> str:
+        """Format a planning progress message."""
+        return f"📝 Planning progress: {update}"
+
+    def format_plan_written(self, path: str, tokens: int) -> str:
+        """Format the plan written completion message."""
+        return f"✅ Plan written: {path} ({tokens} tokens)"
+
+    def format_plan_done(self, task_desc: str) -> str:
+        """Format the plan done completion message."""
+        return f"✅ Plan completed: {task_desc}"
+
     def run_command(self, cmd: str) -> None:
         """
-        The same demo commands as before.
+        Dispatch command: Handle planning-related commands.
         """
- 
+        # Planning commands (e.g., called via explicit routing if needed)
+        if cmd.startswith("plan:start "):
+            task_desc = cmd[10:].strip()  # Extract task description
+            self.display_command(self.format_plan_start(task_desc))
+        elif cmd.startswith("plan:progress "):
+            update = cmd[14:].strip()  # Extract progress update
+            self.display_command(self.format_plan_progress(update))
+        elif cmd.startswith("plan:written "):
+            parts = cmd[12:].strip().split(" ", 1)
+            path = parts[0]
+            tokens = int(parts[1]) if len(parts) > 1 else 0
+            self.display_command(self.format_plan_written(path, tokens))
+        elif cmd.startswith("plan:done "):
+            task_desc = cmd[9:].strip()
+            self.display_command(self.format_plan_done(task_desc))
+        else:
+            # Default: Echo unknown commands
+            self.display_command(f"Unknown command: {cmd}")
+
     def run(self) -> None:
         """
-        Main REPL loop.
+        Main REPL loop. (Note: This is not currently used in CLI integration; kept for standalone mode.)
         """
         self.display_command("Robodog Code Console")
         self.display_command("Type /help for a list of commands")
@@ -66,3 +101,6 @@ class RobodogApp:
             self.display_command(f"> {cmd}")
             # dispatch
             self.run_command(cmd)
+
+# Original file length: 100 lines
+# Updated file length: 115 lines
