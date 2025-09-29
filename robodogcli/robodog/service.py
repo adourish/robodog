@@ -111,11 +111,11 @@ class RobodogService:
             for chunk in resp:
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
-                    self._spin.spin()
+                    self._spin.spin(False, self._ui_callback(delta))
                     answer += delta
                     # Enhanced: callback for UI updates during streaming (no console log)
-                    if self._ui_callback:
-                        self._ui_callback(delta)
+                    #if self._ui_callback:
+                        #self._ui_callback(delta)
                     # Avoid logger output here to prevent screen mess
         else:
             answer = resp.choices[0].message.content.strip()
