@@ -22,7 +22,7 @@ class ThrottledSpinner:
             sys.stdout.write(self.chars[self.idx])
             sys.stdout.flush()
 
-    def spin(self, force: bool = False, cf: object = None):
+    def spin(self, force: bool = False):
         """
         Advance the spinner if enough time has passed
         (or if force=True).
