@@ -115,14 +115,14 @@ class TodoService:
     def _build_progress_bar(self, state: str, width: int = 10) -> str:
         """Render a progress bar for the given state."""
         fill_map = {
-            'done': width,
-            'progress': max(1, width // 2),
-            'pending': 0,
-            'ignored': width
+            'done': width * '█',
+            'progress': width // 2 * '█' + (width - width // 2) * '░',
+            'pending': width * '░',
+            'ignored': width * '─'
         }
-        filled = fill_map.get(state, 0)
-        bar = "█" * filled + "░" * (width - filled)
-        return f"[{bar}]"
+        bar = fill_map.get(state, width * '░')
+        state_emoji = {'done': '✅', 'progress': '⚙️', 'pending': '⏳', 'ignored': '➖'}
+        return f"{bar} {state_emoji.get(state, '⏳')}"
 
     def _emit_progress_update(self, task: dict, stage: object, phase: str, extra: Optional[Dict[str, object]] = None) -> None:
         """Emit a multi-line progress update with contextual details."""
@@ -132,12 +132,12 @@ class TodoService:
         stage_map = {1: 'plan', 2: 'llm', 3: 'commit'}
         stage_key = stage_map.get(stage, stage if isinstance(stage, str) else 'plan')
         stage_labels = {'plan': 'Plan', 'llm': 'Code', 'commit': 'Commit'}
-        stage_emojis = {'plan': '📝', 'llm': '💡', 'commit': '📦'}
-        state_emojis = {'pending': '🕒', 'progress': '⚙️', 'done': '✅', 'ignored': '🚫'}
+        stage_emojis = {'plan': '📝', 'llm': '💻', 'commit': '📦'}
+        state_emojis = {'pending': '⏳', 'progress': '⚙️', 'done': '✅', 'ignored': '⏸️'}
         state_titles = {'pending': 'pending', 'progress': 'running', 'done': 'done', 'ignored': 'skipped'}
-        phase_icons = {'start': '🚀', 'complete': '✅'}
-        phase_title = 'Starting' if phase == 'start' else 'Completed' if phase == 'complete' else 'Status'
-        phase_icon = phase_icons.get(phase, 'ℹ️')
+        phase_icons = {'start': '🚀 Starting', 'complete': '✅ Completed'}
+        phase_icon = phase_icons.get(phase, 'ℹ️ Status')
+        phase_title = phase_icon + f" {stage_labels.get(stage_key, stage_key.title())} step for: {task['desc'][:120]}{'…' if len(task['desc']) > 120 else ''}"
 
         desc = task.get('desc', '').strip()
         if self._todo_util:
@@ -159,7 +159,7 @@ class TodoService:
             state = stage_states[key]
             bar = self._build_progress_bar(state)
             progress_lines.append(
-                f"{emoji} {label:<6} {bar} {state_emojis[state]} {state_titles[state]}"
+                f"{emoji} {label}: {bar} {state_titles[state]}"
             )
 
         started_stamp = task.get('_start_stamp') or '—'
@@ -219,28 +219,23 @@ class TodoService:
         if not files_entries and stage_key == 'commit':
             files_entries = task.get('_committed_files') if phase == 'complete' else task.get('_pending_files')
 
-        header = f"{phase_icon} {phase_title} {stage_labels.get(stage_key, stage_key.title())} step for: {desc_display}"
-        meta_lines = [
+        out_text = out_spec_text if out_spec_text != '<none>' else f"{out_path}" if out_path else '<none>'
+        plan_text = plan_spec_text if plan_spec_text != '<none>' else f"{plan_path}" if plan_path else '<none>'
+
+        message_lines = [phase_title, ""]
+        message_lines.extend(progress_lines)
+        message_lines.append("")
+        message_lines.extend([
             f"started: {started_stamp}",
             f"completed: {completed_stamp}",
             f"knowledge: {knowledge_tokens}",
-            f"include tokens: {include_tokens}",
+            f"include: {include_tokens}",
             f"prompt: {prompt_tokens}",
-            f"plan tokens: {plan_tokens}",
             f"cur_model: {cur_model}",
-            f"include spec: {include_spec_text}",
-            f"out spec: {out_spec_text}",
-            f"plan spec: {plan_spec_text}",
-        ]
-        if out_path:
-            meta_lines.append(f"out: {out_path}")
-        if plan_path:
-            meta_lines.append(f"plan: {plan_path}")
-
-        message_lines = [header, ""]
-        message_lines.extend(progress_lines)
-        message_lines.append("")
-        message_lines.extend(meta_lines)
+            f"include: {include_spec_text}",
+            f"out: {out_text}",
+            f"plan: {plan_text}",
+        ])
 
         if include_files:
             message_lines.append("")
@@ -268,14 +263,13 @@ class TodoService:
 
         if files_entries:
             message_lines.append("")
+            files_heading = "files:"
             if stage_key == 'llm' and phase == 'complete':
                 files_heading = "files (preview):"
             elif stage_key == 'commit' and phase == 'complete':
                 files_heading = "files (committed):"
             elif stage_key == 'commit':
                 files_heading = "files (pending):"
-            else:
-                files_heading = "files:"
             message_lines.append(files_heading)
             display_files = files_entries[:5]
             for entry in display_files:
@@ -845,3 +839,6 @@ class TodoService:
             logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
+
+# Original file length: 1023 lines
+# Updated file length: 1098 lines
