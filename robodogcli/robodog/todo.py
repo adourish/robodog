@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Callable
 import statistics  # Added for calculating median, avg, peak
+from textwrap import shorten
 
 import tiktoken
 from pydantic import BaseModel, RootModel
@@ -100,6 +101,194 @@ class TodoService:
         """Set callback for UI updates during task processing."""
         self._ui_callback = callback
 
+    def _flag_to_state(self, flag: Optional[str]) -> str:
+        """Translate flag character into a progress state."""
+        mapping = {
+            'x': 'done',
+            '~': 'progress',
+            '-': 'ignored',
+            ' ': 'pending',
+            None: 'pending'
+        }
+        return mapping.get(flag, 'pending')
+
+    def _build_progress_bar(self, state: str, width: int = 10) -> str:
+        """Render a progress bar for the given state."""
+        fill_map = {
+            'done': width,
+            'progress': max(1, width // 2),
+            'pending': 0,
+            'ignored': width
+        }
+        filled = fill_map.get(state, 0)
+        bar = "█" * filled + "░" * (width - filled)
+        return f"[{bar}]"
+
+    def _emit_progress_update(self, task: dict, stage: object, phase: str, extra: Optional[Dict[str, object]] = None) -> None:
+        """Emit a multi-line progress update with contextual details."""
+        if task is None:
+            return
+        extra = dict(extra or {})
+        stage_map = {1: 'plan', 2: 'llm', 3: 'commit'}
+        stage_key = stage_map.get(stage, stage if isinstance(stage, str) else 'plan')
+        stage_labels = {'plan': 'Plan', 'llm': 'Code', 'commit': 'Commit'}
+        stage_emojis = {'plan': '📝', 'llm': '💡', 'commit': '📦'}
+        state_emojis = {'pending': '🕒', 'progress': '⚙️', 'done': '✅', 'ignored': '🚫'}
+        state_titles = {'pending': 'pending', 'progress': 'running', 'done': 'done', 'ignored': 'skipped'}
+        phase_icons = {'start': '🚀', 'complete': '✅'}
+        phase_title = 'Starting' if phase == 'start' else 'Completed' if phase == 'complete' else 'Status'
+        phase_icon = phase_icons.get(phase, 'ℹ️')
+
+        desc = task.get('desc', '').strip()
+        if self._todo_util:
+            desc = self._todo_util.sanitize_desc(desc)
+        else:
+            desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
+        desc_display = shorten(desc, width=120, placeholder='…')
+
+        stage_states = {
+            'plan': self._flag_to_state(task.get('plan_flag')),
+            'llm': self._flag_to_state(task.get('status_char')),
+            'commit': self._flag_to_state(task.get('write_flag'))
+        }
+
+        progress_lines = []
+        for key in ('plan', 'llm', 'commit'):
+            emoji = stage_emojis[key]
+            label = stage_labels[key]
+            state = stage_states[key]
+            bar = self._build_progress_bar(state)
+            progress_lines.append(
+                f"{emoji} {label:<6} {bar} {state_emojis[state]} {state_titles[state]}"
+            )
+
+        started_stamp = task.get('_start_stamp') or '—'
+        completed_stamp = task.get('_complete_stamp') or '—'
+        knowledge_tokens = task.get('knowledge_tokens', 0)
+        include_tokens = task.get('include_tokens', 0)
+        prompt_tokens = task.get('prompt_tokens', 0)
+        plan_tokens = task.get('plan_tokens', 0)
+        cur_model = task.get('cur_model') or self._svc.get_cur_model() if self._svc else '—'
+
+        include_spec = task.get('include')
+        include_spec_text = '<none>'
+        if isinstance(include_spec, dict):
+            bits = []
+            if include_spec.get('pattern'):
+                bits.append(include_spec['pattern'])
+            if include_spec.get('file'):
+                bits.append(include_spec['file'])
+            if include_spec.get('recursive'):
+                bits.append('recursive')
+            include_spec_text = ' '.join(bits) if bits else '<none>'
+
+        out_spec = task.get('out')
+        out_spec_text = '<none>'
+        if isinstance(out_spec, dict):
+            bits = []
+            if out_spec.get('pattern'):
+                bits.append(out_spec['pattern'])
+            if out_spec.get('file'):
+                bits.append(out_spec['file'])
+            if out_spec.get('recursive'):
+                bits.append('recursive')
+            out_spec_text = ' '.join(bits) if bits else '<none>'
+        elif isinstance(out_spec, str) and out_spec.strip():
+            out_spec_text = out_spec.strip()
+
+        plan_spec = task.get('plan')
+        plan_spec_text = '<none>'
+        if isinstance(plan_spec, dict):
+            bits = []
+            if plan_spec.get('pattern'):
+                bits.append(plan_spec['pattern'])
+            if plan_spec.get('file'):
+                bits.append(plan_spec['file'])
+            if plan_spec.get('recursive'):
+                bits.append('recursive')
+            plan_spec_text = ' '.join(bits) if bits else '<none>'
+        elif isinstance(plan_spec, str) and plan_spec.strip():
+            plan_spec_text = plan_spec.strip()
+
+        include_files = extra.get('include_files') or task.get('_include_files') or []
+        plan_path = task.get('_plan_path')
+        out_path = task.get('_out_path')
+        files_entries = extra.get('files')
+        if not files_entries and stage_key == 'llm':
+            files_entries = task.get('_pending_files')
+        if not files_entries and stage_key == 'commit':
+            files_entries = task.get('_committed_files') if phase == 'complete' else task.get('_pending_files')
+
+        header = f"{phase_icon} {phase_title} {stage_labels.get(stage_key, stage_key.title())} step for: {desc_display}"
+        meta_lines = [
+            f"started: {started_stamp}",
+            f"completed: {completed_stamp}",
+            f"knowledge: {knowledge_tokens}",
+            f"include tokens: {include_tokens}",
+            f"prompt: {prompt_tokens}",
+            f"plan tokens: {plan_tokens}",
+            f"cur_model: {cur_model}",
+            f"include spec: {include_spec_text}",
+            f"out spec: {out_spec_text}",
+            f"plan spec: {plan_spec_text}",
+        ]
+        if out_path:
+            meta_lines.append(f"out: {out_path}")
+        if plan_path:
+            meta_lines.append(f"plan: {plan_path}")
+
+        message_lines = [header, ""]
+        message_lines.extend(progress_lines)
+        message_lines.append("")
+        message_lines.extend(meta_lines)
+
+        if include_files:
+            message_lines.append("")
+            message_lines.append("include files:")
+            display_include = include_files[:5]
+            for path in display_include:
+                message_lines.append(f"  • {path}")
+            remaining = len(include_files) - len(display_include)
+            if remaining > 0:
+                message_lines.append(f"  • … {remaining} more")
+
+        plan_preview = extra.get('plan_preview') or (task.get('_latest_plan') if stage_key == 'plan' and phase == 'complete' else None)
+        if plan_preview:
+            plan_lines = plan_preview.strip().splitlines()
+            if plan_lines:
+                message_lines.append("")
+                message_lines.append("Plan from plan.md:")
+                if plan_path:
+                    message_lines.append(f"  # file: {Path(plan_path).name}")
+                display_plan = plan_lines[:6]
+                for line in display_plan:
+                    message_lines.append(f"  {line}")
+                if len(plan_lines) > len(display_plan):
+                    message_lines.append("  …")
+
+        if files_entries:
+            message_lines.append("")
+            if stage_key == 'llm' and phase == 'complete':
+                files_heading = "files (preview):"
+            elif stage_key == 'commit' and phase == 'complete':
+                files_heading = "files (committed):"
+            elif stage_key == 'commit':
+                files_heading = "files (pending):"
+            else:
+                files_heading = "files:"
+            message_lines.append(files_heading)
+            display_files = files_entries[:5]
+            for entry in display_files:
+                message_lines.append(f"  • {entry}")
+            remaining = len(files_entries) - len(display_files)
+            if remaining > 0:
+                message_lines.append(f"  • … {remaining} more")
+
+        message = "\n".join(message_lines)
+        logger.info(message, extra={'log_color': 'HIGHLIGHT'})
+        if self._ui_callback:
+            self._ui_callback(message)
+
     def _parse_base_dir(self) -> Optional[str]:
         logger.debug("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
         try:
@@ -156,10 +345,8 @@ class TodoService:
             if desc_has_flag:
                 logger.warning(f"Task {i} desc contaminated with '[-]': {t['desc'][:100]}...", extra={'log_color': 'DELTA'})
                 contaminated += 1
-                # Sanitize desc by removing the contamination
                 t['desc'] = self._todo_util.sanitize_desc(t['desc'])
                 logger.debug(f"Sanitized contaminated desc for task {i}: {t['desc'][:50]}...")
-            # default to ' ' when the regex group was missing
             t['plan_flag']   = t.get('plan_flag')   or ' '
             t['status_char'] = t.get('status_char') or ' '
             t['write_flag']  = t.get('write_flag')  or ' '
@@ -197,34 +384,32 @@ class TodoService:
 
                     indent     = m.group(1)
                     status     = m.group('status')
-                    write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
-                    plan_flag  = m.group('plan')   # may be None, ' ', '~', or 'x'
-                    metadata_str = m.group('metadata')  # Optional metadata before desc
-                    # Extract raw full_desc, then immediately sanitize to remove any trailing flags before metadata parsing
+                    write_flag = m.group('write')
+                    plan_flag  = m.group('plan')
+                    metadata_str = m.group('metadata')
                     full_desc  = m.group('desc')
-                    full_desc = self._todo_util.sanitize_desc(full_desc)  # Sanitize immediately after extraction
+                    full_desc = self._todo_util.sanitize_desc(full_desc)
                     logger.debug(f"Raw full_desc after immediate sanitization: {full_desc[:100]}...")
                     
-                    # Now parse metadata from the sanitized full_desc
                     metadata = self._todo_util._parse_task_metadata(full_desc)
                     desc     = metadata.pop('desc')
                     task     = {
                         'file': fn,
                         'line_no': i,
                         'indent': indent,
-                        'plan_flag': plan_flag,  # New field
+                        'plan_flag': plan_flag,
                         'status_char': status,
                         'write_flag': write_flag,
                         'desc': desc,
                         'include': None,
                         'in': None,
                         'out': None,
-                        'plan': None,  # New for plan.md spec
+                        'plan': None,
                         'knowledge': '',
                         'knowledge_tokens': 0,
                         'include_tokens': 0,
                         'prompt_tokens': 0,
-                        'plan_tokens': 0,  # New
+                        'plan_tokens': 0,
                         '_start_stamp': None,
                         '_know_tokens': 0,
                         '_in_tokens': 0,
@@ -232,11 +417,10 @@ class TodoService:
                         '_include_tokens': 0,
                         '_complete_stamp': None,
                     }
-                    task.update(metadata)  # Add parsed metadata (tokens, stamps)
+                    task.update(metadata)
 
                     logger.info(f"Loaded task {task_count}: flags P:{plan_flag} S:{status} W:{write_flag}, desc length {len(desc)} (sanitized)", extra={'log_color': 'HIGHLIGHT'})
 
-                    # scan sub‐entries (include, in, focus, plan)
                     j = i + 1
                     while j < len(lines) and lines[j].startswith(indent + '  '):
                         sub = SUB_RE.match(lines[j])
@@ -246,13 +430,12 @@ class TodoService:
                             rec = bool(sub.group('rec'))
                             if key == 'focus':
                                 task['out'] = {'pattern': pat, 'recursive': rec}
-                            elif key == 'plan':  # New for plan.md
+                            elif key == 'plan':
                                 task['plan'] = {'pattern': pat, 'recursive': rec}
                             else:
                                 task[key] = {'pattern': pat, 'recursive': rec}
                         j += 1
 
-                    # capture ```knowledge``` fence immediately after task
                     if j < len(lines) and lines[j].lstrip().startswith('```knowledge'):
                         fence = []
                         j += 1
@@ -262,16 +445,15 @@ class TodoService:
                         task['knowledge'] = ''.join(fence)
                         know_tokens = len(''.join(fence).split())
                         task['_know_tokens'] = know_tokens
-                        task['knowledge_tokens'] = know_tokens  # Override if metadata had different value
+                        task['knowledge_tokens'] = know_tokens
                         logger.info(f"Loaded knowledge for task {task_count}: {know_tokens} tokens", extra={'log_color': 'PERCENT'})
-                        j += 1  # skip closing ``` line
+                        j += 1
 
                     self._tasks.append(task)
                     task_count += 1
                     total_tasks += 1
                     i = j
                 logger.info(f"Loaded {task_count} tasks from {fn}", extra={'log_color': 'PERCENT'})
-            # Post-load sanitization for all tasks (additional safety)
             for i, t in enumerate(self._tasks):
                 t['desc'] = self._todo_util.sanitize_desc(t['desc'])
                 logger.debug(f"Post-load sanitized task {i} desc: {t['desc'][:50]}...")
@@ -296,32 +478,25 @@ class TodoService:
                         mtime = os.path.getmtime(fn)
                     except OSError:
                         logger.warning(f"File {fn} not found, skipping", extra={'log_color': 'DELTA'})
-                        # file might have been deleted
                         continue
 
-                    # 1) ignore our own writes
                     ignore_time = self._watch_ignore.get(fn)
                     if ignore_time and abs(mtime - ignore_time) < 1e-3:
                         self._watch_ignore.pop(fn, None)
                         logger.debug(f"Skipped our own write for {fn}")
 
-                    # 2) external change?
                     elif self._mtimes.get(fn) and mtime > self._mtimes[fn]:
                         logger.info(f"Detected external change in {fn}, reloading tasks", extra={'log_color': 'DELTA'})
-                        # Enhanced: UI callback for file change
                         if self._ui_callback:
                             self._ui_callback(f"📁 File changed: {fn}")
                             
                         if not self._svc:
                             logger.warning("Svc not available, skipping change processing", extra={'log_color': 'DELTA'})
-                            # nothing to do if service not hooked up
                             continue
 
                         try:
-                            # re‐parse all todo.md files into self._tasks
                             self._load_all()
 
-                            # b) then run the next To Do task, if any remain
                             next_todos = [
                                 t for t in self._tasks
                                 if t.get('status_char') == ' '
@@ -330,7 +505,6 @@ class TodoService:
                             ]
                             if next_todos:
                                 logger.info(f"New To Do tasks found ({len(next_todos)}), running next", extra={'log_color': 'HIGHLIGHT'})
-                                # Enhanced: UI callback for new tasks
                                 if self._ui_callback:
                                     self._ui_callback(f"🆕 {len(next_todos)} new tasks found")
                                 self.run_next_task(self._svc, fn)
@@ -339,7 +513,6 @@ class TodoService:
                             logger.exception(f"Watch loop error processing {fn}: {e}", extra={'log_color': 'DELTA'})
                             traceback.print_exc()
 
-                    # 3) update our stored mtime
                     self._mtimes[fn] = mtime
 
             except Exception as e:
@@ -348,30 +521,23 @@ class TodoService:
 
             time.sleep(1)
 
-    def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
+    def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1, progress_extra: Optional[Dict[str, object]] = None):
         logger.info(f"Starting task: {task['desc']} (model: {cur_model}, step: {step})", extra={'log_color': 'HIGHLIGHT'})
-        # Enhanced: UI callback for task start
-        if self._ui_callback:
-            step_name = 'Plan' if step == 1 else 'LLM' if step == 2 else 'Commit'
-            self._ui_callback(f"🚀 Starting {step_name}: {task['desc'][:50]}...")
-            
+        progress_payload: Dict[str, object] = dict(progress_extra or {})
         try:
-            # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
-            # Update flags based on step: set '~' for the relevant one
-            if step == 1:  # Plan step
+            if step == 1:
                 task['plan_flag'] = '~'
                 logger.info(f"Set plan_flag to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            elif step == 2:  # LLM step
+            elif step == 2:
                 task['status_char'] = '~'
                 logger.info(f"Set status_char to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            elif step == 3:  # Commit step
+            elif step == 3:
                 task['write_flag'] = '~'
                 logger.info(f"Set write_flag to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            # Rebuild and write the line immediately to todo.md
             rebuilt_line = self._todo_util._rebuild_task_line(task)
             fn = task['file']
             line_no = task['line_no']
@@ -381,13 +547,18 @@ class TodoService:
                 file_lines_map[fn] = lines
                 self._file_service.write_file(Path(fn), ''.join(lines))
                 logger.info(f"Immediately updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan_flag']}, status={task['status_char']}, write={task['write_flag']}", extra={'log_color': 'HIGHLIGHT'})
-            # Now call task_manager.start_task
             st = self._task_manager.start_task(task, file_lines_map, cur_model, step)
-            # Preserve or set stamp if task_manager returns None
             if st is None:
                 st = datetime.now().isoformat()
-            task['_start_stamp'] = st  # Ensure start stamp is set on task
-            # Enhanced logging: Include plan_tokens, knowledge_tokens, include_tokens
+            task['_start_stamp'] = st
+            if progress_payload:
+                if step == 3 and 'files' not in progress_payload:
+                    pending = task.get('_pending_files')
+                    if pending:
+                        progress_payload['files'] = pending
+            elif step == 3 and task.get('_pending_files'):
+                progress_payload['files'] = task.get('_pending_files')
+            self._emit_progress_update(task, step, 'start', progress_payload)
             logger.info(f"Task started: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}", extra={'log_color': 'PERCENT'})
             return st
         except Exception as e:
@@ -395,32 +566,26 @@ class TodoService:
             traceback.print_exc()
             st = datetime.now().isoformat()
             task['_start_stamp'] = st
+            self._emit_progress_update(task, step, 'start', progress_payload)
             return st
             
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
         logger.info(f"Completing task: {task['desc']} (model: {cur_model}, commit: {commit}, step: {step})", extra={'log_color': 'HIGHLIGHT'})
-        # Enhanced: UI callback for task completion
-        if self._ui_callback:
-            step_name = 'Plan' if step == 1 else 'LLM' if step == 2 else 'Commit'
-            self._ui_callback(f"✅ Completed {step_name}: {task['desc'][:50]}...")
-            
+        status_extra: Dict[str, object] = {}
         try:
-            # Ensure tokens are populated before calling task_manager, including plan_tokens
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
-            # Update flags based on step: set 'x' for the relevant one
-            if step == 1:  # Plan step
+            if step == 1:
                 task['plan_flag'] = 'x'
                 logger.info(f"Set plan_flag to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            elif step == 2:  # LLM step
+            elif step == 2:
                 task['status_char'] = 'x'
                 logger.info(f"Set status_char to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            elif step == 3:  # Commit step
+            elif step == 3:
                 task['write_flag'] = 'x'
                 logger.info(f"Set write_flag to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            # Rebuild and write the line to todo.md
             rebuilt_line = self._todo_util._rebuild_task_line(task)
             fn = task['file']
             line_no = task['line_no']
@@ -430,13 +595,19 @@ class TodoService:
                 file_lines_map[fn] = lines
                 self._file_service.write_file(Path(fn), ''.join(lines))
                 logger.info(f"Updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan_flag']}, status={task['status_char']}, write={task['write_flag']}", extra={'log_color': 'HIGHLIGHT'})
-            # Now proceed with task_manager.complete_task
+            if compare:
+                if step == 2:
+                    task['_pending_files'] = compare
+                elif step == 3:
+                    task['_committed_files'] = compare
+                status_extra['files'] = compare
+            if step == 1 and task.get('_latest_plan'):
+                status_extra['plan_preview'] = task.get('_latest_plan')
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
-            # Preserve or set stamp if task_manager returns None
             if ct is None:
                 ct = datetime.now().isoformat()
-            task['_complete_stamp'] = ct  # Ensure complete stamp is set on task
-            # Enhanced logging: Include plan_tokens, knowledge_tokens, include_tokens
+            task['_complete_stamp'] = ct
+            self._emit_progress_update(task, step, 'complete', status_extra)
             logger.info(f"Task completed: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}", extra={'log_color': 'PERCENT'})
             return ct
         except Exception as e:
@@ -444,6 +615,7 @@ class TodoService:
             traceback.print_exc()
             ct = datetime.now().isoformat()
             task['_complete_stamp'] = ct
+            self._emit_progress_update(task, step, 'complete', status_extra)
             return ct
             
     def run_next_task(self, svc, todoFilename: str = ""):
@@ -453,8 +625,6 @@ class TodoService:
             self._load_all()
             self._normalize_task_flags()
 
-            # Find next task based on flags for three-step process
-            # Priority: plan_flag ' ' first, then write_flag ' ' (LLM), then status ' ' with flags 'x' for commit
             plan_pending   = [t for t in self._tasks if t['plan_flag']   == ' ']
             llm_pending    = [t for t in self._tasks
                               if t['plan_flag']   != ' '
@@ -467,7 +637,6 @@ class TodoService:
             todo = plan_pending + llm_pending + commit_pending
             if not todo:
                 logger.warning("No pending tasks found for any step.", extra={'log_color': 'DELTA'})
-                # Enhanced: UI callback for no tasks
                 if self._ui_callback:
                     self._ui_callback("✅ No pending tasks found")
                 return
@@ -478,7 +647,6 @@ class TodoService:
             logger.info(f"Completed {step} step", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
             logger.exception(f"Error running next task: {e}", extra={'log_color': 'DELTA'})
-            # Enhanced: UI callback for errors
             if self._ui_callback:
                 self._ui_callback(f"❌ Error: {e}")
             traceback.print_exc()
@@ -497,7 +665,7 @@ class TodoService:
                 know = svc.include(full_spec) or ""
                 include_tokens = len(know.split())
                 task['_include_tokens'] = include_tokens
-                task['include_tokens'] = include_tokens  # Update task
+                task['include_tokens'] = include_tokens
                 logger.info(f"Gathered include knowledge: {include_tokens} tokens from spec '{full_spec}'", extra={'log_color': 'PERCENT'})
                 return know
             except Exception as e:
@@ -509,38 +677,30 @@ class TodoService:
             traceback.print_exc()
             return ""
 
-    # New method for planning step: generate/update plan.md
     def _generate_plan(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
         """
         Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
         Uses a specialized prompt for planning. Enhanced for token efficiency and performance.
         """
         logger.info(f"Generating plan for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-        # Enhanced: UI callback for plan generation
         if self._ui_callback:
             self._ui_callback(f"📋 Generating plan for: {task['desc'][:50]}...")
             
         try:
-            # Determine plan path
             plan_spec = task.get('plan') or {'pattern': 'plan.md', 'recursive': True}
             plan_path = self._todo_util._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
             if not plan_path:
                 plan_path = base_folder / 'plan.md' if base_folder else Path('plan.md')
                 logger.info(f"Default plan path: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
 
-            # Ensure plan.md exists for update (or create empty for NEW)
             if plan_path.exists():
                 logger.info(f"Updating existing plan: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-                # For UPDATE, but we'll generate new content anyway
             else:
                 logger.info(f"Creating new plan: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-                # Create empty file
                 self._file_service.write_file(plan_path, "# Plan for task\n\nNext steps:\n- To be generated.")
 
-            logger.info(f"Plan path resolved: {plan_path}, base folder: {base_folder}", extra={'log_color': 'HIGHLIGHT'})
-            
+            task['_plan_path'] = str(plan_path)
 
-            # Build planning prompt (enhanced for performance: concise, token-aware)
             plan_prompt = self._prompt_builder.build_plan_prompt(
                 task,
                 basedir=str(base_folder) if base_folder else '',
@@ -549,16 +709,15 @@ class TodoService:
                 include_text=self._gather_include_knowledge(task, svc)
             ) 
 
-            # Generate plan (use shorter max_tokens for efficiency if possible)
             plan_content = svc.ask(plan_prompt)
             if not plan_content.strip():
                 logger.warning("No plan content generated", extra={'log_color': 'DELTA'})
                 return ""
 
-            # Write the new plan content
             self._todo_util._write_plan(self._svc, plan_path=plan_path, content=plan_content)      
             plan_tokens = len(plan_content.split())
             task['plan_tokens'] = plan_tokens
+            task['_latest_plan'] = plan_content
             logger.info(f"Plan generated and written: {plan_path}, {plan_tokens} tokens", extra={'log_color': 'PERCENT'})
             return plan_content
         except Exception as e:
@@ -569,7 +728,6 @@ class TodoService:
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
         logger.info(f"_process_one called with task, todoFilename={todoFilename!r}", extra={'log_color': 'HIGHLIGHT'})
 
-        # derive the folder containing the todo.md that was edited
         base_folder = None
         if todoFilename:
             try:
@@ -584,45 +742,50 @@ class TodoService:
             logger.info(f"Processing task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             basedir = Path(task['file']).parent
             self._base_dir = str(basedir)
-            self._file_service.base_dir = str(basedir)  # Set base_dir for relative resolutions
+            self._file_service.base_dir = str(basedir)
             logger.debug(f"Base dir: {self._base_dir}")
+            task['cur_model'] = svc.get_cur_model()
             include_text = self._gather_include_knowledge(task, svc)
-            task['_include_tokens'] = len(include_text.split())
-            task['include_tokens'] = task['_include_tokens']
-            logger.info(f"Include tokens: {task['_include_tokens']}", extra={'log_color': 'PERCENT'})
+            include_files: List[str] = []
+            if include_text:
+                for line in include_text.splitlines():
+                    if line.startswith("# file: "):
+                        include_files.append(line[8:].strip())
+            task['_include_files'] = include_files
+            task['_include_spec'] = task.get('include')
+            task['_include_tokens'] = len(include_text.split()) if include_text else 0
+            task['include_tokens'] = task.get('include_tokens', task['_include_tokens'])
+            task['knowledge_tokens'] = len(task.get('knowledge', '').split())
             knowledge_text = task.get('knowledge') or ""
             task['_know_tokens'] = len(knowledge_text.split())
             task['knowledge_tokens'] = task['_know_tokens']
-            logger.info(f"Knowledge tokens: {task['_know_tokens']}", extra={'log_color': 'PERCENT'})
 
-            # Determine which step to run based on flags
             plan_flag = task.get('plan_flag', 'x')
             write_flag = task.get('write_flag', 'x')
             status = task.get('status_char', 'x')
             logger.warning(f'Running next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]', extra={'log_color': 'DELTA'})
             
             if plan_flag == ' ':
-                # Step 1: Planning
                 logger.warning("Step 1: Running planning", extra={'log_color': 'HIGHLIGHT'})
                 st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 1)
                 plan_content = self._generate_plan(task, svc, base_folder)
                 if plan_content:
                     task['plan_tokens'] = len(plan_content.split())
                     logger.info(f"Plan tokens: {task['plan_tokens']}", extra={'log_color': 'PERCENT'})
-                
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, None, False, 1)
                 task['_start_stamp'] = st
             elif status == ' ':
-                # Step 2: LLM Task (after planning)
                 logger.warning("Step 2: Running LLM task using plan.md", extra={'log_color': 'HIGHLIGHT'})
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
-                # Include plan.md in knowledge for step 2
+                task['_out_path'] = str(out_path) if out_path else None
                 plan_knowledge = ""
                 plan_spec = task.get('plan', {'pattern': 'plan.md', 'recursive': False})
                 plan_path = self._todo_util._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
                 if plan_path and plan_path.exists():
                     plan_content = self._file_service.safe_read_file(plan_path)
                     plan_knowledge = f"Plan from plan.md:\n{plan_content}\n"
+                    task['_plan_path'] = str(plan_path)
+                    task['_latest_plan'] = plan_content
                     logger.info("Included plan.md in LLM prompt", extra={'log_color': 'HIGHLIGHT'})
                 prompt = self._prompt_builder.build_task_prompt(
                     task, self._base_dir, str(out_path), knowledge_text + plan_knowledge, include_text
@@ -639,22 +802,24 @@ class TodoService:
                     logger.warning("No AI output generated, retrying once", extra={'log_color': 'DELTA'})
                     ai_out = svc.ask(prompt)
                 self._todo_util._write_full_ai_output(svc, task, ai_out, 0, base_folder=base_folder)
-                # Parse but do not commit yet
                 parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
                 committed, compare = self._todo_util._write_parsed_files(parsed_files, task, False, base_folder=base_folder, current_filename=None)
+                task['_pending_files'] = compare or []
                 logger.info(f"LLM step: {committed} files parsed (not committed)", extra={'log_color': 'PERCENT'})
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, compare, True, 2)
                 task['_complete_stamp'] = ct
             elif status == 'x' and write_flag == ' ' and plan_flag == 'x':
-                # Step 3: Commit
                 logger.warning("Step 3: Committing LLM response", extra={'log_color': 'HIGHLIGHT'})
-                st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 3)
+                commit_preview = task.get('_pending_files') or []
+                progress_extra = {'files': commit_preview} if commit_preview else None
+                st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 3, progress_extra=progress_extra)
                 raw_out = task.get('out')
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
                 if out_path and out_path.exists():
                     ai_out = self._file_service.safe_read_file(out_path)
                     parsed_files = self.parser.parse_llm_output_commit(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc)
                     committed, compare = self._todo_util._write_parsed_files(parsed_files, task, True, base_folder=base_folder, current_filename=None)
+                    task['_committed_files'] = compare or []
                     logger.info(f"Commit step: {committed} files committed", extra={'log_color': 'PERCENT'})
                     truncation = 0.0
                     
@@ -680,7 +845,3 @@ class TodoService:
             logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
-
-
-# Original file length: 566 lines
-# Updated file length: 610 lines

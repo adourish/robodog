@@ -178,7 +178,7 @@ def interact(svc: RobodogService, app_instance: RobodogApp):  # Modified to acce
 
                 elif cmd == "models":
                     for m in svc.list_models_about():
-                        logging.info("  %s", m)
+                        app_instance.display_command(f"  {m}")
 
                 elif cmd == "model":
                     if not args:

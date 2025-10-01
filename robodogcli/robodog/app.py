@@ -18,7 +18,7 @@ class RobodogApp:
         Append a line to the log and print it to stdout.
         """
         self._log.append(text)
-        print(text)
+        print(text, flush=True)
 
     def get_log(self) -> List[str]:
         """
@@ -101,6 +101,3 @@ class RobodogApp:
             self.display_command(f"> {cmd}")
             # dispatch
             self.run_command(cmd)
-
-# Original file length: 100 lines
-# Updated file length: 115 lines
