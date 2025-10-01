@@ -137,6 +137,7 @@ class TodoService:
         state_titles = {'pending': 'pending', 'progress': 'running', 'done': 'done', 'ignored': 'skipped'}
         phase_icons = {'start': '🚀 Starting', 'complete': '✅ Completed'}
         phase_icon = phase_icons.get(phase, 'ℹ️ Status')
+        # Fixed-width alignment: Use max label width of 10 chars for labels, 10 for bars
         phase_title = phase_icon + f" {stage_labels.get(stage_key, stage_key.title())} step for: {task['desc'][:120]}{'…' if len(task['desc']) > 120 else ''}"
 
         desc = task.get('desc', '').strip()
@@ -153,9 +154,10 @@ class TodoService:
         }
 
         progress_lines = []
+        label_width = 10  # Fixed width for "Plan    :", "Code    :", "Commit  :" (max 10 chars)
         for key in ('plan', 'llm', 'commit'):
             emoji = stage_emojis[key]
-            label = stage_labels[key]
+            label = stage_labels[key].ljust(label_width)  # Pad labels to fixed width
             state = stage_states[key]
             bar = self._build_progress_bar(state)
             progress_lines.append(
@@ -231,6 +233,7 @@ class TodoService:
             f"knowledge: {knowledge_tokens}",
             f"include: {include_tokens}",
             f"prompt: {prompt_tokens}",
+            f"plan: {plan_tokens}",
             f"cur_model: {cur_model}",
             f"include: {include_spec_text}",
             f"out: {out_text}",
@@ -240,7 +243,7 @@ class TodoService:
         if include_files:
             message_lines.append("")
             message_lines.append("include files:")
-            display_include = include_files[:5]
+            display_include = include_files[:10]  # Fixed: Show at least 10, or all if fewer
             for path in display_include:
                 message_lines.append(f"  • {path}")
             remaining = len(include_files) - len(display_include)
@@ -282,6 +285,7 @@ class TodoService:
         logger.info(message, extra={'log_color': 'HIGHLIGHT'})
         if self._ui_callback:
             self._ui_callback(message)
+            print(message, flush=True)  # Flush after callback for immediate visibility
 
     def _parse_base_dir(self) -> Optional[str]:
         logger.debug("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
@@ -635,10 +639,10 @@ class TodoService:
                     self._ui_callback("✅ No pending tasks found")
                 return
             next_task = todo[0]
-            step = 'plan' if next_task in plan_pending else 'llm' if next_task in llm_pending else 'commit'
-            logger.info(f"Running next {step} step for task: {next_task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            self._process_one(next_task, svc, self._file_lines, todoFilename=todoFilename)
-            logger.info(f"Completed {step} step", extra={'log_color': 'HIGHLIGHT'})
+            step = 1 if next_task in plan_pending else 2 if next_task in llm_pending else 3
+            logger.info(f"Running next step {step} ({'plan' if step==1 else 'llm' if step==2 else 'commit'}) for task: {next_task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            self._process_one(next_task, svc, self._file_lines, todoFilename=todoFilename, step=step)
+            logger.info(f"Completed step {step}", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
             logger.exception(f"Error running next task: {e}", extra={'log_color': 'DELTA'})
             if self._ui_callback:
@@ -719,8 +723,8 @@ class TodoService:
             traceback.print_exc()
             return ""
 
-    def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = ""):
-        logger.info(f"_process_one called with task, todoFilename={todoFilename!r}", extra={'log_color': 'HIGHLIGHT'})
+    def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = "", step: int = 1):
+        logger.info(f"_process_one called with task, todoFilename={todoFilename!r}, step={step}", extra={'log_color': 'HIGHLIGHT'})
 
         base_folder = None
         if todoFilename:
@@ -757,9 +761,8 @@ class TodoService:
             plan_flag = task.get('plan_flag', 'x')
             write_flag = task.get('write_flag', 'x')
             status = task.get('status_char', 'x')
-            logger.warning(f'Running next task plan:[{plan_flag}] execution status:[{status}] commit:[{write_flag}]', extra={'log_color': 'DELTA'})
             
-            if plan_flag == ' ':
+            if step == 1 or (plan_flag == ' '):
                 logger.warning("Step 1: Running planning", extra={'log_color': 'HIGHLIGHT'})
                 st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 1)
                 plan_content = self._generate_plan(task, svc, base_folder)
@@ -768,7 +771,7 @@ class TodoService:
                     logger.info(f"Plan tokens: {task['plan_tokens']}", extra={'log_color': 'PERCENT'})
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, None, False, 1)
                 task['_start_stamp'] = st
-            elif status == ' ':
+            elif step == 2 or (status == ' '):
                 logger.warning("Step 2: Running LLM task using plan.md", extra={'log_color': 'HIGHLIGHT'})
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
                 task['_out_path'] = str(out_path) if out_path else None
@@ -802,7 +805,7 @@ class TodoService:
                 logger.info(f"LLM step: {committed} files parsed (not committed)", extra={'log_color': 'PERCENT'})
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, compare, True, 2)
                 task['_complete_stamp'] = ct
-            elif status == 'x' and write_flag == ' ' and plan_flag == 'x':
+            elif step == 3 or (status == 'x' and write_flag == ' ' and plan_flag == 'x'):
                 logger.warning("Step 3: Committing LLM response", extra={'log_color': 'HIGHLIGHT'})
                 commit_preview = task.get('_pending_files') or []
                 progress_extra = {'files': commit_preview} if commit_preview else None
@@ -839,6 +842,3 @@ class TodoService:
             logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
-
-# Original file length: 1023 lines
-# Updated file length: 1098 lines
