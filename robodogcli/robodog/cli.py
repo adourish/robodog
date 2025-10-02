@@ -337,32 +337,6 @@ def interact(svc: RobodogService, app_instance: RobodogApp):  # Modified to acce
                 _resp = svc.ask(_line)
                 print(f"{_resp}")
 
-def enable_powershell_ansi():
-    """
-    Attempt to enable virtual terminal processing for ANSI colors in PowerShell on Windows.
-    Checks and sets the registry key if possible (requires admin rights; otherwise, warn).
-    This is to fix color issues in PowerShell 5.1 and earlier without external tweaks.
-    """
-    if os.name != 'nt' or not POWERSHELL_ENV:
-        return
-    try:
-        import winreg
-        key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Console"
-        reg_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ | winreg.KEY_WRITE)
-        vt_level, vt_type = winreg.QueryValueEx(reg_key, "VirtualTerminalLevel")
-        if vt_level == 0:
-            winreg.SetValueEx(reg_key, "VirtualTerminalLevel", 0, winreg.REG_DWORD, 1)
-            print("Enabled VirtualTerminalLevel=1 for ANSI colors in PowerShell. Restart PowerShell for changes to take effect.")
-        else:
-            print(f"VirtualTerminalLevel already set to {vt_level}. Colors should work.")
-        winreg.CloseKey(reg_key)
-    except ImportError:
-        logger.warning("winreg module available only on Windows.")
-    except PermissionError:
-        logger.warning("Requires admin to set VirtualTerminalLevel. Run PowerShell as admin once to fix colors, or enable manually via registry.")
-    except Exception as e:
-        logger.warning(f"Could not set VirtualTerminalLevel: {e}. ANSI colors may not display.")
-
 def main():
     parser = argparse.ArgumentParser(prog="robodog",
         description="Combined MCP file-server + Robodog CLI")
@@ -392,10 +366,6 @@ def main():
     parser.add_argument('--excludeDirs', default='node_modules,dist,diffout',
                         help='comma-separated list of directories to exclude')
     args = parser.parse_args()
-
-    # Enhanced: Enable Virtual Terminal for ANSI colors in PowerShell
-    if POWERSHELL_ENV and WINDOWS_ANSI_ENABLED:
-        enable_powershell_ansi()
 
     
     # configure colored logging

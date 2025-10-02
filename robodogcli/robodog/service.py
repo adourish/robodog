@@ -208,7 +208,98 @@ class RobodogService:
             cmd.update(type="pattern", pattern=p0.split("=", 1)[1], recursive=True)
         return cmd
 
+    def include_list(self, spec_text: str, prompt: str = None):
+        """
+        Discover files as before but return a list of metadata dicts:
+        [
+          {
+            "filename": "/path/to/foo.py",
+            "content": "... file text ...",
+            "token_count": 123
+          },
+          …
+        ]
+        """
+        inc    = self.parse_include(spec_text)
+        searches = []
+
+        if inc["type"] == "dir":
+            searches.append({
+                "root":      inc["dir"],
+                "pattern":   inc["pattern"],
+                "recursive": inc["recursive"]
+            })
+        else:
+            pat = inc.get("pattern") or inc.get("file") or "*"
+            searches.append({
+                "pattern":   pat,
+                "recursive": True
+            })
+
+        # collect all matching paths
+        matches = []
+        for p in searches:
+            if p.get("root"):
+                roots = [p["root"]]
+            elif hasattr(self, "todo") and getattr(self.todo, "_roots", None):
+                roots = self.todo._roots
+            else:
+                roots = self._roots
+
+            found = self.search_files(
+                patterns=p.get("pattern", "*"),
+                recursive=p.get("recursive", True),
+                roots=roots
+            )
+            matches.extend(found)
+
+        if not matches:
+            return []
+
+        # read each file in parallel
+        def _read(path):
+            content = self.read_file(path)
+            return path, content
+
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            for path, content in pool.map(_read, matches):
+                token_count = len(content.split())
+                logger.info(f"Included file: {path} ({token_count} tokens)")
+                results.append({
+                    "filename":    path,
+                    "content":     content,
+                    "token_count": token_count
+                })
+
+        return results
+    
+    def combine_knowledge(self, entries: list) -> str:
+        """
+        Given a list of {filename, content, token_count, …} dictionaries,
+        return a single string in the old “knowledge” format:
+            # file: /path/to/foo.py
+            <content of foo.py>
+
+            # file: /path/to/bar.txt
+            <content of bar.txt>
+        """
+        blocks = []
+        for entry in entries:
+            fname   = entry.get("filename", "<unknown>")
+            content = entry.get("content", "")
+            blocks.append(f"# file: {fname}")
+            blocks.append(content)
+            blocks.append("")   # blank line between files
+        # join with newline
+        return "\n".join(blocks).strip()  # strip to avoid leading/trailing blank lines
+    
     def include(self, spec_text: str, prompt: str = None):
+        entries = self.include_list(spec_text=spec_text, prompt=prompt)
+        knowledge = self.combine_knowledge(entries=entries)
+        return knowledge
+    
+    def include_files_text(self, spec_text: str, prompt: str = None):
         inc = self.parse_include(spec_text)
         knowledge = ""
         searches = []
@@ -243,7 +334,7 @@ class RobodogService:
         if not matches:
             return None
 
-        included_txts = []
+       
 
         def _read(path):
             content = self.read_file(path)
@@ -251,13 +342,9 @@ class RobodogService:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             for path, txt in pool.map(_read, matches):
-                try:
-                    enc = tiktoken.encoding_for_model(self.cur_model)
-                except:
-                    enc = tiktoken.get_encoding("gpt2")
                 wc = len(txt.split())
-                tc = len(enc.encode(txt))
-                logger.info(f"Included: {path} ({tc} tokens)")
+                included_txts = []
+                logger.info(f"Included file: {path} ({wc} tokens)")
                 included_txts.append("# file: " + path)
                 included_txts.append(txt)
                 combined = "\n".join(included_txts)

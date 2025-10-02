@@ -243,12 +243,8 @@ class TodoService:
         if include_files:
             message_lines.append("")
             message_lines.append("include files:")
-            display_include = include_files[:10]  # Fixed: Show at least 10, or all if fewer
-            for path in display_include:
+            for path in include_files:
                 message_lines.append(f"  • {path}")
-            remaining = len(include_files) - len(display_include)
-            if remaining > 0:
-                message_lines.append(f"  • … {remaining} more")
 
         plan_preview = extra.get('plan_preview') or (task.get('_latest_plan') if stage_key == 'plan' and phase == 'complete' else None)
         if plan_preview:
@@ -274,12 +270,9 @@ class TodoService:
             elif stage_key == 'commit':
                 files_heading = "files (pending):"
             message_lines.append(files_heading)
-            display_files = files_entries[:5]
-            for entry in display_files:
+
+            for entry in files_entries:
                 message_lines.append(f"  • {entry}")
-            remaining = len(files_entries) - len(display_files)
-            if remaining > 0:
-                message_lines.append(f"  • … {remaining} more")
 
         message = "\n".join(message_lines)
         logger.info(message, extra={'log_color': 'HIGHLIGHT'})
