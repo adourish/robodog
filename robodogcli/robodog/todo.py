@@ -653,7 +653,8 @@ class TodoService:
             rec = " recursive" if inc.get('recursive') else ""
             full_spec = f"pattern={spec}{rec}"
             try:
-                know = svc.include(full_spec) or ""
+                include_list = svc.include_list(full_spec) or ""
+                know = svc.combine_knowledge(include_list)
                 include_tokens = len(know.split())
                 task['_include_tokens'] = include_tokens
                 task['include_tokens'] = include_tokens

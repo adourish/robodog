@@ -2,8 +2,8 @@
 
 
 # todo  promots
-- [x][~][-]  | knowledge: 43 | include: 51469 | prompt: 52516
-  - started: 2025-10-01T22:59:26.002219 | completed: 2025-10-02 02:59 | knowledge: 43 | include: 51469 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
+- [x][~][-] knowledge: 43 | knowledge: 43 | include: 14400 | prompt: 15526
+  - started: 2025-10-01T23:25:35.538112 | completed: 2025-10-02 03:27 | knowledge: 43 | include: 14397 | prompt: 15521 | cur_model: x-ai/grok-4-fast:free | compare: NEW plan.md O:0 N:389 D:389, UPDATE C:\Projects\robodog\robodogcli\robodog\todo.py O:3327 N:3389 D:62 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:2550 N:243 D:-2307 
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*app.py|*robodogcli*robodog*todo_util.py |*robodog*.jsx|*robodog*.js   recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
