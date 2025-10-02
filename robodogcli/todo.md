@@ -1,14 +1,27 @@
 # file: todo.md
 
 
-# todo  promots
-- [x][~][-] knowledge: 43 | knowledge: 43 | include: 14400 | prompt: 15526
-  - started: 2025-10-01T23:25:35.538112 | completed: 2025-10-02 03:27 | knowledge: 43 | include: 14397 | prompt: 15521 | cur_model: x-ai/grok-4-fast:free | compare: NEW plan.md O:0 N:389 D:389, UPDATE C:\Projects\robodog\robodogcli\robodog\todo.py O:3327 N:3389 D:62 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:2550 N:243 D:-2307 
-  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*app.py|*robodogcli*robodog*todo_util.py |*robodog*.jsx|*robodog*.js   recursive`
+# todo  protask 1
+- [x][x][x] todo one
+  - started: 2025-10-02T19:38:09.388203 | completed: 2025-10-02 23:38 | knowledge: 37 | include: 51475 | prompt: 0 | cur_model: x-ai/grok-4-fast:free | compare: NEW plan.md O:0 N:301 D:301, UPDATE C:\Projects\robodog\robodogcli\robodog\todo.py O:3330 N:3491 D:161 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:2550 N:2139 D:-411 
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*app.py|*robodogcli*robodog*todo_util.py recursive
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
 ```knowledge
-1. figure out why plan_tokens = task.get('plan_tokens', 0) is zero
-2. ensure that the plan file is being used when executing the llm task
-3. the plan file is being created in multiple places, it should match the relative path of the plan: 
+1. figure the parsing of the todo.md file is breaking
+2. it should find each task and its properties for plam/llm/commit desc, include, out, plan. it should ensure that there are no issues with reference objects
+3. 
+``` 
+
+
+
+# todo  task 2
+- [x][-][-] 
+  - started: 2025-10-02T19:57:12.231582 | completed: 2025-10-02 23:57 | knowledge: 15 | include: 13739 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
+  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*app.py|*robodogcli*robodog*todo_util.py 
+  - out: temp\out.py recursiv 
+  - plan: temp\plan.md
+```knowledge
+1. fix issues updating the status for plan, llm, commit. its deleting the desc. 
+3. 
 ``` 

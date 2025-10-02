@@ -59,7 +59,7 @@ class TodoUtilService:
         Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
         Called to clean desc after parsing or before rebuilding.
         Enhanced to robustly remove all trailing flag patterns, including multiples, and handle flags before pipes ('|').
-        Now also removes any lingering "[-]" patterns that may have accumulated.
+        Now also removes any lingering "[-]" patterns that may have accumulated. Enhanced: Iteratively remove until no more matches.
         """
         logger.debug(f"Sanitizing desc: {desc[:100]}...")
         # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ], possibly multiple
@@ -92,7 +92,7 @@ class TodoUtilService:
         Returns a dict with parsed values and the clean description.
         Enhanced: Call sanitize_desc on full_desc at entry to remove any flags; re-sanitize post-metadata split.
         Ensure final task['desc'] is clean and free of trailing flags.
-        Now parses plan_tokens as well.
+        Now parses plan_tokens as well. Enhanced: Parse stage-specific desc (plan_desc, llm_desc, commit_desc) from metadata if present (e.g., | plan_desc: ...).
         """
         logger.debug(f"Parsing metadata for task desc: {full_desc}")
         try:
@@ -102,6 +102,9 @@ class TodoUtilService:
             
             metadata = {
                 'desc': full_desc.strip(),
+                'plan_desc': full_desc.strip(),  # Enhanced: Default stage-specific desc to main desc
+                'llm_desc': full_desc.strip(),
+                'commit_desc': full_desc.strip(),
                 '_start_stamp': None,
                 '_complete_stamp': None,
                 'knowledge_tokens': 0,
@@ -135,19 +138,28 @@ class TodoUtilService:
                                 metadata['prompt_tokens'] = int(val) if val.isdigit() else 0
                                 logger.info(f"Parsed prompt tokens: {metadata['prompt_tokens']}", extra={'log_color': 'PERCENT'})
                             elif key == 'plan':  # Enhanced: Parse plan_tokens
-                                metadata['plan_tokens'] = int(val) if val.isdigit() else 0
-                                logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}", extra={'log_color': 'PERCENT'})
+                                if 'tokens' in key or val.isdigit():
+                                    metadata['plan_tokens'] = int(val) if val.isdigit() else 0
+                                    logger.info(f"Parsed plan tokens: {metadata['plan_tokens']}", extra={'log_color': 'PERCENT'})
+                                else:
+                                    metadata['plan_desc'] = val  # Stage-specific desc
+                            elif key in ['plan_desc', 'llm_desc', 'commit_desc']:  # Enhanced: Parse stage-specific desc
+                                metadata[key] = val
+                                logger.info(f"Parsed {key}: {val[:50]}...", extra={'log_color': 'HIGHLIGHT'})
                         except ValueError:
                             logger.warning(f"Failed to parse metadata part: {part}", extra={'log_color': 'DELTA'})
             # Final validation: Re-sanitize desc post-parsing to ensure it's completely clean
             metadata['desc'] = self.sanitize_desc(metadata['desc'])
+            metadata['plan_desc'] = self.sanitize_desc(metadata['plan_desc'])
+            metadata['llm_desc'] = self.sanitize_desc(metadata['llm_desc'])
+            metadata['commit_desc'] = self.sanitize_desc(metadata['commit_desc'])
             logger.debug(f"Final parsed metadata with clean desc: {metadata}")
             return metadata
         except Exception as e:
             logger.exception(f"Error parsing task metadata for '{full_desc}': {e}", extra={'log_color': 'DELTA'})
             # Fallback: return sanitized desc with defaults
             clean_fallback = self.sanitize_desc(full_desc).strip()
-            return {'desc': clean_fallback, '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
+            return {'desc': clean_fallback, 'plan_desc': clean_fallback, 'llm_desc': clean_fallback, 'commit_desc': clean_fallback, '_start_stamp': None, '_complete_stamp': None, 'knowledge_tokens': 0, 'include_tokens': 0, 'prompt_tokens': 0, 'plan_tokens': 0}
 
     # --- Enhanced _rebuild_task_line method ---
     def _rebuild_task_line(self, task: dict) -> str:
@@ -155,7 +167,7 @@ class TodoUtilService:
         Safely reconstruct a task line to prevent flag appending issues.
         Enhanced: Always start with a fully sanitized desc from task['desc']; add flags only once, append metadata separately.
         Add validation to prevent flag duplication by ensuring desc has no trailing flags before building.
-        Now includes plan_tokens in metadata if >0.
+        Now includes plan_tokens in metadata if >0. Enhanced: Insert properties post-desc without overwriting refs; use main desc, append stage-specific if different.
         """
         logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
         # Start with fully sanitized desc to ensure no trailing flags or duplicates (re-sanitize for safety)
@@ -180,7 +192,7 @@ class TodoUtilService:
         
         flags = f"[{plan_char}][{status_char}][{write_char}]"
         line = task['indent'] + "- " + flags + " " + clean_desc
-        # Append metadata if present (safely, after sanitized desc). Enhanced: Include plan_tokens
+        # Append metadata if present (safely, after sanitized desc). Enhanced: Include plan_tokens and stage-specific desc if different
         meta_parts = []
         if task.get('_start_stamp'):
             meta_parts.append(f"started: {task['_start_stamp']}")
@@ -194,6 +206,11 @@ class TodoUtilService:
             meta_parts.append(f"prompt: {task['prompt_tokens']}")
         if task.get('plan_tokens', 0) > 0:  # Enhanced: Add plan_tokens to metadata
             meta_parts.append(f"plan: {task['plan_tokens']}")
+        # Enhanced: Append stage-specific desc if different from main desc
+        for key in ['plan_desc', 'llm_desc', 'commit_desc']:
+            stage_desc = task.get(key, '')
+            if stage_desc and stage_desc != clean_desc:
+                meta_parts.append(f"{key}: {stage_desc[:100]}")  # Truncate for line length
         if meta_parts:
             line += " | " + " | ".join(meta_parts)
         # Final validation: Ensure no duplicate flags in the rebuilt line (after appending metadata)
@@ -211,7 +228,7 @@ class TodoUtilService:
         matchedfilename remains relative for reporting.
         Enhanced logging for UPDATEs: full compare details with percentage deltas (median, avg, peak line/token changes).
         Added logging for planning step files. Now includes plan_tokens in token logging.
-        Now sanitizes desc in logging to avoid flag contamination in logs.
+        Now sanitizes desc in logging to avoid flag contamination in logs. Enhanced: Use task['desc'] sanitized in logs.
         """
         logger.info("_write_parsed_files base folder: " + str(base_folder), extra={'log_color': 'HIGHLIGHT'})
         try:
@@ -254,8 +271,10 @@ class TodoUtilService:
 
                         # Per-file logging in the specified format (sanitize relative_path if needed). Enhanced: Include plan_tokens if available
                         clean_relative = self.sanitize_desc(relative_path)
+                        # Enhanced: Sanitize task desc in logging
+                        clean_task_desc = self.sanitize_desc(task['desc']) if task else ''
                         plan_t = task.get('plan_tokens', 0) if task else 0
-                        logger.info(f"Write {action} {clean_relative}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)}", extra={'log_color': 'PERCENT'})
+                        logger.info(f"Write {action} {clean_relative}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) commit:{str(commit_file)} task_desc:{clean_task_desc[:50]}", extra={'log_color': 'PERCENT'})
 
                         # Enhanced logging including originalfilename and matchedfilename
                         logger.debug(f"  - originalfilename: {originalfilename}")
@@ -307,7 +326,8 @@ class TodoUtilService:
                                     update_abs_deltas.append(abs_delta)
                                     clean_rel = self.sanitize_desc(relative_path)
                                     plan_t = task.get('plan_tokens', 0) if task else 0
-                                    logger.info(f"Updated for {filename} {clean_rel}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%)", extra={'log_color': 'PERCENT'})
+                                    clean_task_desc = self.sanitize_desc(task['desc']) if task else ''
+                                    logger.info(f"Updated for {filename} {clean_rel}: (plan/k/i/p/o/u/d/p {plan_t}/{task.get('knowledge_tokens',0)}/{task.get('include_tokens',0)}/{task.get('prompt_tokens',0)}/{orig_tokens}/{new_tokens}/{abs_delta}/{token_delta:.1f}%) task_desc:{clean_task_desc[:50]}", extra={'log_color': 'PERCENT'})
                                     result += 1
                                 else:
                                     logger.warning(f"Path for UPDATE not found: {new_path}", extra={'log_color': 'DELTA'})
@@ -360,6 +380,7 @@ class TodoUtilService:
     def _backup_and_write_output(self, svc, out_path: Path, content: str):
         if not out_path:
             return
+
         try:
             self._file_service.write_file(out_path, content)
             logger.info(f"Backed up and wrote output to: {out_path}", extra={'log_color': 'HIGHLIGHT'})

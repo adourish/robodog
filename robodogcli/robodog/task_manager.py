@@ -160,55 +160,6 @@ class TaskManager(TaskBase):
                 indent = ''
             return f"{indent}  - Error formatting task summary.\n"
     
-    def format_task_summaryb(self, task, cur_model):
-        start = task['start']
-        end = task['end']
-        know = task['know']
-        incount = task['incount']
-        prompt = task['prompt']
-        truncation = task['truncation']
-        committed = task['committed']
-        _start_stamp = task['_start_stamp']
-        knowledge_tokens = task['knowledge_tokens']
-        include_tokens = task['include_tokens']
-        prompt_tokens = task['prompt_tokens']
-        compare = task['compare']
-        indent = task['indent']
-        parts = [f"started: {start}"]
-        if end:
-            parts.append(f"completed: {end}")
-        if know is not None:
-            parts.append(f"knowledge: {know}")
-        if incount is not None:
-            parts.append(f"include: {incount}")
-        if prompt is not None:
-            parts.append(f"prompt: {prompt}")
-        if prompt_tokens:
-            parts.append(f"prompt_tokens: {prompt_tokens}")
-        if include_tokens:
-            parts.append(f"include_tokens: {include_tokens}")
-        if knowledge_tokens:
-            parts.append(f"knowledge_tokens: {knowledge_tokens}")
-        if cur_model:
-            parts.append(f"cur_model: {cur_model}")
-        # commit/truncation flags
-        if truncation <= -1:
-            parts.append("truncation: warning")
-        if truncation <= -2:
-            parts.append("truncation: error")
-        if committed <= -1:
-            parts.append("commit: warning")
-        if committed <= -2:
-            parts.append("commit: error")
-        if committed >= 1:
-            parts.append("commit: success")
-        # inline compare info
-        
-        if compare:
-            parts.append("compare: " + ", ".join(compare))
-        # single-line summary
-        return f"{indent}  - " + " | ".join(parts) + "\n"
-
         
     def write_file(self, filepath: str, file_lines: List[str]):
         """Write file and update watcher."""

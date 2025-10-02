@@ -326,10 +326,12 @@ class TodoService:
         Make sure every task always has plan_flag, status_char and write_flag set
         to one of ' ', '~', 'x', '-' (never None).
         Now with logging for normalization. Enhanced: Detect and log if desc contains "[-]" as contamination.
+        Enhanced: Add validation for reference objects (include/out/plan as dicts or {} if None).
         """
         logger.info("Normalizing task flags", extra={'log_color': 'HIGHLIGHT'})
         changed = 0
         contaminated = 0
+        ref_fixed = 0
         for i, t in enumerate(self._tasks):
             orig_flags = f"P:{t.get('plan_flag')} S:{t.get('status_char')} W:{t.get('write_flag')}"
             desc_has_flag = bool(re.search(r'\[\s*-\s*\]', t.get('desc', '')))
@@ -341,10 +343,20 @@ class TodoService:
             t['plan_flag']   = t.get('plan_flag')   or ' '
             t['status_char'] = t.get('status_char') or ' '
             t['write_flag']  = t.get('write_flag')  or ' '
+            # Enhanced: Validate reference objects
+            for ref_key in ['include', 'out', 'plan']:
+                if ref_key not in t or t[ref_key] is None:
+                    t[ref_key] = {}
+                    ref_fixed += 1
+                    logger.debug(f"Fixed {ref_key} ref to for task {i}")
+                elif not isinstance(t[ref_key], dict):
+                    t[ref_key] = {'pattern': str(t[ref_key]), 'recursive': False}
+                    ref_fixed += 1
+                    logger.debug(f"Converted {ref_key} to dict for task {i}")
             if orig_flags != f"P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}":
                 changed += 1
                 logger.debug(f"Normalized task {i}: {orig_flags} -> P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}")
-        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}; Contaminated: {contaminated}", extra={'log_color': 'PERCENT'})
+        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}; Contaminated: {contaminated}; Refs fixed: {ref_fixed}", extra={'log_color': 'PERCENT'})
 
     def _load_all(self):
         """
@@ -353,7 +365,7 @@ class TodoService:
         Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
         Added logging for task loading.
         Now includes immediate sanitization of full_desc after extraction to clean trailing flags before metadata parsing.
-        Enhanced to parse plan_tokens from metadata.
+        Enhanced to parse plan_tokens from metadata. Enhanced: Extract plan/llm/commit desc variants if present in metadata; ensure include/out/plan as dicts.
         """
         logger.debug("_load_all called: Reloading all tasks from files", extra={'log_color': 'HIGHLIGHT'})
         try:
@@ -384,6 +396,10 @@ class TodoService:
                     
                     metadata = self._todo_util._parse_task_metadata(full_desc)
                     desc     = metadata.pop('desc')
+                    # Enhanced: Extract plan/llm/commit desc if present in metadata
+                    plan_desc = metadata.pop('plan_desc', desc)
+                    llm_desc = metadata.pop('llm_desc', desc)
+                    commit_desc = metadata.pop('commit_desc', desc)
                     task     = {
                         'file': fn,
                         'line_no': i,
@@ -392,10 +408,13 @@ class TodoService:
                         'status_char': status,
                         'write_flag': write_flag,
                         'desc': desc,
-                        'include': None,
-                        'in': None,
-                        'out': None,
-                        'plan': None,
+                        'plan_desc': plan_desc,  # Enhanced: Store stage-specific desc
+                        'llm_desc': llm_desc,
+                        'commit_desc': commit_desc,
+                        'include': {},  # Enhanced: Default to empty dict
+                        'in': {},
+                        'out': {},
+                        'plan': {},  # Enhanced: Default to empty dict
                         'knowledge': '',
                         'knowledge_tokens': 0,
                         'include_tokens': 0,
@@ -419,12 +438,15 @@ class TodoService:
                             key = sub.group('key')
                             pat = sub.group('pattern').strip('"').strip('`')
                             rec = bool(sub.group('rec'))
+                            # Enhanced: Ensure dict structure
+                            spec = {'pattern': pat, 'recursive': rec}
                             if key == 'focus':
-                                task['out'] = {'pattern': pat, 'recursive': rec}
+                                task['out'] = spec
                             elif key == 'plan':
-                                task['plan'] = {'pattern': pat, 'recursive': rec}
+                                task['plan'] = spec
                             else:
-                                task[key] = {'pattern': pat, 'recursive': rec}
+                                task[key] = spec
+                            logger.debug(f"Parsed {key} spec for task {task_count}: {spec}")
                         j += 1
 
                     if j < len(lines) and lines[j].lstrip().startswith('```knowledge'):
@@ -778,8 +800,11 @@ class TodoService:
                     task['_plan_path'] = str(plan_path)
                     task['_latest_plan'] = plan_content
                     logger.info("Included plan.md in LLM prompt", extra={'log_color': 'HIGHLIGHT'})
-                prompt = self._prompt_builder.build_task_prompt(
-                    task, self._base_dir, str(out_path), knowledge_text + plan_knowledge, include_text
+                # Enhanced: Use stage-specific desc for LLM (llm_desc)
+                prompt_desc = task.get('llm_desc', task['desc'])
+                resources = "knowledge_text: " + knowledge_text + " plan.md:" + plan_knowledge + " task desc: " + prompt_desc
+                prompt = self._prompt_builder.build_task_promp(
+                    task, self._base_dir, str(out_path), resources, include_text
                 )
                 task['_prompt_tokens'] = len(prompt.split())
                 task['prompt_tokens'] = task['_prompt_tokens']
@@ -836,3 +861,6 @@ class TodoService:
             logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
+
+# Original file length: 325 lines
+# Updated file length: 380 lines
