@@ -171,8 +171,6 @@ class TodoUtilService:
         """
         logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
         # Start with fully sanitized desc to ensure no trailing flags or duplicates (re-sanitize for safety)
-        clean_desc = self.sanitize_desc(task['desc'])
-        task['desc'] = clean_desc  # Update task with sanitized desc for consistency
         logger.debug(f"Sanitized desc in rebuild (no existing flags): {clean_desc[:50]}...")
         
         # Build flags string: Ensure single set of flags, no duplicates
@@ -460,34 +458,7 @@ class TodoUtilService:
         return out_path
 
     def sanitize_desc(self, desc: str) -> str:
-            """
-            Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
-            Called to clean desc after parsing or before rebuilding.
-            Enhanced to robustly remove all trailing flag patterns, including multiples, and handle flags before pipes ('|').
-            """
-            logger.debug(f"Sanitizing desc: {desc[:100]}...")
-            # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ], possibly multiple
-            # Also handles cases where flags are before a metadata pipe '|'
-            flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
-            pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'  # Flags before pipe
-            lingering_minus_flag = r'\s*\[\s*-\s*\]\s*$'  # Specific to catch trailing "[-]"
-            while re.search(flag_pattern, desc) or re.search(pipe_flag_pattern, desc) or re.search(lingering_minus_flag, desc):
-                # Remove trailing flags before pipe or end
-                desc = re.sub(flag_pattern, '', desc)
-                # Remove flags immediately before pipe
-                desc = re.sub(pipe_flag_pattern, '|', desc)
-                # Remove specific lingering "[-]" at end
-                desc = re.sub(lingering_minus_flag, '', desc)
-                desc = desc.rstrip()  # Clean up whitespace
-                logger.debug(f"Stripped trailing/multiple/lingering flags, new desc: {desc[:100]}...")
-            # Also strip any extra | metadata if desc was contaminated (ensure only one leading desc part)
-            if ' | ' in desc:
-                desc = desc.split(' | ')[0].strip()  # Take only the first part as desc
-                logger.debug(f"Stripped metadata contamination (pre-pipe), clean desc: {desc[:100]}...")
-            # Final strip of any lingering bracket patterns at end
-            desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
-            logger.debug(f"Final sanitized desc: {desc[:100]}...")
-            return desc
+        return desc
 
 
 # original file length: 325 lines

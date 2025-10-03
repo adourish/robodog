@@ -803,7 +803,7 @@ class TodoService:
                 # Enhanced: Use stage-specific desc for LLM (llm_desc)
                 prompt_desc = task.get('llm_desc', task['desc'])
                 resources = "knowledge_text: " + knowledge_text + " plan.md:" + plan_knowledge + " task desc: " + prompt_desc
-                prompt = self._prompt_builder.build_task_promp(
+                prompt = self._prompt_builder.build_task_prompt(
                     task, self._base_dir, str(out_path), resources, include_text
                 )
                 task['_prompt_tokens'] = len(prompt.split())

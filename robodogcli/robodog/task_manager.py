@@ -172,8 +172,10 @@ class TaskManager(TaskBase):
         if self.STATUS_MAP[task['status_char']] != 'To Do':
             return
 
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
+        fn = task['file']
+        ln = task['line_no']
+        indent = task['indent']
+        desc = task['desc']
 
         if step == 1:
             file_lines_map[fn][ln] = f"{indent}- [~][-][-] {desc}\n"
@@ -204,8 +206,10 @@ class TaskManager(TaskBase):
                       truncation: float = 0, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
         """Mark a task as completed (Doing -> Done), including inline compare info."""
         logger.debug("complete task:" + task['desc'])
-        fn, ln = task['file'], task['line_no']
-        indent, desc = task['indent'], task['desc']
+        fn = task['file']
+        ln = task['line_no']
+        indent = task['indent']
+        desc = task['desc']
         if step == 1:
             file_lines_map[fn][ln] = f"{indent}- [x][-][-] {desc}\n"
         elif step ==2:
