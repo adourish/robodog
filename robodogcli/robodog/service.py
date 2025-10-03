@@ -93,7 +93,7 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # CORE LLM / CHAT - Enhanced for Textual UI
-    def ask(self, prompt: str) -> str:
+    def askb(self, prompt: str) -> str:
         logger.debug(f"ask {prompt!r}")
         messages = [{"role": "user", "content": prompt}]
         resp = self.client.chat.completions.create(
@@ -106,12 +106,12 @@ class RobodogService:
             stream=self.stream,
         )
         answer = ""
-        self._spin.start()
+        #self._spin.start()
         if self.stream:
             for chunk in resp:
                 delta = getattr(chunk.choices[0].delta, "content", None)
                 if delta:
-                    self._spin.spin(False)
+                    #self._spin.spin(False)
                     answer += delta
                     # Enhanced: callback for UI updates during streaming (no console log)
                     #if self._ui_callback:
@@ -120,9 +120,49 @@ class RobodogService:
         else:
             answer = resp.choices[0].message.content.strip()
             
-        self._spin.stop()
+        # self._spin.stop()
         return answer
-    
+
+    def ask(self, prompt: str) -> str:
+        """
+        Streams an LLM completion and prints a stdout progress bar.
+        If total_chunks is None or zero, it'll just print a chunk counter.
+        """
+        # 1) Kick off the chat-stream
+        resp = self.client.chat.completions.create(
+            model=self.cur_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            top_p=self.top_p,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
+            stream=True,
+        )
+        total_chunks = 8000
+        #self._spin.start()
+
+        answer = ""
+        count = 0
+
+        # 3) Stream through chunks
+        for chunk in resp:
+            delta = getattr(chunk.choices[0].delta, "content", "")
+            if not delta:
+                continue
+
+            answer += delta
+            count += 1
+
+            # advance simple spinner animation
+            #self._spin.spin()
+
+            # draw or update the progress bar
+            #self._spin.print_bar(count, total_chunks)
+
+        # 4) Tear down spinner/bar
+        #self._spin.stop()
+        return answer
+       
     # ————————————————————————————————————————————————————————————
     # MODEL / KEY MANAGEMENT
     def list_models(self):
@@ -459,9 +499,14 @@ class RobodogService:
         out = []
         for r in self._roots:
             for dp, _, fns in os.walk(r):
-                if self.FILENAME in fns:
-                    out.append(os.path.join(dp, self.FILENAME))
+                if self.get_todo_filename() in fns:
+                    out.append(os.path.join(dp, self.get_todo_filename()))
         return out
+
+    def get_todo_filename(self):
+        _todo = "todo.md"
+        return _todo
+    
 
     def checksum(self, path: str):
         content = self.file_service.binary_read(Path(path))

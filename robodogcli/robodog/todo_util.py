@@ -171,24 +171,25 @@ class TodoUtilService:
         """
         logger.debug(f"Rebuilding task line for: {task['desc'][:50]}...")
         # Start with fully sanitized desc to ensure no trailing flags or duplicates (re-sanitize for safety)
+        clean_desc = self.sanitize_desc(task['desc'])
         logger.debug(f"Sanitized desc in rebuild (no existing flags): {clean_desc[:50]}...")
         
         # Build flags string: Ensure single set of flags, no duplicates
-        plan_char = task.get('plan_flag', ' ') if task.get('plan_flag') else ' '
-        status_char = task.get('status_char', ' ') if task.get('status_char') else ' '
-        write_char = task.get('write_flag', ' ') if task.get('write_flag') else ' '
+        plan = task.get('plan', ' ') if task.get('plan') else ' '
+        llm = task.get('llm', ' ') if task.get('llm') else ' '
+        commit = task.get('commit', ' ') if task.get('commit') else ' '
         # Validation: Log if any char is invalid and default to ' '
-        if plan_char not in ' x~-':
-            logger.warning(f"Invalid plan_flag '{plan_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
-            plan_char = ' '
-        if status_char not in ' x~-':
-            logger.warning(f"Invalid status_char '{status_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
-            status_char = ' '
-        if write_char not in ' x~-':
-            logger.warning(f"Invalid write_flag '{write_char}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
-            write_char = ' '
+        if plan not in ' x~-':
+            logger.warning(f"Invalid plan '{plan}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
+            plan = ' '
+        if llm not in ' x~-':
+            logger.warning(f"Invalid llm '{llm}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
+            llm = ' '
+        if commit not in ' x~-':
+            logger.warning(f"Invalid commit '{commit}' for task, defaulting to ' '", extra={'log_color': 'DELTA'})
+            commit = ' '
         
-        flags = f"[{plan_char}][{status_char}][{write_char}]"
+        flags = f"[{plan}][{llm}][{commit}]"
         line = task['indent'] + "- " + flags + " " + clean_desc
         # Append metadata if present (safely, after sanitized desc). Enhanced: Include plan_tokens and stage-specific desc if different
         meta_parts = []
@@ -427,7 +428,7 @@ class TodoUtilService:
 
         return out_path
     
-    def _get_plan_out_path(self, task, base_folder: str = ""):
+    def _get_plan_out_pathb(self, task, base_folder: str = ""):
         # figure out where the plan.md file actually lives (similar to _get_ai_out_path)
         raw_out = task.get('plan')
         out_path = None
@@ -457,9 +458,45 @@ class TodoUtilService:
 
         return out_path
 
+    def _get_plan_out_path(self, raw_spec: Any, base_folder: str = "") -> Optional[Path]:
+        """
+        Figure out where plan.md should live.
+        Accepts either:
+          - a dict { 'plan': {'pattern': ..., 'recursive': ...} }
+          - a literal string path
+        """
+        out_path = None
+
+        # case: wrapped dict
+        if isinstance(raw_spec, dict) and 'plan' in raw_spec:
+            spec = raw_spec['plan']
+            # if user gave us a dict with pattern/recursive
+            if isinstance(spec, dict):
+                pattern  = spec.get('pattern','')
+                recursive= spec.get('recursive', False)
+                # try to resolve via file_service
+                try:
+                    cand = self._file_service.resolve_path(pattern, self._svc)
+                except Exception:
+                    cand = None
+                if cand:
+                    out_path = cand
+                else:
+                    # fallback under base_folder
+                    if base_folder and pattern:
+                        out_path = Path(base_folder) / pattern
+
+        # case: literal string
+        elif isinstance(raw_spec, str) and raw_spec.strip():
+            p = Path(raw_spec.strip())
+            if not p.is_absolute() and base_folder:
+                p = Path(base_folder) / p
+            out_path = p
+
+        # ensure we coerce to Path
+        if out_path:
+            return Path(out_path)
+        return None
+    
     def sanitize_desc(self, desc: str) -> str:
         return desc
-
-
-# original file length: 325 lines
-# updated file length: 360 lines (enhanced _parse_task_metadata with entry sanitization and post-split re-sanitization, updated _rebuild_task_line with validation, and fixed typo in prompt tokens parsing)

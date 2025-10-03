@@ -25,24 +25,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Updated TASK_RE to robustly capture flags without including them in desc group
-# Now ensures desc starts after all captured flags, avoiding leakage of trailing flags/metadata into desc
-# Also uses non-greedy matching and anchors to prevent trailing content leakage
-TASK_RE = re.compile(
-    r'^(\s*)-\s*'                  # indent + "- "
-    r'(?:\s*\[(?P<plan>[ x~-])\])?'   # optional [plan_flag]
-    r'\s*\[(?P<status>[ x~])\]'     # execution [status] - required
-    r'(?:\s*\[(?P<write>[ x~-])\])?' # optional [write_flag]
-    r'(?:\s*\|\s*(?P<metadata>.*?))?' # optional metadata after |
-    r'\s*(?P<desc>.*?)(?=\s*\[|$)'  # desc: capture up to next [ or end, non-greedy
-    # Enhanced: Use (?=\s*\[|$) to stop before any trailing [, ensuring no flags leak into desc
-)
 
-SUB_RE = re.compile(
-    r'^\s*-\s*(?P<key>include|out|in|focus|plan):\s*'
-    r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
-    r'(?:\s+(?P<rec>recursive))?'
-)
 
 STATUS_MAP     = {' ': 'To Do', '~': 'Doing', 'x': 'Done', '-': 'Ignore'}
 REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
@@ -57,7 +40,6 @@ class ChangesList(RootModel[List[Change]]):
     pass
 
 class TodoService:
-    FILENAME = 'todo.md'
 
     def __init__(self, roots: List[str], svc=None, prompt_builder=None, task_manager=None, task_parser=None, file_watcher=None, file_service=None, exclude_dirs={"node_modules", "dist", "diffout"}, todo_util=None, app=None):
         logger.info(f"Initializing TodoService with roots: {roots}", extra={'log_color': 'HIGHLIGHT'})
@@ -148,9 +130,9 @@ class TodoService:
         desc_display = shorten(desc, width=120, placeholder='…')
 
         stage_states = {
-            'plan': self._flag_to_state(task.get('plan_flag')),
-            'llm': self._flag_to_state(task.get('status_char')),
-            'commit': self._flag_to_state(task.get('write_flag'))
+            'plan': self._flag_to_state(task.get('plan')),
+            'llm': self._flag_to_state(task.get('llm')),
+            'commit': self._flag_to_state(task.get('commit'))
         }
 
         progress_lines = []
@@ -280,32 +262,30 @@ class TodoService:
             self._ui_callback(message)
             print(message, flush=True)  # Flush after callback for immediate visibility
 
+    def _load_all(self):
+        """
+        Delegate all file-reading + task-parsing to TaskParser.
+        """
+        logger.debug("TodoService._load_all called", extra={'log_color': 'HIGHLIGHT'})
+        try:
+            # find files under roots
+            files = self._find_files()
+            # parser.load_all returns (file_lines_map, tasks_list)
+            file_lines_map, tasks_list = self._task_parser.load_all(files, self._file_service)
+
+            # swap in new
+            self._file_lines = file_lines_map
+            self._tasks      = tasks_list
+
+            logger.info(f"Loaded {len(tasks_list)} tasks across {len(files)} files",
+                        extra={'log_color': 'PERCENT'})
+        except Exception as e:
+            logger.exception("Error in TodoService._load_all: %s", e,
+                             extra={'log_color': 'DELTA'})
+            
     def _parse_base_dir(self) -> Optional[str]:
         logger.debug("_parse_base_dir called", extra={'log_color': 'HIGHLIGHT'})
-        try:
-            for fn in self._find_files():
-                logger.info(f"Parsing front-matter from {fn}", extra={'log_color': 'HIGHLIGHT'})
-                content = self._file_service.safe_read_file(Path(fn))
-                lines = content.splitlines()
-                if not lines or lines[0].strip() != '---':
-                    continue
-                try:
-                    end_idx = lines.index('---', 1)
-                except ValueError:
-                    continue
-                for lm in lines[1:end_idx]:
-                    stripped = lm.strip()
-                    if stripped.startswith('base:'):
-                        _, _, val = stripped.partition(':')
-                        base = val.strip()
-                        if base:
-                            logger.info(f"Found base dir: {base}", extra={'log_color': 'HIGHLIGHT'})
-                            return os.path.normpath(base)
-            logger.info("No base dir found", extra={'log_color': 'HIGHLIGHT'})
-            return None
-        except Exception as e:
-            logger.exception(f"Error parsing base dir: {e}", extra={'log_color': 'DELTA'})
-            return None
+        return self._svc._parse_base_dir()
 
     def _find_files(self) -> List[str]:
         logger.debug("_find_files called")
@@ -313,173 +293,19 @@ class TodoService:
             out = []
             for r in self._roots:
                 for dp, _, fns in os.walk(r):
-                    if self.FILENAME in fns:
-                        out.append(os.path.join(dp, self.FILENAME))
+                    if self._svc.get_todo_filename() in fns:
+                        out.append(os.path.join(dp, self._svc.get_todo_filename()))
             logger.debug(f"Found {len(out)} todo files", extra={'log_color': 'HIGHLIGHT'})
             return out
         except Exception as e:
             logger.exception(f"Error finding todo files: {e}", extra={'log_color': 'DELTA'})
             return []
 
-    def _normalize_task_flags(self):
-        """
-        Make sure every task always has plan_flag, status_char and write_flag set
-        to one of ' ', '~', 'x', '-' (never None).
-        Now with logging for normalization. Enhanced: Detect and log if desc contains "[-]" as contamination.
-        Enhanced: Add validation for reference objects (include/out/plan as dicts or {} if None).
-        """
-        logger.info("Normalizing task flags", extra={'log_color': 'HIGHLIGHT'})
-        changed = 0
-        contaminated = 0
-        ref_fixed = 0
-        for i, t in enumerate(self._tasks):
-            orig_flags = f"P:{t.get('plan_flag')} S:{t.get('status_char')} W:{t.get('write_flag')}"
-            desc_has_flag = bool(re.search(r'\[\s*-\s*\]', t.get('desc', '')))
-            if desc_has_flag:
-                logger.warning(f"Task {i} desc contaminated with '[-]': {t['desc'][:100]}...", extra={'log_color': 'DELTA'})
-                contaminated += 1
-                t['desc'] = self._todo_util.sanitize_desc(t['desc'])
-                logger.debug(f"Sanitized contaminated desc for task {i}: {t['desc'][:50]}...")
-            t['plan_flag']   = t.get('plan_flag')   or ' '
-            t['status_char'] = t.get('status_char') or ' '
-            t['write_flag']  = t.get('write_flag')  or ' '
-            # Enhanced: Validate reference objects
-            for ref_key in ['include', 'out', 'plan']:
-                if ref_key not in t or t[ref_key] is None:
-                    t[ref_key] = {}
-                    ref_fixed += 1
-                    logger.debug(f"Fixed {ref_key} ref to for task {i}")
-                elif not isinstance(t[ref_key], dict):
-                    t[ref_key] = {'pattern': str(t[ref_key]), 'recursive': False}
-                    ref_fixed += 1
-                    logger.debug(f"Converted {ref_key} to dict for task {i}")
-            if orig_flags != f"P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}":
-                changed += 1
-                logger.debug(f"Normalized task {i}: {orig_flags} -> P:{t['plan_flag']} S:{t['status_char']} W:{t['write_flag']}")
-        logger.info(f"Normalized {changed} tasks out of {len(self._tasks)}; Contaminated: {contaminated}; Refs fixed: {ref_fixed}", extra={'log_color': 'PERCENT'})
-
-    def _load_all(self):
-        """
-        Parse each todo.md into tasks, capturing optional second‐bracket
-        write‐flag, third bracket for planning, and any adjacent ```knowledge``` block.
-        Also parse metadata from the task line (e.g., | started: ... | knowledge: 0).
-        Added logging for task loading.
-        Now includes immediate sanitization of full_desc after extraction to clean trailing flags before metadata parsing.
-        Enhanced to parse plan_tokens from metadata. Enhanced: Extract plan/llm/commit desc variants if present in metadata; ensure include/out/plan as dicts.
-        """
-        logger.debug("_load_all called: Reloading all tasks from files", extra={'log_color': 'HIGHLIGHT'})
-        try:
-            self._file_lines.clear()
-            self._tasks.clear()
-            total_tasks = 0
-            for fn in self._find_files():
-                logger.info(f"Parsing tasks from {fn}", extra={'log_color': 'HIGHLIGHT'})
-                content = self._file_service.safe_read_file(Path(fn))
-                lines = content.splitlines(keepends=True)
-                self._file_lines[fn] = lines
-                i = 0
-                task_count = 0
-                while i < len(lines):
-                    m = TASK_RE.match(lines[i])
-                    if not m:
-                        i += 1
-                        continue
-
-                    indent     = m.group(1)
-                    status     = m.group('status')
-                    write_flag = m.group('write')
-                    plan_flag  = m.group('plan')
-                    metadata_str = m.group('metadata')
-                    full_desc  = m.group('desc')
-                    full_desc = self._todo_util.sanitize_desc(full_desc)
-                    logger.debug(f"Raw full_desc after immediate sanitization: {full_desc[:100]}...")
-                    
-                    metadata = self._todo_util._parse_task_metadata(full_desc)
-                    desc     = metadata.pop('desc')
-                    # Enhanced: Extract plan/llm/commit desc if present in metadata
-                    plan_desc = metadata.pop('plan_desc', desc)
-                    llm_desc = metadata.pop('llm_desc', desc)
-                    commit_desc = metadata.pop('commit_desc', desc)
-                    task     = {
-                        'file': fn,
-                        'line_no': i,
-                        'indent': indent,
-                        'plan_flag': plan_flag,
-                        'status_char': status,
-                        'write_flag': write_flag,
-                        'desc': desc,
-                        'plan_desc': plan_desc,  # Enhanced: Store stage-specific desc
-                        'llm_desc': llm_desc,
-                        'commit_desc': commit_desc,
-                        'include': {},  # Enhanced: Default to empty dict
-                        'in': {},
-                        'out': {},
-                        'plan': {},  # Enhanced: Default to empty dict
-                        'knowledge': '',
-                        'knowledge_tokens': 0,
-                        'include_tokens': 0,
-                        'prompt_tokens': 0,
-                        'plan_tokens': 0,
-                        '_start_stamp': None,
-                        '_know_tokens': 0,
-                        '_in_tokens': 0,
-                        '_prompt_tokens': 0,
-                        '_include_tokens': 0,
-                        '_complete_stamp': None,
-                    }
-                    task.update(metadata)
-
-                    logger.info(f"Loaded task {task_count}: flags P:{plan_flag} S:{status} W:{write_flag}, desc length {len(desc)} (sanitized)", extra={'log_color': 'HIGHLIGHT'})
-
-                    j = i + 1
-                    while j < len(lines) and lines[j].startswith(indent + '  '):
-                        sub = SUB_RE.match(lines[j])
-                        if sub:
-                            key = sub.group('key')
-                            pat = sub.group('pattern').strip('"').strip('`')
-                            rec = bool(sub.group('rec'))
-                            # Enhanced: Ensure dict structure
-                            spec = {'pattern': pat, 'recursive': rec}
-                            if key == 'focus':
-                                task['out'] = spec
-                            elif key == 'plan':
-                                task['plan'] = spec
-                            else:
-                                task[key] = spec
-                            logger.debug(f"Parsed {key} spec for task {task_count}: {spec}")
-                        j += 1
-
-                    if j < len(lines) and lines[j].lstrip().startswith('```knowledge'):
-                        fence = []
-                        j += 1
-                        while j < len(lines) and not lines[j].startswith('```'):
-                            fence.append(lines[j])
-                            j += 1
-                        task['knowledge'] = ''.join(fence)
-                        know_tokens = len(''.join(fence).split())
-                        task['_know_tokens'] = know_tokens
-                        task['knowledge_tokens'] = know_tokens
-                        logger.info(f"Loaded knowledge for task {task_count}: {know_tokens} tokens", extra={'log_color': 'PERCENT'})
-                        j += 1
-
-                    self._tasks.append(task)
-                    task_count += 1
-                    total_tasks += 1
-                    i = j
-                logger.info(f"Loaded {task_count} tasks from {fn}", extra={'log_color': 'PERCENT'})
-            for i, t in enumerate(self._tasks):
-                t['desc'] = self._todo_util.sanitize_desc(t['desc'])
-                logger.debug(f"Post-load sanitized task {i} desc: {t['desc'][:50]}...")
-            logger.info(f"Total tasks loaded across all files: {total_tasks}", extra={'log_color': 'PERCENT'})
-        except Exception as e:
-            logger.exception(f"Error in _load_all: {e}", extra={'log_color': 'DELTA'})
-            traceback.print_exc()
-
     def _watch_loop(self):
         """
         Watch all todo.md files under self._roots.
         On external change, re‐parse tasks, re‐emit any manually Done tasks
-        with write_flag=' ' and then run the next To Do.
+        with commit=' ' and then run the next To Do.
         Added logging for watch events.
         Enhanced: UI callback support for real-time updates.
         """
@@ -512,9 +338,9 @@ class TodoService:
 
                             next_todos = [
                                 t for t in self._tasks
-                                if t.get('status_char') == ' '
-                                or t.get('write_flag')  == ' '
-                                or t.get('plan_flag')   == ' '
+                                if t.get('llm') == ' '
+                                or t.get('commit')  == ' '
+                                or t.get('plan')   == ' '
                             ]
                             if next_todos:
                                 logger.info(f"New To Do tasks found ({len(next_todos)}), running next", extra={'log_color': 'HIGHLIGHT'})
@@ -542,16 +368,21 @@ class TodoService:
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
+            # Enhanced: Sanitize desc before any flag updates to ensure clean state
+            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
             if step == 1:
-                task['plan_flag'] = '~'
-                logger.info(f"Set plan_flag to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+                task['plan'] = '~'
+                logger.info(f"Set plan to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 2:
-                task['status_char'] = '~'
-                logger.info(f"Set status_char to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+                task['llm'] = '~'
+                logger.info(f"Set llm to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 3:
-                task['write_flag'] = '~'
-                logger.info(f"Set write_flag to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+                task['commit'] = '~'
+                logger.info(f"Set commit to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            # Enhanced: Re-sanitize desc after flag update
+            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
             rebuilt_line = self._todo_util._rebuild_task_line(task)
+            logger.debug(f"Rebuilt line after start: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
             fn = task['file']
             line_no = task['line_no']
             lines = file_lines_map.get(fn, [])
@@ -559,7 +390,7 @@ class TodoService:
                 lines[line_no] = rebuilt_line + '\n'
                 file_lines_map[fn] = lines
                 self._file_service.write_file(Path(fn), ''.join(lines))
-                logger.info(f"Immediately updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan_flag']}, status={task['status_char']}, write={task['write_flag']}", extra={'log_color': 'HIGHLIGHT'})
+                logger.info(f"Immediately updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan']}, status={task['llm']}, write={task['commit']}", extra={'log_color': 'HIGHLIGHT'})
             st = self._task_manager.start_task(task, file_lines_map, cur_model, step)
             if st is None:
                 st = datetime.now().isoformat()
@@ -590,16 +421,21 @@ class TodoService:
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
+            # Enhanced: Sanitize desc before any flag updates to ensure clean state
+            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
             if step == 1:
-                task['plan_flag'] = 'x'
-                logger.info(f"Set plan_flag to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+                task['plan'] = 'x'
+                logger.info(f"Set plan to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 2:
-                task['status_char'] = 'x'
-                logger.info(f"Set status_char to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+                task['llm'] = 'x'
+                logger.info(f"Set llm to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 3:
-                task['write_flag'] = 'x'
-                logger.info(f"Set write_flag to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+                task['commit'] = 'x'
+                logger.info(f"Set commit to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            # Enhanced: Re-sanitize desc after flag update
+            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
             rebuilt_line = self._todo_util._rebuild_task_line(task)
+            logger.debug(f"Rebuilt line after complete: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
             fn = task['file']
             line_no = task['line_no']
             lines = file_lines_map.get(fn, [])
@@ -607,7 +443,7 @@ class TodoService:
                 lines[line_no] = rebuilt_line + '\n'
                 file_lines_map[fn] = lines
                 self._file_service.write_file(Path(fn), ''.join(lines))
-                logger.info(f"Updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan_flag']}, status={task['status_char']}, write={task['write_flag']}", extra={'log_color': 'HIGHLIGHT'})
+                logger.info(f"Updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan']}, status={task['llm']}, write={task['commit']}", extra={'log_color': 'HIGHLIGHT'})
             if compare:
                 if step == 2:
                     task['_pending_files'] = compare
@@ -636,16 +472,15 @@ class TodoService:
         try:
             self._svc = svc
             self._load_all()
-            self._normalize_task_flags()
 
-            plan_pending   = [t for t in self._tasks if t['plan_flag']   == ' ']
+            plan_pending   = [t for t in self._tasks if t['plan']   == ' ']
             llm_pending    = [t for t in self._tasks
-                              if t['plan_flag']   != ' '
-                             and t['status_char'] == ' ']
+                              if t['plan']   != ' '
+                             and t['llm'] == ' ']
             commit_pending = [t for t in self._tasks
-                              if t['plan_flag']   != ' '
-                             and t['status_char'] != ' '
-                             and t['write_flag'] == ' ']
+                              if t['plan']   != ' '
+                             and t['llm'] != ' '
+                             and t['commit'] == ' ']
             
             todo = plan_pending + llm_pending + commit_pending
             if not todo:
@@ -690,8 +525,57 @@ class TodoService:
             logger.exception(f"Error in _gather_include_knowledge: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return ""
-
+        
     def _generate_plan(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
+        """
+        Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
+        """
+        logger.info(f"Generating plan for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+        if self._ui_callback:
+            self._ui_callback(f"📋 Generating plan for: {task['desc'][:50]}…")
+
+        # >> THIS WAS WRONG: plan_spec = task.get('plan')  # <-- this is just ' ' or '~'
+        #    IT MUST BE:
+        plan_spec = task.get('plan_spec') or {'pattern': 'plan.md', 'recursive': True}
+
+        # now resolve the actual file path
+        plan_path = self._todo_util._get_plan_out_path(plan_spec, base_folder=base_folder)
+        if not plan_path:
+            plan_path = (base_folder / 'plan.md') if base_folder else Path('plan.md')
+            logger.info(f"Default plan path: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
+
+        # touch or initialize plan.md if missing
+        if not plan_path.exists():
+            logger.info(f"Creating new plan file: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
+            self._file_service.write_file(plan_path, "# Plan for task\n\nNext steps:\n- to be generated")
+        else:
+            logger.info(f"Updating existing plan file: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
+
+        task['_plan_path'] = str(plan_path)
+
+        # build a proper plan prompt
+        plan_prompt = self._prompt_builder.build_plan_prompt(
+            task,
+            basedir=str(base_folder) if base_folder else '',
+            out_path=str(plan_path),
+            knowledge_text=task.get('knowledge',''),
+            include_text=self._gather_include_knowledge(task, svc)
+        )
+
+        # generate…
+        plan_content = svc.ask(plan_prompt)
+        if not plan_content.strip():
+            logger.warning("LLM returned an empty plan.", extra={'log_color': 'DELTA'})
+            return ""
+
+        # write out and record token count
+        self._todo_util._write_plan(svc, plan_path, plan_content)
+        task['plan_tokens'] = len(plan_content.split())
+        task['_latest_plan'] = plan_content
+        logger.info(f"Wrote plan.md with {task['plan_tokens']} tokens", extra={'log_color': 'PERCENT'})
+        return plan_content
+    
+    def _generate_planb(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
         """
         Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
         Uses a specialized prompt for planning. Enhanced for token efficiency and performance.
@@ -774,19 +658,19 @@ class TodoService:
             task['_know_tokens'] = len(knowledge_text.split())
             task['knowledge_tokens'] = task['_know_tokens']
 
-            plan_flag = task.get('plan_flag', 'x')
-            write_flag = task.get('write_flag', 'x')
-            status = task.get('status_char', 'x')
+            plan = task.get('plan', 'x')
+            commit = task.get('commit', 'x')
+            status = task.get('llm', 'x')
             
-            if step == 1 or (plan_flag == ' '):
-                logger.warning("Step 1: Running planning", extra={'log_color': 'HIGHLIGHT'})
-                st = self.start_task(task, file_lines_map, self._svc.get_cur_model(), 1)
+            if step == 1 or task.get('plan') == ' ':
+                st = self.start_task(task, file_lines_map, svc.get_cur_model(), 1)
+                # this now correctly uses task['plan_spec']
                 plan_content = self._generate_plan(task, svc, base_folder)
                 if plan_content:
                     task['plan_tokens'] = len(plan_content.split())
-                    logger.info(f"Plan tokens: {task['plan_tokens']}", extra={'log_color': 'PERCENT'})
-                ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, None, False, 1)
+                ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, None, False, 1)
                 task['_start_stamp'] = st
+                return
             elif step == 2 or (status == ' '):
                 logger.warning("Step 2: Running LLM task using plan.md", extra={'log_color': 'HIGHLIGHT'})
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
@@ -824,7 +708,7 @@ class TodoService:
                 logger.info(f"LLM step: {committed} files parsed (not committed)", extra={'log_color': 'PERCENT'})
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, compare, True, 2)
                 task['_complete_stamp'] = ct
-            elif step == 3 or (status == 'x' and write_flag == ' ' and plan_flag == 'x'):
+            elif step == 3 or (status == 'x' and commit == ' ' and plan == 'x'):
                 logger.warning("Step 3: Committing LLM response", extra={'log_color': 'HIGHLIGHT'})
                 commit_preview = task.get('_pending_files') or []
                 progress_extra = {'files': commit_preview} if commit_preview else None
@@ -845,7 +729,7 @@ class TodoService:
                 ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, compare, True, 3)
                 task['_complete_stamp'] = ct
             else:
-                logger.info(f"No step to run: status={status}, write={write_flag}, plan={plan_flag}", extra={'log_color': 'DELTA'})
+                logger.info(f"No step to run: status={status}, write={commit}, plan={plan}", extra={'log_color': 'DELTA'})
 
             logger.info(f"Task processed: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:

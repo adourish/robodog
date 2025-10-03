@@ -24,8 +24,8 @@ class TaskModel(BaseModel):
     file: str
     line_no: int
     indent: str
-    status_char: str
-    write_flag: Optional[str]
+    llm: str
+    commit: Optional[str]
     desc: str
     include: Optional[dict] = None
     out: Optional[dict] = None

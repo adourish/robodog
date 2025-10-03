@@ -169,7 +169,7 @@ class TaskManager(TaskBase):
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
         """Mark a task as started (To Do -> Doing)."""
-        if self.STATUS_MAP[task['status_char']] != 'To Do':
+        if self.STATUS_MAP[task['llm']] != 'To Do':
             return
 
         fn = task['file']
@@ -200,7 +200,7 @@ class TaskManager(TaskBase):
 
         self.write_file(fn, file_lines_map[fn])
 
-        task['status_char'] = self.REVERSE_STATUS['Doing']
+        task['llm'] = self.REVERSE_STATUS['Doing']
 
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str,
                       truncation: float = 0, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
@@ -237,7 +237,7 @@ class TaskManager(TaskBase):
             file_lines_map[fn].insert(idx, summary)
         logger.info(summary)
         self.write_file(fn, file_lines_map[fn])
-        task['status_char'] = self.REVERSE_STATUS['Done']
+        task['llm'] = self.REVERSE_STATUS['Done']
 
 
 

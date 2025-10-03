@@ -1,134 +1,148 @@
 #!/usr/bin/env python3
-"""Task parsing functionality extracted from TodoService."""
+import os
 import re
 import logging
-from typing import List, Dict, Any
 from pathlib import Path
+from typing import List, Tuple, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Regex patterns for parsing tasks
+# New three-bracket TASK_RE
 TASK_RE = re.compile(
-    r'^(\s*)-\s*'                  # indent + "- "
-    r'\[(?P<status>[ x~])\]'       # first [status]
-    r'(?:\s*\[(?P<write>[ x~-])\])?'  # optional [write_flag], whitespace allowed
-    r'\s*(?P<desc>.+)$'            # space + desc
+    r'^(\s*)-\s*'                         # indent + "- "
+    r'\[(?P<plan>[ x~\-])\]\s*'           # [plan_status]
+    r'\[(?P<llm>[ x~\-])\]\s*'            # [llm_status]
+    r'\[(?P<commit>[ x~\-])\]\s*'         # [commit_status]
+    r'(?P<desc>.+)$'                      # the rest is your desc
 )
 
+# SUB_RE unchanged
 SUB_RE = re.compile(
-    r'^\s*-\s*(?P<key>include|out|in|focus):\s*'
+    r'^\s*-\s*(?P<key>include|out|in|focus|plan):\s*'
     r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
     r'(?:\s+(?P<rec>recursive))?'
 )
 
-
 class TaskParser:
-    """Handles parsing of todo.md files into task objects."""
-    
-    def parse_base_dir(self, file_paths: List[str]) -> str:
-        """Parse base directory from YAML front-matter."""
-        logger.debug("parse_base_dir called with file_paths: %s", file_paths)
+    """
+    Parses lines of a todo.md into tasks.
+    """
+
+    def parse_base_dir(self, file_paths: List[str]) -> Optional[str]:
+        # copy of your old parse_base_dir; unchanged
         for fn in file_paths:
-            logger.debug("Parsing base dir from file: %s", fn)
             try:
                 text = Path(fn).read_text(encoding='utf-8')
                 lines = text.splitlines()
                 if not lines or lines[0].strip() != '---':
                     continue
-                
                 try:
-                    end_idx = lines.index('---', 1)
+                    end = lines.index('---', 1)
                 except ValueError:
                     continue
-                
-                for lm in lines[1:end_idx]:
-                    stripped = lm.strip()
-                    if stripped.startswith('base:'):
-                        _, _, val = stripped.partition(':')
-                        base = val.strip()
-                        if base:
-                            logger.debug("Found base directory: %s", base)
-                            return os.path.normpath(base)
-            except Exception as e:
-                logger.warning(f"Error parsing base dir from {fn}: {e}")
-        
-        logger.debug("No base directory found")
+                for lm in lines[1:end]:
+                    if lm.strip().startswith('base:'):
+                        _, _, val = lm.partition(':')
+                        return val.strip() or None
+            except Exception:
+                logger.exception("parse_base_dir error on %s", fn)
         return None
-    
-    def parse_tasks_from_file(self, filepath: str) -> tuple[List[str], List[Dict[Any, Any]]]:
-        """Parse tasks from a single todo.md file."""
-        logger.debug("Parsing tasks from file: %s", filepath)
-        lines = Path(filepath).read_text(encoding='utf-8').splitlines(keepends=True)
-        tasks = []
-        
+
+    def parse_tasks_from_file(self, filepath: str
+                             ) -> Tuple[List[str], List[Dict[str,Any]]]:
+        """Read the file and call parse_tasks."""
+        raw = Path(filepath).read_text(encoding='utf-8')
+        lines = raw.splitlines(keepends=True)
+        return self.parse_tasks(filepath, lines)
+
+    def parse_tasks(self,
+                    filepath: str,
+                    lines: List[str]
+                   ) -> Tuple[List[str], List[Dict[str,Any]]]:
+        """
+        Given a filename + its lines[], return (lines, [task, …]).
+        Each task is a dict with keys: file, line_no, indent, plan, llm,
+        commit, desc, include, in, out, focus, plan_spec, knowledge.
+        """
+        tasks: List[Dict[str,Any]] = []
         i = 0
         while i < len(lines):
-            logger.debug("Processing line %d: %r", i, lines[i].strip())
             m = TASK_RE.match(lines[i])
             if not m:
                 i += 1
                 continue
-            
+
             indent = m.group(1)
-            status = m.group('status')
-            plan_flag  = m.group('plan')
-            write_flag = m.group('write')  # may be None, ' ', '~', or 'x'
-            desc = m.group('desc').strip()
-            
+            plan   = m.group('plan')
+            llm    = m.group('llm')
+            commit = m.group('commit')
+            desc   = m.group('desc').strip()
+
             task = {
                 'file': filepath,
                 'line_no': i,
                 'indent': indent,
-                'status_char': status,
-                'plan_flag': plan_flag,
-                'write_flag': write_flag,
+                'plan': plan,
+                'llm': llm,
+                'commit': commit,
                 'desc': desc,
                 'include': None,
                 'in': None,
                 'out': None,
-                'plan': None,
+                'focus': None,
+                'plan_spec': None,
                 'knowledge': '',
-                '_start_stamp': None,
-                '_know_tokens': 0,
-                '_in_tokens': 0,
-                '_prompt_tokens': 0,
-                '_include_tokens': 0,
             }
-            
-            # Scan sub-entries (include, in, focus)
+
+            # scan sub-lines
             j = i + 1
-            logger.debug("Scanning sub-entries starting from line %d", j)
             while j < len(lines) and lines[j].startswith(indent + '  '):
-                sub = SUB_RE.match(lines[j])
-                if sub:
-                    key = sub.group('key')
-                    pat = sub.group('pattern').strip('"').strip('`')
-                    rec = bool(sub.group('rec'))
-                    if key == 'out':
-                        task['out'] = sub.group('out')
+                subm = SUB_RE.match(lines[j])
+                if subm:
+                    key = subm.group('key')
+                    pat = subm.group('pattern').strip('"').strip('`')
+                    rec = bool(subm.group('rec'))
+                    spec = {'pattern': pat, 'recursive': rec}
+                    if key == 'plan':
+                        task['plan_spec'] = spec
                     else:
-                        task[key] = {'pattern': pat, 'recursive': rec}
-                    logger.debug("Found sub-entry key: %s, pattern: %s, recursive: %s", key, pat, rec)
+                        task[key] = spec
                 j += 1
-            
-            # Capture ```knowledge``` fence immediately after task
+
+            # optional ```knowledge``` fence
             if j < len(lines) and lines[j].lstrip().startswith('```knowledge'):
-                logger.debug("Found knowledge fence at line %d", j)
                 fence = []
                 j += 1
                 while j < len(lines) and not lines[j].startswith('```'):
                     fence.append(lines[j])
                     j += 1
                 task['knowledge'] = ''.join(fence)
-                j += 1  # skip closing ``` line
-                logger.debug("Captured knowledge block with %d lines", len(fence))
-            
+                j += 1
+
             tasks.append(task)
-            logger.debug("Added task: %s", task['desc'])
             i = j
-        
-        logger.debug("Total tasks parsed from file %s: %d", filepath, len(tasks))
+
+        logger.debug("Parsed %d tasks from %s", len(tasks), filepath)
         return lines, tasks
 
-# original file length: 95 lines
-# updated file length: 115 lines
+    def load_all(self,
+                 file_paths: List[str],
+                 file_service: Any
+                ) -> Tuple[Dict[str, List[str]], List[Dict[str,Any]]]:
+        """
+        Reads each path via file_service.safe_read_file(), splits into lines,
+        calls parse_tasks(), and accumulates file_lines + tasks.
+        """
+        all_file_lines: Dict[str, List[str]] = {}
+        all_tasks: List[Dict[str,Any]] = []
+
+        for fn in file_paths:
+            logger.info(f"TaskParser: loading {fn}")
+            content = file_service.safe_read_file(Path(fn))
+            lines = content.splitlines(keepends=True)
+            file_lines, tasks = self.parse_tasks(fn, lines)
+            all_file_lines[fn] = file_lines
+            all_tasks.extend(tasks)
+
+        logger.info(f"TaskParser: loaded {len(all_tasks)} total tasks")
+        return all_file_lines, all_tasks
