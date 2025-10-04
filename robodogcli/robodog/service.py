@@ -93,42 +93,14 @@ class RobodogService:
 
     # ————————————————————————————————————————————————————————————
     # CORE LLM / CHAT - Enhanced for Textual UI
-    def askb(self, prompt: str) -> str:
-        logger.debug(f"ask {prompt!r}")
-        messages = [{"role": "user", "content": prompt}]
-        resp = self.client.chat.completions.create(
-            model=self.cur_model,
-            messages=messages,
-            temperature=self.temperature,
-            top_p=self.top_p,
-            frequency_penalty=self.frequency_penalty,
-            presence_penalty=self.presence_penalty,
-            stream=self.stream,
-        )
-        answer = ""
-        #self._spin.start()
-        if self.stream:
-            for chunk in resp:
-                delta = getattr(chunk.choices[0].delta, "content", None)
-                if delta:
-                    #self._spin.spin(False)
-                    answer += delta
-                    # Enhanced: callback for UI updates during streaming (no console log)
-                    #if self._ui_callback:
-                        #self._ui_callback(delta)
-                    # Avoid logger output here to prevent screen mess
-        else:
-            answer = resp.choices[0].message.content.strip()
-            
-        # self._spin.stop()
-        return answer
-
     def ask(self, prompt: str) -> str:
         """
-        Streams an LLM completion and prints a stdout progress bar.
-        If total_chunks is None or zero, it'll just print a chunk counter.
+        Send a chat completion request.  If self.stream is True, yield chunks;
+        otherwise return the full content in one go.  Handles responses that
+        come back as an object with .choices, or as a tuple, or as a dict.
         """
-        # 1) Kick off the chat-stream
+        # 1) Kick off the chat call with the proper stream setting
+        self.stream = False
         resp = self.client.chat.completions.create(
             model=self.cur_model,
             messages=[{"role": "user", "content": prompt}],
@@ -136,33 +108,49 @@ class RobodogService:
             top_p=self.top_p,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            stream=True,
+            stream=self.stream,
         )
-        total_chunks = 8000
-        #self._spin.start()
 
-        answer = ""
-        count = 0
+        # 2) If streaming, concatenate the deltas
+        if self.stream:
+            answer = ""
+            for chunk in resp:
+                # chunk should have .choices[0].delta.content
+                delta = getattr(chunk.choices[0].delta, "content", "")
+                if delta:
+                    answer += delta
+            return answer
 
-        # 3) Stream through chunks
-        for chunk in resp:
-            delta = getattr(chunk.choices[0].delta, "content", "")
-            if not delta:
-                continue
+        # 3) Non-streaming: extract the single response
+        # 3a) If it's an object with .choices
+        if hasattr(resp, "choices"):
+            # OpenAI Python client v0.x
+            msg = resp.choices[0].message
+            return getattr(msg, "content", msg).strip()
 
-            answer += delta
-            count += 1
+        # 3b) If it's a tuple or list and the first element has .choices
+        if isinstance(resp, (tuple, list)) and len(resp) > 0 and hasattr(resp[0], "choices"):
+            msg = resp[0].choices[0].message
+            return getattr(msg, "content", msg).strip()
 
-            # advance simple spinner animation
-            #self._spin.spin()
+        # 3c) If it's a plain dict (e.g. some HTTP-backed client)
+        if isinstance(resp, dict) and "choices" in resp:
+            choice = resp["choices"][0]
+            # may be nested differently, but try .message.content
+            if isinstance(choice, dict):
+                content = choice.get("message", {}).get("content")
+                if content is not None:
+                    return content.strip()
+                # fallback: maybe it's { delta: { content: ... } }
+                return choice.get("delta", {}).get("content", "").strip()
+            # if choice is an object
+            delta = getattr(choice, "delta", None)
+            if delta:
+                return getattr(delta, "content", "").strip()
 
-            # draw or update the progress bar
-            #self._spin.print_bar(count, total_chunks)
-
-        # 4) Tear down spinner/bar
-        #self._spin.stop()
-        return answer
-       
+        # 4) As a last resort, stringify whatever it is
+        return str(resp).strip()
+    
     # ————————————————————————————————————————————————————————————
     # MODEL / KEY MANAGEMENT
     def list_models(self):
@@ -331,6 +319,24 @@ class RobodogService:
             blocks.append(f"# file: {fname}")
             blocks.append(content)
             blocks.append("")   # blank line between files
+        # join with newline
+        return "\n".join(blocks).strip()  # strip to avoid leading/trailing blank lines
+    
+    def combine_knowledge_filenames(self, entries: list) -> str:
+        """
+        Given a list of {filename, content, token_count, …} dictionaries,
+        return a single string in the old “knowledge” format:
+            # file: /path/to/foo.py
+            <content of foo.py>
+
+            # file: /path/to/bar.txt
+            <content of bar.txt>
+        """
+        blocks = []
+        for entry in entries:
+            fname   = entry.get("filename", "<unknown>")
+            blocks.append(f"   • {fname}")
+
         # join with newline
         return "\n".join(blocks).strip()  # strip to avoid leading/trailing blank lines
     

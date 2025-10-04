@@ -195,6 +195,7 @@ class TodoService:
             plan_spec_text = plan_spec.strip()
 
         include_files = extra.get('include_files') or task.get('_include_files') or []
+        include_filenames = task.get('_include_filenames') 
         plan_path = task.get('_plan_path')
         out_path = task.get('_out_path')
         files_entries = extra.get('files')
@@ -499,33 +500,25 @@ class TodoService:
                 self._ui_callback(f"❌ Error: {e}")
             traceback.print_exc()
 
-    def _gather_include_knowledge(self, task: dict, svc) -> str:
+    def _gather_include_knowledge(self, task: dict, svc) -> Tuple[str, str]:
+        """
+        Returns a tuple (know, know_files):
+         - know       = full '# file: …<content>' blocks
+         - know_files = bullet list of filenames only
+        """
         logger.info("Gathering include knowledge", extra={'log_color': 'HIGHLIGHT'})
-        try:
-            inc = task.get('include') or {}
-            spec = inc.get('pattern','')
-            if not spec:
-                logger.debug("No include spec found")
-                return ""
-            rec = " recursive" if inc.get('recursive') else ""
-            full_spec = f"pattern={spec}{rec}"
-            try:
-                include_list = svc.include_list(full_spec) or ""
-                know = svc.combine_knowledge(include_list)
-                include_tokens = len(know.split())
-                task['_include_tokens'] = include_tokens
-                task['include_tokens'] = include_tokens
-                logger.info(f"Gathered include knowledge: {include_tokens} tokens from spec '{full_spec}'", extra={'log_color': 'PERCENT'})
-                return know
-            except Exception as e:
-                logger.exception(f"Include failed for spec='{full_spec}': {e}", extra={'log_color': 'DELTA'})
-                traceback.print_exc()
-                return ""
-        except Exception as e:
-            logger.exception(f"Error in _gather_include_knowledge: {e}", extra={'log_color': 'DELTA'})
-            traceback.print_exc()
-            return ""
-        
+        inc = task.get('include') or {}
+        spec = inc.get('pattern','')
+        if not spec:
+            return "", ""
+        rec = " recursive" if inc.get('recursive') else ""
+        full_spec = f"pattern={spec}{rec}"
+        include_list = svc.include_list(full_spec) or []
+        know       = svc.combine_knowledge(include_list)
+        know_files = svc.combine_knowledge_filenames(include_list)
+        # record token counts if you like...
+        return know, know_files
+
     def _generate_plan(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
         """
         Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
@@ -552,14 +545,14 @@ class TodoService:
             logger.info(f"Updating existing plan file: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
 
         task['_plan_path'] = str(plan_path)
-
+        know, include_filenames =self._gather_include_knowledge(task, svc)
         # build a proper plan prompt
         plan_prompt = self._prompt_builder.build_plan_prompt(
             task,
             basedir=str(base_folder) if base_folder else '',
             out_path=str(plan_path),
             knowledge_text=task.get('knowledge',''),
-            include_text=self._gather_include_knowledge(task, svc)
+            include_text=know
         )
 
         # generate…
@@ -598,13 +591,13 @@ class TodoService:
                 self._file_service.write_file(plan_path, "# Plan for task\n\nNext steps:\n- To be generated.")
 
             task['_plan_path'] = str(plan_path)
-
+            know, include_filenames =self._gather_include_knowledge(task, svc)
             plan_prompt = self._prompt_builder.build_plan_prompt(
                 task,
                 basedir=str(base_folder) if base_folder else '',
                 out_path=str(plan_path),
                 knowledge_text=task.get('knowledge', ''),
-                include_text=self._gather_include_knowledge(task, svc)
+                include_text=know
             ) 
 
             plan_content = svc.ask(plan_prompt)
@@ -643,13 +636,14 @@ class TodoService:
             self._file_service.base_dir = str(basedir)
             logger.debug(f"Base dir: {self._base_dir}")
             task['cur_model'] = svc.get_cur_model()
-            include_text = self._gather_include_knowledge(task, svc)
+            include_text, include_filenames = self._gather_include_knowledge(task, svc)
             include_files: List[str] = []
             if include_text:
                 for line in include_text.splitlines():
                     if line.startswith("# file: "):
                         include_files.append(line[8:].strip())
             task['_include_files'] = include_files
+            task['include_filenames'] = include_files
             task['_include_spec'] = task.get('include')
             task['_include_tokens'] = len(include_text.split()) if include_text else 0
             task['include_tokens'] = task.get('include_tokens', task['_include_tokens'])

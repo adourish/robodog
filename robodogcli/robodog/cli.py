@@ -358,7 +358,7 @@ def main():
                         help='startup model name')
     parser.add_argument('--log-file', default='robodog.log',
                         help='path to log file')
-    parser.add_argument('--log-level', default='INFO',
+    parser.add_argument('--log-level', default='ERROR',
                         choices=['DEBUG','INFO','WARNING','ERROR','CRITICAL'],
                         help='set root logging level')
     parser.add_argument('--backupFolder', default=r'c:\temp',

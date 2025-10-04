@@ -53,38 +53,28 @@ class TodoUtilService:
             logger.exception(f"Error during initialization of TodoService: {e}", extra={'log_color': 'DELTA'})
             raise
 
-    # --- Enhanced sanitize_desc method ---
     def sanitize_desc(self, desc: str) -> str:
-        """
-        Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
-        Called to clean desc after parsing or before rebuilding.
-        Enhanced to robustly remove all trailing flag patterns, including multiples, and handle flags before pipes ('|').
-        Now also removes any lingering "[-]" patterns that may have accumulated. Enhanced: Iteratively remove until no more matches.
-        """
-        logger.debug(f"Sanitizing desc: {desc[:100]}...")
-        # Robust regex to match and strip trailing flags: [ followed by space or symbol, then ], possibly multiple
-        # Also handles cases where flags are before a metadata pipe '|'
-        flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
-        pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'  # Flags before pipe
-        lingering_minus_flag = r'\s*\[\s*-\s*\]\s*$'  # Specific to catch trailing "[-]"
-        while re.search(flag_pattern, desc) or re.search(pipe_flag_pattern, desc) or re.search(lingering_minus_flag, desc):
-            # Remove trailing flags before pipe or end
-            desc = re.sub(flag_pattern, '', desc)
-            # Remove flags immediately before pipe
-            desc = re.sub(pipe_flag_pattern, '|', desc)
-            # Remove specific lingering "[-]" at end
-            desc = re.sub(lingering_minus_flag, '', desc)
-            desc = desc.rstrip()  # Clean up whitespace
-            logger.debug(f"Stripped trailing/multiple/lingering flags, new desc: {desc[:100]}...")
-        # Also strip any extra | metadata if desc was contaminated (ensure only one leading desc part)
-        if ' | ' in desc:
-            desc = desc.split(' | ')[0].strip()  # Take only the first part as desc
-            logger.debug(f"Stripped metadata contamination (pre-pipe), clean desc: {desc[:100]}...")
-        # Final strip of any lingering bracket patterns at end
-        desc = re.sub(r'\s*\[.*?\]\s*$', '', desc).strip()
-        logger.debug(f"Final sanitized desc: {desc[:100]}...")
-        return desc
-
+            """
+            Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
+            Enhanced to iteratively remove ALL trailing flags and pipe‐based metadata.
+            """
+            flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
+            pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'
+            lingering_minus_flag = r'\s*\[\s*-\s*\]\s*$'
+            # iteratively strip off [x] [~] [-] at end or before pipes
+            while True:
+                new = re.sub(flag_pattern, '', desc)
+                new = re.sub(pipe_flag_pattern, '|', new)
+                new = re.sub(lingering_minus_flag, '', new)
+                new = new.rstrip()
+                if new == desc:
+                    break
+                desc = new
+            # if there's any “| …” metadata left, cut it off once and for all
+            if '|' in desc:
+                desc = desc.split('|', 1)[0].strip()
+            return desc
+    
     # --- Enhanced _parse_task_metadata method ---
     def _parse_task_metadata(self, full_desc: str) -> Dict:
         """
@@ -497,6 +487,3 @@ class TodoUtilService:
         if out_path:
             return Path(out_path)
         return None
-    
-    def sanitize_desc(self, desc: str) -> str:
-        return desc
