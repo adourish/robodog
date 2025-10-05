@@ -186,5 +186,106 @@ class DiffService:
 
         return "\n".join(lines) + "\n"
 
+    def is_unified_diff(self, text: str) -> bool:
+        """
+        Quick check for unified‐diff format:
+        - must contain at least one hunk header (@@ -x,y +a,b @@)
+        - and file markers '--- ' and '+++ '
+        """
+        if not text:
+            return False
+        # look for hunk header
+        if not self._hunk_re.search(text):
+            return False
+        # also ensure it has ---/+ markers
+        has_from = any(line.startswith('--- ') for line in text.splitlines())
+        has_to   = any(line.startswith('+++ ') for line in text.splitlines())
+        return has_from and has_to
+
+    def apply_if_unified(self, diff_text: str, original_text: str) -> str:
+        """
+        If diff_text is a unified diff, apply it against original_text.
+        Otherwise just return original_text.
+        """
+        if self.is_unified_diff(diff_text):
+            logger.debug("Unified diff detected – applying patch")
+            return self.apply_unified_diff(diff_text, original_text)
+        else:
+            logger.debug("Not a unified diff – skipping patch")
+            return original_text
+        
+    def apply_unified_diff(self, diff_text: str, original_text: str) -> str:
+        """
+        Apply a unified diff (as produced by difflib.unified_diff) to the
+        original_text and return the patched text.
+        """
+        import re
+
+        # Split originals and diffs into lines (no trailing newlines)
+        orig_lines = original_text.splitlines()
+        new_lines = []
+        diff_lines = diff_text.splitlines()
+
+        # Regex to parse hunk headers:
+        #   @@ -start,count +start,count @@
+        hunk_re = re.compile(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
+
+        orig_idx = 0    # pointer into orig_lines
+        i = 0           # pointer into diff_lines
+
+        while i < len(diff_lines):
+            header = diff_lines[i]
+            m = hunk_re.match(header)
+            if not m:
+                i += 1
+                continue
+            # pull out original hunk start/count
+            o_start = int(m.group(1)) - 1              # make zero-based
+            o_count = int(m.group(2) or '1')
+            # n_start = int(m.group(3)) - 1  # not needed for applying
+            # n_count = int(m.group(4) or '1')
+
+            # copy all unchanged lines before this hunk
+            while orig_idx < o_start:
+                new_lines.append(orig_lines[orig_idx])
+                orig_idx += 1
+
+            # now process this hunk
+            i += 1
+            # go until next hunk or EOF
+            while i < len(diff_lines) and not diff_lines[i].startswith('@@'):
+                line = diff_lines[i]
+                if not line:
+                    # an empty diff line is context
+                    if orig_idx < len(orig_lines):
+                        new_lines.append(orig_lines[orig_idx])
+                        orig_idx += 1
+                else:
+                    tag, text = line[0], line[1:]
+                    if tag == ' ':
+                        # context line: keep original
+                        new_lines.append(orig_lines[orig_idx])
+                        orig_idx += 1
+                    elif tag == '-':
+                        # deletion: skip original line
+                        orig_idx += 1
+                    elif tag == '+':
+                        # addition: insert new line
+                        new_lines.append(text)
+                    else:
+                        # ignore other markers (e.g. "\ No newline …")
+                        pass
+                i += 1
+        # append any trailing original lines
+        while orig_idx < len(orig_lines):
+            new_lines.append(orig_lines[orig_idx])
+            orig_idx += 1
+
+        # re-join; this will normalize to '\n' line endings
+        result = "\n".join(new_lines)
+        # preserve final newline if original had one
+        if original_text.endswith("\n"):
+            result += "\n"
+        return result
 # original file length: 213 lines
 # updated file length: 225 lines

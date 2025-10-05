@@ -2,14 +2,15 @@
 
 
 # todo  protask 1
-- [x][-][-] 
-  - started: 2025-10-05T00:40:39.541731 | completed: 2025-10-05 04:40 | knowledge: 17 | include: 23930 | cur_model: openai/o4-mini
+- [x][~][-]  | knowledge: 47 | include: 33675 | prompt: 34306
+  - started: 2025-10-05T14:41:28.834747 | completed: 2025-10-05 18:43 | knowledge: 47 | include: 28775 | prompt: 29406 | cur_model: openai/o4-mini | commit: success | compare: UPDATE C:\Projects\robodog\robodogcli\plan.md O:239 N:162 D:-77 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:2451 N:1602 D:-849 
   - include: pattern=*robodogcli*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
 ```knowledge
-the desc is getting removed after llm run. "[x][x][x] fix the desc" becomes "[x][x][x]"
-fix this issue. 
+1. the todo currently uses an ask() that returns the entire file, event content that does not change
+2. recommend how we can change the prompt to return a unified diff in the output 
+3. recommend how we can apply a unified diff to an existing file. 
 ``` 
 
 
