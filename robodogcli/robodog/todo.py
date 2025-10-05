@@ -180,7 +180,7 @@ class TodoService:
         elif isinstance(out_spec, str) and out_spec.strip():
             out_spec_text = out_spec.strip()
 
-        plan_spec = task.get('plan')
+        plan_spec = task.get('plan_spec')
         plan_spec_text = '<none>'
         if isinstance(plan_spec, dict):
             bits = []
@@ -195,7 +195,7 @@ class TodoService:
             plan_spec_text = plan_spec.strip()
 
         include_files = extra.get('include_files') or task.get('_include_files') or []
-        include_filenames = task.get('_include_filenames') 
+        include_filenames_text = task.get('include_filenames_text') 
         plan_path = task.get('_plan_path')
         out_path = task.get('_out_path')
         files_entries = extra.get('files')
@@ -226,8 +226,8 @@ class TodoService:
         if include_files:
             message_lines.append("")
             message_lines.append("include files:")
-            for path in include_files:
-                message_lines.append(f"  • {path}")
+
+            message_lines.append(f"  • {include_filenames_text}")
 
         plan_preview = extra.get('plan_preview') or (task.get('_latest_plan') if stage_key == 'plan' and phase == 'complete' else None)
         if plan_preview:
@@ -515,9 +515,9 @@ class TodoService:
         full_spec = f"pattern={spec}{rec}"
         include_list = svc.include_list(full_spec) or []
         know       = svc.combine_knowledge(include_list)
-        know_files = svc.combine_knowledge_filenames(include_list)
+        inclide_filenames = svc.combine_knowledge_filenames(include_list)
         # record token counts if you like...
-        return know, know_files
+        return know, inclide_filenames
 
     def _generate_plan(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
         """
@@ -568,54 +568,6 @@ class TodoService:
         logger.info(f"Wrote plan.md with {task['plan_tokens']} tokens", extra={'log_color': 'PERCENT'})
         return plan_content
     
-    def _generate_planb(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
-        """
-        Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
-        Uses a specialized prompt for planning. Enhanced for token efficiency and performance.
-        """
-        logger.info(f"Generating plan for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-        if self._ui_callback:
-            self._ui_callback(f"📋 Generating plan for: {task['desc'][:50]}...")
-            
-        try:
-            plan_spec = task.get('plan') or {'pattern': 'plan.md', 'recursive': True}
-            plan_path = self._todo_util._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
-            if not plan_path:
-                plan_path = base_folder / 'plan.md' if base_folder else Path('plan.md')
-                logger.info(f"Default plan path: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-
-            if plan_path.exists():
-                logger.info(f"Updating existing plan: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-            else:
-                logger.info(f"Creating new plan: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-                self._file_service.write_file(plan_path, "# Plan for task\n\nNext steps:\n- To be generated.")
-
-            task['_plan_path'] = str(plan_path)
-            know, include_filenames =self._gather_include_knowledge(task, svc)
-            plan_prompt = self._prompt_builder.build_plan_prompt(
-                task,
-                basedir=str(base_folder) if base_folder else '',
-                out_path=str(plan_path),
-                knowledge_text=task.get('knowledge', ''),
-                include_text=know
-            ) 
-
-            plan_content = svc.ask(plan_prompt)
-            if not plan_content.strip():
-                logger.warning("No plan content generated", extra={'log_color': 'DELTA'})
-                return ""
-
-            self._todo_util._write_plan(self._svc, plan_path=plan_path, content=plan_content)      
-            plan_tokens = len(plan_content.split())
-            task['plan_tokens'] = plan_tokens
-            task['_latest_plan'] = plan_content
-            logger.info(f"Plan generated and written: {plan_path}, {plan_tokens} tokens", extra={'log_color': 'PERCENT'})
-            return plan_content
-        except Exception as e:
-            logger.exception(f"Error generating plan: {e}", extra={'log_color': 'DELTA'})
-            traceback.print_exc()
-            return ""
-
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = "", step: int = 1):
         logger.info(f"_process_one called with task, todoFilename={todoFilename!r}, step={step}", extra={'log_color': 'HIGHLIGHT'})
 
@@ -636,7 +588,7 @@ class TodoService:
             self._file_service.base_dir = str(basedir)
             logger.debug(f"Base dir: {self._base_dir}")
             task['cur_model'] = svc.get_cur_model()
-            include_text, include_filenames = self._gather_include_knowledge(task, svc)
+            include_text, include_filenames_text = self._gather_include_knowledge(task, svc)
             include_files: List[str] = []
             if include_text:
                 for line in include_text.splitlines():
@@ -644,6 +596,7 @@ class TodoService:
                         include_files.append(line[8:].strip())
             task['_include_files'] = include_files
             task['include_filenames'] = include_files
+            task['include_filenames_text'] = include_filenames_text
             task['_include_spec'] = task.get('include')
             task['_include_tokens'] = len(include_text.split()) if include_text else 0
             task['include_tokens'] = task.get('include_tokens', task['_include_tokens'])
