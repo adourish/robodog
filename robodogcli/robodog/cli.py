@@ -413,7 +413,7 @@ def main():
     svc.set_ui_callback(app_instance.display_command)
     if hasattr(svc, 'todo') and svc.todo:
         svc.todo.set_ui_callback(app_instance.display_command)
-    
+        
     server = run_robodogmcp(
         host    = args.host,
         port    = args.port,

@@ -4,7 +4,7 @@ import os
 import logging
 import sys
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 class TaskBase:
     """Base class for task-related functionality."""
 
-    STATUS_MAP = {' ': 'To Do', '~': 'Doing', 'x': 'Done'}
+    STATUS_MAP = {
+        ' ': 'To Do',
+        '~': 'Doing',
+        'x': 'Done',
+        '-': 'Ignore',
+    }
     REVERSE_STATUS = {v: k for k, v in STATUS_MAP.items()}
 
     @staticmethod
@@ -67,7 +72,8 @@ class TaskManager(TaskBase):
     def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None):
         self.parser = task_parser
         self.watcher = file_watcher
-
+        self._svc = svc
+        self._ui_callback: Optional[Callable] = None  # New: UI update callback
     def format_task_summary(self, task, cur_model):
         """
         Build a one‐line summary of a task dict. Never throws;
@@ -169,7 +175,7 @@ class TaskManager(TaskBase):
 
     def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
         """Mark a task as started (To Do -> Doing)."""
-        if self.STATUS_MAP[task['llm']] != 'To Do':
+        if self.STATUS_MAP.get(task.get('llm', ' '), 'Ignore') != 'To Do':
             return
 
         fn = task['file']
@@ -202,44 +208,151 @@ class TaskManager(TaskBase):
 
         task['llm'] = self.REVERSE_STATUS['Doing']
 
-    def complete_task(self, task: dict, file_lines_map: dict, cur_model: str,
-                      truncation: float = 0, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
-        """Mark a task as completed (Doing -> Done), including inline compare info."""
-        logger.debug("complete task:" + task['desc'])
-        fn = task['file']
-        ln = task['line_no']
-        indent = task['indent']
-        desc = task['desc']
+    def complete_task(self,
+                      task: dict,
+                      file_lines_map: dict,
+                      cur_model: str,
+                      truncation: float = 0,
+                      compare: Optional[List[str]] = None,
+                      commit: bool = False,
+                      step: float = 1):
+        """Mark a task as completed for the given step (plan=1, llm=2, commit=3)."""
+        fn      = task['file']
+        ln      = task['line_no']
+        indent  = task['indent']
+        desc    = task['desc']
+        now     = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+
+        # 1) update the checkbox graphic in todo.md
         if step == 1:
             file_lines_map[fn][ln] = f"{indent}- [x][-][-] {desc}\n"
-        elif step ==2:
+            task['plan'] = self.REVERSE_STATUS['Done']
+        elif step == 2:
             file_lines_map[fn][ln] = f"{indent}- [x][x][-] {desc}\n"
-        elif step ==3:
+            task['llm'] = self.REVERSE_STATUS['Done']
+        elif step == 3:
             file_lines_map[fn][ln] = f"{indent}- [x][x][x] {desc}\n"
-
-
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        start = task.get('_start_stamp', '')
-
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        incount = task.get('_include_tokens', 0)
-
-        summary = self.format_summary(indent, start, stamp,
-                                      know, prompt, incount, None,
-                                      cur_model, 0, 0, 0,
-                                      0, truncation, compare=compare)
-
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
+            task['commit'] = self.REVERSE_STATUS['Done']
         else:
-            file_lines_map[fn].insert(idx, summary)
-        logger.info(summary)
+            # unknown step: do nothing
+            return
+
+        # 2) insert/update the summary line immediately below
+        task['_complete_stamp'] = now
+        summary = self.format_summary(
+            indent            = indent,
+            start             = task.get('_start_stamp'),
+            end               = now,
+            know              = task.get('_know_tokens'),
+            prompt            = task.get('_prompt_tokens'),
+            incount           = task.get('_include_tokens'),
+            include           = None,
+            cur_model         = cur_model,
+            delta_median      = 0,
+            delta_avg         = 0,
+            delta_peak        = 0,
+            committed         = 1 if commit else 0,
+            truncation        = truncation,
+            compare           = compare
+        )
+
+        # replace or insert
+        insert_at = ln + 1
+        if insert_at < len(file_lines_map[fn]) and file_lines_map[fn][insert_at].lstrip().startswith('- started:'):
+            file_lines_map[fn][insert_at] = summary
+        else:
+            file_lines_map[fn].insert(insert_at, summary)
+
+        # 3) write out and return
         self.write_file(fn, file_lines_map[fn])
-        task['llm'] = self.REVERSE_STATUS['Done']
+        logger.info("Completed task step %d: %s", step, desc)
+
+    def _build_progress_bar(self, state: str, width: int = 10) -> str:
+        """Render a progress bar for the given state."""
+        fill_map = {
+            'done': width * '█',
+            'progress': width // 2 * '█' + (width - width // 2) * '░',
+            'pending': width * '░',
+            'ignored': width * '─'
+        }
+        bar = fill_map.get(state, width * '░')
+        state_emoji = {'done': '✅', 'progress': '⚙️', 'pending': '⏳', 'ignored': '➖'}
+        return f"{bar} {state_emoji.get(state, '⏳')}"
 
 
+    def get_progress_update(self,
+                              task: dict,
+                              stage: object,
+                              phase: str,
+                              extra: Optional[Dict[str, object]] = None) -> None:
+        """
+        Emit a multi-line progress update.  Bars and emojis driven by actual task flags.
+        """
+        if task is None:
+            return
+        extra = dict(extra or {})
+
+        # map numeric stage → key
+        stage_map    = {1: 'plan', 2: 'llm', 3: 'commit'}
+        stage_key    = stage_map.get(stage, None)
+        if not stage_key:
+            return
+
+        # labels & emojis
+        labels       = {'plan': 'Plan',   'llm': 'Code',  'commit': 'Commit'}
+        icons        = {'plan': '📝',    'llm': '💻',    'commit': '📦'}
+        state_names  = {'pending': 'pending', 'progress': 'running',
+                        'done': 'done',      'ignored': 'skipped'}
+        phase_icons  = {'start': '🚀 Starting', 'complete': '✅ Completed'}
+
+        # derive raw states from flags
+        def to_state(f):
+            return {' ': 'pending', '~': 'progress', 'x': 'done', '-': 'ignored'}.get(f, 'pending')
+
+        states = {
+            'plan':   to_state(task.get('plan')),
+            'llm':    to_state(task.get('llm')),
+            'commit': to_state(task.get('commit'))
+        }
+
+        # override current stage on completion so bar is fully █ and ✅
+        if phase == 'complete':
+            states[stage_key] = 'done'
+
+        # build lines
+        title = f"{phase_icons.get(phase)} {labels[stage_key]} for: {task['desc']}"
+        lines = [title, ""]
+        for key in ('plan', 'llm', 'commit'):
+            bar = self._build_progress_bar(states[key])
+            emoji = icons[key]
+            name  = labels[key].ljust(7)
+            lines.append(f"{emoji} {name}: {bar} {state_names[states[key]]}")
+
+        include_filenames_text = task.get('include_filenames_text','')
+        lines.append(f"Include files:")
+        lines.append(f"{include_filenames_text}")
+        # timestamps & tokens
+        lines += ["",
+                  f"started:   {task.get('_start_stamp','—')}",
+                  f"completed: {task.get('_complete_stamp','—')}",
+                  f"knowledge: {task.get('knowledge_tokens',0)}",
+                  f"include:   {task.get('include_tokens',0)}",
+                  f"prompt:    {task.get('prompt_tokens',0)}",
+                  f"plan:      {task.get('plan_tokens',0)}",
+                  f"cur_model: {task.get('cur_model', self._svc.get_cur_model() if self._svc else '—')}"]
+
+
+        # any extras (like file lists or previews)
+        if extra:
+            lines.append("")
+            for k, v in extra.items():
+                lines.append(f"{k}: {v}")
+
+        
+        
+        message = "\n".join(lines)
+        logger.info(message, extra={'log_color':'HIGHLIGHT'})
+        return message
 
 # original file length: 187 lines
 # updated file length: 187 lines
