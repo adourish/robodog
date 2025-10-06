@@ -465,6 +465,7 @@ class TodoService:
                 if plan_path and plan_path.exists():
                     plan_content = self._file_service.safe_read_file(plan_path)
                     plan_knowledge = f"Plan from plan.md:\n{plan_content}\n"
+                    task['plan_tokens'] = len(plan_content.split())
                     task['_plan_path'] = str(plan_path)
                     task['_latest_plan'] = plan_content
                     logger.info("Included plan.md in LLM prompt", extra={'log_color': 'HIGHLIGHT'})

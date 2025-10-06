@@ -2,15 +2,14 @@
 
 
 # todo  protask 1
-- [x][~][-]  | knowledge: 47 | include: 33675 | prompt: 34306
-  - started: 2025-10-05T14:41:28.834747 | completed: 2025-10-05 18:43 | knowledge: 47 | include: 28775 | prompt: 29406 | cur_model: openai/o4-mini | commit: success | compare: UPDATE C:\Projects\robodog\robodogcli\plan.md O:239 N:162 D:-77 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:2451 N:1602 D:-849 
+- [x][x][-] knowledge: 28
+  - started: 2025-10-05T22:47:15.344438 | completed: 2025-10-06 02:49 | knowledge: 28 | include: 28320 | prompt: 28954 | cur_model: openai/gpt-5-codex | commit: success | compare: UPDATE C:\Projects\robodog\robodogcli\temp\plan.md O:13 N:140 D:127 , UPDATE C:\Projects\robodog\robodogcli\robodog\diff_service.py O:1152 N:957 D:-195 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:2451 N:1864 D:-587 
   - include: pattern=*robodogcli*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
 ```knowledge
-1. the todo currently uses an ask() that returns the entire file, event content that does not change
-2. recommend how we can change the prompt to return a unified diff in the output 
-3. recommend how we can apply a unified diff to an existing file. 
+1. enhance the todo to use the diff service to check if the llm output is a unified diff format.
+2. apply the diff to the original content 
 ``` 
 
 
