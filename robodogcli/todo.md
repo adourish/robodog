@@ -3,13 +3,15 @@
 
 # todo  protask 1
 - [x][x][-] knowledge: 28
-  - started: 2025-10-05T22:47:15.344438 | completed: 2025-10-06 02:49 | knowledge: 28 | include: 28320 | prompt: 28954 | cur_model: openai/gpt-5-codex | commit: success | compare: UPDATE C:\Projects\robodog\robodogcli\temp\plan.md O:13 N:140 D:127 , UPDATE C:\Projects\robodog\robodogcli\robodog\diff_service.py O:1152 N:957 D:-195 , UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:2451 N:1864 D:-587 
-  - include: pattern=*robodogcli*.py  recursive`
+  - started: 2025-10-05T23:15:53.558474 | completed: 2025-10-06 03:22 | knowledge: 45 | include: 16822 | prompt: 17455 | cur_model: openai/gpt-5-codex | commit: success | compare: NEW plan.md O:194 N:130 D:-64, UPDATE C:\Projects\robodog\robodogcli\robodog\parse_service.py O:1467 N:1801 D:334
+  - include: pattern=*robodogcli*robodog*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
 ```knowledge
-1. enhance the todo to use the diff service to check if the llm output is a unified diff format.
-2. apply the diff to the original content 
+1. enhance the prompt builder to request each file in a unified diff format.
+2. enhance the todo service to handle the diff output of the llm
+3. ensure llm and commit can handle a diff
+4. ensure the side by side diff still works
 ``` 
 
 

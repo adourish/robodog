@@ -53,7 +53,7 @@ class ParseService:
     ) -> List[Dict[str, Union[str, int, bool]]]:
         """
         Parse LLM output into objects with enhanced metadata.
-        Ensures each returned dict has 'filename', 'originalfilename', and 'matchedfilename'.
+        Ensures every returned dict exposes `filename`, `originalfilename`, and `matchedfilename`.
         """
         logger.debug("Starting parse of LLM output")
         try:
@@ -65,10 +65,12 @@ class ParseService:
                 parsed = self._parse_fallback(llm_output)
             except Exception as fe:
                 raise ParsingError(f"Could not parse LLM output: {e}")
+        parsed = self._normalize_core_fields(parsed)
         fs = file_service or self.file_service
         # Enhance and apply flags
         for obj in parsed:
             self._enhance_parsed_object(obj, base_dir, fs, task, svc)
+        parsed = self._normalize_core_fields(parsed)
         # Ensure key fields
         for obj in parsed:
             fn = obj.get('filename', '')
@@ -262,6 +264,40 @@ class ParseService:
     def _parse_fallback(self, out: str):
         return [{'filename': 'generated.txt', 'content': out.strip()}]
 
+    def _normalize_core_fields(self, items: List[Dict[str, Union[str, int, bool]]]) -> List[Dict[str, Union[str, int, bool]]]:
+        """
+        Guarantee that every parsed object exposes filename metadata expected by downstream consumers.
+        """
+        normalized: List[Dict[str, Union[str, int, bool]]] = []
+        for obj in items or []:
+            if not isinstance(obj, dict):
+                continue
+            filename = obj.get('filename') or obj.get('relative_path') or obj.get('path') or 'generated.txt'
+            if isinstance(filename, Path):
+                filename = filename.name or str(filename)
+            filename = str(filename)
+            obj['filename'] = filename
+
+            originalfilename = obj.get('originalfilename')
+            if isinstance(originalfilename, Path):
+                originalfilename = str(originalfilename)
+            if not originalfilename:
+                originalfilename = filename
+            obj['originalfilename'] = str(originalfilename)
+
+            matchedfilename = obj.get('matchedfilename')
+            if isinstance(matchedfilename, Path):
+                matchedfilename = str(matchedfilename)
+            if not matchedfilename:
+                matchedfilename = originalfilename
+            obj['matchedfilename'] = str(matchedfilename)
+
+            if not obj.get('relative_path'):
+                obj['relative_path'] = filename
+
+            normalized.append(obj)
+        return normalized
+
     def _extract_filename_and_flag(self, header: str):
         """
         Extract the comment prefix, the raw filename/path, and the flag (NEW|DELETE|COPY|UPDATE)
@@ -300,16 +336,16 @@ class ParseService:
         obj['comment_style'] = obj.get('comment_style','#')
         obj['relative_path'] = obj.get('relative_path', filename)
         # default original and matched to filename
-        obj['originalfilename'] = filename
-        obj['matchedfilename'] = filename
+        obj['originalfilename'] = obj.get('originalfilename', filename)
+        obj['matchedfilename'] = obj.get('matchedfilename', filename)
         # attempt to read original if UPDATE or DELETE
         if fs and flag not in ('NEW','COPY'):
             candidate = fs.find_matching_file(filename, {'pattern':'*','recursive':True}, svc)
             if candidate:
-                obj['originalfilename'] = filename
+                obj['originalfilename'] = str(candidate)
                 obj['matchedfilename'] = str(candidate.resolve())
         # diffs only for UPDATE/DELETE
-        orig = fs.safe_read_file(Path(obj['matchedfilename'])) if fs and flag!='NEW' else ''
+        orig = fs.safe_read_file(Path(obj['matchedfilename'])) if fs and flag!='NEW' and Path(obj['matchedfilename']).exists() else ''
         upd = content if flag!='DELETE' else ''
         obj['diff_md'] = self.diff_service.generate_improved_md_diff(filename, orig, upd, obj['matchedfilename']) if flag!='NEW' else ''
         obj['diff_sbs'] = self.diff_service.generate_side_by_side_diff(filename, orig, upd, obj['matchedfilename']) if flag!='NEW' else ''
@@ -327,7 +363,7 @@ class ParseService:
         exists = Path(matched).exists() if matched else False
         return {
             'new': flag=='NEW',
-            'update': flag=='UPDATE',
+            'update': flag=='UPDATE' or (flag == '' and exists),
             'delete': flag=='DELETE',
             'copy': flag=='COPY'
         }
@@ -361,6 +397,3 @@ class ParseService:
                 fs.write_file(diffdir / name, sbs)
             except Exception:
                 pass
-
-# Original file length: 566 lines
-# Updated file length: 586 lines

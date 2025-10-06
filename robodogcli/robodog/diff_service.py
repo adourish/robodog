@@ -16,6 +16,7 @@ class DiffService:
     def __init__(self, side_width: int = 60):
         self.side_width = side_width
         self.hunk_header = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@')
+        self._hunk_re = re.compile(r'^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@', re.MULTILINE)
 
     def generate_improved_md_diff(self, filename: str, original: str, updated: str, matched: str) -> str:
         """
@@ -74,14 +75,12 @@ class DiffService:
                     if orig_num is not None:
                         md_lines.append(f"[{orig_num:4}{emoji}] {content}")
                     orig_num = (orig_num or 0) + 1
-                    # Enhanced: Log deletions with DELTA color
                     logger.debug(f"Line deleted: {content[:50]}...", extra={'log_color': 'DELTA'})
                 elif prefix == '+':
                     emoji = '🟢'
                     if new_num is not None:
                         md_lines.append(f"[{new_num:4}{emoji}] {content}")
                     new_num = (new_num or 0) + 1
-                    # Enhanced: Log insertions with HIGHLIGHT color
                     logger.debug(f"Line added: {content[:50]}...", extra={'log_color': 'HIGHLIGHT'})
                 else:
                     md_lines.append(line)
@@ -143,7 +142,6 @@ class DiffService:
                         right = " " * (col_width + 8)
                         lines.append(f"{left}  {right}")
                     o_ln += 1
-                    # Enhanced: Log deletions with DELTA color
                     logger.debug(f"Block deleted: lines {o_ln-i2+i1} to {o_ln-1}", extra={'log_color': 'DELTA'})
             elif tag == 'insert':
                 for j in range(j1, j2):
@@ -156,10 +154,8 @@ class DiffService:
                             right = f"      {segment}"
                         lines.append(f"{left}  {right}")
                     n_ln += 1
-                    # Enhanced: Log insertions with PERCENT color (positive change)
                     logger.debug(f"Block inserted: lines {n_ln-j2+j1} to {n_ln-1}", extra={'log_color': 'PERCENT'})
             elif tag == 'replace':
-                # deletions
                 for idxd, la in enumerate(orig_lines[i1:i2]):
                     wrapped = wrap(la, col_width)
                     for idxw, segment in enumerate(wrapped):
@@ -169,7 +165,6 @@ class DiffService:
                             left = f"      {segment}".ljust(left_pad)
                         right = " " * (col_width + 8)
                         lines.append(f"{left}  {right}")
-                # insertions
                 for idxi, lb in enumerate(updt_lines[j1:j2]):
                     wrapped = wrap(lb, col_width)
                     for idxw, segment in enumerate(wrapped):
@@ -181,7 +176,6 @@ class DiffService:
                         lines.append(f"{left}  {right}")
                 o_ln += (i2 - i1)
                 n_ln += (j2 - j1)
-                # Enhanced: Log replacements with HIGHLIGHT color for key changes
                 logger.info(f"Block replaced: {i2-i1} lines removed, {j2-j1} lines added", extra={'log_color': 'HIGHLIGHT'})
 
         return "\n".join(lines) + "\n"
@@ -194,10 +188,8 @@ class DiffService:
         """
         if not text:
             return False
-        # look for hunk header
         if not self._hunk_re.search(text):
             return False
-        # also ensure it has ---/+ markers
         has_from = any(line.startswith('--- ') for line in text.splitlines())
         has_to   = any(line.startswith('+++ ') for line in text.splitlines())
         return has_from and has_to
@@ -221,17 +213,14 @@ class DiffService:
         """
         import re
 
-        # Split originals and diffs into lines (no trailing newlines)
         orig_lines = original_text.splitlines()
         new_lines = []
         diff_lines = diff_text.splitlines()
 
-        # Regex to parse hunk headers:
-        #   @@ -start,count +start,count @@
         hunk_re = re.compile(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 
-        orig_idx = 0    # pointer into orig_lines
-        i = 0           # pointer into diff_lines
+        orig_idx = 0
+        i = 0
 
         while i < len(diff_lines):
             header = diff_lines[i]
@@ -239,53 +228,35 @@ class DiffService:
             if not m:
                 i += 1
                 continue
-            # pull out original hunk start/count
-            o_start = int(m.group(1)) - 1              # make zero-based
+            o_start = int(m.group(1)) - 1
             o_count = int(m.group(2) or '1')
-            # n_start = int(m.group(3)) - 1  # not needed for applying
-            # n_count = int(m.group(4) or '1')
 
-            # copy all unchanged lines before this hunk
             while orig_idx < o_start:
                 new_lines.append(orig_lines[orig_idx])
                 orig_idx += 1
 
-            # now process this hunk
             i += 1
-            # go until next hunk or EOF
             while i < len(diff_lines) and not diff_lines[i].startswith('@@'):
                 line = diff_lines[i]
                 if not line:
-                    # an empty diff line is context
                     if orig_idx < len(orig_lines):
                         new_lines.append(orig_lines[orig_idx])
                         orig_idx += 1
                 else:
                     tag, text = line[0], line[1:]
                     if tag == ' ':
-                        # context line: keep original
                         new_lines.append(orig_lines[orig_idx])
                         orig_idx += 1
                     elif tag == '-':
-                        # deletion: skip original line
                         orig_idx += 1
                     elif tag == '+':
-                        # addition: insert new line
                         new_lines.append(text)
-                    else:
-                        # ignore other markers (e.g. "\ No newline …")
-                        pass
                 i += 1
-        # append any trailing original lines
         while orig_idx < len(orig_lines):
             new_lines.append(orig_lines[orig_idx])
             orig_idx += 1
 
-        # re-join; this will normalize to '\n' line endings
         result = "\n".join(new_lines)
-        # preserve final newline if original had one
         if original_text.endswith("\n"):
             result += "\n"
         return result
-# original file length: 213 lines
-# updated file length: 225 lines
