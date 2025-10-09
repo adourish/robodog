@@ -162,7 +162,7 @@ class TodoUtilService:
         Reconstruct a task line using the preserved `_raw_desc`, so that after flag changes
         the original description text is never lost.
         """
-        raw_desc = task.get('_raw_desc', task.get('desc', ''))
+        raw_desc =  task.get('desc', '')
         clean_desc = self.sanitize_desc(raw_desc)
 
         plan_flag = task.get('plan', ' ') or ' '

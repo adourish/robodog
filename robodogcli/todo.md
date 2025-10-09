@@ -3,7 +3,7 @@
 
 # todo  protask 1
 - [x][x][-] plan
-  - started: 2025-10-08T23:32:37.338740 | completed: 2025-10-09 03:33 | knowledge: 9 | include: 17945 | prompt: 18558 | cur_model: openai/o4-mini | commit: success | compare: NEW C:\Projects\robodog\robodogcli\temp\plan.md O:146 N:198 D:52, UPDATE C:\Projects\robodog\robodogcli\robodog\task_parser.py O:440 N:450 D:10
+  - started: 2025-10-09T19:27:56.140369 | completed: 2025-10-09 23:28 | knowledge: 9 | include: 17957 | prompt: 18441 | cur_model: openai/o4-mini | commit: success | compare: NEW C:\Projects\robodog\robodogcli\plan.md O:198 N:73 D:-125, UPDATE C:\Projects\robodog\robodogcli\robodog\__init__.py O:8 N:105 D:97, UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:1961 N:28 D:-1933
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md

@@ -1,3 +1,4 @@
+# file: task_parser.py
 #!/usr/bin/env python3
 import os
 import re
@@ -62,7 +63,7 @@ class TaskParser:
         """
         Given a filename + its lines[], return (lines, [task, …]).
         Each task is a dict with keys: file, line_no, indent, plan, llm,
-        commit, desc, include, in, out, focus, plan_spec, knowledge.
+        commit, desc, include, in, out, focus, plan_spec, knowledge, _raw_desc.
         """
         tasks: List[Dict[str,Any]] = []
         i = 0
@@ -86,6 +87,8 @@ class TaskParser:
                 'llm': llm,
                 'commit': commit,
                 'desc': desc,
+                # Preserve the original description for rebuilds
+                '_raw_desc': desc,
                 'include': None,
                 'in': None,
                 'out': None,

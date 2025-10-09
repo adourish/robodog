@@ -415,7 +415,7 @@ class TodoService:
         self._ui_callback(f"Base folder {base_folder}")
 
         # Check if task should use diff mode
-        diff_mode = task.get('diff_mode', False) or task.get('desc', '').lower().find('diff') != -1
+        diff_mode = task.get('diff_mode', True) or task.get('desc', '').lower().find('diff') != -1
 
         try:
            
