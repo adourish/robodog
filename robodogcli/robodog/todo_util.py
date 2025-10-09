@@ -498,30 +498,53 @@ class TodoUtilService:
 
         return out_path
 
-    def _get_plan_out_pathb(self, task, base_folder: str = ""):
-        raw_out = task.get('plan')
+    def _get_plan_out_path(self, raw_spec: Any, base_folder: str = "") -> Optional[Path]:
+        """
+        Figure out where plan.md should live.
+        Accepts either:
+          - a dict { 'pattern': ..., 'recursive': ...}
+          - a nested dict { 'plan': { 'pattern':..., 'recursive':...} }
+          - a literal string path
+        """
         out_path: Optional[Path] = None
 
-        if isinstance(raw_out, str) and raw_out.strip():
-            candidate = Path(raw_out)
+        # Direct spec dict with pattern key
+        if isinstance(raw_spec, dict) and 'pattern' in raw_spec:
+            pattern = raw_spec.get('pattern') or ""
+            if pattern:
+                try:
+                    candidate = self._file_service.resolve_path(pattern, self._svc)
+                except Exception:
+                    candidate = None
+                if candidate:
+                    out_path = candidate
+                else:
+                    out_path = Path(base_folder) / pattern if base_folder else Path(pattern)
+
+        # Nested spec under 'plan' key
+        elif isinstance(raw_spec, dict) and 'plan' in raw_spec:
+            spec = raw_spec['plan']
+            if isinstance(spec, dict) and spec.get('pattern'):
+                pattern = spec['pattern']
+                try:
+                    candidate = self._file_service.resolve_path(pattern, self._svc)
+                except Exception:
+                    candidate = None
+                if candidate:
+                    out_path = candidate
+                else:
+                    out_path = Path(base_folder) / pattern if base_folder else Path(pattern)
+
+        # Literal string path
+        elif isinstance(raw_spec, str) and raw_spec.strip():
+            candidate = Path(raw_spec.strip())
             if not candidate.is_absolute() and base_folder:
                 candidate = Path(base_folder) / candidate
             out_path = candidate
-        elif isinstance(raw_out, dict):
-            pattern = raw_out.get('pattern', "")
-            try:
-                candidate = self._file_service.resolve_path(pattern, self._svc)
-            except Exception as e:
-                logger.exception(f"Error resolving plan pattern {pattern}: {e}", extra={'log_color': 'DELTA'})
-                candidate = None
-            if candidate:
-                out_path = candidate
-            elif base_folder and pattern:
-                out_path = Path(base_folder) / pattern
 
-        return out_path
+        return Path(out_path) if out_path else None
 
-    def _get_plan_out_path(self, raw_spec: Any, base_folder: str = "") -> Optional[Path]:
+    def _get_plan_out_pathc(self, raw_spec: Any, base_folder: str = "") -> Optional[Path]:
         """
         Figure out where plan.md should live.
         Accepts either:

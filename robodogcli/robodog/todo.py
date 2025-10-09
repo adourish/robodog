@@ -205,7 +205,7 @@ class TodoService:
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
-            task['plan_tokens'] = task.get('plan_tokens', 0)
+          
             # Enhanced: Sanitize desc before any flag updates to ensure clean state
             task['desc'] = self._todo_util.sanitize_desc(task['desc'])
             if step == 1:
@@ -241,7 +241,7 @@ class TodoService:
             elif step == 3 and task.get('_pending_files'):
                 progress_payload['files'] = task.get('_pending_files')
             self._emit_progress_update(task, step, 'start', progress_payload)
-            logger.info(f"Task started: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}", extra={'log_color': 'PERCENT'})
+            logger.info(f"Task started: ", extra={'log_color': 'PERCENT'})
             return st
         except Exception as e:
             logger.exception(f"Error starting task {task['desc']}: {e}", extra={'log_color': 'DELTA'})
@@ -356,33 +356,31 @@ class TodoService:
         # record token counts if you like...
         return know, inclide_filenames
 
-    def _generate_plan(self, task: dict, svc, base_folder: Optional[Path] = None) -> str:
+    def _generate_plan(self, task: dict, svc, base_folder: str = None, diff: bool = False) -> str:
         """
         Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
+        Enhanced to support diff mode.
         """
-        logger.info(f"Generating plan for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+        diff_mode_text = " (diff mode)" if diff else ""
+        logger.info(f"Generating plan for task: {task['desc']}{diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
         if self._ui_callback:
-            self._ui_callback(f"📋 Generating plan for: {task['desc'][:50]}…")
+            self._ui_callback(f"📋 Generating plan for: {task['desc'][:50]}…{diff_mode_text}")
 
-        # >> THIS WAS WRONG: plan_spec = task.get('plan')  # <-- this is just ' ' or '~'
-        #    IT MUST BE:
         plan_spec = task.get('plan_spec') or {'pattern': 'plan.md', 'recursive': True}
 
         # now resolve the actual file path
-        plan_path = self._todo_util._get_plan_out_path(plan_spec, base_folder=base_folder)
-        if not plan_path:
-            plan_path = (base_folder / 'plan.md') if base_folder else Path('plan.md')
-            logger.info(f"Default plan path: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-
-        # touch or initialize plan.md if missing
-        if not plan_path.exists():
-            logger.info(f"Creating new plan file: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-            self._file_service.write_file(plan_path, "# Plan for task\n\nNext steps:\n- to be generated")
-        else:
-            logger.info(f"Updating existing plan file: {plan_path}", extra={'log_color': 'HIGHLIGHT'})
-
+        plan_path = self._todo_util._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
+        self._ui_callback(f"Plan path {plan_path}")
+        plan_path = Path(plan_path)
         task['_plan_path'] = str(plan_path)
         know, include_filenames =self._gather_include_knowledge(task, svc)
+        
+        # Add diff mode info to task description if enabled
+        task_desc = task.get('desc', '')
+        if diff:
+            task_desc += f" (Using unified diff mode for efficient changes)"
+            task['diff_mode'] = True
+        
         # build a proper plan prompt
         plan_prompt = self._prompt_builder.build_plan_prompt(
             task,
@@ -402,28 +400,25 @@ class TodoService:
         self._todo_util._write_plan(svc, plan_path, plan_content)
         task['plan_tokens'] = len(plan_content.split())
         task['_latest_plan'] = plan_content
-        logger.info(f"Wrote plan.md with {task['plan_tokens']} tokens", extra={'log_color': 'PERCENT'})
+        logger.info(f"Wrote plan.md with {task['plan_tokens']} tokens{diff_mode_text}", extra={'log_color': 'PERCENT'})
         return plan_content
     
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = "", step: int = 1):
         logger.info(f"_process_one called with task, todoFilename={todoFilename!r}, step={step}", extra={'log_color': 'HIGHLIGHT'})
 
-        base_folder = None
-        if todoFilename:
-            try:
-                base_folder = Path(todoFilename).parent
-                logger.info("Process base folder: " + str(base_folder), extra={'log_color': 'HIGHLIGHT'})  
-            except Exception as e:
-                logger.exception(f"Could not determine parent folder of {todoFilename}: {e}", extra={'log_color': 'DELTA'})
-                traceback.print_exc()
-                base_folder = None
+        logger.info(f"Processing task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+        basedir = Path(task['file']).parent
+        self._base_dir = str(basedir)
+        self._file_service.base_dir = str(basedir)
+        logger.debug(f"Base dir: {self._base_dir}")        
+        base_folder = self._base_dir
+        self._ui_callback(f"Base folder {base_folder}")
+
+        # Check if task should use diff mode
+        diff_mode = task.get('diff_mode', False) or task.get('desc', '').lower().find('diff') != -1
 
         try:
-            logger.info(f"Processing task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            basedir = Path(task['file']).parent
-            self._base_dir = str(basedir)
-            self._file_service.base_dir = str(basedir)
-            logger.debug(f"Base dir: {self._base_dir}")
+           
             task['cur_model'] = svc.get_cur_model()
             include_text, include_filenames_text = self._gather_include_knowledge(task, svc)
             include_files: List[str] = []
@@ -449,14 +444,15 @@ class TodoService:
             if step == 1 or task.get('plan') == ' ':
                 st = self.start_task(task, file_lines_map, svc.get_cur_model(), 1)
                 # this now correctly uses task['plan_spec']
-                plan_content = self._generate_plan(task, svc, base_folder)
+                plan_content = self._generate_plan(task, svc, base_folder, diff_mode)
                 if plan_content:
                     task['plan_tokens'] = len(plan_content.split())
                 ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, None, False, 1)
                 task['_start_stamp'] = st
                 return
             elif step == 2 or (status == ' '):
-                logger.warning("Step 2: Running LLM task using plan.md", extra={'log_color': 'HIGHLIGHT'})
+                diff_mode_text = " (diff mode)" if diff_mode else ""
+                logger.warning(f"Step 2: Running LLM task using plan.md{diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
                 task['_out_path'] = str(out_path) if out_path else None
                 plan_knowledge = ""
@@ -468,29 +464,32 @@ class TodoService:
                     task['plan_tokens'] = len(plan_content.split())
                     task['_plan_path'] = str(plan_path)
                     task['_latest_plan'] = plan_content
-                    logger.info("Included plan.md in LLM prompt", extra={'log_color': 'HIGHLIGHT'})
+                    logger.info(f"Included plan.md in LLM prompt{diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
                 # Enhanced: Use stage-specific desc for LLM (llm_desc)
                 prompt_desc = task.get('llm_desc', task['desc'])
+                if diff_mode:
+                    prompt_desc += " (Generate unified diff format for efficient changes)"
                 resources = "knowledge_text: " + knowledge_text + " plan.md:" + plan_knowledge + " task desc: " + prompt_desc
                 prompt = self._prompt_builder.build_task_prompt(
-                    task, self._base_dir, str(out_path), resources, include_text
+                    task, self._base_dir, str(out_path), resources, include_text, diff=diff_mode
                 )
                 task['_prompt_tokens'] = len(prompt.split())
                 task['prompt_tokens'] = task['_prompt_tokens']
-                logger.debug(f"Prompt tokens: {task['_prompt_tokens']}", extra={'log_color': 'PERCENT'})
+                logger.debug(f"Prompt tokens: {task['_prompt_tokens']}{diff_mode_text}", extra={'log_color': 'PERCENT'})
                 cur_model = svc.get_cur_model()
                 task['cur_model'] = cur_model
                 st = self.start_task(task, file_lines_map, cur_model, 2)
                 task['_start_stamp'] = st
                 ai_out = svc.ask(prompt)
                 if not ai_out:
-                    logger.warning("No AI output generated, retrying once", extra={'log_color': 'DELTA'})
+                    logger.warning(f"No AI output generated{diff_mode_text}, retrying once", extra={'log_color': 'DELTA'})
                     ai_out = svc.ask(prompt)
                 self._todo_util._write_full_ai_output(svc, task, ai_out, 0, base_folder=base_folder)
                 parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
                 committed, compare = self._todo_util._write_parsed_files(parsed_files, task, False, base_folder=base_folder, current_filename=None)
                 task['_pending_files'] = compare or []
-                logger.info(f"LLM step: {committed} files parsed (not committed)", extra={'log_color': 'PERCENT'})
+                action_text = "files parsed" if not diff_mode else "diffs/files parsed"
+                logger.info(f"LLM step: {committed} {action_text} (not committed){diff_mode_text}", extra={'log_color': 'PERCENT'})
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, compare, True, 2)
                 task['_complete_stamp'] = ct
             elif step == 3 or (status == 'x' and commit == ' ' and plan == 'x'):
@@ -530,6 +529,3 @@ class TodoService:
             logger.exception(f"Error resolving path {frag}: {e}", extra={'log_color': 'DELTA'})
             traceback.print_exc()
             return None
-
-# Original file length: 325 lines
-# Updated file length: 380 lines
