@@ -2,14 +2,18 @@
 
 
 # todo  protask 1
-- [x][x][-] plan
-  - started: 2025-10-09T19:27:56.140369 | completed: 2025-10-09 23:28 | knowledge: 9 | include: 17957 | prompt: 18441 | cur_model: openai/o4-mini | commit: success | compare: NEW C:\Projects\robodog\robodogcli\plan.md O:198 N:73 D:-125, UPDATE C:\Projects\robodog\robodogcli\robodog\__init__.py O:8 N:105 D:97, UPDATE C:\Projects\robodog\robodogcli\robodog\todo_util.py O:1961 N:28 D:-1933
+- [x][~][-] knowledge: 79 | knowledge: 79 | include: 152610 | prompt: 153473
+  - started: 2025-10-09T19:56:42.496600 | completed: 2025-10-09 23:57 | knowledge: 79 | include: 18054 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
-  - diff_mode: True
 ```knowledge
-1. fix the task desc., it gets wiped out 
+1. fix commit of the diff. it should apply the unified diff to the original file version. find the line and apply only the the unified diff lines.
+2. if i set build_task_prompt diff = True then it is creating a diff prompt 
+3. when commiting the files, it is replacing the file with the diff output. this is not correct
+4. we need to apply the diff output and only change the lines defined in the unified diff.
+
+
 ``` 
 
 
