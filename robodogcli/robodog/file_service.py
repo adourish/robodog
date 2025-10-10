@@ -293,7 +293,7 @@ class FileService:
             logger.error(traceback.format_exc(), extra={'log_color': 'DELTA'})  # Added stack trace
             return b""
 
-    def write_file(self, path: Path, content: str):
+    def write_fileb(self, path: Path, content: str):
         """
         Atomically write `content` to `path`, creating directories as needed.
         If atomic replace fails, falls back to a simple write.
@@ -366,6 +366,67 @@ class FileService:
                     logger.warning(f"Failed to clean up temp file {tmp_name}", extra={'log_color': 'DELTA'})
                     logger.error(traceback.format_exc(), extra={'log_color': 'DELTA'})  # Added stack trace
 
+    def write_file(self, path: Path, content: str):
+        """
+        Atomically write `content` to `path`, creating directories as needed.
+        If content is a unified diff and the file exists, apply the patch.
+        """
+        from diff_service import DiffService
+
+        path = Path(path)
+        diff_srv = DiffService()
+
+        # 0) If this content is a unified diff, apply it to the existing file
+        if diff_srv.is_unified_diff(content) and path.exists():
+            try:
+                original = path.read_text(encoding='utf-8')
+            except Exception:
+                original = ""
+            try:
+                # strip any leading directive lines if necessary
+                # (assumes pure diff text)
+                patched = diff_srv.apply_unified_diff(content, original)
+                content = patched
+                logger.info(f"Applied unified diff patch to {path}", extra={'log_color': 'HIGHLIGHT'})
+            except Exception as e:
+                logger.warning(f"Failed to apply unified diff to {path}: {e}", extra={'log_color': 'DELTA'})
+                # fall back to writing raw content
+
+        # 1) existing pre-write directive cleanup
+        token_count = len(content.split())
+        content = self._fix_comment_directive(content, path.name)
+
+        # 2) ensure parent directories exist
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        # 3) atomic write
+        tmp_name = None
+        try:
+            fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as tf:
+                tf.write(content)
+                tf.flush(); os.fsync(tf.fileno())
+            os.replace(tmp_name, str(path))
+            tmp_name = None
+            logger.info(f"Written (atomic): {path} ({token_count} tokens)", extra={'log_color': 'HIGHLIGHT'})
+        except Exception as atomic_exc:
+            logger.warning(f"Atomic write failed for {path}: {atomic_exc}", extra={'log_color': 'DELTA'})
+            try:
+                if tmp_name and os.path.exists(tmp_name):
+                    os.remove(tmp_name)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(content); f.flush(); os.fsync(f.fileno())
+                logger.info(f"Written (fallback): {path} ({token_count} tokens)", extra={'log_color': 'HIGHLIGHT'})
+            except Exception as fallback_exc:
+                logger.error(f"Fallback write failed for {path}: {fallback_exc}", extra={'log_color': 'DELTA'})
+        finally:
+            if tmp_name and os.path.exists(tmp_name):
+                try: os.remove(tmp_name)
+                except: pass
+                
     def ensure_dir(self, path: Path, parents: bool = True, exist_ok: bool = True):
         """Ensure directory exists, creating parents if needed."""
         logger.debug(f"Ensuring directory: {path}", extra={'log_color': 'HIGHLIGHT'})

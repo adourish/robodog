@@ -173,7 +173,40 @@ class TaskManager(TaskBase):
         if self.watcher:
             self.watcher.ignore_next_change(filepath)
 
-    def start_task(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
+    def start_task(
+        self,
+        task: dict,
+        file_lines_map: dict,
+        cur_model: str,
+        step: float = 1,
+        progress_extra: Optional[Dict[str, object]] = None
+    ):
+        """
+        Mark the task as started (To Do -> Doing for the given step)
+        and update the todo.md line.
+        """
+        logger.info(f"Starting task: {task['desc']} (model: {cur_model}, step: {step})")
+        # … (your existing logic up to rebuilding the line) …
+        task['llm'] = self.REVERSE_STATUS['Doing']
+        # rebuild the task line with new flags
+        rebuilt_line = self._todo_util._rebuild_task_line(task)
+        fn = task['file']
+        ln = task['line_no']
+        lines = file_lines_map.get(fn, [])
+        if 0 <= ln < len(lines):
+            # replace the line in memory
+            lines[ln] = rebuilt_line + '\n'
+            file_lines_map[fn] = lines
+
+            # ← NEW: tell watcher to skip the next change on this file
+            self._file_watcher.ignore_next_change(fn)
+
+            # write the updated todo.md
+            self._file_service.write_file(Path(fn), "".join(lines))
+            logger.info(f"Flag updated in {fn} at line {ln}")
+
+
+    def start_taskb(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
         """Mark a task as started (To Do -> Doing)."""
         if self.STATUS_MAP.get(task.get('llm', ' '), 'Ignore') != 'To Do':
             return
@@ -208,7 +241,42 @@ class TaskManager(TaskBase):
 
         task['llm'] = self.REVERSE_STATUS['Doing']
 
-    def complete_task(self,
+    def complete_task(
+        self,
+        task: dict,
+        file_lines_map: dict,
+        cur_model: str,
+        truncation: float = 0,
+        compare: Optional[List[str]] = None,
+        commit: bool = False,
+        step: float = 1
+    ):
+        """
+        Mark the task as completed for the given step (1=plan, 2=llm, 3=commit)
+        and update the todo.md line.
+        """
+        logger.info(f"Completing task: {task['desc']} (step: {step})")
+        # … (your existing logic up to rebuilding the line) …
+
+        # rebuild the task line with updated flags
+        rebuilt_line = self._todo_util._rebuild_task_line(task)
+        fn = task['file']
+        ln = task['line_no']
+        lines = file_lines_map.get(fn, [])
+
+        if 0 <= ln < len(lines):
+            # replace the line in memory
+            lines[ln] = rebuilt_line + '\n'
+            file_lines_map[fn] = lines
+
+            # ← NEW: tell watcher to skip the next change on this file
+            self._file_watcher.ignore_next_change(fn)
+
+            # write the updated todo.md
+            self._file_service.write_file(Path(fn), "".join(lines))
+            logger.info(f"Flag/summary updated in {fn} at line {ln}")
+            
+    def complete_taskb(self,
                       task: dict,
                       file_lines_map: dict,
                       cur_model: str,

@@ -2,7 +2,7 @@
 
 
 # todo  protask 1
-- [x][-][-] 
+- [x][~][-] knowledge: 6 | knowledge: 6 | include: 160802 | prompt: 161599
   - started: 2025-10-10T17:06:58.154123 | completed: 2025-10-10 21:07 | knowledge: 6 | include: 18701 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out: temp\out.py recursiv 
