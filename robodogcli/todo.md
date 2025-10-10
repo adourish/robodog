@@ -2,14 +2,13 @@
 
 
 # todo  protask 1
-- [x][~][-] knowledge: 6 | knowledge: 6 | include: 160802 | prompt: 161599
-  - started: 2025-10-10T17:06:58.154123 | completed: 2025-10-10 21:07 | knowledge: 6 | include: 18701 | cur_model: openai/o4-mini
+- [x][~][-] knowledge: 6 | started: 2025-10-10T18:20:11.897707 | knowledge: 11 | include: 19199 | plan: 185
+  - started: 2025-10-10T18:18:46.721151 | completed: 2025-10-10 22:18 | knowledge: 11 | include: 160814 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
 ```knowledge
-1. add logging to throttle spinner
-
+1. change file service search to ignore any folder with diffoutput
 
 ``` 
 

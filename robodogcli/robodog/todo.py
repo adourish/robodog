@@ -367,9 +367,10 @@ class TodoService:
             self._ui_callback(f"📋 Generating plan for: {task['desc'][:50]}…{diff_mode_text}")
 
         plan_spec = task.get('plan_spec') or {'pattern': 'plan.md', 'recursive': True}
-
+        
         # now resolve the actual file path
         plan_path = self._todo_util._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
+        self._todo_util._write_plan(svc, plan_path, "# Processing")
         self._ui_callback(f"Plan path {plan_path}")
         plan_path = Path(plan_path)
         task['_plan_path'] = str(plan_path)
