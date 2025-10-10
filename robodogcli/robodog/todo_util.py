@@ -210,6 +210,104 @@ class TodoUtilService:
         current_filename: str = None
     ) -> Tuple[int, List[str]]:
         """
+        Write out parsed files.  In commit_file=True mode, any unified diffs
+        in obj['content'] are applied to the on‐disk file before writing.
+        Returns (count_written, [compare_strings]).
+        """
+        logger.info("_write_parsed_files base_folder=%s commit_file=%s",
+                    base_folder, commit_file, extra={'log_color': 'HIGHLIGHT'})
+        result = 0
+        compare: List[str] = []
+        basedir = Path(task['file']).parent if task else Path.cwd()
+        self._file_service.base_dir = str(basedir)
+        diff_srv = getattr(self._svc.parse_service, 'diff_service', None) if self._svc else None
+
+        for parsed in parsed_files:
+            try:
+                fn       = parsed['filename']
+                rel      = parsed['relative_path']
+                match    = parsed['matchedfilename']
+                is_new   = parsed.get('new', False)
+                is_del   = parsed.get('delete', False)
+                is_copy  = parsed.get('copy', False)
+                is_upd   = parsed.get('update', False) and not is_new
+                content  = parsed.get('content', '')
+                # strip directive
+                header, _, body = content.partition('\n')
+
+                # In commit mode, re-apply diff if detected
+                if commit_file and is_upd and diff_srv and diff_srv.is_unified_diff(body):
+                    original = ""
+                    orig_path = Path(match) if match else None
+                    if orig_path and orig_path.exists():
+                        original = self._file_service.safe_read_file(orig_path)
+                    try:
+                        patched = diff_srv.apply_unified_diff(body, original)
+                        body = patched
+                        parsed['is_diff_applied'] = True
+                        logger.info(f"Using patched diff for {fn}", extra={'log_color': 'HIGHLIGHT'})
+                    except Exception as e:
+                        logger.error(f"Diff apply failed for {fn}: {e}", extra={'log_color': 'DELTA'})
+                        compare.append(f"DIFF_ERROR {fn}")
+                        continue
+
+                # perform the actual file op
+                if commit_file:
+                    if is_del:
+                        p = Path(match)
+                        if p.exists():
+                            self._file_service.delete_file(p)
+                            result += 1
+                        compare.append(f"DELETE {rel}")
+                        continue
+
+                    if is_copy:
+                        src = Path(match)
+                        dst = basedir / rel
+                        self._file_service.copy_file(src, dst)
+                        result += 1
+                        compare.append(f"COPY {rel}")
+                        continue
+
+                    if is_new:
+                        dst = basedir / rel
+                        self._file_service.write_file(dst, body)
+                        result += 1
+                        compare.append(f"NEW {rel}")
+                        continue
+
+                    if is_upd:
+                        dst = Path(match)
+                        if dst.exists():
+                            self._file_service.write_file(dst, body)
+                        else:
+                            # fallback create
+                            dst = basedir / rel
+                            self._file_service.write_file(dst, body)
+                        result += 1
+                        tag = "UPDATE(diff)" if parsed.get('is_diff_applied') else "UPDATE"
+                        compare.append(f"{tag} {rel}")
+                        continue
+
+                # non‐commit mode: we don’t touch disk, just collect compare
+                tag = "NEW" if is_new else "DELETE" if is_del else "COPY" if is_copy else "UPDATE"
+                compare.append(f"{tag} {rel}")
+
+            except Exception:
+                logger.exception(f"Error in _write_parsed_files for {parsed.get('filename')}")
+                continue
+
+        return result, compare
+    
+    def _write_parsed_filesb(
+        self,
+        parsed_files: List[dict],
+        task: dict = None,
+        commit_file: bool = False,
+        base_folder: str = "",
+        current_filename: str = None
+    ) -> Tuple[int, List[str]]:
+        """
         Write parsed files and compare tokens for NEW/UPDATE/DELETE/COPY.
         """
         logger.info("_write_parsed_files base folder: " + str(base_folder), extra={'log_color': 'HIGHLIGHT'})

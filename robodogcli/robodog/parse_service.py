@@ -139,6 +139,98 @@ class ParseService:
         svc: Optional[object] = None,
     ) -> List[Dict[str, Union[str, int, bool]]]:
         """
+        Enhanced commit parsing that properly handles unified diffs.
+        1. Parse normally into objects.
+        2. For each UPDATE object whose content is a unified diff:
+           a. Read the original file from disk.
+           b. Apply the unified diff to it.
+           c. Replace obj['content'] with the patched content (preserving the directive line).
+           d. Recompute token counts.
+        Finally, respect the directive’s NEW/UPDATE/DELETE/COPY flag.
+        """
+        logger.debug("Starting parse_llm_output_commit with enhanced diff handling")
+        # Step 1: normal parse
+        parsed = self.parse_llm_output(
+            llm_output,
+            base_dir=base_dir,
+            file_service=file_service,
+            ai_out_path=str(ai_out_path),
+            task=task,
+            svc=svc,
+        )
+
+        fs = file_service or self.file_service
+        # Step 2: apply diffs in‐place
+        for obj in parsed:
+            try:
+                flag = obj.get('flag', '').upper()
+                # only UPDATEs get a diff applied
+                if flag == 'UPDATE':
+                    content = obj.get('content', '')
+                    # strip off the first directive line
+                    _, _, body = content.partition('\n')
+                    # check for real unified diff
+                    if self.diff_service.is_unified_diff(body):
+                        matched = obj.get('matchedfilename')
+                        if fs and matched:
+                            orig_path = Path(matched)
+                            if orig_path.exists():
+                                original = fs.safe_read_file(orig_path)
+                                try:
+                                    patched = self.diff_service.apply_unified_diff(body, original)
+                                    # preserve directive line
+                                    first_line = content.split('\n', 1)[0]
+                                    final = first_line + '\n' + patched
+                                    obj['content'] = final
+                                    obj['is_diff_applied'] = True
+                                    # recompute token stats
+                                    orig_tok = len(original.split())
+                                    new_tok = len(patched.split())
+                                    obj['original_tokens'] = orig_tok
+                                    obj['new_tokens'] = new_tok
+                                    obj['abs_delta_tokens'] = new_tok - orig_tok
+                                    obj['percent_delta'] = (
+                                        (new_tok - orig_tok) / orig_tok * 100
+                                        if orig_tok > 0 else
+                                        100.0 if new_tok > 0 else 0.0
+                                    )
+                                    logger.info(
+                                        f"Applied unified diff in commit for {obj['filename']}: "
+                                        f"{orig_tok}→{new_tok} tokens",
+                                        extra={'log_color': 'HIGHLIGHT'}
+                                    )
+                                except Exception as e:
+                                    logger.error(
+                                        f"Failed to apply unified diff for {obj['filename']}: {e}",
+                                        extra={'log_color': 'DELTA'}
+                                    )
+                                    obj['diff_apply_error'] = str(e)
+                            else:
+                                logger.warning(
+                                    f"Original file not found for diff apply: {matched}",
+                                    extra={'log_color': 'DELTA'}
+                                )
+                        else:
+                            logger.warning(
+                                f"No file_service or matchedfilename for diff apply: {obj['filename']}",
+                                extra={'log_color': 'DELTA'}
+                            )
+            except Exception:
+                logger.exception(
+                    f"Error in parse_llm_output_commit handling diff for {obj.get('filename')}"
+                )
+        return parsed
+    
+    def parse_llm_output_commitb(
+        self,
+        llm_output: str,
+        base_dir: Optional[str] = None,
+        file_service: Optional[object] = None,
+        ai_out_path: Union[str, Path] = '',
+        task: Union[Dict, List] = None,
+        svc: Optional[object] = None,
+    ) -> List[Dict[str, Union[str, int, bool]]]:
+        """
         Same as parse_llm_output, but afterwards re‐reads the first line of each
         file‐directive and forces the new/update/delete/copy flags to exactly
         what the directive in the AI output says.

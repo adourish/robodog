@@ -2,16 +2,13 @@
 
 
 # todo  protask 1
-- [x][~][-] knowledge: 79 | knowledge: 79 | include: 152610 | prompt: 153473
-  - started: 2025-10-09T19:56:42.496600 | completed: 2025-10-09 23:57 | knowledge: 79 | include: 18054 | cur_model: openai/o4-mini
+- [x][-][-] 
+  - started: 2025-10-10T17:06:58.154123 | completed: 2025-10-10 21:07 | knowledge: 6 | include: 18701 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
 ```knowledge
-1. fix commit of the diff. it should apply the unified diff to the original file version. find the line and apply only the the unified diff lines.
-2. if i set build_task_prompt diff = True then it is creating a diff prompt 
-3. when commiting the files, it is replacing the file with the diff output. this is not correct
-4. we need to apply the diff output and only change the lines defined in the unified diff.
+1. add logging to throttle spinner
 
 
 ``` 
