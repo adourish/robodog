@@ -23,7 +23,7 @@ class PromptBuilder:
         include_text: str = "",
         diff: bool = False
     ) -> str:
-        diff = False
+     
         """Build a prompt for a task execution (with relative paths for NEW files). Enhanced with unified diff support."""
         if diff:
             return PromptBuilder._build_diff_task_prompt(task, basedir, out_path, knowledge_text, include_text)

@@ -2,13 +2,14 @@
 
 
 # todo  protask 1
-- [x][~][-] knowledge: 6 | started: 2025-10-10T18:20:11.897707 | knowledge: 11 | include: 19199 | plan: 185
-  - started: 2025-10-10T18:18:46.721151 | completed: 2025-10-10 22:18 | knowledge: 11 | include: 160814 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
+- [x][~][-] knowledge: 6 | knowledge: 8 | include: 143321 | prompt: 144086
+  - started: 2025-10-11T21:46:52.614555 | completed: 2025-10-12 01:46 | knowledge: 8 | include: 143321 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
+  - diff_mode: True
 ```knowledge
-1. change file service search to ignore any folder with diffoutput
+1. fix why diff_mode: True is not working
 
 ``` 
 
