@@ -57,26 +57,6 @@ class TodoUtilService:
             logger.exception(f"Error during initialization of TodoUtilService: {e}", extra={'log_color': 'DELTA'})
             raise
 
-    def sanitize_desc(self, desc: str) -> str:
-        """
-        Sanitize description by stripping trailing flag patterns like [ x ], [ - ], etc.
-        Iteratively remove ALL trailing flags and pipe-based metadata, but leave
-        the core description text intact.
-        """
-        flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*(?=\||$)'
-        pipe_flag_pattern = r'\s*\[\s*[x~-]\s*\]\s*\|'
-        lingering_minus_flag = r'\s*\[\s*-\s*\]\s*$'
-        while True:
-            new_value = re.sub(flag_pattern, '', desc)
-            new_value = re.sub(pipe_flag_pattern, '|', new_value)
-            new_value = re.sub(lingering_minus_flag, '', new_value)
-            new_value = new_value.rstrip()
-            if new_value == desc:
-                break
-            desc = new_value
-        if '|' in desc:
-            desc = desc.split('|', 1)[0].strip()
-        return desc
 
     def _parse_task_metadata(self, full_desc: str) -> Dict:
         """
@@ -86,7 +66,7 @@ class TodoUtilService:
         logger.debug(f"Parsing metadata for task desc: {full_desc}")
         try:
             raw_desc = full_desc.rstrip()
-            sanitized_desc = self.sanitize_desc(raw_desc)
+            sanitized_desc = raw_desc
             metadata = {
                 '_raw_desc': raw_desc,
                 'desc': sanitized_desc,
@@ -103,7 +83,7 @@ class TodoUtilService:
 
             parts = [p.strip() for p in raw_desc.split('|') if p.strip()]
             if len(parts) > 1:
-                main_desc = self.sanitize_desc(parts[0])
+                main_desc = parts[0]
                 metadata['_raw_desc'] = parts[0]
                 metadata['desc'] = main_desc
                 metadata['plan_desc'] = main_desc
@@ -133,16 +113,16 @@ class TodoUtilService:
                     elif key in ('plan_desc', 'llm_desc', 'commit_desc'):
                         metadata[key] = val
 
-            metadata['desc'] = self.sanitize_desc(metadata['desc'])
-            metadata['plan_desc'] = self.sanitize_desc(metadata['plan_desc'])
-            metadata['llm_desc'] = self.sanitize_desc(metadata['llm_desc'])
-            metadata['commit_desc'] = self.sanitize_desc(metadata['commit_desc'])
+            metadata['desc'] = metadata['desc']
+            metadata['plan_desc'] = metadata['plan_desc']
+            metadata['llm_desc'] = metadata['llm_desc']
+            metadata['commit_desc'] = metadata['commit_desc']
             logger.debug(f"Final parsed metadata: {metadata}")
             return metadata
         except Exception as e:
             logger.exception(f"Error parsing task metadata for '{full_desc}': {e}", extra={'log_color': 'DELTA'})
             raw_desc = full_desc.rstrip()
-            clean = self.sanitize_desc(raw_desc).strip()
+            clean = raw_desc.strip()
             return {
                 '_raw_desc': raw_desc,
                 'desc': clean,
@@ -157,49 +137,7 @@ class TodoUtilService:
                 'plan_tokens': 0,
             }
 
-    def _rebuild_task_line(self, task: dict) -> str:
-        """
-        Reconstruct a task line using the preserved `_raw_desc`, so that after flag changes
-        the original description text is never lost.
-        """
-        raw_desc =  task.get('desc', '')
-        clean_desc = self.sanitize_desc(raw_desc)
 
-        plan_flag = task.get('plan', ' ') or ' '
-        llm_flag = task.get('llm', ' ') or ' '
-        commit_flag = task.get('commit', ' ') or ' '
-        for flag in (plan_flag, llm_flag, commit_flag):
-            if flag not in ' x~-':
-                logger.warning(f"Invalid flag '{flag}' detected; defaulting to space", extra={'log_color': 'DELTA'})
-
-        flags = f"[{plan_flag}][{llm_flag}][{commit_flag}]"
-        line = f"{task.get('indent', '')}- {flags} {clean_desc}"
-
-        meta_parts: List[str] = []
-        if task.get('_start_stamp'):
-            meta_parts.append(f"started: {task['_start_stamp']}")
-        if task.get('_complete_stamp'):
-            meta_parts.append(f"completed: {task['_complete_stamp']}")
-        if task.get('knowledge_tokens', 0):
-            meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
-        if task.get('include_tokens', 0):
-            meta_parts.append(f"include: {task['include_tokens']}")
-        if task.get('prompt_tokens', 0):
-            meta_parts.append(f"prompt: {task['prompt_tokens']}")
-        if task.get('plan_tokens', 0):
-            meta_parts.append(f"plan: {task['plan_tokens']}")
-
-        for key in ('plan_desc', 'llm_desc', 'commit_desc'):
-            stage_value = self.sanitize_desc(task.get(key, '') or '')
-            if stage_value and stage_value != clean_desc:
-                meta_parts.append(f"{key}: {stage_value}")
-
-        if meta_parts:
-            line += " | " + " | ".join(meta_parts)
-
-        if re.search(r'\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[', line):
-            logger.error(f"Flag duplication detected in rebuilt line: {line}", extra={'log_color': 'DELTA'})
-        return line
 
     def _write_parsed_files(
         self,
@@ -438,8 +376,8 @@ class TodoUtilService:
                     parsed['short_compare'] = f"O:{orig_tokens} N:{new_tokens} D:{abs_delta}"
 
                     action = 'NEW' if is_new else 'DELETE' if is_delete else 'COPY' if is_copy else 'UPDATE'
-                    clean_relative = self.sanitize_desc(relative_path)
-                    clean_task_desc = self.sanitize_desc(task.get('desc', '')) if task else ''
+                    clean_relative = relative_path
+                    clean_task_desc = task.get('desc', '') if task else ''
                     plan_tokens = task.get('plan_tokens', 0) if task else 0
                     knowledge_tokens = task.get('knowledge_tokens', 0) if task else 0
                     include_tokens = task.get('include_tokens', 0) if task else 0

@@ -141,7 +141,8 @@ def _init_services(args):
         base=None,
         file_watcher=watcher,
         task_parser=task_parser,
-        svc=svc
+        svc=svc,
+        file_service=svc.file_service
     )
     svc.task_manager = task_manager
 

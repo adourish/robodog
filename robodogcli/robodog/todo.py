@@ -207,19 +207,25 @@ class TodoService:
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
           
             # Enhanced: Sanitize desc before any flag updates to ensure clean state
-            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
+            task['desc'] = task['desc']
             if step == 1:
                 task['plan'] = '~'
+                task['llm'] = '-'
+                task['commit'] = '-'
                 logger.info(f"Set plan to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 2:
+                task['plan'] = 'x'
                 task['llm'] = '~'
+                task['commit'] = '-'
                 logger.info(f"Set llm to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 3:
+                task['plan'] = 'x'
+                task['llm'] = 'x'
                 task['commit'] = '~'
                 logger.info(f"Set commit to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             # Enhanced: Re-sanitize desc after flag update
-            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
-            rebuilt_line = self._todo_util._rebuild_task_line(task)
+            task['desc'] = task['desc']
+            rebuilt_line = self._task_manager._rebuild_task_line(task)
             logger.debug(f"Rebuilt line after start: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
             fn = task['file']
             line_no = task['line_no']
@@ -260,7 +266,7 @@ class TodoService:
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', 0)
             # Enhanced: Sanitize desc before any flag updates to ensure clean state
-            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
+            task['desc'] = task['desc']
             if step == 1:
                 task['plan'] = 'x'
                 logger.info(f"Set plan to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
@@ -271,8 +277,8 @@ class TodoService:
                 task['commit'] = 'x'
                 logger.info(f"Set commit to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             # Enhanced: Re-sanitize desc after flag update
-            task['desc'] = self._todo_util.sanitize_desc(task['desc'])
-            rebuilt_line = self._todo_util._rebuild_task_line(task)
+            task['desc'] = task['desc']
+            rebuilt_line = self._task_manager._rebuild_task_line(task)
             logger.debug(f"Rebuilt line after complete: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
             fn = task['file']
             line_no = task['line_no']
@@ -459,6 +465,8 @@ class TodoService:
                 plan_knowledge = ""
                 plan_spec = task.get('plan', {'pattern': 'plan.md', 'recursive': False})
                 plan_path = self._todo_util._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
+                cur_model = svc.get_cur_model()
+                task['cur_model'] = cur_model
                 if plan_path and plan_path.exists():
                     plan_content = self._file_service.safe_read_file(plan_path)
                     plan_knowledge = f"Plan from plan.md:\n{plan_content}\n"
@@ -466,6 +474,7 @@ class TodoService:
                     task['_plan_path'] = str(plan_path)
                     task['_latest_plan'] = plan_content
                     logger.info(f"Included plan.md in LLM prompt{diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
+                st = self.start_task(task, file_lines_map, cur_model, 2)
                 # Enhanced: Use stage-specific desc for LLM (llm_desc)
                 prompt_desc = task.get('llm_desc', task['desc'])
                 if diff_mode:
@@ -477,9 +486,8 @@ class TodoService:
                 task['_prompt_tokens'] = len(prompt.split())
                 task['prompt_tokens'] = task['_prompt_tokens']
                 logger.debug(f"Prompt tokens: {task['_prompt_tokens']}{diff_mode_text}", extra={'log_color': 'PERCENT'})
-                cur_model = svc.get_cur_model()
-                task['cur_model'] = cur_model
-                st = self.start_task(task, file_lines_map, cur_model, 2)
+                
+                
                 task['_start_stamp'] = st
                 ai_out = svc.ask(prompt)
                 if not ai_out:

@@ -6,8 +6,26 @@ import sys
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable
 from pathlib import Path
-
+import re
 logger = logging.getLogger(__name__)
+
+
+# New three-bracket TASK_RE
+TASK_RE = re.compile(
+    r'^(\s*)-\s*'                         # indent + "- "
+    r'\[(?P<plan>[ x~\-])\]\s*'           # [plan_status]
+    r'\[(?P<llm>[ x~\-])\]\s*'            # [llm_status]
+    r'\[(?P<commit>[ x~\-])\]\s*'         # [commit_status]
+    r'(?P<desc>.+)$'                      # the rest is your desc
+)
+
+# SUB_RE unchanged
+SUB_RE = re.compile(
+    r'^\s*-\s*(?P<key>include|out|in|focus|plan):\s*'
+    r'(?:pattern=|file=)?(?P<pattern>"[^"]+"|`[^`]+`|\S+)'
+    r'(?:\s+(?P<rec>recursive))?'
+)
+
 
 class TaskBase:
     """Base class for task-related functionality."""
@@ -69,11 +87,13 @@ class TaskBase:
 class TaskManager(TaskBase):
     """Manages task lifecycle and status updates."""
 
-    def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None):
+    def __init__(self, base=None, file_watcher=None, task_parser=None, svc=None, file_service=None):
         self.parser = task_parser
         self.watcher = file_watcher
         self._svc = svc
         self._ui_callback: Optional[Callable] = None  # New: UI update callback
+        self._file_watcher = file_watcher
+        self._file_service = file_service
     def format_task_summary(self, task, cur_model):
         """
         Build a one‐line summary of a task dict. Never throws;
@@ -189,7 +209,7 @@ class TaskManager(TaskBase):
         # … (your existing logic up to rebuilding the line) …
         task['llm'] = self.REVERSE_STATUS['Doing']
         # rebuild the task line with new flags
-        rebuilt_line = self._todo_util._rebuild_task_line(task)
+        rebuilt_line = self._rebuild_task_line(task)
         fn = task['file']
         ln = task['line_no']
         lines = file_lines_map.get(fn, [])
@@ -259,7 +279,7 @@ class TaskManager(TaskBase):
         # … (your existing logic up to rebuilding the line) …
 
         # rebuild the task line with updated flags
-        rebuilt_line = self._todo_util._rebuild_task_line(task)
+        rebuilt_line = self._rebuild_task_line(task)
         fn = task['file']
         ln = task['line_no']
         lines = file_lines_map.get(fn, [])
@@ -275,7 +295,51 @@ class TaskManager(TaskBase):
             # write the updated todo.md
             self._file_service.write_file(Path(fn), "".join(lines))
             logger.info(f"Flag/summary updated in {fn} at line {ln}")
-            
+
+    def _rebuild_task_line(self, task: dict) -> str:
+        """
+        Reconstruct a task line using the preserved `_raw_desc`, so that after flag changes
+        the original description text is never lost.
+        """
+        raw_desc =  task.get('desc', '')
+        clean_desc = raw_desc
+
+        plan_flag = task.get('plan', ' ') or ' '
+        llm_flag = task.get('llm', ' ') or ' '
+        commit_flag = task.get('commit', ' ') or ' '
+        for flag in (plan_flag, llm_flag, commit_flag):
+            if flag not in ' x~-':
+                logger.warning(f"Invalid flag '{flag}' detected; defaulting to space", extra={'log_color': 'DELTA'})
+
+        flags = f"[{plan_flag}][{llm_flag}][{commit_flag}]"
+        line = f"{task.get('indent', '')}- {flags} {clean_desc}"
+
+        meta_parts: List[str] = []
+        if task.get('_start_stamp'):
+            meta_parts.append(f"started: {task['_start_stamp']}")
+        if task.get('_complete_stamp'):
+            meta_parts.append(f"completed: {task['_complete_stamp']}")
+        if task.get('knowledge_tokens', 0):
+            meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
+        if task.get('include_tokens', 0):
+            meta_parts.append(f"include: {task['include_tokens']}")
+        if task.get('prompt_tokens', 0):
+            meta_parts.append(f"prompt: {task['prompt_tokens']}")
+        if task.get('plan_tokens', 0):
+            meta_parts.append(f"plan: {task['plan_tokens']}")
+
+        for key in ('plan_desc', 'llm_desc', 'commit_desc'):
+            stage_value = task.get(key, '') or ''
+            if stage_value and stage_value != clean_desc:
+                meta_parts.append(f"{key}: {stage_value}")
+
+        if meta_parts:
+            line += " | " + " | ".join(meta_parts)
+
+        if re.search(r'\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[', line):
+            logger.error(f"Flag duplication detected in rebuilt line: {line}", extra={'log_color': 'DELTA'})
+        return line
+                
     def complete_taskb(self,
                       task: dict,
                       file_lines_map: dict,
