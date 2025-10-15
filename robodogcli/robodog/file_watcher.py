@@ -52,6 +52,12 @@ class FileWatcher:
             self._thread.join()
     
     def _watch_loop(self):
+        """
+        Disabled file watch loop to prevent repetitive polling/infinite loop.
+        """
+        logger.info("⚠️  File watch loop disabled — no more polling every second.",
+                    extra={'log_color': 'HIGHLIGHT'})
+        return
         """Main watch loop that runs in a separate thread."""
         while self._running:
             for filepath, callback in self._callbacks.items():

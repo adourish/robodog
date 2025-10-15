@@ -137,9 +137,109 @@ class TodoUtilService:
                 'plan_tokens': 0,
             }
 
-
-
     def _write_parsed_files(
+        self,
+        parsed_files: List[dict],
+        task: dict = None,
+        commit_file: bool = False,
+        base_folder: str = "",
+        current_filename: str = None
+    ) -> Tuple[int, List[str]]:
+        """
+        Write out parsed files, returning (count_written, [compare_strings]).
+        Each compare string now includes original_tokens, new_tokens, abs_delta, percent_delta.
+        """
+        logger.info("_write_parsed_files base_folder=%s commit_file=%s",
+                    base_folder, commit_file, extra={'log_color': 'HIGHLIGHT'})
+        result = 0
+        compare: List[str] = []
+        basedir = Path(task['file']).parent if task else Path.cwd()
+        self._file_service.base_dir = str(basedir)
+        diff_srv = getattr(self._svc.parse_service, 'diff_service', None) if self._svc else None
+
+        for parsed in parsed_files:
+            try:
+                rel       = parsed.get('relative_path', parsed.get('filename', ''))
+                matched   = parsed.get('matchedfilename', '')
+                is_new    = parsed.get('new', False)
+                is_del    = parsed.get('delete', False)
+                is_copy   = parsed.get('copy', False)
+                is_update = parsed.get('update', False) and not is_new
+
+                # ensure token stats
+                orig_tok = parsed.get('original_tokens', None)
+                new_tok  = parsed.get('new_tokens', None)
+                if orig_tok is None or new_tok is None:
+                    # compute from content
+                    orig_text = parsed.get('original_content', '')
+                    orig_tok = len(orig_text.split()) if orig_text else 0
+                    body = parsed.get('content', '').partition('\n')[2]
+                    new_tok = len(body.split())
+                abs_delta = new_tok - orig_tok
+                if orig_tok > 0:
+                    pct = abs_delta / orig_tok * 100.0
+                else:
+                    pct = 100.0 if new_tok > 0 else 0.0
+
+                tag = 'NEW' if is_new else 'DELETE' if is_del else 'COPY' if is_copy else 'UPDATE'
+
+                # perform file operations if committing
+                if commit_file:
+                    # deletion
+                    if is_del:
+                        p = Path(matched)
+                        if p.exists():
+                            self._file_service.delete_file(p)
+                            result += 1
+                        # record compare
+                        compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
+                        continue
+
+                    # copy
+                    if is_copy:
+                        src = Path(matched)
+                        dst = basedir / rel
+                        self._file_service.copy_file(src, dst)
+                        result += 1
+                        compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
+                        continue
+
+                    # new file
+                    if is_new:
+                        dst = basedir / rel
+                        self._file_service.write_file(dst, parsed.get('content', '').partition('\n')[2])
+                        result += 1
+                        compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
+                        continue
+
+                    # update
+                    if is_update:
+                        dst = Path(matched) if Path(matched).exists() else basedir / rel
+                        body = parsed.get('content', '').partition('\n')[2]
+                        # reapply diff if needed
+                        if diff_srv and diff_srv.is_unified_diff(body):
+                            orig = self._file_service.safe_read_file(Path(matched))
+                            try:
+                                patched = diff_srv.apply_unified_diff(body, orig)
+                                body = patched
+                            except Exception:
+                                pass
+                        self._file_service.write_file(dst, body)
+                        result += 1
+                        compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
+                        continue
+
+                # non-commit: just record comparison
+                compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
+
+            except Exception:
+                logger.exception(f"Error in _write_parsed_files for {parsed.get('filename')}")
+                continue
+
+        logger.info("Parsed files written: %d", result, extra={'log_color': 'PERCENT'})
+        return result, compare
+
+    def _write_parsed_filesc(
         self,
         parsed_files: List[dict],
         task: dict = None,
