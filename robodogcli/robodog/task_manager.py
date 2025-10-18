@@ -225,42 +225,6 @@ class TaskManager(TaskBase):
             self._file_service.write_file(Path(fn), "".join(lines))
             logger.info(f"Flag updated in {fn} at line {ln}")
 
-
-    def start_taskb(self, task: dict, file_lines_map: dict, cur_model: str, step: float = 1):
-        """Mark a task as started (To Do -> Doing)."""
-        if self.STATUS_MAP.get(task.get('llm', ' '), 'Ignore') != 'To Do':
-            return
-
-        fn = task['file']
-        ln = task['line_no']
-        indent = task['indent']
-        desc = task['desc']
-
-        if step == 1:
-            file_lines_map[fn][ln] = f"{indent}- [~][-][-] {desc}\n"
-        elif step ==2:
-            file_lines_map[fn][ln] = f"{indent}- [x][~][-] {desc}\n"
-        elif step ==3:
-            file_lines_map[fn][ln] = f"{indent}- [x][x][~] {desc}\n"
-
-        stamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-        task['_start_stamp'] = stamp
-
-        know = task.get('_know_tokens', 0)
-        prompt = task.get('_prompt_tokens', 0)
-        incount = task.get('_include_tokens', 0)
-
-        summary = self.format_task_summary(task, cur_model)
-        idx = ln + 1
-        if idx < len(file_lines_map[fn]) and file_lines_map[fn][idx].lstrip().startswith('- started:'):
-            file_lines_map[fn][idx] = summary
-        else:
-            file_lines_map[fn].insert(idx, summary)
-
-        self.write_file(fn, file_lines_map[fn])
-
-        task['llm'] = self.REVERSE_STATUS['Doing']
-
     def complete_task(
         self,
         task: dict,
@@ -340,65 +304,6 @@ class TaskManager(TaskBase):
             logger.error(f"Flag duplication detected in rebuilt line: {line}", extra={'log_color': 'DELTA'})
         return line
                 
-    def complete_taskb(self,
-                      task: dict,
-                      file_lines_map: dict,
-                      cur_model: str,
-                      truncation: float = 0,
-                      compare: Optional[List[str]] = None,
-                      commit: bool = False,
-                      step: float = 1):
-        """Mark a task as completed for the given step (plan=1, llm=2, commit=3)."""
-        fn      = task['file']
-        ln      = task['line_no']
-        indent  = task['indent']
-        desc    = task['desc']
-        now     = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
-
-        # 1) update the checkbox graphic in todo.md
-        if step == 1:
-            file_lines_map[fn][ln] = f"{indent}- [x][-][-] {desc}\n"
-            task['plan'] = self.REVERSE_STATUS['Done']
-        elif step == 2:
-            file_lines_map[fn][ln] = f"{indent}- [x][x][-] {desc}\n"
-            task['llm'] = self.REVERSE_STATUS['Done']
-        elif step == 3:
-            file_lines_map[fn][ln] = f"{indent}- [x][x][x] {desc}\n"
-            task['commit'] = self.REVERSE_STATUS['Done']
-        else:
-            # unknown step: do nothing
-            return
-
-        # 2) insert/update the summary line immediately below
-        task['_complete_stamp'] = now
-        summary = self.format_summary(
-            indent            = indent,
-            start             = task.get('_start_stamp'),
-            end               = now,
-            know              = task.get('_know_tokens'),
-            prompt            = task.get('_prompt_tokens'),
-            incount           = task.get('_include_tokens'),
-            include           = None,
-            cur_model         = cur_model,
-            delta_median      = 0,
-            delta_avg         = 0,
-            delta_peak        = 0,
-            committed         = 1 if commit else 0,
-            truncation        = truncation,
-            compare           = compare
-        )
-
-        # replace or insert
-        insert_at = ln + 1
-        if insert_at < len(file_lines_map[fn]) and file_lines_map[fn][insert_at].lstrip().startswith('- started:'):
-            file_lines_map[fn][insert_at] = summary
-        else:
-            file_lines_map[fn].insert(insert_at, summary)
-
-        # 3) write out and return
-        self.write_file(fn, file_lines_map[fn])
-        logger.info("Completed task step %d: %s", step, desc)
-
     def _build_progress_bar(self, state: str, width: int = 10) -> str:
         """Render a progress bar for the given state."""
         fill_map = {

@@ -2,7 +2,7 @@
 
 
 # todo  protask 1
-- [x][x][-] knowledge: 6 | knowledge: 8 | include: 9731 | prompt: 10511 | started: 2025-10-14T23:15:34.960226 | knowledge: 8 | include: 5576 | prompt: 6061 | started: 2025-10-14T23:22:57.546924 | knowledge: 8 | include: 5576 | prompt: 6085 | started: 2025-10-14T23:24:14.302185 | knowledge: 8 | include: 5576 | prompt: 6109 | started: 2025-10-14T23:25:55.372259 | knowledge: 8 | include: 5576 | prompt: 6133 | started: 2025-10-14T23:29:12.837943 | knowledge: 8 | include: 5576 | started: 2025-10-16T19:38:43.861742 | knowledge: 8 | include: 5576 | plan: 144 | started: 2025-10-16T19:39:59.205233 | knowledge: 8 | include: 5576 | prompt: 6199 | started: 2025-10-16T19:42:16.432450 | knowledge: 8 | include: 5576 | started: 2025-10-16T19:44:45.638304 | knowledge: 8 | include: 5576 | prompt: 6370 | started: 2025-10-16T19:51:36.565620 | knowledge: 8 | include: 5576 | prompt: 6394
+- [x][~][-] test | started: 2025-10-17T20:27:01.676342 | knowledge: 8 | include: 5022 | prompt: 5616 | knowledge: 8 | include: 5023 | started: 2025-10-17T20:47:04.679369 | knowledge: 8 | include: 5019 | prompt: 5649 | knowledge: 8 | include: 5024
   - started: 2025-10-11T21:46:52.614555 | completed: 2025-10-12 01:46 | knowledge: 8 | include: 143321 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*todo*.py|*robodogcli*robodog*diff*.py|*robodogcli*robodog*todo_util.py  recursive`
   - out: temp\out.py recursiv 

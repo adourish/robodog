@@ -254,7 +254,7 @@ class TodoService:
             traceback.print_exc()
             st = datetime.now().isoformat()
             task['_start_stamp'] = st
-            self._emit_progress_update(task, step, 'start', progress_payload)
+            self._emit_progress_update(task, step, 'error', progress_payload)
             return st
             
     def complete_task(self, task: dict, file_lines_map: dict, cur_model: str, truncation: float, compare: Optional[List[str]] = None, commit: bool = False, step: float = 1):
@@ -264,7 +264,7 @@ class TodoService:
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
-            task['plan_tokens'] = task.get('plan_tokens', 0)
+            task['plan_tokens'] = task.get('plan_tokens', task.get('_plan_tokens', 0))
             # Enhanced: Sanitize desc before any flag updates to ensure clean state
             task['desc'] = task['desc']
             if step == 1:
@@ -308,7 +308,7 @@ class TodoService:
             traceback.print_exc()
             ct = datetime.now().isoformat()
             task['_complete_stamp'] = ct
-            self._emit_progress_update(task, step, 'complete', status_extra)
+            self._emit_progress_update(task, step, 'error', status_extra)
             return ct
             
     def run_next_task(self, svc, todoFilename: str = ""):
@@ -362,6 +362,96 @@ class TodoService:
         # record token counts if you like...
         return know, inclide_filenames
 
+    def _normalize_parsed_files(self, parsed_files: Optional[List[dict]], base_folder: str) -> List[dict]:
+        """
+        Ensure each parsed file dictionary exposes filename/original/matched metadata.
+        """
+        normalized: List[dict] = []
+        if not parsed_files:
+            return normalized
+        for entry in parsed_files:
+            normalized.append(self._ensure_parsed_entry(entry, base_folder))
+        return normalized
+
+    def _ensure_parsed_entry(self, entry: Optional[dict], base_folder: str) -> dict:
+        """
+        Fill in filename, originalfilename, and matchedfilename for a parsed entry.
+        """
+        data: Dict[str, Any] = dict(entry or {})
+        filename = data.get('filename') or data.get('relative_path') or data.get('path') or data.get('name')
+        if filename:
+            data['filename'] = filename
+        relative = data.get('relative_path') or filename or data.get('path')
+        if relative:
+            data['relative_path'] = relative
+
+        matched = data.get('matchedfilename') or data.get('matched_filename')
+        resolved_match: Optional[Path] = None
+        if matched:
+            try:
+                resolved_match = Path(matched)
+                if not resolved_match.is_absolute() and base_folder:
+                    resolved_match = (Path(base_folder) / resolved_match).resolve()
+                else:
+                    resolved_match = resolved_match.resolve() if resolved_match.exists() else resolved_match
+            except Exception:
+                resolved_match = None
+        if resolved_match is None and relative:
+            resolved_match = self._try_resolve_path(relative, base_folder)
+        if resolved_match is not None:
+            data['matchedfilename'] = str(resolved_match)
+        elif not data.get('matchedfilename'):
+            fallback = None
+            try:
+                if relative:
+                    if base_folder:
+                        fallback = (Path(base_folder) / relative).resolve()
+                    else:
+                        fallback = Path(relative).resolve()
+            except Exception:
+                fallback = Path(base_folder) / relative if base_folder and relative else None
+            if fallback is not None:
+                data['matchedfilename'] = str(fallback)
+            else:
+                data['matchedfilename'] = data.get('matchedfilename') or (filename or '')
+
+        original = data.get('originalfilename') or data.get('original_filename')
+        if original:
+            try:
+                original_path = Path(original)
+                if not original_path.is_absolute() and base_folder:
+                    original_path = (Path(base_folder) / original_path).resolve()
+                else:
+                    original_path = original_path.resolve() if original_path.exists() else original_path
+                data['originalfilename'] = str(original_path)
+            except Exception:
+                data['originalfilename'] = original
+        else:
+            data['originalfilename'] = data.get('matchedfilename') or (filename or '')
+
+        return data
+
+    def _try_resolve_path(self, fragment: str, base_folder: str = "") -> Optional[Path]:
+        if not fragment:
+            return None
+        try:
+            resolved = self._resolve_path(fragment)
+            if resolved:
+                return resolved
+        except Exception:
+            pass
+        try:
+            frag_path = Path(fragment)
+            if frag_path.is_absolute():
+                return frag_path.resolve()
+            if base_folder:
+                return (Path(base_folder) / frag_path).resolve()
+            if self._file_service and getattr(self._file_service, 'base_dir', None):
+                return (Path(self._file_service.base_dir) / frag_path).resolve()
+            return frag_path.resolve()
+        except Exception:
+            return None
+
     def _generate_plan(self, task: dict, svc, base_folder: str = None, diff: bool = False) -> str:
         """
         Step 1: Generate or update plan.md summarizing the task plan, changes, and next steps.
@@ -403,11 +493,12 @@ class TodoService:
             logger.warning("LLM returned an empty plan.", extra={'log_color': 'DELTA'})
             return ""
 
-        # write out and record token count
-        self._todo_util._write_plan(svc, plan_path, plan_content)
-        task['plan_tokens'] = len(plan_content.split())
+        # WRITE & CAPTURE the real token count
+        plan_tok = self._todo_util._write_plan(svc, plan_path, plan_content)
+        # store it back on the task
+        task['plan_tokens'] =   len(plan_content.split())  #plan_tok
         task['_latest_plan'] = plan_content
-        logger.info(f"Wrote plan.md with {task['plan_tokens']} tokens{diff_mode_text}", extra={'log_color': 'PERCENT'})
+        logger.info(f"Wrote plan.md with {plan_tok} tokens{diff_mode_text}", extra={'log_color': 'PERCENT'})
         return plan_content
     
     def _process_one(self, task: dict, svc, file_lines_map: dict, todoFilename: str = "", step: int = 1):
@@ -458,6 +549,7 @@ class TodoService:
                 task['_start_stamp'] = st
                 return
             elif step == 2 or (status == ' '):
+
                 diff_mode_text = " (diff mode)" if diff_mode else ""
                 logger.warning(f"Step 2: Running LLM task using plan.md{diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
@@ -494,7 +586,9 @@ class TodoService:
                     logger.warning(f"No AI output generated{diff_mode_text}, retrying once", extra={'log_color': 'DELTA'})
                     ai_out = svc.ask(prompt)
                 self._todo_util._write_full_ai_output(svc, task, ai_out, 0, base_folder=base_folder)
-                parsed_files = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
+                parsed_files_raw = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
+                parsed_files = self._normalize_parsed_files(parsed_files_raw, base_folder or "")
+                logger.debug(f"Normalized {len(parsed_files)} parsed file directives for preview", extra={'log_color': 'HIGHLIGHT'})
                 committed, compare = self._todo_util._write_parsed_files(parsed_files, task, False, base_folder=base_folder, current_filename=None)
                 task['_pending_files'] = compare or []
                 action_text = "files parsed" if not diff_mode else "diffs/files parsed"
@@ -510,7 +604,9 @@ class TodoService:
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
                 if out_path and out_path.exists():
                     ai_out = self._file_service.safe_read_file(out_path)
-                    parsed_files = self.parser.parse_llm_output_commit(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc)
+                    parsed_files_raw = self.parser.parse_llm_output_commit(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc)
+                    parsed_files = self._normalize_parsed_files(parsed_files_raw, base_folder or "")
+                    logger.debug(f"Normalized {len(parsed_files)} parsed file directives for commit", extra={'log_color': 'HIGHLIGHT'})
                     committed, compare = self._todo_util._write_parsed_files(parsed_files, task, True, base_folder=base_folder, current_filename=None)
                     task['_committed_files'] = compare or []
                     logger.info(f"Commit step: {committed} files committed", extra={'log_color': 'PERCENT'})
