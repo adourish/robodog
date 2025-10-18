@@ -490,7 +490,7 @@ class TodoService:
         # generate…
         plan_content = svc.ask(plan_prompt)
         if not plan_content.strip():
-            logger.warning("LLM returned an empty plan.", extra={'log_color': 'DELTA'})
+            logger.error("LLM returned an empty plan.", extra={'log_color': 'DELTA'})
             return ""
 
         # WRITE & CAPTURE the real token count
@@ -546,6 +546,8 @@ class TodoService:
                 if plan_content:
                     task['plan_tokens'] = len(plan_content.split())
                 ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, None, False, 1)
+
+                logger.error("len(plan_content.split())" + len(plan_content.split()))
                 task['_start_stamp'] = st
                 return
             elif step == 2 or (status == ' '):

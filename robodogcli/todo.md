@@ -2,7 +2,7 @@
 
 
 # todo  protask 1
-- [x][~][-] test | started: 2025-10-17T20:27:01.676342 | knowledge: 8 | include: 5022 | prompt: 5616 | knowledge: 8 | include: 5023 | started: 2025-10-17T20:47:04.679369 | knowledge: 8 | include: 5019 | prompt: 5649 | knowledge: 8 | include: 5024
+- [x][x][-] test | started: 2025-10-17T20:27:01.676342 | knowledge: 8 | include: 5022 | prompt: 5616 | knowledge: 8 | include: 5023 | started: 2025-10-17T20:47:04.679369 | knowledge: 8 | include: 5019 | prompt: 5649 | started: 2025-10-17T21:00:26.023362 | knowledge: 8 | include: 5024 | prompt: 5678 | started: 2025-10-17T21:02:18.293870 | knowledge: 8 | include: 5027 | prompt: 5705
   - started: 2025-10-11T21:46:52.614555 | completed: 2025-10-12 01:46 | knowledge: 8 | include: 143321 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*todo*.py|*robodogcli*robodog*diff*.py|*robodogcli*robodog*todo_util.py  recursive`
   - out: temp\out.py recursiv 
