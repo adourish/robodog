@@ -99,6 +99,44 @@ class TodoService:
         """Emit a multi-line progress update with contextual details."""
         message = self._task_manager.get_progress_update(task, stage, phase, extra)
         self._ui_callback(message)
+
+    def _canonical_task_desc(self, task: Dict[str, Any]) -> str:
+        """
+        Determine the canonical human-readable description for a task without metadata suffixes.
+        Preference order: _raw_desc -> desc -> plan_desc -> llm_desc -> commit_desc.
+        """
+        for key in ('_raw_desc', 'desc', 'plan_desc', 'llm_desc', 'commit_desc'):
+            val = task.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        return ''
+
+    def _rebuild_line_with_clean_desc(self, task: Dict[str, Any]) -> Tuple[str, str]:
+        """
+        Build a todo line from a cloned task, ensuring the description is metadata-free.
+        Returns the rebuilt line and the base description used.
+        """
+        base_desc = self._canonical_task_desc(task)
+        payload = dict(task)
+        payload['desc'] = base_desc
+        rebuilt_line = self._task_manager._rebuild_task_line(payload)
+        return rebuilt_line, base_desc
+
+    def _restore_task_desc(self, task: Dict[str, Any], base_desc: str, previous_desc: Optional[str] = None) -> None:
+        """
+        Restore the task's description fields to the canonical base description.
+        If stage-specific descriptions matched the prior mutated value, reset them as well.
+        """
+        clean_desc = (base_desc or '').strip()
+        prior_desc = previous_desc if previous_desc is not None else task.get('desc')
+        task['desc'] = clean_desc
+        if clean_desc:
+            task['_raw_desc'] = clean_desc
+        if isinstance(prior_desc, str):
+            for stage_key in ('plan_desc', 'llm_desc', 'commit_desc'):
+                stage_val = task.get(stage_key)
+                if not isinstance(stage_val, str) or not stage_val.strip() or stage_val == prior_desc:
+                    task[stage_key] = clean_desc
  
     def _load_all(self):
         """
@@ -207,7 +245,7 @@ class TodoService:
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
           
             # Enhanced: Sanitize desc before any flag updates to ensure clean state
-            task['desc'] = task['desc']
+            previous_desc = task.get('desc')
             if step == 1:
                 task['plan'] = '~'
                 task['llm'] = '-'
@@ -223,9 +261,7 @@ class TodoService:
                 task['llm'] = 'x'
                 task['commit'] = '~'
                 logger.info(f"Set commit to ~ for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            # Enhanced: Re-sanitize desc after flag update
-            task['desc'] = task['desc']
-            rebuilt_line = self._task_manager._rebuild_task_line(task)
+            rebuilt_line, base_desc = self._rebuild_line_with_clean_desc(task)
             logger.debug(f"Rebuilt line after start: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
             fn = task['file']
             line_no = task['line_no']
@@ -235,9 +271,12 @@ class TodoService:
                 file_lines_map[fn] = lines
                 self._file_service.write_file(Path(fn), ''.join(lines))
                 logger.info(f"Immediately updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan']}, status={task['llm']}, write={task['commit']}", extra={'log_color': 'HIGHLIGHT'})
+            self._restore_task_desc(task, base_desc, previous_desc)
             st = self._task_manager.start_task(task, file_lines_map, cur_model, step)
             if st is None:
                 st = datetime.now().isoformat()
+            mutated_desc_after_start = task.get('desc')
+            self._restore_task_desc(task, base_desc, mutated_desc_after_start)
             task['_start_stamp'] = st
             if progress_payload:
                 if step == 3 and 'files' not in progress_payload:
@@ -266,19 +305,23 @@ class TodoService:
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
             task['plan_tokens'] = task.get('plan_tokens', task.get('_plan_tokens', 0))
             # Enhanced: Sanitize desc before any flag updates to ensure clean state
-            task['desc'] = task['desc']
+            previous_desc = task.get('desc')
             if step == 1:
                 task['plan'] = 'x'
+                task['llm'] = '-'
+                task['commit'] = '-'
                 logger.info(f"Set plan to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 2:
+                task['plan'] = 'x'
                 task['llm'] = 'x'
+                task['commit'] = '-'
                 logger.info(f"Set llm to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
             elif step == 3:
+                task['plan'] = 'x'
+                task['llm'] = 'x'
                 task['commit'] = 'x'
                 logger.info(f"Set commit to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
-            # Enhanced: Re-sanitize desc after flag update
-            task['desc'] = task['desc']
-            rebuilt_line = self._task_manager._rebuild_task_line(task)
+            rebuilt_line, base_desc = self._rebuild_line_with_clean_desc(task)
             logger.debug(f"Rebuilt line after complete: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
             fn = task['file']
             line_no = task['line_no']
@@ -288,6 +331,7 @@ class TodoService:
                 file_lines_map[fn] = lines
                 self._file_service.write_file(Path(fn), ''.join(lines))
                 logger.info(f"Updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan']}, status={task['llm']}, write={task['commit']}", extra={'log_color': 'HIGHLIGHT'})
+            self._restore_task_desc(task, base_desc, previous_desc)
             if compare:
                 if step == 2:
                     task['_pending_files'] = compare
@@ -299,6 +343,8 @@ class TodoService:
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
             if ct is None:
                 ct = datetime.now().isoformat()
+            mutated_desc_after_complete = task.get('desc')
+            self._restore_task_desc(task, base_desc, mutated_desc_after_complete)
             task['_complete_stamp'] = ct
             self._emit_progress_update(task, step, 'complete', status_extra)
             logger.info(f"Task completed: plan_tokens={task['plan_tokens']}, knowledge_tokens={task['knowledge_tokens']}, include_tokens={task['include_tokens']}, prompt_tokens={task['prompt_tokens']}", extra={'log_color': 'PERCENT'})
@@ -369,8 +415,10 @@ class TodoService:
         normalized: List[dict] = []
         if not parsed_files:
             return normalized
-        for entry in parsed_files:
-            normalized.append(self._ensure_parsed_entry(entry, base_folder))
+        for idx, entry in enumerate(parsed_files):
+            normalized_entry = self._ensure_parsed_entry(entry, base_folder)
+            normalized.append(normalized_entry)
+            parsed_files[idx] = normalized_entry
         return normalized
 
     def _ensure_parsed_entry(self, entry: Optional[dict], base_folder: str) -> dict:
@@ -378,10 +426,12 @@ class TodoService:
         Fill in filename, originalfilename, and matchedfilename for a parsed entry.
         """
         data: Dict[str, Any] = dict(entry or {})
-        filename = data.get('filename') or data.get('relative_path') or data.get('path') or data.get('name')
-        if filename:
-            data['filename'] = filename
-        relative = data.get('relative_path') or filename or data.get('path')
+        filename_candidate = data.get('filename') or data.get('relative_path') or data.get('path') or data.get('name')
+        filename_str = str(filename_candidate) if filename_candidate else ''
+        data['filename'] = filename_str
+
+        relative_candidate = data.get('relative_path') or filename_str or data.get('path')
+        relative = str(relative_candidate) if relative_candidate else ''
         if relative:
             data['relative_path'] = relative
 
@@ -399,7 +449,8 @@ class TodoService:
         if resolved_match is None and relative:
             resolved_match = self._try_resolve_path(relative, base_folder)
         if resolved_match is not None:
-            data['matchedfilename'] = str(resolved_match)
+            matched_str = str(resolved_match)
+            data['matchedfilename'] = matched_str
         elif not data.get('matchedfilename'):
             fallback = None
             try:
@@ -413,7 +464,7 @@ class TodoService:
             if fallback is not None:
                 data['matchedfilename'] = str(fallback)
             else:
-                data['matchedfilename'] = data.get('matchedfilename') or (filename or '')
+                data['matchedfilename'] = data.get('matchedfilename') or filename_str
 
         original = data.get('originalfilename') or data.get('original_filename')
         if original:
@@ -425,9 +476,17 @@ class TodoService:
                     original_path = original_path.resolve() if original_path.exists() else original_path
                 data['originalfilename'] = str(original_path)
             except Exception:
-                data['originalfilename'] = original
+                data['originalfilename'] = str(original)
         else:
-            data['originalfilename'] = data.get('matchedfilename') or (filename or '')
+            data['originalfilename'] = data.get('matchedfilename') or filename_str
+
+        if isinstance(entry, dict):
+            entry.update({
+                'filename': data.get('filename', ''),
+                'relative_path': data.get('relative_path', relative),
+                'matchedfilename': data.get('matchedfilename', ''),
+                'originalfilename': data.get('originalfilename', '')
+            })
 
         return data
 
@@ -547,7 +606,7 @@ class TodoService:
                     task['plan_tokens'] = len(plan_content.split())
                 ct = self.complete_task(task, file_lines_map, svc.get_cur_model(), 0, None, False, 1)
 
-                logger.error("len(plan_content.split())" + len(plan_content.split()))
+                logger.info("step 1: len(plan_content.split())" + str(len(plan_content.split())))
                 task['_start_stamp'] = st
                 return
             elif step == 2 or (status == ' '):
@@ -567,6 +626,7 @@ class TodoService:
                     task['plan_tokens'] = len(plan_content.split())
                     task['_plan_path'] = str(plan_path)
                     task['_latest_plan'] = plan_content
+                    logger.err("lstep 2: (plan_content.split())" + str(len(plan_content.split())))
                     logger.info(f"Included plan.md in LLM prompt{diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
                 st = self.start_task(task, file_lines_map, cur_model, 2)
                 # Enhanced: Use stage-specific desc for LLM (llm_desc)

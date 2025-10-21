@@ -1,3 +1,4 @@
+# file: todo_util.py
 #!/usr/bin/env python3
 """Utility functions for TodoService, including metadata parsing and desc sanitization."""
 import os
@@ -239,7 +240,13 @@ class TodoUtilService:
         compare: List[str] = []
         basedir = Path(task['file']).parent if task and task.get('file') else Path.cwd()
         self._file_service.base_dir = str(basedir)
-        diff_srv = getattr(self._svc.parse_service, 'diff_service', None) if self._svc else None
+
+        # Determine diff service for applying unified diffs
+        diff_srv = None
+        if getattr(self, '_task_parser', None):
+            diff_srv = getattr(self._task_parser, 'diff_service', None)
+        if not diff_srv and self._svc and hasattr(self._svc, 'parse_service'):
+            diff_srv = getattr(self._svc.parse_service, 'diff_service', None)
 
         for parsed in parsed_files:
             try:

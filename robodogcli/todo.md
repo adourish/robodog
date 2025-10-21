@@ -2,14 +2,21 @@
 
 
 # todo  protask 1
-- [x][x][-] test | started: 2025-10-17T20:27:01.676342 | knowledge: 8 | include: 5022 | prompt: 5616 | knowledge: 8 | include: 5023 | started: 2025-10-17T20:47:04.679369 | knowledge: 8 | include: 5019 | prompt: 5649 | started: 2025-10-17T21:00:26.023362 | knowledge: 8 | include: 5024 | prompt: 5678 | started: 2025-10-17T21:02:18.293870 | knowledge: 8 | include: 5027 | prompt: 5705
+- [x][x][-] test | started: 2025-10-20T23:41:06.908742 | knowledge: 47 | include: 5295 | plan: 229 | started: 2025-10-21T19:30:15.159783 | knowledge: 47 | include: 5295 | plan: 175 | started: 2025-10-21T19:30:47.779716 | knowledge: 47 | include: 5295 | prompt: 5976
   - started: 2025-10-11T21:46:52.614555 | completed: 2025-10-12 01:46 | knowledge: 8 | include: 143321 | prompt: 0 | cur_model: x-ai/grok-4-fast:free
   - include: pattern=*robodogcli*robodog*todo*.py|*robodogcli*robodog*diff*.py|*robodogcli*robodog*todo_util.py  recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
   - diff_mode: True
 ```knowledge
-1. fix why diff_mode: True is not working
+the task status is being added after task['desc']. the issue may be related to after calls from rebuild task line.
+
+task['desc'] = task['desc']
+            rebuilt_line = self._task_manager._rebuild_task_line(task)
+            logger.debug(f"Rebuilt line after start: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
+            fn = task['file']
+            line_no = task['line_no']
+            lines = file_lines_map.get(fn, [])
 
 ``` 
 
