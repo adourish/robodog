@@ -87,23 +87,7 @@ class TodoUtilService:
             out_path.parent.mkdir(parents=True, exist_ok=True)
         return out_path
 
-    # Replace the existing _write_plan with this version:
-    def _write_planf(self, svc, plan_path: Path, content: str) -> int:
-        """
-        Write the plan.md to disk, returning the token count of the content.
-        """
-        if not plan_path:
-            return 0
-        try:
-            # write the file
-            self._file_service.write_file(plan_path, content)
-            # count tokens (simple whitespace split)
-            tok = len(content.split())
-            logger.info(f"Wrote plan to: {plan_path} ({tok} tokens)", extra={'log_color': 'PERCENT'})
-            return tok
-        except Exception as e:
-            logger.exception(f"Failed to write plan to {plan_path}: {e}", extra={'log_color': 'DELTA'})
-            return 0
+
     def _write_plan(self, svc, plan_path: Path, content: str) -> int:
         """
         Write the plan.md to disk, returning the token count of the content.
@@ -222,6 +206,113 @@ class TodoUtilService:
                 'plan_tokens': 0,
             }
 
+    def _ensure_parsed_entry(self, entry: Optional[dict], base_folder: str) -> dict:
+        """
+        Fill in filename, originalfilename, and matchedfilename for a parsed entry.
+        Ensures these keys exist and are resolved paths where possible.
+        """
+        data: Dict[str, Any] = dict(entry or {})
+        filename_candidate = data.get('filename') or data.get('relative_path') or data.get('path') or data.get('name')
+        filename_str = str(filename_candidate) if filename_candidate else ''
+        data['filename'] = filename_str
+
+        relative_candidate = data.get('relative_path') or filename_str or data.get('path')
+        relative = str(relative_candidate) if relative_candidate else ''
+        if relative:
+            data['relative_path'] = relative
+
+        # --- Resolve matchedfilename ---
+        matched = data.get('matchedfilename') or data.get('matched_filename')
+        resolved_match: Optional[Path] = None
+        if matched:
+            try:
+                resolved_match = Path(matched)
+                if not resolved_match.is_absolute() and base_folder:
+                    resolved_match = (Path(base_folder) / resolved_match).resolve()
+                else:
+                    resolved_match = resolved_match.resolve() if resolved_match.exists() else resolved_match
+            except Exception:
+                resolved_match = None
+        if resolved_match is None and relative:
+            resolved_match = self._try_resolve_path(relative, base_folder)
+        if resolved_match is not None:
+            matched_str = str(resolved_match)
+            data['matchedfilename'] = matched_str
+        elif not data.get('matchedfilename'): # If not resolved, use filename as fallback if possible
+            fallback = None
+            try:
+                if relative:
+                    if base_folder:
+                        fallback = (Path(base_folder) / relative).resolve()
+                    else:
+                        fallback = Path(relative).resolve()
+            except Exception:
+                fallback = Path(base_folder) / relative if base_folder and relative else None
+            if fallback is not None:
+                data['matchedfilename'] = str(fallback)
+            else:
+                data['matchedfilename'] = data.get('matchedfilename') or filename_str
+
+        # --- Resolve originalfilename ---
+        original = data.get('originalfilename') or data.get('original_filename')
+        if original:
+            try:
+                original_path = Path(original)
+                if not original_path.is_absolute() and base_folder:
+                    original_path = (Path(base_folder) / original_path).resolve()
+                else:
+                    original_path = original_path.resolve() if original_path.exists() else original_path
+                data['originalfilename'] = str(original_path)
+            except Exception:
+                data['originalfilename'] = str(original)
+        else:
+            # If original not provided, use matchedfilename if available, else filename
+            data['originalfilename'] = data.get('matchedfilename') or filename_str
+        
+        # --- Ensure relative_path is set if filename/path exists ---
+        if filename_str and 'relative_path' not in data:
+            data['relative_path'] = filename_str
+
+        # Update the original entry if it was a dict
+        if isinstance(entry, dict):
+            entry.update({
+                'filename': data.get('filename', ''),
+                'relative_path': data.get('relative_path', ''),
+                'matchedfilename': data.get('matchedfilename', ''),
+                'originalfilename': data.get('originalfilename', '')
+            })
+
+        return data
+
+    def _try_resolve_path(self, fragment: str, base_folder: str = "") -> Optional[Path]:
+        if not fragment:
+            return None
+        try:
+            # Use the file_service's resolve_path if available and appropriate
+            if self._svc and hasattr(self._svc, 'file_service') and self._svc.file_service:
+                resolved = self._svc.file_service.resolve_path(fragment, self._svc)
+                if resolved:
+                    return Path(resolved)
+            elif self._file_service:
+                 resolved = self._file_service.resolve_path(fragment, self._svc)
+                 if resolved:
+                    return Path(resolved)
+        except Exception:
+            pass # Continue to manual resolution
+        
+        try:
+            frag_path = Path(fragment)
+            if frag_path.is_absolute():
+                return frag_path.resolve()
+            if base_folder:
+                return (Path(base_folder) / frag_path).resolve()
+            if self._file_service and getattr(self._file_service, 'base_dir', None):
+                return (Path(self._file_service.base_dir) / frag_path).resolve()
+            return frag_path.resolve()
+        except Exception:
+            return None
+
+
     def _write_parsed_files(
         self,
         parsed_files: List[dict],
@@ -238,8 +329,9 @@ class TodoUtilService:
                     base_folder, commit_file, extra={'log_color': 'HIGHLIGHT'})
         result = 0
         compare: List[str] = []
-        basedir = Path(task['file']).parent if task and task.get('file') else Path.cwd()
-        self._file_service.base_dir = str(basedir)
+        # Use base_folder from function argument if provided, otherwise derive from task file
+        effective_base_folder = base_folder if base_folder else (str(Path(task['file']).parent) if task and task.get('file') else ".")
+        basedir = Path(effective_base_folder)
 
         # Determine diff service for applying unified diffs
         diff_srv = None
@@ -250,79 +342,106 @@ class TodoUtilService:
 
         for parsed in parsed_files:
             try:
-                rel       = parsed.get('relative_path', parsed.get('filename', ''))
+                # Use the ensured keys from _ensure_parsed_entry
+                rel       = parsed.get('relative_path', parsed.get('filename', '')) or parsed.get('filename')
                 matched   = parsed.get('matchedfilename', '')
+                original  = parsed.get('originalfilename', '')
                 is_new    = parsed.get('new', False)
                 is_del    = parsed.get('delete', False)
                 is_copy   = parsed.get('copy', False)
                 is_update = parsed.get('update', False) and not is_new
 
-                # original/new token counts
-                orig_tok = parsed.get('original_tokens')
-                new_tok  = parsed.get('new_tokens')
-                if orig_tok is None or new_tok is None:
-                    orig_text = parsed.get('original_content', '') or ''
-                    orig_tok = len(orig_text.split())
-                    body_raw = parsed.get('content', '').partition('\n')[2]
-                    new_tok = len(body_raw.split())
+                # Ensure rel is a string, fallback to filename if empty
+                rel = str(rel) if rel else parsed.get('filename')
+                if not rel:
+                    logger.warning(f"Skipping parsed file entry due to missing filename/relative_path: {parsed}", extra={'log_color': 'DELTA'})
+                    continue
+
+                # Original/New token counts
+                orig_text_content = parsed.get('original_content', '') or ''
+                orig_tok = parsed.get('original_tokens', len(orig_text_content.split()))
+                
+                body_raw = parsed.get('content', '')
+                # If 'content' is a diff, extract the actual file content for token counting
+                if diff_srv and diff_srv.is_unified_diff(body_raw):
+                    # Try to apply diff to original content to get the new content for token count (for comparison purposes)
+                    try:
+                        temp_orig_lines = orig_text_content.splitlines()
+                        applied_diff_content = diff_srv.apply_unified_diff(body_raw, orig_text_content)
+                        new_tok = len(applied_diff_content.split())
+                    except Exception:
+                        # Fallback if diff application fails
+                        new_tok = len(body_raw.split()) # Count tokens from diff body itself, which is inaccurate for content
+                else:
+                    # Regular file content
+                    new_tok = parsed.get('new_tokens', len(body_raw.split()))
 
                 abs_delta = new_tok - orig_tok
                 pct = (abs_delta / orig_tok * 100.0) if orig_tok else (100.0 if new_tok else 0.0)
 
                 tag = 'NEW' if is_new else 'DELETE' if is_del else 'COPY' if is_copy else 'UPDATE'
 
+                # Determine the target path
+                dest_path_str = matched or original or rel
+                dest_path = basedir / dest_path_str
+
                 if commit_file:
                     # DELETE
                     if is_del:
-                        p = Path(matched or (basedir / rel))
-                        if p.exists():
-                            self._file_service.delete_file(p)
+                        if dest_path.exists():
+                            self._file_service.delete_file(dest_path)
                             result += 1
                         compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
                         continue
 
                     # COPY
                     if is_copy:
-                        src = Path(matched)
-                        dst = basedir / rel
-                        self._file_service.copy_file(src, dst)
-                        result += 1
+                        src_path = Path(parsed.get('source_path', '')) # Assuming 'source_path' might be provided for copy actions
+                        if not src_path.is_absolute() and base_folder:
+                             src_path = Path(base_folder) / src_path 
+                        if src_path.exists():
+                            self._file_service.copy_file(src_path, dest_path)
+                            result += 1
                         compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
                         continue
 
                     # NEW
                     if is_new:
-                        dst = basedir / rel
-                        body = parsed.get('content', '').partition('\n')[2]
-                        self._file_service.write_file(dst, body)
+                        content_to_write = body_raw
+                        self._file_service.write_file(dest_path, content_to_write)
                         result += 1
                         compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
                         continue
 
                     # UPDATE
                     if is_update:
-                        dst = Path(matched) if Path(matched).exists() else (basedir / rel)
-                        body = parsed.get('content', '').partition('\n')[2]
-                        # if diff, apply it
-                        if diff_srv and diff_srv.is_unified_diff(body):
-                            orig = self._file_service.safe_read_file(dst)
+                        content_to_write = body_raw
+                        # If detected as unified diff, apply it
+                        if diff_srv and diff_srv.is_unified_diff(content_to_write):
+                            orig_content_for_diff = self._file_service.safe_read_file(dest_path)
                             try:
-                                body = diff_srv.apply_unified_diff(body, orig)
-                            except Exception:
-                                pass
-                        self._file_service.write_file(dst, body)
+                                content_to_write = diff_srv.apply_unified_diff(content_to_write, orig_content_for_diff)
+                            except Exception as e:
+                                logger.warning(f"Failed to apply unified diff for {rel}: {e}", extra={'log_color': 'DELTA'})
+                                # Keep original content_to_write if diff application fails
+                        
+                        self._file_service.write_file(dest_path, content_to_write)
                         result += 1
                         compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
                         continue
 
-                # non‐committing run: just record what *would* happen
+                # Non-committing run: just record what *would* happen
                 compare.append(f"{tag} {rel} (O:{orig_tok} N:{new_tok} Δ:{abs_delta} Δ%:{pct:.1f}%)")
 
-            except Exception:
-                logger.exception(f"Error in _write_parsed_files for {parsed.get('filename')}")
+            except Exception as e:
+                logger.exception(f"Error in _write_parsed_files for {parsed.get('filename')}: {e}", extra={'log_color': 'DELTA'})
+                # Add an error entry to compare if commit is true
+                if commit_file:
+                    rel = parsed.get('relative_path', parsed.get('filename', ''))
+                    compare.append(f"ERROR {rel} - {e}")
                 continue
 
-        logger.info("Parsed files written: %d", result, extra={'log_color': 'PERCENT'})
+        logger.info("Parsed files processed: %d written successfully", result, extra={'log_color': 'PERCENT'})
         return result, compare
 
     def _write_planb(self, svc, plan_path: Path, content: str):
@@ -371,9 +490,16 @@ class TodoUtilService:
             except Exception:
                 candidate = None
             if candidate:
-                out_path = candidate
+                out_path = Path(candidate)
             elif base_folder and pattern:
                 out_path = Path(base_folder) / pattern
+
+        # Ensure the directory exists
+        if out_path:
+            try:
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass # Ignore if unable to create directory, file write will fail later if needed
 
         return out_path
 

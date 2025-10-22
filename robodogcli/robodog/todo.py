@@ -321,17 +321,25 @@ class TodoService:
                 task['llm'] = 'x'
                 task['commit'] = 'x'
                 logger.info(f"Set commit to x for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+            
+            # Rebuild task line with updated flags and canonical description
             rebuilt_line, base_desc = self._rebuild_line_with_clean_desc(task)
             logger.debug(f"Rebuilt line after complete: {rebuilt_line[:200]}...", extra={'log_color': 'HIGHLIGHT'})  # Log for verification
+            
             fn = task['file']
             line_no = task['line_no']
             lines = file_lines_map.get(fn, [])
             if 0 <= line_no < len(lines):
+                # Update the specific line in the file content
                 lines[line_no] = rebuilt_line + '\n'
-                file_lines_map[fn] = lines
+                file_lines_map[fn] = lines # Update map
+                # Write the entire file back to disk
                 self._file_service.write_file(Path(fn), ''.join(lines))
                 logger.info(f"Updated flags in todo.md for task at line {line_no} in {fn}: plan={task['plan']}, status={task['llm']}, write={task['commit']}", extra={'log_color': 'HIGHLIGHT'})
+            
+            # Restore original description fields
             self._restore_task_desc(task, base_desc, previous_desc)
+
             if compare:
                 if step == 2:
                     task['_pending_files'] = compare
@@ -340,6 +348,7 @@ class TodoService:
                 status_extra['files'] = compare
             if step == 1 and task.get('_latest_plan'):
                 status_extra['plan_preview'] = task.get('_latest_plan')
+                
             ct = self._task_manager.complete_task(task, file_lines_map, cur_model, 0, compare, commit, step)
             if ct is None:
                 ct = datetime.now().isoformat()
