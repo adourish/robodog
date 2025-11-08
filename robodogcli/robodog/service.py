@@ -18,6 +18,12 @@ from openai import OpenAI
 from playwright.async_api import async_playwright
 import logging
 from typing import List, Optional
+
+try:
+    from .todo_manager import TodoManager
+except ImportError:
+    from todo_manager import TodoManager
+
 logger = logging.getLogger('robodog.service')
 
 
@@ -37,6 +43,7 @@ class RobodogService:
         self._ui_callback = None  # New: callback for UI updates
         self._init_llm(api_key)
         self._app = app
+        self.todo_mgr = TodoManager(self._roots)  # Initialize TodoManager
 
     def set_ui_callback(self, callback):
         """Set callback for UI updates during streaming. Ensures no logger conflicts."""

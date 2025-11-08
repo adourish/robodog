@@ -152,28 +152,53 @@ class AgentLoop(AgentLoopEnhancements):
         Returns:
             Tuple of (success, parsed_files, agent_state)
         """
-        logger.info(f"🤖 Starting agentic loop for task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+        logger.info("=" * 70, extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"🤖 STARTING AGENTIC LOOP", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"Task: {task['desc']}", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"Files to process: {len(include_files)}", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"Base folder: {base_folder}", extra={'log_color': 'HIGHLIGHT'})
+        logger.info("=" * 70, extra={'log_color': 'HIGHLIGHT'})
         
         # Initialize state
+        logger.info("Initializing agent state...", extra={'log_color': 'HIGHLIGHT'})
         state = AgentState(task)
+        logger.info(f"Max iterations: {state.max_iterations}", extra={'log_color': 'HIGHLIGHT'})
         
         # Step 1: Decompose task into subtasks
+        logger.info("\n" + "─" * 70, extra={'log_color': 'HIGHLIGHT'})
+        logger.info("PHASE 1: TASK DECOMPOSITION", extra={'log_color': 'HIGHLIGHT'})
+        logger.info("─" * 70, extra={'log_color': 'HIGHLIGHT'})
+        
         subtasks = self._decompose_task(task, include_files, plan_content)
         for subtask in subtasks:
             state.add_subtask(subtask)
             
-        logger.info(f"📋 Decomposed into {len(subtasks)} subtasks", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"✅ Decomposed into {len(subtasks)} subtasks:", extra={'log_color': 'PERCENT'})
+        for i, st in enumerate(subtasks, 1):
+            logger.info(f"  {i}. {st['description']} ({len(st.get('target_files', []))} files)", 
+                       extra={'log_color': 'PERCENT'})
         
         all_results = []
         
         # Step 2: Execute subtasks in loop
+        logger.info("\n" + "─" * 70, extra={'log_color': 'HIGHLIGHT'})
+        logger.info("PHASE 2: ITERATIVE EXECUTION", extra={'log_color': 'HIGHLIGHT'})
+        logger.info("─" * 70, extra={'log_color': 'HIGHLIGHT'})
+        
         while state.should_continue():
             subtask = state.next_subtask()
             if not subtask:
+                logger.info("No more subtasks to process", extra={'log_color': 'HIGHLIGHT'})
                 break
-                
-            logger.info(f"🔄 Iteration {state.iteration}/{state.max_iterations}: {subtask['description']}", 
+            
+            logger.info("\n" + "┌" + "─" * 68 + "┐", extra={'log_color': 'HIGHLIGHT'})
+            logger.info(f"│ 🔄 ITERATION {state.iteration}/{state.max_iterations}".ljust(69) + "│", 
                        extra={'log_color': 'HIGHLIGHT'})
+            logger.info(f"│ Task: {subtask['description'][:60]}".ljust(69) + "│", 
+                       extra={'log_color': 'HIGHLIGHT'})
+            logger.info(f"│ Files: {len(subtask.get('target_files', []))}".ljust(69) + "│", 
+                       extra={'log_color': 'HIGHLIGHT'})
+            logger.info("└" + "─" * 68 + "┘", extra={'log_color': 'HIGHLIGHT'})
             
             try:
                 # Micro-step: Start execution
@@ -237,10 +262,38 @@ class AgentLoop(AgentLoopEnhancements):
                 state.mark_failed(str(e))
                 
         # Step 3: Summary
+        logger.info("\n" + "─" * 70, extra={'log_color': 'HIGHLIGHT'})
+        logger.info("PHASE 3: SUMMARY & RESULTS", extra={'log_color': 'HIGHLIGHT'})
+        logger.info("─" * 70, extra={'log_color': 'HIGHLIGHT'})
+        
         summary = state.get_summary()
-        logger.info(f"🏁 Agentic loop completed: {summary['completed']} succeeded, "
-                   f"{summary['failed']} failed, {summary['duration_seconds']:.1f}s", 
-                   extra={'log_color': 'HIGHLIGHT'})
+        
+        logger.info(f"🏁 Agentic loop completed!", extra={'log_color': 'PERCENT'})
+        logger.info(f"", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"📊 Statistics:", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"  ✅ Succeeded: {summary['completed']}", extra={'log_color': 'PERCENT'})
+        logger.info(f"  ❌ Failed: {summary['failed']}", extra={'log_color': 'DELTA' if summary['failed'] > 0 else 'PERCENT'})
+        logger.info(f"  ⏱️  Duration: {summary['duration_seconds']:.1f}s", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"  🔄 Iterations: {summary['total_iterations']}", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"  💰 Total tokens: {summary['total_tokens']:,}", extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"  📁 Files modified: {len(summary['files_modified'])}", extra={'log_color': 'HIGHLIGHT'})
+        
+        if hasattr(state, 'avg_quality') and state.avg_quality > 0:
+            logger.info(f"  ⭐ Average quality: {state.avg_quality:.2f}", extra={'log_color': 'PERCENT'})
+        if hasattr(state, 'refinement_count') and state.refinement_count > 0:
+            logger.info(f"  🔧 Refinements: {state.refinement_count}", extra={'log_color': 'HIGHLIGHT'})
+        if hasattr(state, 'micro_steps'):
+            logger.info(f"  📝 Micro-steps logged: {len(state.micro_steps)}", extra={'log_color': 'HIGHLIGHT'})
+        
+        if summary['files_modified']:
+            logger.info(f"\n📁 Modified files:", extra={'log_color': 'HIGHLIGHT'})
+            for f in summary['files_modified'][:10]:
+                logger.info(f"  • {f}", extra={'log_color': 'HIGHLIGHT'})
+            if len(summary['files_modified']) > 10:
+                logger.info(f"  ... and {len(summary['files_modified']) - 10} more", 
+                           extra={'log_color': 'HIGHLIGHT'})
+        
+        logger.info("=" * 70, extra={'log_color': 'HIGHLIGHT'})
         
         success = summary['failed'] == 0 and summary['completed'] > 0
         return success, all_results, state

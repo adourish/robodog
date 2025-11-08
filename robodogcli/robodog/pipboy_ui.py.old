@@ -1,0 +1,417 @@
+#!/usr/bin/env python3
+"""
+Pip-Boy Style Terminal UI for RoboDog CLI
+Uses Textual for a refreshing interface instead of scrolling output
+"""
+
+from textual.app import App, ComposeResult
+from textual.containers import Container, Vertical, Horizontal, ScrollableContainer
+from textual.widgets import Header, Footer, Static, Input, RichLog, Label
+from textual.binding import Binding
+from rich.text import Text
+from rich.panel import Panel
+from rich.table import Table
+from rich.console import RenderableType
+from datetime import datetime
+import logging
+
+
+class PipBoyHeader(Static):
+    """Pip-Boy style header with retro green aesthetic"""
+    
+    def __init__(self, model_name: str = "GPT-4"):
+        super().__init__()
+        self.model_name = model_name
+    
+    def on_mount(self) -> None:
+        self.update_header()
+        self.set_interval(1.0, self.update_header)
+    
+    def set_model_name(self, model_name: str):
+        """Update the model name displayed in header"""
+        self.model_name = model_name
+        self.update_header()
+    
+    def update_header(self) -> None:
+        now = datetime.now().strftime("%H:%M:%S")
+        header_text = Text()
+        header_text.append("╔══════════════════════════════════════════════════════════╗\n", style="bold green")
+        header_text.append("║ ", style="bold green")
+        header_text.append("ROBODOG", style="bold cyan")
+        header_text.append(" │ ", style="bold green")
+        header_text.append(f"{self.model_name:<12}", style="yellow")
+        header_text.append(" │ ", style="bold green")
+        header_text.append(f"{now}", style="green")
+        header_text.append(" " * 10, style="bold green")
+        header_text.append("║\n", style="bold green")
+        header_text.append("╚══════════════════════════════════════════════════════════╝", style="bold green")
+        self.update(header_text)
+
+
+class StatusPanel(Static):
+    """Status display panel with Pip-Boy styling"""
+    
+    def __init__(self):
+        super().__init__()
+        self.status_lines = []
+    
+    def add_status(self, message: str, level: str = "INFO"):
+        """Add a status message"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        color_map = {
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "SUCCESS": "cyan",
+            "DEBUG": "dim white"
+        }
+        color = color_map.get(level, "green")
+        
+        self.status_lines.append((timestamp, message, color))
+        # Keep only last 20 lines
+        if len(self.status_lines) > 20:
+            self.status_lines.pop(0)
+        
+        self.refresh_display()
+    
+    def refresh_display(self):
+        """Refresh the status display"""
+        text = Text()
+        text.append("┌─ STATUS " + "─" * 49 + "┐\n", style="bold green")
+        
+        for timestamp, message, color in self.status_lines[-4:]:  # Show last 4
+            text.append("│ ", style="bold green")
+            text.append(f"[{timestamp}] ", style="dim green")
+            text.append(message[:45], style=color)
+            text.append(" " * max(0, 45 - len(message)), style="green")
+            text.append("│\n", style="bold green")
+        
+        # Fill empty lines
+        for _ in range(4 - len(self.status_lines[-4:])):
+            text.append("│" + " " * 58 + "│\n", style="bold green")
+        
+        text.append("└" + "─" * 58 + "┘", style="bold green")
+        self.update(text)
+
+
+class OutputPanel(Static):
+    """Main output panel for AI responses"""
+    
+    def __init__(self):
+        super().__init__()
+        self.output_text = ""
+    
+    def set_output(self, text: str):
+        """Set the output text"""
+        self.output_text = text
+        self.refresh_display()
+    
+    def append_output(self, text: str):
+        """Append to output text"""
+        self.output_text += text
+        self.refresh_display()
+    
+    def clear_output(self):
+        """Clear the output"""
+        self.output_text = ""
+        self.refresh_display()
+    
+    def refresh_display(self):
+        """Refresh the output display"""
+        lines = self.output_text.split('\n')
+        text = Text()
+        text.append("┌─ OUTPUT " + "─" * 49 + "┐\n", style="bold green")
+        
+        # Show last 7 lines
+        display_lines = lines[-7:] if len(lines) > 7 else lines
+        for line in display_lines:
+            text.append("│ ", style="bold green")
+            display_line = line[:56] if len(line) > 56 else line
+            text.append(display_line, style="white")
+            text.append(" " * max(0, 56 - len(display_line)), style="green")
+            text.append("│\n", style="bold green")
+        
+        # Fill empty lines
+        for _ in range(7 - len(display_lines)):
+            text.append("│" + " " * 58 + "│\n", style="bold green")
+        
+        text.append("└" + "─" * 58 + "┘", style="bold green")
+        self.update(text)
+
+
+class CommandInput(Static):
+    """Command input area with Pip-Boy styling"""
+    
+    def compose(self) -> ComposeResult:
+        yield Label("┌─ CMD " + "─" * 52 + "┐", classes="border")
+        yield Input(placeholder="Enter command...", id="cmd_input")
+        yield Label("└" + "─" * 58 + "┘", classes="border")
+
+
+class PipBoyUI(App):
+    """Main Pip-Boy UI Application"""
+    
+    CSS = """
+    Screen {
+        background: #001a00;
+    }
+    
+    PipBoyHeader {
+        height: 3;
+        background: #001a00;
+        color: #00ff00;
+        padding: 0 1;
+    }
+    
+    StatusPanel {
+        height: 6;
+        background: #001a00;
+        color: #00ff00;
+        padding: 0 1;
+        margin: 0;
+    }
+    
+    OutputPanel {
+        height: 9;
+        background: #001a00;
+        color: #00ff00;
+        padding: 0 1;
+        margin: 0;
+    }
+    
+    CommandInput {
+        height: 3;
+        background: #001a00;
+        color: #00ff00;
+        padding: 0 1;
+    }
+    
+    Input {
+        background: #002200;
+        color: #00ff00;
+        border: solid #00ff00;
+    }
+    
+    Input:focus {
+        background: #003300;
+        border: solid #00ff00;
+    }
+    
+    Label.border {
+        color: #00ff00;
+        background: #001a00;
+    }
+    
+    Footer {
+        background: #002200;
+        color: #00ff00;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("ctrl+c", "quit", "Quit", show=True),
+        Binding("ctrl+l", "clear", "Clear", show=True),
+        Binding("f1", "help", "Help", show=True),
+    ]
+    
+    def __init__(self, svc=None):
+        super().__init__()
+        self.svc = svc
+        self.status_panel = None
+        self.output_panel = None
+        self.header_panel = None
+        self.command_callback = None
+    
+    def compose(self) -> ComposeResult:
+        """Compose the UI layout"""
+        model_name = self.svc.cur_model if self.svc else "GPT-4"
+        self.header_panel = PipBoyHeader(model_name)
+        yield self.header_panel
+        self.status_panel = StatusPanel()
+        yield self.status_panel
+        self.output_panel = OutputPanel()
+        yield self.output_panel
+        yield CommandInput()
+        yield Footer()
+    
+    def on_mount(self) -> None:
+        """Initialize the UI"""
+        self.status_panel.add_status("ROBODOG SYSTEM INITIALIZED", "SUCCESS")
+        self.status_panel.add_status("Type /help for available commands", "INFO")
+        self.query_one("#cmd_input", Input).focus()
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle command input"""
+        command = event.value.strip()
+        if not command:
+            return
+        
+        # Clear input
+        event.input.value = ""
+        
+        # Check for quit/exit commands
+        if command.lower() in ['/quit', '/exit', 'quit', 'exit']:
+            self.status_panel.add_status("Shutting down...", "INFO")
+            self.exit()
+            return
+        
+        # Log command
+        self.status_panel.add_status(f"CMD: {command}", "INFO")
+        
+        # Process command
+        if self.command_callback:
+            try:
+                self.command_callback(command)
+            except Exception as e:
+                self.status_panel.add_status(f"Callback error: {str(e)}", "ERROR")
+                import traceback
+                self.output_panel.set_output(traceback.format_exc())
+        else:
+            self.status_panel.add_status("No command callback set!", "ERROR")
+    
+    def action_quit(self) -> None:
+        """Quit the application"""
+        self.exit()
+    
+    def action_clear(self) -> None:
+        """Clear the output panel"""
+        if self.output_panel:
+            self.output_panel.clear_output()
+            self.status_panel.add_status("Output cleared", "INFO")
+    
+    def action_help(self) -> None:
+        """Show help"""
+        help_text = """
+ROBODOG COMMANDS:
+/help - Show this help
+/quit or /exit - Exit application
+/status - Show full dashboard
+/q - Quick status
+/budget - Show token budget
+/models - List models
+/model <name> - Switch model
+/clear - Clear screen
+/todo - Select and run task
+
+Regular messages are sent to AI
+        """
+        if self.output_panel:
+            self.output_panel.set_output(help_text)
+            self.status_panel.add_status("Help displayed", "INFO")
+    
+    def log_status(self, message: str, level: str = "INFO"):
+        """Add a status message (external API)"""
+        if self.status_panel:
+            self.status_panel.add_status(message, level)
+    
+    def set_output(self, text: str):
+        """Set output text (external API)"""
+        if self.output_panel:
+            self.output_panel.set_output(text)
+    
+    def append_output(self, text: str):
+        """Append to output (external API)"""
+        if self.output_panel:
+            self.output_panel.append_output(text)
+    
+    def set_command_callback(self, callback):
+        """Set callback for command processing"""
+        self.command_callback = callback
+    
+    def update_model_name(self, model_name: str):
+        """Update the model name in the header"""
+        if self.header_panel:
+            self.header_panel.set_model_name(model_name)
+
+
+class PipBoyUIWrapper:
+    """Wrapper to integrate Pip-Boy UI with existing CLI"""
+    
+    def __init__(self, svc):
+        self.svc = svc
+        self.app = None
+        self.running = False
+    
+    def start(self):
+        """Start the UI in a separate thread"""
+        import threading
+        import time
+        
+        self.app = PipBoyUI(self.svc)
+        self.running = True  # Set before thread starts
+        
+        def run_app():
+            try:
+                self.app.run()
+            finally:
+                self.running = False
+        
+        self.ui_thread = threading.Thread(target=run_app, daemon=True)
+        self.ui_thread.start()
+        
+        # Give UI time to initialize
+        time.sleep(1.0)  # Increased wait time for UI to be ready
+    
+    def log_status(self, message: str, level: str = "INFO"):
+        """Log a status message"""
+        try:
+            if self.app and self.running:
+                self.app.call_from_thread(self.app.log_status, message, level)
+        except Exception as e:
+            print(f"Error logging status: {e}")
+    
+    def set_output(self, text: str):
+        """Set output text"""
+        try:
+            if self.app and self.running:
+                self.app.call_from_thread(self.app.set_output, text)
+        except Exception as e:
+            print(f"Error setting output: {e}")
+    
+    def append_output(self, text: str):
+        """Append to output"""
+        try:
+            if self.app and self.running:
+                self.app.call_from_thread(self.app.append_output, text)
+        except Exception as e:
+            print(f"Error appending output: {e}")
+    
+    def set_command_callback(self, callback):
+        """Set command processing callback"""
+        if self.app:
+            self.app.command_callback = callback
+    
+    def update_model_name(self, model_name: str):
+        """Update the model name in the header"""
+        if self.app and self.running:
+            self.app.call_from_thread(self.app.update_model_name, model_name)
+    
+    def wait(self):
+        """Wait for UI to close"""
+        if self.ui_thread:
+            self.ui_thread.join()
+
+
+# Logging handler to redirect to Pip-Boy UI
+class PipBoyLogHandler(logging.Handler):
+    """Custom logging handler for Pip-Boy UI"""
+    
+    def __init__(self, ui_wrapper):
+        super().__init__()
+        self.ui_wrapper = ui_wrapper
+    
+    def emit(self, record):
+        """Emit a log record to the UI"""
+        try:
+            msg = self.format(record)
+            level_map = {
+                logging.DEBUG: "DEBUG",
+                logging.INFO: "INFO",
+                logging.WARNING: "WARNING",
+                logging.ERROR: "ERROR",
+                logging.CRITICAL: "ERROR"
+            }
+            level = level_map.get(record.levelno, "INFO")
+            self.ui_wrapper.log_status(msg, level)
+        except Exception:
+            self.handleError(record)

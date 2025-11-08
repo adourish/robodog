@@ -18,19 +18,31 @@ class AgentLoopEnhancements:
         Self-reflect on the quality of the output.
         Returns a reflection dict with quality_score and suggestions.
         """
+        logger.info(f"🔍 Starting self-reflection for: {subtask['description']}", 
+                   extra={'log_color': 'HIGHLIGHT'})
+        
         if not self.enable_reflection:
+            logger.info("Self-reflection disabled, using default quality score", 
+                       extra={'log_color': 'DELTA'})
             return {'quality_score': 0.8, 'suggestions': [], 'should_refine': False}
         
         state.log_micro_step('reflection_start', {'subtask': subtask['description']})
         
         # Build reflection prompt
+        logger.info("Building reflection prompt...", extra={'log_color': 'HIGHLIGHT'})
         reflection_prompt = self._build_reflection_prompt(subtask, result)
+        logger.info(f"Reflection prompt: {len(reflection_prompt.split())} tokens", 
+                   extra={'log_color': 'HIGHLIGHT'})
         
         try:
             # Ask LLM to evaluate its own work
+            logger.info("Asking LLM to evaluate its own work...", extra={'log_color': 'HIGHLIGHT'})
             reflection_response = self.svc.ask(reflection_prompt)
+            logger.info(f"Received reflection response: {len(reflection_response.split())} tokens", 
+                       extra={'log_color': 'HIGHLIGHT'})
             
             # Parse reflection
+            logger.info("Parsing reflection response...", extra={'log_color': 'HIGHLIGHT'})
             reflection = self._parse_reflection(reflection_response)
             
             state.log_micro_step('reflection_complete', {
@@ -38,14 +50,21 @@ class AgentLoopEnhancements:
                 'suggestions_count': len(reflection['suggestions'])
             })
             
-            logger.info(f"Self-reflection: Quality={reflection['quality_score']:.2f}, "
+            logger.info(f"✅ Self-reflection complete: Quality={reflection['quality_score']:.2f}, "
+                       f"Completeness={'Yes' if reflection['completeness'] else 'No'}, "
+                       f"Correctness={'Yes' if reflection['correctness'] else 'No'}, "
                        f"Suggestions={len(reflection['suggestions'])}", 
-                       extra={'log_color': 'HIGHLIGHT'})
+                       extra={'log_color': 'PERCENT'})
+            
+            if reflection['suggestions']:
+                logger.info(f"Suggestions for improvement:", extra={'log_color': 'HIGHLIGHT'})
+                for i, suggestion in enumerate(reflection['suggestions'][:3], 1):
+                    logger.info(f"  {i}. {suggestion}", extra={'log_color': 'HIGHLIGHT'})
             
             return reflection
             
         except Exception as e:
-            logger.warning(f"Reflection failed: {e}", extra={'log_color': 'DELTA'})
+            logger.warning(f"❌ Reflection failed: {e}", extra={'log_color': 'DELTA'})
             return {'quality_score': 0.7, 'suggestions': [], 'should_refine': False}
     
     def _build_reflection_prompt(self, subtask: Dict[str, Any], result: Dict[str, Any]) -> str:
@@ -134,7 +153,14 @@ Be honest and critical. If quality < 0.7, suggest refinements.
         """
         Refine the output based on reflection suggestions.
         """
+        logger.info(f"🔧 Starting refinement for: {subtask['description']}", 
+                   extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"Original quality: {reflection['quality_score']:.2f}", 
+                   extra={'log_color': 'HIGHLIGHT'})
+        
         if not self.enable_refinement:
+            logger.info("Refinement disabled, using original output", 
+                       extra={'log_color': 'DELTA'})
             return result
         
         state.log_micro_step('refinement_start', {
@@ -142,17 +168,26 @@ Be honest and critical. If quality < 0.7, suggest refinements.
             'suggestions': len(reflection['suggestions'])
         })
         
-        logger.info(f"Refining output based on {len(reflection['suggestions'])} suggestions", 
+        logger.info(f"Applying {len(reflection['suggestions'])} suggestions:", 
                    extra={'log_color': 'HIGHLIGHT'})
+        for i, suggestion in enumerate(reflection['suggestions'][:3], 1):
+            logger.info(f"  {i}. {suggestion}", extra={'log_color': 'HIGHLIGHT'})
         
         # Build refinement prompt
+        logger.info("Building refinement prompt...", extra={'log_color': 'HIGHLIGHT'})
         refinement_prompt = self._build_refinement_prompt(subtask, result, reflection)
+        logger.info(f"Refinement prompt: {len(refinement_prompt.split())} tokens", 
+                   extra={'log_color': 'HIGHLIGHT'})
         
         try:
             # Get refined output
+            logger.info("Asking LLM to refine output...", extra={'log_color': 'HIGHLIGHT'})
             refined_response = self.svc.ask(refinement_prompt)
+            logger.info(f"Received refined response: {len(refined_response.split())} tokens", 
+                       extra={'log_color': 'HIGHLIGHT'})
             
             # Parse refined output
+            logger.info("Parsing refined output...", extra={'log_color': 'HIGHLIGHT'})
             refined_files = self.parser.parse_llm_output(
                 refined_response,
                 base_dir=subtask.get('base_folder', '.'),
@@ -161,6 +196,8 @@ Be honest and critical. If quality < 0.7, suggest refinements.
                 task=state.task,
                 svc=self.svc
             )
+            logger.info(f"Parsed {len(refined_files)} files from refined output", 
+                       extra={'log_color': 'HIGHLIGHT'})
             
             refined_result = {
                 'parsed_files': refined_files,
@@ -176,13 +213,15 @@ Be honest and critical. If quality < 0.7, suggest refinements.
                 'refinement_iteration': refined_result['refinement_iteration']
             })
             
-            logger.info(f"Refinement complete (iteration {refined_result['refinement_iteration']})", 
+            logger.info(f"✅ Refinement complete (iteration {refined_result['refinement_iteration']})", 
+                       extra={'log_color': 'PERCENT'})
+            logger.info(f"Files modified: {', '.join([f.get('filename', 'unknown') for f in refined_files[:3]])}", 
                        extra={'log_color': 'PERCENT'})
             
             return refined_result
             
         except Exception as e:
-            logger.warning(f"Refinement failed: {e}, using original output", 
+            logger.warning(f"❌ Refinement failed: {e}, using original output", 
                           extra={'log_color': 'DELTA'})
             return result
     
@@ -227,17 +266,28 @@ Generate the refined code now.
         Adaptively chunk files based on size and complexity.
         Returns list of file groups.
         """
+        logger.info(f"📦 Starting adaptive chunking for {len(files)} files", 
+                   extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"Target: {self.target_tokens_per_chunk} tokens/chunk, "
+                   f"Max: {self.max_chunk_size} files/chunk", 
+                   extra={'log_color': 'HIGHLIGHT'})
+        
         state.log_micro_step('adaptive_chunking_start', {'total_files': len(files)})
         
         chunks = []
         current_chunk = []
         current_tokens = 0
         
-        for file_path in files:
+        for idx, file_path in enumerate(files, 1):
             try:
                 # Estimate file complexity
                 content = self.file_service.safe_read_file(file_path)
                 file_tokens = len(content.split())
+                complexity = self._estimate_complexity(file_path)
+                
+                logger.info(f"  [{idx}/{len(files)}] {Path(file_path).name}: "
+                           f"{file_tokens} tokens, complexity={complexity:.2f}", 
+                           extra={'log_color': 'HIGHLIGHT'})
                 
                 # Decide if we should start a new chunk
                 would_exceed = current_tokens + file_tokens > self.target_tokens_per_chunk
@@ -245,6 +295,9 @@ Generate the refined code now.
                 
                 if current_chunk and (would_exceed or chunk_at_max):
                     # Start new chunk
+                    logger.info(f"  → Creating chunk {len(chunks)+1} with {len(current_chunk)} files "
+                               f"({current_tokens} tokens)", 
+                               extra={'log_color': 'PERCENT'})
                     chunks.append(current_chunk)
                     current_chunk = [file_path]
                     current_tokens = file_tokens
@@ -254,11 +307,15 @@ Generate the refined code now.
                     current_tokens += file_tokens
                     
             except Exception as e:
-                logger.warning(f"Could not read {file_path} for chunking: {e}")
+                logger.warning(f"Could not read {file_path} for chunking: {e}", 
+                              extra={'log_color': 'DELTA'})
                 current_chunk.append(file_path)
         
         # Add remaining chunk
         if current_chunk:
+            logger.info(f"  → Creating final chunk {len(chunks)+1} with {len(current_chunk)} files "
+                       f"({current_tokens} tokens)", 
+                       extra={'log_color': 'PERCENT'})
             chunks.append(current_chunk)
         
         state.log_micro_step('adaptive_chunking_complete', {
@@ -266,8 +323,12 @@ Generate the refined code now.
             'avg_chunk_size': sum(len(c) for c in chunks) / len(chunks) if chunks else 0
         })
         
-        logger.info(f"Adaptive chunking: {len(files)} files -> {len(chunks)} chunks", 
-                   extra={'log_color': 'HIGHLIGHT'})
+        logger.info(f"✅ Adaptive chunking complete: {len(files)} files → {len(chunks)} chunks", 
+                   extra={'log_color': 'PERCENT'})
+        for i, chunk in enumerate(chunks, 1):
+            chunk_names = [Path(f).name for f in chunk]
+            logger.info(f"  Chunk {i}: {', '.join(chunk_names)}", 
+                       extra={'log_color': 'PERCENT'})
         
         return chunks
     

@@ -59,6 +59,7 @@ try:
     from .prompt_builder import PromptBuilder
     from .throttle_spinner import ThrottledSpinner
     from .app import RobodogApp  # Added relative import for RobodogApp
+    from .simple_ui import SimpleUIWrapper  # Simple UI
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
@@ -73,12 +74,14 @@ except ImportError:
     from prompt_builder import PromptBuilder
     from throttle_spinner import ThrottledSpinner
     from app import RobodogApp  # Direct import for RobodogApp
+    from simple_ui import SimpleUIWrapper  # Simple UI
 
 
 
 def print_help():
     cmds = {
         "help":                "show this help",
+        "quit or exit":        "exit the application (or Ctrl+C)",
         "status":              "show full dashboard",
         "q":                   "quick status",
         "budget":              "show token budget",
@@ -169,14 +172,25 @@ def _init_services(args):
 
     return svc, parser
 
-def interact(svc: RobodogService, app_instance: RobodogApp):  # Modified to accept app_instance
+def interact(svc: RobodogService, app_instance: RobodogApp, pipboy_ui=None):  # Modified to accept app_instance and pipboy_ui
     prompt_symbol = lambda: f"[{svc.cur_model}]{'»' if svc.stream else '>'} "
-    logging.info("robodog CLI — type /help to list commands.")
+    
+    if not pipboy_ui:
+        logging.info("robodog CLI — type /help to list commands.")
+    
     # Sample messages for RobodogApp integration
     sample_messages = ["echo test", "help", "/help"]  # Predefined sample patterns
     while True:
         try:
-            line = input(prompt_symbol()).strip()
+            if pipboy_ui:
+                # In Pip-Boy mode, UI handles input via callback
+                import time
+                time.sleep(0.1)
+                if not pipboy_ui.running:
+                    break
+                continue
+            else:
+                line = input(prompt_symbol()).strip()
         except (EOFError, KeyboardInterrupt):
             logging.info("bye")
             break
@@ -190,8 +204,12 @@ def interact(svc: RobodogService, app_instance: RobodogApp):  # Modified to acce
                     print_help()
 
                 elif cmd == "models":
-                    for m in svc.list_models_about():
-                        app_instance.display_command(f"  {m}")
+                    models_list = "\n".join([f"  {m}" for m in svc.list_models_about()])
+                    if pipboy_ui:
+                        pipboy_ui.set_output(models_list)
+                    else:
+                        for m in svc.list_models_about():
+                            app_instance.display_command(f"  {m}")
 
                 elif cmd == "model":
                     if not args:
@@ -385,8 +403,13 @@ def interact(svc: RobodogService, app_instance: RobodogApp):  # Modified to acce
             else:
                 # Original non-/ handling preserved
                 _line = f"\nUser: {line}"
+                if pipboy_ui:
+                    pipboy_ui.log_status(f"User: {line}", "INFO")
                 _resp = svc.ask(_line)
-                print(f"{_resp}")
+                if pipboy_ui:
+                    pipboy_ui.set_output(_resp)
+                else:
+                    print(f"{_resp}")
 
 def main():
     parser = argparse.ArgumentParser(prog="robodog",
@@ -420,6 +443,8 @@ def main():
                         help='force unified diff output for updates')
     parser.add_argument('--agent-loop', action='store_true',
                         help='enable agentic loop for incremental task execution')
+    parser.add_argument('--pipboy', action='store_true',
+                        help='enable refreshing terminal UI (ANSI-based)')
     args = parser.parse_args()
 
     
@@ -494,8 +519,317 @@ def main():
         svc.set_model(args.model)
         logging.info("Startup model set to %s", svc.cur_model)
 
+    # Initialize Simple UI if requested
+    pipboy_ui = None
+    if args.pipboy:
+        try:
+            pipboy_ui = SimpleUIWrapper(svc)
+            
+            # Set up command callback
+            def handle_command(line):
+                import io
+                import sys
+                
+                # Debug: verify callback is being called
+                pipboy_ui.log_status(f"→ {line[:30]}", "INFO")
+                
+                if line.startswith("/"):
+                    cmd, cmd_args = parse_cmd(line)
+                    try:
+                        if cmd == "help":
+                            # Capture help output
+                            old_stdout = sys.stdout
+                            sys.stdout = buffer = io.StringIO()
+                            print_help()
+                            sys.stdout = old_stdout
+                            pipboy_ui.set_output(buffer.getvalue())
+                            
+                        elif cmd == "models":
+                            models_list = "Available models:\n"
+                            models_list += "\n".join([f"  {m}" for m in svc.list_models_about()])
+                            models_list += f"\n\nCurrent model: {svc.cur_model}"
+                            pipboy_ui.set_output(models_list)
+                            
+                        elif cmd == "model":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /model <model_name>", "WARNING")
+                                available = ", ".join(svc.list_models())
+                                pipboy_ui.set_output(f"Available models: {available}")
+                            else:
+                                try:
+                                    old_model = svc.cur_model
+                                    svc.set_model(cmd_args[0])
+                                    pipboy_ui.update_model_name(svc.cur_model)
+                                    pipboy_ui.log_status(f"Model changed: {old_model} → {svc.cur_model}", "SUCCESS")
+                                except ValueError as e:
+                                    pipboy_ui.log_status(str(e), "ERROR")
+                                    available = ", ".join(svc.list_models())
+                                    pipboy_ui.set_output(f"Available models: {available}")
+                                
+                        elif cmd == "key":
+                            if len(cmd_args) < 2:
+                                pipboy_ui.log_status("Usage: /key <provider> <api_key>", "WARNING")
+                            else:
+                                svc.set_key(cmd_args[0], cmd_args[1])
+                                pipboy_ui.log_status(f"API key for '{cmd_args[0]}' set.", "SUCCESS")
+                                
+                        elif cmd == "getkey":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /getkey <provider>", "WARNING")
+                            else:
+                                key = svc.get_key(cmd_args[0])
+                                pipboy_ui.set_output(f"{cmd_args[0]} API key: {key or '<none>'}")
+                                
+                        elif cmd == "folders":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /folders <dir1> [dir2 ...]", "WARNING")
+                            else:
+                                resp = svc.call_mcp("SET_ROOTS", {"roots": cmd_args})
+                                roots = "\n".join([f"  {r}" for r in resp.get("roots", [])])
+                                pipboy_ui.set_output(f"MCP server roots:\n{roots}")
+                                
+                        elif cmd == "include":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /include [spec] [prompt]", "WARNING")
+                            else:
+                                spec_prompt = line[len("/include "):].strip()
+                                parts = spec_prompt.split()
+                                brk = 1
+                                for i, t in enumerate(parts[1:], start=1):
+                                    if not (t == "recursive" or t.startswith(("file=", "dir=", "pattern="))):
+                                        brk = i
+                                        break
+                                spec = " ".join(parts[:brk])
+                                ptext = " ".join(parts[brk:]) or ""
+                                knowledge = svc.include(spec) or ""
+                                answer = svc.ask(f"{ptext} {knowledge}".strip())
+                                pipboy_ui.set_output(answer)
+                                
+                        elif cmd == "curl":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /curl <url>", "WARNING")
+                            else:
+                                pipboy_ui.log_status("/curl command not yet implemented", "WARNING")
+                                pipboy_ui.set_output(f"Curl functionality coming soon.\nRequested: {' '.join(cmd_args)}")
+                            
+                        elif cmd == "play":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /play <instructions>", "WARNING")
+                            else:
+                                pipboy_ui.log_status("/play command not yet implemented", "WARNING")
+                                pipboy_ui.set_output(f"Playwright functionality coming soon.\nRequested: {' '.join(cmd_args)}")
+                            
+                        elif cmd == "mcp":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /mcp OP [JSON]", "WARNING")
+                            else:
+                                op = cmd_args[0].upper()
+                                raw = " ".join(cmd_args[1:]).strip()
+                                payload = {}
+                                if raw:
+                                    payload = json.loads(raw)
+                                res = svc.call_mcp(op, payload)
+                                old_stdout = sys.stdout
+                                sys.stdout = buffer = io.StringIO()
+                                pprint(res)
+                                sys.stdout = old_stdout
+                                pipboy_ui.set_output(buffer.getvalue())
+                                
+                        elif cmd == "import":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /import <glob>", "WARNING")
+                            else:
+                                cnt = svc.import_files(cmd_args[0])
+                                pipboy_ui.log_status(f"Imported {cnt} files.", "SUCCESS")
+                                
+                        elif cmd == "export":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /export <filename>", "WARNING")
+                            else:
+                                svc.export_snapshot(cmd_args[0])
+                                pipboy_ui.log_status(f"Exported to {cmd_args[0]}.", "SUCCESS")
+                                
+                        elif cmd == "clear":
+                            svc.clear()
+                            pipboy_ui.set_output("")
+                            pipboy_ui.log_status("Cleared chat history and knowledge", "INFO")
+                            
+                        elif cmd == "stash":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /stash <name>", "WARNING")
+                            else:
+                                svc.stash(cmd_args[0])
+                                pipboy_ui.log_status(f"Stashed under '{cmd_args[0]}'.", "SUCCESS")
+                                
+                        elif cmd == "pop":
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /pop <name>", "WARNING")
+                            else:
+                                svc.pop(cmd_args[0])
+                                pipboy_ui.log_status(f"Popped '{cmd_args[0]}' into current session.", "SUCCESS")
+                                
+                        elif cmd == "list":
+                            st = svc.list_stashes()
+                            if not st:
+                                pipboy_ui.set_output("No stashes.")
+                            else:
+                                stashes = "\n".join([f"  {name}" for name in st])
+                                pipboy_ui.set_output(f"Stashes:\n{stashes}")
+                                
+                        elif cmd in ("temperature","top_p","max_tokens","frequency_penalty","presence_penalty"):
+                            if not cmd_args:
+                                pipboy_ui.log_status(f"Usage: /{cmd} <value>", "WARNING")
+                            else:
+                                val = float(cmd_args[0]) if "." in cmd_args[0] else int(cmd_args[0])
+                                svc.set_param(cmd, val)
+                                pipboy_ui.log_status(f"{cmd} set to {val}", "SUCCESS")
+                                
+                        elif cmd == "stream":
+                            svc.stream = True
+                            pipboy_ui.log_status("Switched to streaming mode.", "SUCCESS")
+                            
+                        elif cmd == "rest":
+                            svc.stream = False
+                            pipboy_ui.log_status("Switched to REST mode.", "SUCCESS")
+                            
+                        elif cmd == "status":
+                            dashboard = Dashboard(svc.todo)
+                            old_stdout = sys.stdout
+                            sys.stdout = buffer = io.StringIO()
+                            dashboard.show_full_dashboard()
+                            sys.stdout = old_stdout
+                            pipboy_ui.set_output(buffer.getvalue())
+                            
+                        elif cmd == "q":
+                            dashboard = Dashboard(svc.todo)
+                            old_stdout = sys.stdout
+                            sys.stdout = buffer = io.StringIO()
+                            dashboard.show_quick_status()
+                            sys.stdout = old_stdout
+                            pipboy_ui.set_output(buffer.getvalue())
+                            
+                        elif cmd == "budget":
+                            stats = Dashboard(svc.todo).get_statistics()
+                            old_stdout = sys.stdout
+                            sys.stdout = buffer = io.StringIO()
+                            TokenBudgetDisplay.show(stats['total_tokens'])
+                            sys.stdout = old_stdout
+                            pipboy_ui.set_output(buffer.getvalue())
+                            
+                        elif cmd == "shortcuts":
+                            old_stdout = sys.stdout
+                            sys.stdout = buffer = io.StringIO()
+                            show_shortcuts()
+                            sys.stdout = old_stdout
+                            pipboy_ui.set_output(buffer.getvalue())
+                            
+                        elif cmd == "todo":
+                            # Todo management commands
+                            if not cmd_args:
+                                # List all tasks
+                                tasks = svc.todo_mgr.list_tasks()
+                                if not tasks:
+                                    pipboy_ui.set_output("No tasks found.\n\nUse: /todo add <description> to create a task")
+                                else:
+                                    output = f"Found {len(tasks)} tasks:\n\n"
+                                    for task in tasks[:10]:  # Show first 10
+                                        # Show three-bracket format
+                                        p = task.get('plan_status', 'To Do')
+                                        l = task.get('llm_status', 'To Do')
+                                        c = task.get('commit_status', 'To Do')
+                                        status_map = {'To Do': ' ', 'Doing': '~', 'Done': 'x', 'Ignore': '-'}
+                                        p_char = status_map.get(p, ' ')
+                                        l_char = status_map.get(l, ' ')
+                                        c_char = status_map.get(c, ' ')
+                                        output += f"[{p_char}][{l_char}][{c_char}] {task['description']}\n"
+                                        output += f"    Plan:{p} LLM:{l} Commit:{c}\n"
+                                        output += f"    {os.path.basename(task['file'])}:{task['line_number']}\n"
+                                    if len(tasks) > 10:
+                                        output += f"\n... and {len(tasks) - 10} more"
+                                    pipboy_ui.set_output(output)
+                            elif cmd_args[0] == "add":
+                                # Add a new task
+                                if len(cmd_args) < 2:
+                                    pipboy_ui.log_status("Usage: /todo add <description>", "WARNING")
+                                else:
+                                    desc = " ".join(cmd_args[1:])
+                                    result = svc.todo_mgr.add_task(desc)
+                                    pipboy_ui.log_status(f"Task added to {os.path.basename(result['path'])}", "SUCCESS")
+                                    pipboy_ui.set_output(f"Added task:\n{result['line']}\n\nFile: {result['path']}\nLine: {result['line_number']}")
+                            elif cmd_args[0] == "stats":
+                                # Show statistics
+                                stats = svc.todo_mgr.get_statistics()
+                                output = f"Todo Statistics:\n\n"
+                                output += f"Total: {stats['total']}\n"
+                                output += f"To Do: {stats['todo']}\n"
+                                output += f"Doing: {stats['doing']}\n"
+                                output += f"Done: {stats['done']}\n"
+                                output += f"Ignore: {stats['ignore']}\n\n"
+                                if stats['by_file']:
+                                    output += "By File:\n"
+                                    for file, count in stats['by_file'].items():
+                                        output += f"  {os.path.basename(file)}: {count}\n"
+                                pipboy_ui.set_output(output)
+                            elif cmd_args[0] == "files":
+                                # List todo files
+                                files = svc.todo_mgr.find_todo_files()
+                                if not files:
+                                    pipboy_ui.set_output("No todo.md files found")
+                                else:
+                                    output = f"Found {len(files)} todo.md files:\n\n"
+                                    for f in files:
+                                        output += f"  {f}\n"
+                                    pipboy_ui.set_output(output)
+                            elif cmd_args[0] == "create":
+                                # Create a new todo.md
+                                path = cmd_args[1] if len(cmd_args) > 1 else None
+                                created = svc.todo_mgr.create_todo_file(path)
+                                pipboy_ui.log_status(f"Created {os.path.basename(created)}", "SUCCESS")
+                                pipboy_ui.set_output(f"Created todo.md at:\n{created}")
+                            else:
+                                pipboy_ui.log_status("Unknown todo subcommand", "WARNING")
+                                pipboy_ui.set_output("Todo commands:\n/todo - list tasks\n/todo add <desc> - add task\n/todo stats - show statistics\n/todo files - list todo files\n/todo create [path] - create todo.md")
+                        
+                        elif cmd == "test":
+                            # Test command to verify UI is working
+                            pipboy_ui.log_status("Test command executed", "SUCCESS")
+                            pipboy_ui.set_output("UI Test Output\n\nIf you can see this, the OUTPUT panel is working!\nStatus messages appear in the STATUS panel above.")
+                            
+                        else:
+                            pipboy_ui.log_status(f"Unknown command: /{cmd}", "WARNING")
+                            pipboy_ui.set_output(f"Unknown command: /{cmd}\n\nType /help to see all available commands.")
+                            
+                    except Exception as e:
+                        pipboy_ui.log_status(f"Error: {str(e)}", "ERROR")
+                        import traceback
+                        pipboy_ui.set_output(traceback.format_exc())
+                else:
+                    # Regular message to AI
+                    _line = f"\nUser: {line}"
+                    pipboy_ui.log_status(f"Asking AI: {line}", "INFO")
+                    _resp = svc.ask(_line)
+                    pipboy_ui.set_output(_resp)
+            
+            logging.info("Starting Simple UI...")
+            pipboy_ui.start()
+            
+            # Set callback AFTER UI starts so app exists
+            pipboy_ui.set_command_callback(handle_command)
+            
+            pipboy_ui.log_status("ROBODOG SYSTEM ONLINE", "SUCCESS")
+            pipboy_ui.log_status(f"Model: {svc.cur_model}", "INFO")
+            pipboy_ui.log_status("Type /help for commands", "INFO")
+        except Exception as e:
+            logging.error(f"Failed to start Simple UI: {e}")
+            pipboy_ui = None
+
     try:
-        interact(svc, app_instance)  # Pass app_instance to interact
+        if pipboy_ui:
+            # In Simple UI mode, wait for UI to close
+            pipboy_ui.wait()
+        else:
+            # Traditional CLI mode
+            interact(svc, app_instance, pipboy_ui)  # Pass pipboy_ui to interact
     finally:
         logging.info("Shutting down MCP server")
         server.shutdown()

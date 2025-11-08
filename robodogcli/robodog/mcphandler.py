@@ -273,6 +273,66 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 SERVICE.todo._load_all()
                 tasks = SERVICE.todo._tasks
                 return {"status":"ok","tasks":tasks}
+            
+            if op == "TODO_LIST":
+                # List tasks with optional filtering
+                path = p.get("path")
+                status = p.get("status")
+                tasks = SERVICE.todo_mgr.list_tasks(path, status)
+                return {"status":"ok","tasks":tasks}
+            
+            if op == "TODO_ADD":
+                # Add a new task with three-bracket format
+                desc = p.get("description")
+                if not desc:
+                    raise ValueError("Missing 'description'")
+                path = p.get("path")
+                plan_status = p.get("plan_status", ' ')
+                llm_status = p.get("llm_status", ' ')
+                commit_status = p.get("commit_status", ' ')
+                priority = p.get("priority")
+                tags = p.get("tags", [])
+                include = p.get("include")
+                plan_spec = p.get("plan_spec")
+                result = SERVICE.todo_mgr.add_task(desc, path, plan_status, llm_status, 
+                                                   commit_status, priority, tags, include, plan_spec)
+                return {"status":"ok","task":result}
+            
+            if op == "TODO_UPDATE":
+                # Update task status for a specific stage
+                path = p.get("path")
+                line_num = p.get("line_number")
+                new_status = p.get("new_status")
+                stage = p.get("stage", 'plan')  # Default to plan stage
+                if not path or not line_num or not new_status:
+                    raise ValueError("Missing 'path', 'line_number', or 'new_status'")
+                result = SERVICE.todo_mgr.update_task_status(path, line_num, new_status, stage)
+                return {"status":"ok","task":result}
+            
+            if op == "TODO_DELETE":
+                # Delete a task
+                path = p.get("path")
+                line_num = p.get("line_number")
+                if not path or not line_num:
+                    raise ValueError("Missing 'path' or 'line_number'")
+                result = SERVICE.todo_mgr.delete_task(path, line_num)
+                return {"status":"ok","deleted":result}
+            
+            if op == "TODO_STATS":
+                # Get todo statistics
+                stats = SERVICE.todo_mgr.get_statistics()
+                return {"status":"ok","statistics":stats}
+            
+            if op == "TODO_FILES":
+                # Find all todo.md files
+                files = SERVICE.todo_mgr.find_todo_files()
+                return {"status":"ok","files":files}
+            
+            if op == "TODO_CREATE":
+                # Create a new todo.md file
+                path = p.get("path")
+                created_path = SERVICE.todo_mgr.create_todo_file(path)
+                return {"status":"ok","path":created_path}
 
             # --- include/ask ---
             if op == "INCLUDE":
