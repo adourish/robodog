@@ -152,8 +152,15 @@ def _init_services(args):
 
     # 6) todo runner / watcher
     svc.todo = TodoService(args.folders, svc, svc.prompt_builder, svc.task_manager, svc.task_parser, svc.file_watcher, svc.file_service, exclude_dirs=exclude_dirs, todo_util=todo_util)
-
-
+    
+    # 7) Enable agent loop if requested
+    if args.agent_loop:
+        try:
+            from agent_loop import enable_agent_loop
+            enable_agent_loop(svc.todo, enable=True)
+            logger.info("Agentic loop enabled for incremental task execution", extra={'log_color': 'HIGHLIGHT'})
+        except ImportError as e:
+            logger.warning(f"Could not enable agent loop: {e}", extra={'log_color': 'DELTA'})
 
     return svc, parser
 
@@ -368,6 +375,8 @@ def main():
                         help='comma-separated list of directories to exclude')
     parser.add_argument('--diff', action='store_true',
                         help='force unified diff output for updates')
+    parser.add_argument('--agent-loop', action='store_true',
+                        help='enable agentic loop for incremental task execution')
     args = parser.parse_args()
 
     

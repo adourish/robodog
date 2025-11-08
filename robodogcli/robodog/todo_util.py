@@ -1,6 +1,8 @@
 # file: todo_util.py
 #!/usr/bin/env python3
 """Utility functions for TodoService, including metadata parsing and desc sanitization."""
+
+# CRITICAL IMPORTS - DO NOT REMOVE OR MODIFY - REQUIRED FOR FUNCTIONALITY
 import os
 import re
 import time
@@ -27,8 +29,10 @@ try:
     from .file_service import FileService
 except ImportError:
     from file_service import FileService
+# END CRITICAL IMPORTS
 
 class TodoUtilService:
+    # CRITICAL METHOD - DO NOT REMOVE - REQUIRED FOR INITIALIZATION
     def __init__(
         self,
         roots: List[str],
@@ -54,15 +58,17 @@ class TodoUtilService:
             self._file_service = file_service
             self._exclude_dirs = exclude_dirs
             self._app = app
+            self._smart_merge = SmartMerge(similarity_threshold=0.6) if enable_smart_merge else None
+            logger.info(f"SmartMerge {'enabled' if self._smart_merge else 'disabled'}", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
             logger.exception(f"Error during initialization of TodoUtilService: {e}", extra={'log_color': 'DELTA'})
             raise
 
     def _get_plan_out_path(self, raw_spec: Any, base_folder: str = "") -> Optional[Path]:
         """
-        Resolve the plan.md output path from the task’s plan_spec.
+        Resolve the plan.md output path from the task's plan_spec.
         raw_spec may be {'plan': {...}} or a direct spec dict/string.
-        Always returns a Path under the task’s folder.
+        Always returns a Path under the task's folder.
         """
         plan_spec = None
         # unpack raw_spec
@@ -89,7 +95,6 @@ class TodoUtilService:
             out_path.parent.mkdir(parents=True, exist_ok=True)
         return out_path
 
-
     def _write_plan(self, svc, plan_path: Path, content: str) -> int:
         """
         Write the plan.md to disk, returning the token count of the content.
@@ -106,6 +111,7 @@ class TodoUtilService:
         except Exception as e:
             logger.exception(f"Failed to write plan to {plan_path}: {e}", extra={'log_color': 'DELTA'})
             return 0
+    
     def _prepare_diff_payload(self, raw_body: str) -> str:
         """Extract just the unified-diff body from a fenced code block, if present."""
         if not raw_body:
@@ -133,19 +139,26 @@ class TodoUtilService:
 
     def _parse_task_metadata(self, full_desc: str) -> Dict:
         """
-        Parse the task description for metadata (started/completed tokens, etc.).
-        Preserve the original unmodified description in `_raw_desc`.
+        Parse the task description for metadata. Splits on the first '|' only,
+        treats the remainder as metadata blob, and deduplicates keys so that
+        duplicate '| knowledge: ...' or '| include: ...' entries are ignored.
         """
         logger.debug(f"Parsing metadata for task desc: {full_desc}")
         try:
             raw_desc = full_desc.rstrip()
-            sanitized_desc = raw_desc
+            # Separate main description and metadata blob
+            if '|' in raw_desc:
+                base_part, meta_part = raw_desc.split('|', 1)
+            else:
+                base_part, meta_part = raw_desc, ''
+            base_desc = base_part.strip()
+
             metadata = {
                 '_raw_desc': raw_desc,
-                'desc': sanitized_desc,
-                'plan_desc': sanitized_desc,
-                'llm_desc': sanitized_desc,
-                'commit_desc': sanitized_desc,
+                'desc': base_desc,
+                'plan_desc': base_desc,
+                'llm_desc': base_desc,
+                'commit_desc': base_desc,
                 '_start_stamp': None,
                 '_complete_stamp': None,
                 'knowledge_tokens': 0,
@@ -154,46 +167,40 @@ class TodoUtilService:
                 'plan_tokens': 0,
             }
 
-            parts = [p.strip() for p in raw_desc.split('|') if p.strip()]
-            if len(parts) > 1:
-                main_desc = parts[0]
-                metadata.update({
-                    '_raw_desc': main_desc,
-                    'desc': main_desc,
-                    'plan_desc': main_desc,
-                    'llm_desc': main_desc,
-                    'commit_desc': main_desc,
-                })
-
-                for part in parts[1:]:
-                    if ':' not in part:
-                        continue
-                    key, val = [s.strip() for s in part.split(':', 1)]
-                    lv = val.lower()
-                    if key == 'started':
-                        metadata['_start_stamp'] = None if lv == 'none' else val
-                    elif key == 'completed':
-                        metadata['_complete_stamp'] = None if lv == 'none' else val
-                    elif key == 'knowledge' and val.isdigit():
-                        metadata['knowledge_tokens'] = int(val)
-                    elif key == 'include' and val.isdigit():
-                        metadata['include_tokens'] = int(val)
-                    elif key == 'prompt' and val.isdigit():
-                        metadata['prompt_tokens'] = int(val)
-                    elif key == 'plan':
-                        if val.isdigit():
-                            metadata['plan_tokens'] = int(val)
-                        else:
-                            metadata['plan_desc'] = val
-                    elif key in ('plan_desc', 'llm_desc', 'commit_desc'):
-                        metadata[key] = val
+            seen_keys = set()
+            # Parse and dedupe metadata items
+            for part in [p.strip() for p in meta_part.split('|') if p.strip()]:
+                if ':' not in part:
+                    continue
+                key, val = [s.strip() for s in part.split(':', 1)]
+                key_lower = key.lower()
+                if key_lower in seen_keys:
+                    continue
+                seen_keys.add(key_lower)
+                if key_lower == 'started':
+                    metadata['_start_stamp'] = None if val.lower() == 'none' else val
+                elif key_lower == 'completed':
+                    metadata['_complete_stamp'] = None if val.lower() == 'none' else val
+                elif key_lower == 'knowledge' and val.isdigit():
+                    metadata['knowledge_tokens'] = int(val)
+                elif key_lower == 'include' and val.isdigit():
+                    metadata['include_tokens'] = int(val)
+                elif key_lower == 'prompt' and val.isdigit():
+                    metadata['prompt_tokens'] = int(val)
+                elif key_lower == 'plan':
+                    if val.isdigit():
+                        metadata['plan_tokens'] = int(val)
+                    else:
+                        metadata['plan_desc'] = val
+                elif key_lower in ('plan_desc', 'llm_desc', 'commit_desc'):
+                    metadata[key_lower] = val
 
             logger.debug(f"Final parsed metadata: {metadata}")
             return metadata
 
         except Exception as e:
             logger.exception(f"Error parsing task metadata for '{full_desc}': {e}", extra={'log_color': 'DELTA'})
-            clean = full_desc.rstrip().strip()
+            clean = full_desc.strip()
             return {
                 '_raw_desc': full_desc.rstrip(),
                 'desc': clean,

@@ -230,6 +230,24 @@ Robodog’s `/todo` command scans one or more `todo.md` files in your configured
 
 You can have multiple `todo.md` files anywhere under your roots. `/todo` processes the earliest outstanding task, runs the AI with gathered knowledge, updates the focus file, stamps start/completion times, and advances to the next.
 
+### SmartMerge: Intelligent Partial Content Application
+
+Robodog includes **SmartMerge**, an intelligent merging system that handles cases where the LLM returns only a substring of a file instead of the complete content. When committing changes (step 3), SmartMerge:
+
+1. **Detects content type**: Determines if the LLM output is a complete file, partial content, or unified diff
+2. **Finds best match**: Uses fuzzy matching to locate where partial content should be inserted in the original file
+3. **Applies changes precisely**: Merges only the changed sections, preserving unchanged code
+4. **Falls back gracefully**: If no good match is found (confidence < 60%), uses the output as a complete replacement
+
+**Benefits:**
+- ✅ Handles partial LLM responses without losing context
+- ✅ Preserves unchanged code sections automatically
+- ✅ Works alongside unified diff support
+- ✅ Configurable similarity threshold (default: 60%)
+- ✅ Detailed logging of merge operations
+
+**Example:** If the LLM returns only lines 45-60 of a 100-line file, SmartMerge will find those lines in the original and replace only that section, keeping lines 1-44 and 61-100 intact.
+
 ![Robodog MCP File Service](screenshot-todo.png)
 
 

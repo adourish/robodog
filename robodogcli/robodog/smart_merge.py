@@ -47,6 +47,16 @@ class SmartMerge:
         if not partial_content or not partial_content.strip():
             return original_content, False, "Partial content is empty"
         
+        # Check if original has critical sections that should be protected
+        if self._has_critical_section(original_content):
+            # Check if partial content is trying to modify critical sections
+            if self._has_critical_section(partial_content):
+                logger.warning("Partial content contains critical section markers - using as complete replacement with caution")
+            else:
+                # Partial doesn't have critical markers but original does
+                # Be more conservative - require higher confidence
+                logger.info("Original has critical sections - requiring higher confidence for merge")
+        
         # If partial content looks like a complete file, use it directly
         if self._looks_like_complete_file(partial_content, original_content):
             logger.info("Partial content appears to be a complete file replacement")
@@ -97,6 +107,20 @@ class SmartMerge:
                     return True
         
         return False
+    
+    def _has_critical_section(self, content: str) -> bool:
+        """
+        Check if content contains critical sections that should not be modified.
+        Returns True if critical markers are found.
+        """
+        critical_markers = [
+            'CRITICAL IMPORTS',
+            'DO NOT REMOVE',
+            'DO NOT MODIFY',
+            'REQUIRED FOR',
+        ]
+        content_upper = content.upper()
+        return any(marker in content_upper for marker in critical_markers)
     
     def _find_best_match(
         self,
