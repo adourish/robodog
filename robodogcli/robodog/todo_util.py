@@ -21,6 +21,12 @@ from pydantic import BaseModel, RootModel
 import yaml  # ensure PyYAML is installed
 
 logger = logging.getLogger(__name__)
+
+# Import dashboard components for confirmation dialogs
+try:
+    from dashboard import CommitConfirmation
+except ImportError:
+    CommitConfirmation = None  # Fallback if dashboard not available
 try:
     from .parse_service import ParseService
 except ImportError:
@@ -336,6 +342,14 @@ class TodoUtilService:
         """
         logger.info("_write_parsed_files base_folder=%s commit_file=%s",
                     base_folder, commit_file, extra={'log_color': 'HIGHLIGHT'})
+        
+        # Confirmation dialog for commits
+        if commit_file and CommitConfirmation and task:
+            file_list = [p.get('filename', 'unknown') for p in parsed_files]
+            if not CommitConfirmation.confirm(task, file_list):
+                logger.info("Commit cancelled by user", extra={'log_color': 'DELTA'})
+                return 0, []
+        
         result = 0
         compare: List[str] = []
         # Use base_folder from function argument if provided, otherwise derive from task file

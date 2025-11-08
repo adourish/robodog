@@ -43,6 +43,7 @@ from todo_util           import TodoUtilService
 from todo           import TodoService
 from diff_service   import DiffService  # newly added
 from app            import RobodogApp   # Added import for RobodogApp integration
+from dashboard      import Dashboard, TaskSelector, CommitConfirmation, TokenBudgetDisplay, show_shortcuts
 # support both "python -m robodog.cli" and "python cli.py" invocations:
 try:
     from .service import RobodogService
@@ -78,6 +79,10 @@ except ImportError:
 def print_help():
     cmds = {
         "help":                "show this help",
+        "status":              "show full dashboard",
+        "q":                   "quick status",
+        "budget":              "show token budget",
+        "shortcuts":           "show keyboard shortcuts",
         "models":              "list configured models",
         "model <name>":        "switch model",
         "key <prov> <key>":    "set API key for provider",
@@ -100,7 +105,7 @@ def print_help():
         "curl":                "fetch web pages / scripts",
         "play":                "run AI-driven Playwright tests",
         "mcp":                 "invoke raw MCP operation",
-        "todo":                "run next To Do task",
+        "todo":                "select and run task",
     }
     logging.info("Available /commands:")
     for cmd, desc in cmds.items():
@@ -313,9 +318,47 @@ def interact(svc: RobodogService, app_instance: RobodogApp):  # Modified to acce
                     logging.stream = False
                     logging.info("Switched to REST mode.")
 
+                elif cmd == "status":
+                    # Show full dashboard
+                    dashboard = Dashboard(svc.todo)
+                    dashboard.show_full_dashboard()
+
+                elif cmd == "q":
+                    # Quick status
+                    dashboard = Dashboard(svc.todo)
+                    dashboard.show_quick_status()
+
+                elif cmd == "budget":
+                    # Show token budget
+                    stats = Dashboard(svc.todo).get_statistics()
+                    TokenBudgetDisplay.show(stats['total_tokens'])
+
+                elif cmd == "shortcuts":
+                    # Show keyboard shortcuts
+                    show_shortcuts()
+
                 elif cmd == "todo":
-                    # Optionally integrate app log for /todo
-                    svc.todo.run_next_task(svc)
+                    # Interactive task selection
+                    selector = TaskSelector(svc.todo)
+                    selected_task = selector.show_menu()
+                    if selected_task:
+                        # Determine which step to run
+                        if selected_task.get('plan') == ' ':
+                            step = 1
+                        elif selected_task.get('llm') == ' ':
+                            step = 2
+                        elif selected_task.get('commit') == ' ':
+                            step = 3
+                        else:
+                            step = 1
+                        
+                        logging.info(f"Running task: {selected_task['desc']}")
+                        svc.todo._process_one(selected_task, svc, svc.todo._file_lines, step=step)
+                        
+                        # Show updated status
+                        dashboard = Dashboard(svc.todo)
+                        dashboard.show_quick_status()
+                    
                     # Log app state if needed
                     if hasattr(app_instance, 'get_log'):
                         logs = app_instance.get_log()
