@@ -22,7 +22,7 @@ task['desc'] = task['desc']
 
 
 # todo  task 2
-- [x][x][-] fix todo
+- [x][~][-] fix todo
   - started: 2025-10-04T16:29:57.823456 | completed: 2025-10-04 20:30 | knowledge: 21 | include: 13089 | prompt: 0 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*app.py|*robodogcli*robodog*todo_util.py 
   - out: temp\out.py recursiv 
