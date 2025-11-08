@@ -15,6 +15,15 @@ import json
 
 logger = logging.getLogger(__name__)
 
+# Import enhancement methods
+try:
+    from agent_loop_enhanced import AgentLoopEnhancements
+except ImportError:
+    # Fallback if enhancements not available
+    class AgentLoopEnhancements:
+        """Stub class for when enhancements are not available."""
+        pass
+
 
 class AgentState:
     """Tracks the state of the agentic loop execution."""
@@ -26,10 +35,17 @@ class AgentState:
         self.failed_subtasks: List[Dict[str, Any]] = []
         self.current_subtask: Optional[Dict[str, Any]] = None
         self.iteration = 0
-        self.max_iterations = 20  # Safety limit
+        self.max_iterations = 50  # Increased for smaller chunks
         self.total_tokens_used = 0
         self.files_modified: List[str] = []
         self.start_time = datetime.now()
+        
+        # Enhanced tracking
+        self.quality_scores: List[float] = []  # Track quality of each output
+        self.reflection_results: List[Dict[str, Any]] = []  # Self-reflection logs
+        self.micro_steps: List[Dict[str, Any]] = []  # Fine-grained progress
+        self.avg_quality = 0.0
+        self.refinement_count = 0  # How many times we refined output
         
     def add_subtask(self, subtask: Dict[str, Any]):
         """Add a new subtask to the queue."""
@@ -43,12 +59,15 @@ class AgentState:
             return self.current_subtask
         return None
     
-    def mark_complete(self, result: Dict[str, Any]):
-        """Mark current subtask as completed."""
+    def mark_complete(self, result: Dict[str, Any], quality_score: float = 0.0):
+        """Mark current subtask as completed with quality score."""
         if self.current_subtask:
             self.current_subtask['result'] = result
             self.current_subtask['completed_at'] = datetime.now().isoformat()
+            self.current_subtask['quality_score'] = quality_score
             self.completed_subtasks.append(self.current_subtask)
+            self.quality_scores.append(quality_score)
+            self.avg_quality = sum(self.quality_scores) / len(self.quality_scores)
             self.current_subtask = None
             
     def mark_failed(self, error: str):
@@ -58,6 +77,23 @@ class AgentState:
             self.current_subtask['failed_at'] = datetime.now().isoformat()
             self.failed_subtasks.append(self.current_subtask)
             self.current_subtask = None
+    
+    def log_micro_step(self, step_name: str, details: Dict[str, Any]):
+        """Log a micro-step for fine-grained progress tracking."""
+        self.micro_steps.append({
+            'step': step_name,
+            'timestamp': datetime.now().isoformat(),
+            'iteration': self.iteration,
+            'details': details
+        })
+    
+    def add_reflection(self, reflection: Dict[str, Any]):
+        """Record a self-reflection result."""
+        self.reflection_results.append({
+            'timestamp': datetime.now().isoformat(),
+            'iteration': self.iteration,
+            **reflection
+        })
             
     def should_continue(self) -> bool:
         """Check if the loop should continue."""
@@ -82,9 +118,10 @@ class AgentState:
         }
 
 
-class AgentLoop:
+class AgentLoop(AgentLoopEnhancements):
     """
     Agentic game loop that breaks tasks into small chunks and executes them iteratively.
+    Enhanced with self-reflection, adaptive chunking, and iterative refinement.
     """
     
     def __init__(self, svc, file_service, prompt_builder, parser):
@@ -92,6 +129,14 @@ class AgentLoop:
         self.file_service = file_service
         self.prompt_builder = prompt_builder
         self.parser = parser
+        
+        # Adaptive chunking configuration
+        self.min_chunk_size = 1  # Minimum files per chunk
+        self.max_chunk_size = 3  # Maximum files per chunk
+        self.target_tokens_per_chunk = 2000  # Target token count
+        self.quality_threshold = 0.7  # Minimum acceptable quality
+        self.enable_reflection = True  # Enable self-reflection
+        self.enable_refinement = True  # Enable iterative refinement
         
     def execute(
         self,
@@ -131,6 +176,9 @@ class AgentLoop:
                        extra={'log_color': 'HIGHLIGHT'})
             
             try:
+                # Micro-step: Start execution
+                state.log_micro_step('execute_start', {'subtask': subtask['description']})
+                
                 # Execute subtask
                 result = self._execute_subtask(
                     subtask,
@@ -141,12 +189,36 @@ class AgentLoop:
                     state
                 )
                 
+                # Micro-step: Execution complete
+                state.log_micro_step('execute_complete', {
+                    'files_generated': len(result.get('parsed_files', []))
+                })
+                
+                # Self-reflection on output quality
+                reflection = self._reflect_on_output(subtask, result, state)
+                state.add_reflection(reflection)
+                
+                quality_score = reflection.get('quality_score', 0.8)
+                should_refine = reflection.get('should_refine', False)
+                
+                # Refinement if quality is low
+                if should_refine and self.enable_refinement:
+                    logger.info(f"🔧 Quality below threshold ({quality_score:.2f}), refining...", 
+                               extra={'log_color': 'DELTA'})
+                    result = self._refine_output(subtask, result, reflection, state)
+                    
+                    # Re-evaluate after refinement
+                    reflection = self._reflect_on_output(subtask, result, state)
+                    quality_score = reflection.get('quality_score', 0.8)
+                    logger.info(f"✨ Refined quality: {quality_score:.2f}", 
+                               extra={'log_color': 'PERCENT'})
+                
                 # Validate result
                 if self._validate_result(result, subtask):
-                    state.mark_complete(result)
+                    state.mark_complete(result, quality_score)
                     all_results.extend(result.get('parsed_files', []))
                     state.files_modified.extend(result.get('files_modified', []))
-                    logger.info(f"✅ Subtask completed: {subtask['description']}", 
+                    logger.info(f"✅ Subtask completed: {subtask['description']} (Q:{quality_score:.2f})", 
                                extra={'log_color': 'PERCENT'})
                 else:
                     # Retry logic
@@ -180,37 +252,60 @@ class AgentLoop:
         plan_content: str
     ) -> List[Dict[str, Any]]:
         """
-        Decompose main task into smaller subtasks.
+        Decompose main task into smaller subtasks using adaptive chunking.
         
         Strategy:
-        1. Group files by type/module
-        2. Create subtask per file or small group
-        3. Order by dependencies (if detectable)
+        1. Use adaptive chunking based on file size and complexity
+        2. Create subtasks with optimal token counts
+        3. Extract action-based subtasks from plan
+        4. Order by priority and dependencies
         """
         subtasks = []
         
-        # Strategy 1: One subtask per file (simple)
-        if len(include_files) <= 5:
-            # Small number of files - process individually
-            for idx, file_path in enumerate(include_files):
+        # Use adaptive chunking for better granularity
+        if hasattr(self, '_adaptive_chunk_files'):
+            # Create temporary state for chunking
+            from agent_loop import AgentState
+            temp_state = AgentState(task)
+            file_chunks = self._adaptive_chunk_files(include_files, temp_state)
+            
+            for idx, chunk in enumerate(file_chunks):
+                chunk_names = [Path(f).name for f in chunk]
+                if len(chunk) == 1:
+                    desc = f'Process {chunk_names[0]}'
+                else:
+                    desc = f'Process {len(chunk)} files: {", ".join(chunk_names[:2])}{"..." if len(chunk) > 2 else ""}'
+                
                 subtasks.append({
                     'id': f'subtask_{idx}',
-                    'description': f'Process {Path(file_path).name}',
-                    'target_files': [file_path],
-                    'type': 'single_file',
+                    'description': desc,
+                    'target_files': chunk,
+                    'type': 'adaptive_chunk',
                     'priority': 1,
                 })
         else:
-            # Many files - group by directory or type
-            file_groups = self._group_files(include_files)
-            for idx, (group_name, files) in enumerate(file_groups.items()):
-                subtasks.append({
-                    'id': f'subtask_{idx}',
-                    'description': f'Process {group_name} ({len(files)} files)',
-                    'target_files': files,
-                    'type': 'file_group',
-                    'priority': 1,
-                })
+            # Fallback to simple strategy
+            if len(include_files) <= 3:
+                # Small number - process individually
+                for idx, file_path in enumerate(include_files):
+                    subtasks.append({
+                        'id': f'subtask_{idx}',
+                        'description': f'Process {Path(file_path).name}',
+                        'target_files': [file_path],
+                        'type': 'single_file',
+                        'priority': 1,
+                    })
+            else:
+                # Many files - group by directory
+                file_groups = self._group_files(include_files)
+                for idx, (group_name, files) in enumerate(file_groups.items()):
+                    subtasks.append({
+                        'id': f'subtask_{idx}',
+                        'description': f'Process {group_name} ({len(files)} files)',
+                        'target_files': files,
+                        'type': 'file_group',
+                        'priority': 1,
+                    })
         
         # Strategy 2: Extract specific actions from plan
         if plan_content:
