@@ -2,8 +2,8 @@
 
 
 # todo  protask 1
-- [x][x][-] test | started: 2025-10-21T19:51:42.421163 | knowledge: 47 | include: 5826 | prompt: 6459 | started: 2025-10-21T20:01:26.432980 | knowledge: 47 | include: 5826 | started: 2025-10-21T20:02:07.148740 | knowledge: 47 | include: 5861 | plan: 244 | started: 2025-10-21T20:02:21.378593 | knowledge: 47 | include: 5861 | prompt: 6560
-  - include: pattern=*robodogcli*robodog*todo*.py|*robodogcli*robodog*diff*.py|*robodogcli*robodog*todo_util.py  recursive`
+- [x][x][-] test | started: 2025-10-23T19:26:22.003193 | knowledge: 47 | include: 5861 | plan: 233 | started: 2025-10-23T19:29:15.647460 | knowledge: 47 | include: 5861 | plan: 218 | started: 2025-10-23T19:29:58.861516 | knowledge: 47 | include: 5861 | plan: 166 | started: 2025-10-23T19:31:10.552650 | knowledge: 47 | include: 9878 | plan: 222 | started: 2025-10-23T19:32:04.234043 | knowledge: 47 | include: 9878 | prompt: 10607 | started: 2025-10-23T19:54:10.339500 | knowledge: 47 | include: 9878 | prompt: 10631
+  - include: pattern=*robodogcli*robodog*todo*.py|*robodogcli*robodog*diff*.py|*robodogcli*robodog*todo_util.py|*robodogcli*robodog*task*.py|*robodogcli*robodog*parse*.py   recursive`
   - out: temp\out.py recursiv 
   - plan: temp\plan.md
   - diff_mode: True
@@ -22,7 +22,7 @@ task['desc'] = task['desc']
 
 
 # todo  task 2
-- [~][x][-]  | knowledge: 21 | include: 47466
+- [x][x][-] fix todo
   - started: 2025-10-04T16:29:57.823456 | completed: 2025-10-04 20:30 | knowledge: 21 | include: 13089 | prompt: 0 | cur_model: openai/o4-mini
   - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*cli.py|*robodogcli*robodog*app.py|*robodogcli*robodog*todo_util.py 
   - out: temp\out.py recursiv 

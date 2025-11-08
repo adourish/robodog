@@ -243,6 +243,7 @@ class TodoService:
             task['knowledge_tokens'] = task.get('knowledge_tokens', task.get('_know_tokens', 0))
             task['include_tokens'] = task.get('include_tokens', task.get('_include_tokens', 0))
             task['prompt_tokens'] = task.get('prompt_tokens', task.get('_prompt_tokens', 0))
+            task['plan_tokens'] = task.get('plan_tokens', task.get('_plan_tokens', 0))
           
             # Enhanced: Sanitize desc before any flag updates to ensure clean state
             previous_desc = task.get('desc')
@@ -625,7 +626,7 @@ class TodoService:
                 out_path = self._todo_util._get_ai_out_path(task, base_folder=base_folder)
                 task['_out_path'] = str(out_path) if out_path else None
                 plan_knowledge = ""
-                plan_spec = task.get('plan', {'pattern': 'plan.md', 'recursive': False})
+                plan_spec = task.get('plan_spec', {'pattern': 'plan.md', 'recursive': False})
                 plan_path = self._todo_util._get_plan_out_path({'plan': plan_spec}, base_folder=base_folder)
                 cur_model = svc.get_cur_model()
                 task['cur_model'] = cur_model
@@ -633,11 +634,11 @@ class TodoService:
                     plan_content = self._file_service.safe_read_file(plan_path)
                     plan_knowledge = f"Plan from plan.md:\n{plan_content}\n"
                     task['plan_tokens'] = len(plan_content.split())
+                    task['_plan_tokens'] = task['plan_tokens']
                     task['_plan_path'] = str(plan_path)
                     task['_latest_plan'] = plan_content
-                    logger.err("lstep 2: (plan_content.split())" + str(len(plan_content.split())))
-                    logger.info(f"Included plan.md in LLM prompt{diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
-                st = self.start_task(task, file_lines_map, cur_model, 2)
+                    logger.info(f"Included plan.md in LLM prompt ({task['plan_tokens']} tokens){diff_mode_text}", extra={'log_color': 'HIGHLIGHT'})
+                
                 # Enhanced: Use stage-specific desc for LLM (llm_desc)
                 prompt_desc = task.get('llm_desc', task['desc'])
                 if diff_mode:
@@ -650,6 +651,8 @@ class TodoService:
                 task['prompt_tokens'] = task['_prompt_tokens']
                 logger.debug(f"Prompt tokens: {task['_prompt_tokens']}{diff_mode_text}", extra={'log_color': 'PERCENT'})
                 
+                # Now start the task with all token counts set
+                st = self.start_task(task, file_lines_map, cur_model, 2)
                 
                 task['_start_stamp'] = st
                 ai_out = svc.ask(prompt)

@@ -278,27 +278,29 @@ class TaskManager(TaskBase):
         flags = f"[{plan_flag}][{llm_flag}][{commit_flag}]"
         line = f"{task.get('indent', '')}- {flags} {clean_desc}"
 
-        meta_parts: List[str] = []
-        if task.get('_start_stamp'):
-            meta_parts.append(f"started: {task['_start_stamp']}")
-        if task.get('_complete_stamp'):
-            meta_parts.append(f"completed: {task['_complete_stamp']}")
-        if task.get('knowledge_tokens', 0):
-            meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
-        if task.get('include_tokens', 0):
-            meta_parts.append(f"include: {task['include_tokens']}")
-        if task.get('prompt_tokens', 0):
-            meta_parts.append(f"prompt: {task['prompt_tokens']}")
-        if task.get('plan_tokens', 0):
-            meta_parts.append(f"plan: {task['plan_tokens']}")
+        # Metadata appending disabled - keep task line clean
+        # Token counts and timestamps are tracked internally but not displayed on the main line
+        # meta_parts: List[str] = []
+        # if task.get('_start_stamp'):
+        #     meta_parts.append(f"started: {task['_start_stamp']}")
+        # if task.get('_complete_stamp'):
+        #     meta_parts.append(f"completed: {task['_complete_stamp']}")
+        # if task.get('knowledge_tokens', 0):
+        #     meta_parts.append(f"knowledge: {task['knowledge_tokens']}")
+        # if task.get('include_tokens', 0):
+        #     meta_parts.append(f"include: {task['include_tokens']}")
+        # if task.get('prompt_tokens', 0):
+        #     meta_parts.append(f"prompt: {task['prompt_tokens']}")
+        # if task.get('plan_tokens', 0):
+        #     meta_parts.append(f"plan: {task['plan_tokens']}")
 
-        for key in ('plan_desc', 'llm_desc', 'commit_desc'):
-            stage_value = task.get(key, '') or ''
-            if stage_value and stage_value != clean_desc:
-                meta_parts.append(f"{key}: {stage_value}")
+        # for key in ('plan_desc', 'llm_desc', 'commit_desc'):
+        #     stage_value = task.get(key, '') or ''
+        #     if stage_value and stage_value != clean_desc:
+        #         meta_parts.append(f"{key}: {stage_value}")
 
-        if meta_parts:
-            line += " | " + " | ".join(meta_parts)
+        # if meta_parts:
+        #     line += " | " + " | ".join(meta_parts)
 
         if re.search(r'\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[\s*[x~-]\s*\]\s*\[', line):
             logger.error(f"Flag duplication detected in rebuilt line: {line}", extra={'log_color': 'DELTA'})

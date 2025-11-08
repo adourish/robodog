@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Tuple, Any
 import statistics
+from smart_merge import SmartMerge
 
 import tiktoken
 from pydantic import BaseModel, RootModel
@@ -38,7 +39,8 @@ class TodoUtilService:
         file_watcher=None,
         file_service=None,
         exclude_dirs={"node_modules", "dist", "diffout"},
-        app=None
+        app=None,
+        enable_smart_merge=True
     ):
         logger.info(f"Initializing TodoUtilService with roots: {roots}", extra={'log_color': 'HIGHLIGHT'})
         logger.debug(f"Svc provided: {svc is not None}, Prompt builder: {prompt_builder is not None}")
@@ -414,16 +416,34 @@ class TodoUtilService:
                         continue
 
                     # UPDATE
-                    if is_update:
+                    if commit_file:
                         content_to_write = body_raw
+                        orig_content_for_merge = self._file_service.safe_read_file(dest_path)
+                        
                         # If detected as unified diff, apply it
                         if diff_srv and diff_srv.is_unified_diff(content_to_write):
-                            orig_content_for_diff = self._file_service.safe_read_file(dest_path)
                             try:
-                                content_to_write = diff_srv.apply_unified_diff(content_to_write, orig_content_for_diff)
+                                content_to_write = diff_srv.apply_unified_diff(content_to_write, orig_content_for_merge)
+                                logger.info(f"Applied unified diff for {rel}", extra={'log_color': 'HIGHLIGHT'})
                             except Exception as e:
                                 logger.warning(f"Failed to apply unified diff for {rel}: {e}", extra={'log_color': 'DELTA'})
                                 # Keep original content_to_write if diff application fails
+                        # Try smart merge for partial content (non-diff updates)
+                        elif self._smart_merge and orig_content_for_merge:
+                            try:
+                                merged_content, success, message = self._smart_merge.apply_partial_content(
+                                    orig_content_for_merge,
+                                    content_to_write,
+                                    context_lines=3
+                                )
+                                if success:
+                                    logger.info(f"✓ Smart merge for {rel}: {message}", extra={'log_color': 'HIGHLIGHT'})
+                                    content_to_write = merged_content
+                                else:
+                                    logger.warning(f"Smart merge fallback for {rel}: {message}", extra={'log_color': 'DELTA'})
+                                    # content_to_write remains as-is (full replacement)
+                            except Exception as e:
+                                logger.warning(f"Smart merge error for {rel}: {e}, using full replacement", extra={'log_color': 'DELTA'})
                         
                         self._file_service.write_file(dest_path, content_to_write)
                         result += 1

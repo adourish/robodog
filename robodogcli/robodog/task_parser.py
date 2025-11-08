@@ -78,6 +78,10 @@ class TaskParser:
             llm    = m.group('llm')
             commit = m.group('commit')
             desc   = m.group('desc').strip()
+            
+            # Strip metadata from description to prevent duplication
+            # Metadata is everything after the first '|' character
+            clean_desc = desc.split('|')[0].strip() if '|' in desc else desc
 
             task = {
                 'file': filepath,
@@ -86,9 +90,9 @@ class TaskParser:
                 'plan': plan,
                 'llm': llm,
                 'commit': commit,
-                'desc': desc,
-                # Preserve the original description for rebuilds
-                '_raw_desc': desc,
+                'desc': clean_desc,
+                # Preserve the clean description for rebuilds
+                '_raw_desc': clean_desc,
                 'include': None,
                 'in': None,
                 'out': None,

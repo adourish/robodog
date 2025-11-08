@@ -366,6 +366,8 @@ def main():
                         help='folder to store focus-file backups')
     parser.add_argument('--excludeDirs', default='node_modules,dist,diffout',
                         help='comma-separated list of directories to exclude')
+    parser.add_argument('--diff', action='store_true',
+                        help='force unified diff output for updates')
     args = parser.parse_args()
 
     
@@ -407,6 +409,12 @@ def main():
     logging.info("Starting robodog")
 
     svc, parser = _init_services(args)
+    
+    # Apply global diff preference from CLI
+    try:
+        svc.force_diff = bool(args.diff)
+    except Exception:
+        pass
     
     # Instantiate RobodogApp instance after services for integration
     app_instance = RobodogApp()
