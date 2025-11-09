@@ -9,6 +9,7 @@ const formatService = new RobodogLib.FormatService();
 const providerService = new RobodogLib.ProviderService();
 const rtcService = new RobodogLib.RTCService();
 const hostService = new RobodogLib.HostService()
+const mcpService = new RobodogLib.MCPService()
 const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
 const SettingsComponent = RobodogLib.SettingsComponent;
 
@@ -248,7 +249,7 @@ function Consolebak() {
           list.push(formatService.getMessageWithTimestamp(message, 'setting'));
           setContent(list);
           
-          const scanResult = await providerService.callMCP('MAP_SCAN', {});
+          const scanResult = await mcpService.callMCP('MAP_SCAN', {});
           message = `Scanned ${scanResult.file_count} files, ${scanResult.class_count} classes, ${scanResult.function_count} functions`;
           list.push(formatService.getMessageWithTimestamp(message, 'model'));
           setContent(list);
@@ -262,7 +263,7 @@ function Consolebak() {
             return;
           }
           
-          const findResult = await providerService.callMCP('MAP_FIND', { name: args[0] });
+          const findResult = await mcpService.callMCP('MAP_FIND', { name: args[0] });
           if (findResult.results && findResult.results.length > 0) {
             message = `Found ${findResult.results.length} definition(s):\n`;
             findResult.results.forEach(r => {
@@ -285,7 +286,7 @@ function Consolebak() {
           }
           
           const taskDesc = args.join(' ');
-          const contextResult = await providerService.callMCP('MAP_CONTEXT', { task_description: taskDesc });
+          const contextResult = await mcpService.callMCP('MAP_CONTEXT', { task_description: taskDesc });
           message = `Context for: ${taskDesc}\nKeywords: ${contextResult.context.keywords.join(', ')}\nRelevant files: ${contextResult.context.total_files}\n`;
           
           const topFiles = Object.entries(contextResult.context.relevant_files).slice(0, 5);
@@ -298,14 +299,14 @@ function Consolebak() {
           break;
           
         case 'save':
-          await providerService.callMCP('MAP_SAVE', { output_path: 'codemap.json' });
+          await mcpService.callMCP('MAP_SAVE', { output_path: 'codemap.json' });
           message = '💾 Code map saved to codemap.json';
           list.push(formatService.getMessageWithTimestamp(message, 'setting'));
           setContent(list);
           break;
           
         case 'load':
-          const loadResult = await providerService.callMCP('MAP_LOAD', { input_path: 'codemap.json' });
+          const loadResult = await mcpService.callMCP('MAP_LOAD', { input_path: 'codemap.json' });
           message = `📂 Code map loaded: ${loadResult.file_count} files`;
           list.push(formatService.getMessageWithTimestamp(message, 'setting'));
           setContent(list);

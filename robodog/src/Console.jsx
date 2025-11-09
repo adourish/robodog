@@ -7,7 +7,9 @@ const consoleService = new RobodogLib.ConsoleService()
 const routerService = new RobodogLib.RouterService();
 const formatService = new RobodogLib.FormatService();
 const providerService = new RobodogLib.ProviderService();
-const mcpService = new RobodogLib.MCPService();
+const rtcService = new RobodogLib.RTCService();
+const hostService = new RobodogLib.HostService()
+const mcpService = new RobodogLib.MCPService()
 const ConsoleContentComponent = RobodogLib.ConsoleContentComponent;
 const SettingsComponent = RobodogLib.SettingsComponent;
 
@@ -20,104 +22,13 @@ if (window) {
 }
 console.log(build, consoleService);
 
-// File Tree Node Component
-const FileTreeNode = ({ node, onSelect, onExpand, expandedNodes }) => {
-  const isExpanded = expandedNodes[node.path];
-  const isDir = node.type === 'directory';
-
-  return (
-    <div className="file-tree-node">
-      <div
-        className={`file-tree-item ${node.type}`}
-        onClick={() => isDir ? onExpand(node) : onSelect(node)}
-      >
-        {isDir && (
-          <span className="expand-icon">
-            {isExpanded ? '📂' : '📁'}
-          </span>
-        )}
-        {!isDir && <span className="file-icon">📄</span>}
-        <span className="file-name">{node.name}</span>
-      </div>
-      {isExpanded && node.children && (
-        <div className="file-children">
-          {node.children.map(child => (
-            <FileTreeNode
-              key={child.path}
-              node={child}
-              onSelect={onSelect}
-              onExpand={onExpand}
-              expandedNodes={expandedNodes}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Task Item Component
-const TaskItem = ({ task, onRun, runningTaskId }) => {
-  const getStatusEmoji = (status) => {
-    switch (status) {
-      case 'To Do': return '⬜';
-      case 'Doing': return '🔄';
-      case 'Done': return '✅';
-      default: return '⬜';
-    }
-  };
-
-  const getProgress = (task) => {
-    const tokens = task._token_count || 0;
-    const maxTokens = 4000; // Adjust based on your model limits
-    return Math.min(100, (tokens / maxTokens) * 100);
-  };
-
-  return (
-    <div className="task-item">
-      <div className="task-header">
-        <span className="task-status">{getStatusEmoji(task.status)}</span>
-        <span className="task-desc">{task.desc}</span>
-        {task.status === 'To Do' && (
-          <button
-            className="run-task-btn"
-            onClick={() => onRun(task)}
-            disabled={runningTaskId !== null}
-          >
-            {runningTaskId === task.id ? '⏳' : '▶️'}
-          </button>
-        )}
-      </div>
-
-      {task.status !== 'To Do' && (
-        <div className="task-progress">
-          <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${getProgress(task)}%` }}
-            ></div>
-          </div>
-          <div className="token-count">
-            Tokens: {task._token_count || 0}
-          </div>
-        </div>
-      )}
-
-      {task.out && (
-        <div className="task-focus-file">
-          Focus: <code>{task.out.pattern}</code>
-        </div>
-      )}
-    </div>
-  );
-};
-
-function Console() {
+function Consolebak() {
 
   const [completionType, setCompletionType] = useState('stream');
   const [maxChars, setMaxChars] = useState(4096);
   const [totalChars, setTotalChars] = useState(0);
   const [question, setQuestion] = useState('');
+
   const [content, setContent] = useState([]);
   const [context, setContext] = useState('');
   const [contextButton, setcontextButton] = useState('⬜');
@@ -144,6 +55,7 @@ function Console() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKey, setCurrentKey] = useState('autosave');
   const [size, setSize] = useState('1792x1024');
+  const [selectedCommand, setSelectedCommand] = useState('');
   const [commands, setCommands] = useState([]);
   const [options, setOptions] = useState([]);
   const [stashList, setStashList] = useState([]);
@@ -154,57 +66,118 @@ function Console() {
   const [file, setFile] = useState('');
   const [group, setGroup] = useState('');
 
-  // Todo Task Viewer States
-  const [tasks, setTasks] = useState([]);
-  const [runningTaskId, setRunningTaskId] = useState(null);
-  const [todoViewerVisible, setTodoViewerVisible] = useState(false);
-
-  // File Browser States
-  const [fileTree, setFileTree] = useState([]);
-  const [expandedNodes, setExpandedNodes] = useState({});
-  const [fileViewerVisible, setFileViewerVisible] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [fileContent, setFileContent] = useState('');
-
-  // Live Log Feed States
-  const [logFeedVisible, setLogFeedVisible] = useState(false);
-  const [logs, setLogs] = useState([]);
-
-  // RUN THIS ONCE
   useEffect(() => {
     console.log('Component has mounted!');
-    // all your setup logic here, was previously guarded by isLoaded
-    var _commands = consoleService.getCommands();
-    var _options = consoleService.getOptions();
-    var _yamlConfig = providerService.getYaml();
-    setYamlConfig(_yamlConfig);
-    var _model = providerService.getCurrentModel();
-    if (_model && _model !== '') {
-      setModel(_model)
-    }
-    setContent([...content,
-    formatService.getMessageWithTimestamp(build, 'setting'),
-    formatService.getMessageWithTimestamp(_model, 'setting')]);
-    var _stashList = consoleService.getStashList();
-    if (_stashList) {
-      var stashList = _stashList.split(',');
-      setStashList(stashList);
-    }
-    setCommands(_commands);
-    setOptions(_options);
-    setIsLoaded(true);
-    setCurrentKey('autosave');
-    // no repeated setCommands
+    if (!isLoaded) {
 
+      var _commands = consoleService.getCommands();
+      var _options = consoleService.getOptions();
+      var _yamlConfig = providerService.getYaml();
+      setYamlConfig(_yamlConfig);
+      var _model = providerService.getCurrentModel();
+      if (_model && _model !== '') {
+        setModel(_model)
+      }
+      var _l = consoleService.getSettings(build, _model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty);
+      var _stashList = consoleService.getStashList();
+
+      if (_stashList) {
+        var stashList = _stashList.split(',');
+        setStashList(stashList);
+      }
+      setCommands(_commands);
+      setOptions(_options);
+      setIsLoaded(true);
+      setContent(_l);
+      setCurrentKey('autosave');
+      setCommands(_commands);
+
+    }
     return () => {
       clearInterval(intervalId);
       console.log('Cleaning up...');
     };
-  }, []);
+  }, [intervalId, setIntervalId, isLoaded,
+    setIsLoaded,
+    size,
+    commands,
+    selectedCommand,
+    setSelectedCommand,
+    setContext,
+    setKnowledge,
+    setQuestion, setContent, setCurrentIndex, setTemperature, setShowTextarea,
+    model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty,
+    setCurrentKey, setStashList, setSize,
+    knowledgeTextarea, setknowledgeTextarea, contextTextarea, setcontextTextarea]);
+
+  const setFocusOnLastItem = () => {
+    setContent(prevContent => {
+      return prevContent.map((item, index) => {
+        if (index === prevContent.length - 1) {
+          return { ...item, focus: true };
+        }
+        return item;
+      });
+    });
+  };
+
 
   useEffect(() => {
-    consoleService.scrollToBottom();
+    // Call the function to set focus on the last item when content changes
+    setFocusOnLastItem();
   }, [content]);
+
+  useEffect(() => {
+    try {
+
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        setIsPWA(true);
+      } else {
+        window.addEventListener('appinstalled', () => {
+          setIsPWA(true);
+        });
+      }
+    } catch (error) {
+      console.error('Error in detecting PWA', error);
+    }
+  }, []);
+
+  const handleSettingsToggle = () => {
+    console.debug('handleSettingsToggle', showSettings)
+    setShowSettings(!showSettings);
+  };
+
+  const handleStash = () => {
+    try {
+      var q = question + ' ' + content
+      var verb = q.length < 15 ? q : q.substring(0, 20);
+      console.log(verb);
+      console.debug('handleStash', "verb")
+      consoleService.stash(verb, context, knowledge, question, content, temperature, showTextarea);
+      var _stashList = consoleService.getStashList();
+
+      if (_stashList) {
+        var stashList = _stashList.split(',');
+        setStashList(stashList);
+      }
+    } catch (ex) {
+      console.log("test")
+    }
+  };
+
+
+  //handleYamlConfigKeyChange
+  const handleYamlConfigKeyChange = (key) => {
+    console.debug('handleYamlConfigKeyChange', key);
+    providerService.setYaml(key);
+    setYamlConfig(key);
+  };
+
+  const handleModelChange = (model) => {
+    console.debug('handleModelChange', model);
+    setModel(model)
+  };
+
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -231,8 +204,9 @@ function Console() {
 
     const handleCtrlS = (event) => {
       if (event.ctrlKey && event.keyCode === 83) {
+        // Save logic here
         event.preventDefault();
-        consoleService.save(context, knowledge, question, content, temperature, showTextarea);
+        var key = consoleService.save(context, knowledge, question, content, temperature, showTextarea);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -241,92 +215,202 @@ function Console() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', handleCtrlS);
     };
-  }, [currentIndex, context, knowledge, question, content, showTextarea, temperature]);
+  }, [currentIndex, setContext, setKnowledge, setQuestion, showTextarea, temperature, setContent, setCurrentIndex, setTemperature, setShowTextarea, content, context, knowledge, question]);
 
-  useEffect(() => {
+  const handleInputChange = (event) => {
+    const value = event.target.value;
+    setQuestion(value);
+    handleCharsChange(event);
+  };
+
+
+  const handleFileUpload = (event) => {
+    event.preventDefault();
+    setThinking('🦧');
+    consoleService.handleImport(setKnowledge, knowledge, setContent, content);
+    setThinking('🦥');
+  };
+
+  const handleSetModel = (event) => {
+    var message = 'Model is set to ' + event;
+    providerService.setCurrentModel(event)
+    setModel(event)
+    setContent([...content, formatService.getMessageWithTimestamp(message, 'model')]);
+  }
+
+  const handleMapCommand = async (subcommand, args) => {
+    let message = '';
+    let list = [...content];
+    
     try {
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        setIsPWA(true);
-      } else {
-        window.addEventListener('appinstalled', () => {
-          setIsPWA(true);
-        });
+      switch(subcommand) {
+        case 'scan':
+          message = '🗺️ Scanning codebase...';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          
+          const scanResult = await mcpService.callMCP('MAP_SCAN', {});
+          message = `Scanned ${scanResult.file_count} files, ${scanResult.class_count} classes, ${scanResult.function_count} functions`;
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'find':
+          if (!args || args.length === 0) {
+            message = 'Usage: /map find <name>';
+            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+            setContent(list);
+            return;
+          }
+          
+          const findResult = await mcpService.callMCP('MAP_FIND', { name: args[0] });
+          if (findResult.results && findResult.results.length > 0) {
+            message = `Found ${findResult.results.length} definition(s):\n`;
+            findResult.results.forEach(r => {
+              message += `\n${r.type}: ${r.name} at ${r.file}:${r.line_start}`;
+              if (r.docstring) message += `\n  ${r.docstring}`;
+            });
+          } else {
+            message = `No definition found for '${args[0]}'`;
+          }
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'context':
+          if (!args || args.length === 0) {
+            message = 'Usage: /map context <task description>';
+            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+            setContent(list);
+            return;
+          }
+          
+          const taskDesc = args.join(' ');
+          const contextResult = await mcpService.callMCP('MAP_CONTEXT', { task_description: taskDesc });
+          message = `Context for: ${taskDesc}\nKeywords: ${contextResult.context.keywords.join(', ')}\nRelevant files: ${contextResult.context.total_files}\n`;
+          
+          const topFiles = Object.entries(contextResult.context.relevant_files).slice(0, 5);
+          topFiles.forEach(([path, info]) => {
+            message += `\n[${info.score}] ${path.split('/').pop()}`;
+          });
+          
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'save':
+          await mcpService.callMCP('MAP_SAVE', { output_path: 'codemap.json' });
+          message = '💾 Code map saved to codemap.json';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          break;
+          
+        case 'load':
+          const loadResult = await mcpService.callMCP('MAP_LOAD', { input_path: 'codemap.json' });
+          message = `📂 Code map loaded: ${loadResult.file_count} files`;
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          break;
+          
+        default:
+          message = 'Map commands: scan, find <name>, context <task>, save, load';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
       }
     } catch (error) {
-      console.error('Error in detecting PWA', error);
-    }
-  }, []);
-
-  const handleSettingsToggle = () => {
-    console.debug('handleSettingsToggle', showSettings)
-    setShowSettings(!showSettings);
-  };
-
-  const handleStash = () => {
-    try {
-      var q = question + ' ' + content
-      var verb = q.length < 15 ? q : q.substring(0, 20);
-      console.log(verb);
-      console.debug('handleStash', "verb")
-      consoleService.stash(verb, context, knowledge, question, content, temperature, showTextarea);
-      var _stashList = consoleService.getStashList();
-      if (_stashList) {
-        var stashList = _stashList.split(',');
-        setStashList(stashList);
-      }
-    } catch (ex) {
-      console.log("test")
-    }
-  };
-
-  const handleYamlConfigKeyChange = (key) => {
-    console.debug('handleYamlConfigKeyChange', key);
-    providerService.setYaml(key);
-    setYamlConfig(key);
-  };
-
-  const handleModelChange = (model) => {
-    console.debug('handleModelChange', model);
-    setModel(model)
-  };
-
-  // --- theme toggler ---
-  const THEME_KEY = 'robodog:theme';
-
-  function applyDarkMode() {
-    document.body.classList.remove('light-mode');
-    localStorage.setItem(THEME_KEY, 'dark');
-  }
-
-  function applyLightMode() {
-    document.body.classList.add('light-mode');
-    localStorage.setItem(THEME_KEY, 'light');
-  }
-
-  function toggleDarkMode() {
-    if (document.body.classList.contains('light-mode')) {
-      applyDarkMode();
-    } else {
-      applyLightMode();
+      message = `Error: ${error.message}`;
+      list.push(formatService.getMessageWithTimestamp(message, 'system'));
+      setContent(list);
     }
   }
 
-  function copyToClipboard(text) {
-    var first6chars = text.substring(0, 6);
-    if (text.length < 6) {
-      first6chars = text;
-    } else {
-      setCopySuccess(first6chars);
-    }
 
-    navigator.clipboard.writeText(text)
+  const handleSetGroup = (event) => {
+    var message = 'Group is set to ' + event;
+    hostService.setActiveGroup(event)
       .then(() => {
-        setCopySuccess(first6chars);
+        setGroup(event);
+        setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
       })
-      .catch(err => {
-        setCopySuccess('Failed to copy text ');
+      .catch(error => {
+        console.error('Error setting active group:', error);
       });
   }
+
+  const handleGetGroups = () => {
+    var message = 'Fetching groups';
+    hostService.getGroups()
+      .then(groups => {
+        if (groups && groups.groups && Array.isArray(groups.groups)) {
+          const groupNames = groups.map(group => group.name).join(', ');
+          setContent([...content, formatService.getMessageWithTimestamp(`Groups: ${groupNames}`, 'experiment')]);
+        } else {
+          console.error('Error: groups is not an array');
+        }
+      })
+      .catch(error => {
+        console.error('Error getting groups:', error);
+      });
+  }
+
+  const handleSetFile = (event) => {
+    var message = 'File is set to ' + event;
+    hostService.setActiveFile(event)
+      .then(() => {
+        setFile(event);
+        setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
+      })
+      .catch(error => {
+        console.error('Error setting active file:', error);
+      });
+  }
+
+  const handleSetWatch = () => {
+    const newWatchState = watch ? '' : '💻';
+    hostService.toggleCircuitBreaker(!watch);
+    var message = 'Watch is set to ' + newWatchState;
+
+    setWatch(newWatchState);
+    setContent([...content, formatService.getMessageWithTimestamp(message, 'experiment')]);
+  }
+  const handleSaveClick = (event) => {
+    event.preventDefault();
+    setThinking('🦧');
+    consoleService.handleExport("save", context, knowledge, question, content, temperature, showTextarea);
+    setThinking('🦥');
+  };
+
+
+
+  const handleContextChange = (event) => {
+    const value = event.target.value;
+    setContext(value);
+    handleCharsChange(event);
+  };
+
+  const handleKnowledgeChange = (event) => {
+
+    const value = event.target.value;
+    setKnowledge(value);
+    handleCharsChange(event);
+
+  };
+
+
+  const handleCharsChange = (event) => {
+    try {
+      var c = consoleService.calculateTokens(context);
+      var i = consoleService.calculateTokens(question);
+      var k = consoleService.calculateTokens(knowledge);
+      var _totalChars = c + i + k;
+      setTotalChars(_totalChars);
+      var tooBig = formatService.getTooBigEmoji(_totalChars, maxChars);
+      setTooBig(tooBig);
+
+    } catch (ex) {
+      console.warn(ex);
+    }
+  };
 
   function executeCommands(_command) {
     var message = '';
@@ -374,12 +458,43 @@ function Console() {
 
             for (var i = 0; i < models.length; i++) {
               var engine = models[i];
-              modelsText += "\n";
-              modelsText += "" + engine.model + ": " + engine.about + "\n";
+              if (modelsText) {
+                modelsText += ", " + engine.model;
+              } else {
+                modelsText += "Models: " + engine.model;
+              }
             }
           }
           var item = formatService.getMessageWithTimestamp(modelsText, 'model')
           list.push(item);
+          setContent(list);
+
+          console.log(models);
+
+          break;
+        case '/model':
+          handleSetModel(_command.verb)
+          break;
+        case '/map':
+          handleMapCommand(_command.verb, _command.args)
+          break;
+        case '/watch':
+          handleSetWatch(_command.verb)
+          break;
+        case '/file':
+          handleSetFile(_command.verb)
+          break;
+        case '/group':
+          handleSetGroup(_command.verb)
+          break;
+        case '/groups':
+          handleGetGroups(_command.verb)
+          break;
+        case '/search':
+          if (search !== '') {
+            setSearch('');
+          } else {
+            setSearch('🔎');
             setModel('search')
           }
 
@@ -440,17 +555,7 @@ function Console() {
             setContent([...content, formatService.getMessageWithTimestamp("Presence Penalty: " + _command.verb, 'experiment')]);
           }
           break;
-        case '/dark':
-          toggleDarkMode();
-          const now = document.body.classList.contains('light-mode') ? 'light' : 'dark';
-          setContent([
-            ...content,
-            formatService.getMessageWithTimestamp(
-              `Switched to ${now} mode`,
-              'setting'
-            )
-          ]);
-          break;
+
         case '/stash':
           if (_command.verb === 'clear') {
             consoleService.clearStashList();
@@ -476,6 +581,33 @@ function Console() {
             }
           }
           break;
+        case '/replace':
+          try {
+            // Split the verb into 'from' and 'to' texts
+            const args = _command.verb.match(/'([^']+)'/g);
+            if (!args || args.length < 2) {
+              throw new Error("Invalid syntax. Use /replace 'from text' 'to text'");
+            }
+            const fromText = args[0].replace(/'/g, '');
+            const toText = args[1].replace(/'/g, '');
+
+            // Perform the replacement in all content items
+            const updatedContent = content.map(item => {
+              if (typeof item.text === 'string') {
+                return { ...item, text: item.text.split(fromText).join(toText) };
+              }
+              return item;
+            });
+
+            setContent(updatedContent);
+            message = `Replaced all instances of '${fromText}' with '${toText}'`;
+            setContent([...content, formatService.getMessageWithTimestamp(message, 'setting')]);
+          } catch (error) {
+            message = error.message;
+            setContent([...content, formatService.getMessageWithTimestamp(message, 'error')]);
+          }
+          break;
+
         case '/pop':
           var _pop = consoleService.pop(_command.verb);
           setCurrentKey(_command.verb);
@@ -505,6 +637,31 @@ function Console() {
             }
           }
           break;
+        case '/dall-e-3':
+          setModel('dall-e-3');
+          setMaxChars(16385);
+          message = `Switching to dall-e-3: dall-e-3 1024x1024, 1024x1792 or 1792x1024`;
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
+          break;
+        case '/gpt-3.5-turbo-16k':
+          handleSetModel('gpt-3.5-turbo-16k')
+          setMaxChars(16385);
+          message = `Switching to GPT-3.5: gpt-3.5-turbo-16k`;
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
+          break;
+        //gpt-4o
+        case '/gpt-4o':
+          handleSetModel('gpt-4o')
+          setMaxChars(16385);
+          message = `Switching to GPT-4o: gpt-4o`;
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
+          break;
+        case '/gpt-3.5-turbo':
+          handleSetModel('gpt-3.5-turbo')
+          setMaxChars(4096);
+          message = `Switching to GPT-3.5: gpt-3.5-turbo`;
+          setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
+          break;
         case '/gpt-4':
           setModel('gpt-4');
           handleSetModel('gpt-4')
@@ -522,36 +679,6 @@ function Console() {
           //window.location.reload();
           setContent([...content, formatService.getMessageWithTimestamp('reset', 'system')]);
           break;
-        case '/todo':
-          loadTodoTasks();            // Load tasks immediately
-          message = 'Todo viewer opened. Run next or select a task.';
-          setContent([
-            ...content,
-            formatService.getMessageWithTimestamp(message, 'event')
-          ]);
-          break;
-
-        case '/list_todo_tasks':
-          loadTodoTasks();  // Reload and log
-          if (tasks.length > 0) {
-            message = 'Todo tasks: ' + tasks.map(t => `${t.desc} (${t.status})`).join(', ');
-          } else {
-            message = 'No todo tasks found.';
-          }
-          setContent([
-            ...content,
-            formatService.getMessageWithTimestamp(message, 'event')
-          ]);
-          break;
-
-        
-        case '/files':
-          setFileViewerVisible(true);
-          loadFileTree();
-          break;
-        case '/logs':
-          setLogFeedVisible(true);
-          break;
         default:
           message = '🍄';
           setContent([...content, formatService.getMessageWithTimestamp(message, 'system')]);
@@ -562,11 +689,93 @@ function Console() {
     }
     consoleService.scrollToBottom();
   }
+  function handleDropdownChange(event) {
+    const selectedValue = event.target.value;
+    const selectedOption = options.find((option) => option.command === selectedValue);
 
-  const handleInputChange = (event) => {
-    const value = event.target.value;
-    setQuestion(value);
-    handleCharsChange(event);
+    if (selectedOption && selectedOption.command) {
+      var _c = selectedOption.command;
+
+      if (_c.includes("<name>")) {
+        const name = prompt("Please enter a name:" + selectedOption.description);
+        _c = _c.replace("<name>", name);
+      }
+
+      if (_c.includes("<number>")) {
+        const number = prompt("Please enter a number:" + selectedOption.description);
+        _c = _c.replace("<number>", number);
+      }
+
+      setQuestion(_c);
+      console.log(_c);
+    }
+  }
+
+  function handleStashListChange(event) {
+    const key = event?.target?.value;
+    if (key) {
+      consoleService.setStashKey(key,
+        currentIndex,
+        setContext,
+        setKnowledge,
+        setQuestion,
+        setContent,
+        setCurrentIndex,
+        setCurrentKey,
+        setTemperature,
+        setShowTextarea);
+      console.log(key);
+    }
+  }
+  function copyToClipboard(text) {
+    var first6chars = text.substring(0, 6);
+    if (text.length < 6) {
+      first6chars = text;
+    } else {
+      setCopySuccess(first6chars);
+    }
+
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopySuccess(first6chars);
+      })
+      .catch(err => {
+        setCopySuccess('Failed to copy text ');
+      });
+  }
+
+  function handleLaunch(name, url) {
+    console.debug('handleLaunch', name, url)
+
+  }
+
+  const handleKnowledgeSizeEvent = async (event) => {
+    event.preventDefault();
+    console.log('handleKnowledgeEvent', knowledgeTextarea)
+    if (knowledgeTextarea === 'knowledge-textarea') {
+      setknowledgeTextarea('knowledge-big-textarea');
+      setknowledgeButton('🟥');
+    } else if (knowledgeTextarea === 'knowledge-big-textarea') {
+      setknowledgeTextarea('knowledge-small-textarea');
+      setknowledgeButton('⬜');
+    } else {
+      setknowledgeTextarea('knowledge-textarea');
+      setknowledgeButton('🟦');
+    }
+  };
+  const handleHistorySizeEvent = async (event) => {
+    event.preventDefault();
+    console.log('handleHistoryEvent', contextTextarea)
+    if (contextTextarea === 'context-textarea') {
+      setcontextTextarea('context-big-textarea');
+      setcontextButton('🟥');
+    } else if (contextTextarea === 'context-big-textarea') {
+      setcontextTextarea('context-small-textarea');
+      setcontextButton('⬜');
+    } else {
+      setcontextTextarea('context-textarea');
+      setcontextButton('🟦');
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -626,323 +835,6 @@ function Console() {
       consoleService.scrollToBottom();
     }
   };
-
-  const handleFileUpload = (event) => {
-    event.preventDefault();
-    setThinking('🦧');
-    consoleService.handleImport(setKnowledge, knowledge, setContent, content);
-    setThinking('🦥');
-  };
-
-  const handleSetModel = (event) => {
-    var message = 'Model is set to ' + event;
-    providerService.setCurrentModel(event)
-    setModel(event)
-    setContent([...content, formatService.getMessageWithTimestamp(message, 'model')]);
-  }
-
-  const handleMapCommand = async (subcommand, args) => {
-    let message = '';
-    let list = [...content];
-    
-    try {
-      switch(subcommand) {
-        case 'scan':
-          message = '🗺️ Scanning codebase...';
-          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
-          setContent(list);
-          
-          const scanResult = await providerService.callMCP('MAP_SCAN', {});
-          message = `Scanned ${scanResult.file_count} files, ${scanResult.class_count} classes, ${scanResult.function_count} functions`;
-          list.push(formatService.getMessageWithTimestamp(message, 'model'));
-          setContent(list);
-          break;
-          
-        case 'find':
-          if (!args || args.length === 0) {
-            message = 'Usage: /map find <name>';
-            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
-            setContent(list);
-            return;
-          }
-          
-          const findResult = await providerService.callMCP('MAP_FIND', { name: args[0] });
-          if (findResult.results && findResult.results.length > 0) {
-            message = `Found ${findResult.results.length} definition(s):\n`;
-            findResult.results.forEach(r => {
-              message += `\n${r.type}: ${r.name} at ${r.file}:${r.line_start}`;
-              if (r.docstring) message += `\n  ${r.docstring}`;
-            });
-          } else {
-            message = `No definition found for '${args[0]}'`;
-          }
-          list.push(formatService.getMessageWithTimestamp(message, 'model'));
-          setContent(list);
-          break;
-          
-        case 'context':
-          if (!args || args.length === 0) {
-            message = 'Usage: /map context <task description>';
-            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
-            setContent(list);
-            return;
-          }
-          
-          const taskDesc = args.join(' ');
-          const contextResult = await providerService.callMCP('MAP_CONTEXT', { task_description: taskDesc });
-          message = `Context for: ${taskDesc}\nKeywords: ${contextResult.context.keywords.join(', ')}\nRelevant files: ${contextResult.context.total_files}\n`;
-          
-          const topFiles = Object.entries(contextResult.context.relevant_files).slice(0, 5);
-          topFiles.forEach(([path, info]) => {
-            message += `\n[${info.score}] ${path.split('/').pop()}`;
-          });
-          
-          list.push(formatService.getMessageWithTimestamp(message, 'model'));
-          setContent(list);
-          break;
-          
-        case 'save':
-          await providerService.callMCP('MAP_SAVE', { output_path: 'codemap.json' });
-          message = '💾 Code map saved to codemap.json';
-          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
-          setContent(list);
-          break;
-          
-        case 'load':
-          const loadResult = await providerService.callMCP('MAP_LOAD', { input_path: 'codemap.json' });
-          message = `📂 Code map loaded: ${loadResult.file_count} files`;
-          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
-          setContent(list);
-          break;
-          
-        default:
-          message = 'Map commands: scan, find <name>, context <task>, save, load';
-          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
-          setContent(list);
-      }
-    } catch (error) {
-      message = `Error: ${error.message}`;
-      list.push(formatService.getMessageWithTimestamp(message, 'system'));
-      setContent(list);
-    }
-  }
-
-  function handleDropdownChange(event) {
-    const selectedValue = event.target.value;
-    const selectedOption = options.find((option) => option.command === selectedValue);
-
-    if (selectedOption && selectedOption.command) {
-      var _c = selectedOption.command;
-
-      if (_c.includes("<name>")) {
-        const name = prompt("Please enter a name:" + selectedOption.description);
-        _c = _c.replace("<name>", name);
-      }
-
-      if (_c.includes("<number>")) {
-        const number = prompt("Please enter a number:" + selectedOption.description);
-        _c = _c.replace("<number>", number);
-      }
-
-      setQuestion(_c);
-      console.log(_c);
-    }
-  }
-
-  const handleSaveClick = (event) => {
-    event.preventDefault();
-    setThinking('🦧');
-    consoleService.handleExport("save", context, knowledge, question, content, temperature, showTextarea);
-    setThinking('🦥');
-  };
-
-  const handleContextChange = (event) => {
-    setContext(event.target.value);
-    handleCharsChange(event);
-  };
-
-  function handleLaunch(name, url) {
-    console.debug('handleLaunch', name, url)
-
-  }
-
-  function handleStashListChange(event) {
-    const key = event?.target?.value;
-    if (key) {
-      consoleService.setStashKey(key,
-        currentIndex,
-        setContext,
-        setKnowledge,
-        setQuestion,
-        setContent,
-        setCurrentIndex,
-        setCurrentKey,
-        setTemperature,
-        setShowTextarea);
-      console.log(key);
-    }
-  }
-
-  const handleKnowledgeChange = (event) => {
-    setKnowledge(event.target.value);
-    handleCharsChange(event);
-  };
-
-  const handleKnowledgeSizeEvent = async (event) => {
-    event.preventDefault();
-    console.log('handleKnowledgeEvent', knowledgeTextarea)
-    if (knowledgeTextarea === 'knowledge-textarea') {
-      setknowledgeTextarea('knowledge-big-textarea');
-      setknowledgeButton('🟥');
-    } else if (knowledgeTextarea === 'knowledge-big-textarea') {
-      setknowledgeTextarea('knowledge-small-textarea');
-      setknowledgeButton('⬜');
-    } else {
-      setknowledgeTextarea('knowledge-textarea');
-      setknowledgeButton('🟦');
-    }
-  };
-
-  const handleHistorySizeEvent = async (event) => {
-    event.preventDefault();
-    console.log('handleHistoryEvent', contextTextarea)
-    if (contextTextarea === 'context-textarea') {
-      setcontextTextarea('context-big-textarea');
-      setcontextButton('🟥');
-    } else if (contextTextarea === 'context-big-textarea') {
-      setcontextTextarea('context-small-textarea');
-      setcontextButton('⬜');
-    } else {
-      setcontextTextarea('context-textarea');
-      setcontextButton('🟦');
-    }
-  };
-
-  const handleCharsChange = (event) => {
-    try {
-      var c = consoleService.calculateTokens(context);
-      var i = consoleService.calculateTokens(question);
-      var k = consoleService.calculateTokens(knowledge);
-      var _totalChars = c + i + k;
-      setTotalChars(_totalChars);
-      var tooBig = formatService.getTooBigEmoji(_totalChars, maxChars);
-      setTooBig(tooBig);
-    } catch (ex) {
-      console.warn(ex);
-    }
-  };
-
-  // on mount, restore last theme:
-  useEffect(() => {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === 'light') {
-      applyLightMode();
-    } else {
-      applyDarkMode();
-    }
-  }, []);
-
-  // Todo Task Viewer Functions
-  const loadTodoTasks = async () => {
-    try {
-      const response = await mcpService.callMCP("LIST_TODO_TASKS", {});
-      setTasks(response.tasks || []);  // Assumes response.tasks is an array of { id, desc, status, ... }
-    } catch (error) {
-      console.error("Failed to load todo tasks:", error);
-      setTasks([]);  // Clear on error
-    }
-  };
-
-  const runNextTask = async () => {
-    try {
-      setRunningTaskId(-1);  // Indicate "running next"
-      await mcpService.callMCP("TODO", {});  // Runs the next To Do task via TodoService.run_next_task
-      await loadTodoTasks();  // Reload after running
-    } catch (error) {
-      console.error("Failed to run next task:", error);
-      setMessage("Error running next task: " + error.message);
-    } finally {
-      setRunningTaskId(null);
-    }
-  };
-
-  const runSpecificTask = async (task) => {
-    try {
-      setRunningTaskId(task.id);
-      // Optionally pass task details if your MCP server supports it (e.g., add to payload)
-      await mcpService.callMCP("TODO", { taskId: task.id });  // Extend server-side to handle specific IDs if needed
-      await loadTodoTasks();  // Reload after running
-    } catch (error) {
-      console.error("Failed to run task:", error.message);
-      setMessage("Error running task: " + error.message);
-    } finally {
-      setRunningTaskId(null);
-    }
-  };
-
-
-  // File Browser Functions
-  const loadFileTree = async () => {
-    try {
-      const response = await mcpService.callMCP("LIST_FILES", {});
-      setFileTree(response.files || []);
-    } catch (error) {
-      console.error("Failed to load file tree:", error);
-      setFileTree([]); // Set empty array on error
-    }
-  };
-
-  const handleFileSelect = async (node) => {
-    try {
-      setSelectedFile(node);
-      const response = await mcpService.callMCP("READ_FILE", { path: node.path });
-      setFileContent(response.content);
-    } catch (error) {
-      console.error("Failed to read file:", error);
-      setFileContent("Error reading file");
-    }
-  };
-
-  const handleNodeExpand = async (node) => {
-    if (node.type !== 'directory') return;
-
-    try {
-      // Toggle expanded state
-      setExpandedNodes(prev => ({
-        ...prev,
-        [node.path]: !prev[node.path]
-      }));
-
-      // If expanding and no children, load them
-      if (!prev[node.path] && !node.children) {
-        const response = await mcpService.callMCP("LIST_FILES", { path: node.path });
-        // Update the tree with children - this would need more complex state management
-        // For simplicity, we'll skip this in the mock
-      }
-    } catch (error) {
-      console.error("Failed to expand node:", error);
-    }
-  };
-
-  // Live Log Feed Functions
-  // In a real implementation, you would connect to a WebSocket or use long-polling
-  // For demonstration, we'll simulate log entries
-  useEffect(() => {
-    if (logFeedVisible) {
-      const interval = setInterval(() => {
-        // Simulate receiving log entries
-        const logEntry = {
-          timestamp: new Date().toISOString(),
-          level: ['info', 'warning', 'error'][Math.floor(Math.random() * 3)],
-          message: `Log entry ${logs.length + 1}`
-        };
-        setLogs(prev => [...prev, logEntry]);
-      }, 3000);
-
-      return () => clearInterval(interval);
-    }
-  }, [logFeedVisible, logs.length]);
-
   return (
 
     <div className="console">
@@ -968,73 +860,6 @@ function Console() {
           ))}
         </select>
       </div>
-
-      {/* Todo Task Viewer */}
-      {todoViewerVisible && (
-        <div className="todo-viewer">
-          <div className="todo-header">
-            <h3>Todo Tasks</h3>
-            <button onClick={runNextTask} disabled={runningTaskId !== null}>
-              {runningTaskId === -1 ? '⏳ Running...' : '▶️ Run Next Task'}
-            </button>
-            <button onClick={() => setTodoViewerVisible(false)}>×</button>
-          </div>
-          <div className="task-list">
-            {tasks.map(task => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onRun={runSpecificTask}
-                runningTaskId={runningTaskId}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* File Browser */}
-      {fileViewerVisible && (
-        <div className="file-browser">
-          <div className="file-tree-panel">
-            <h3>File Explorer</h3>
-            <button onClick={() => setFileViewerVisible(false)} className="close-button">×</button>
-            {fileTree.map(node => (
-              <FileTreeNode
-                key={node.path}
-                node={node}
-                onSelect={handleFileSelect}
-                onExpand={handleNodeExpand}
-                expandedNodes={expandedNodes}
-              />
-            ))}
-          </div>
-          {selectedFile && (
-            <div className="file-content-panel">
-              <h3>{selectedFile.name}</h3>
-              <button onClick={() => setSelectedFile(null)} className="close-button">×</button>
-              <pre className="file-content">{fileContent}</pre>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Live Log Feed */}
-      {logFeedVisible && (
-        <div className="log-feed">
-          <h3>Live Logs</h3>
-          <button onClick={() => setLogFeedVisible(false)} className="close-button">×</button>
-          <div className="log-messages">
-            {logs.map((log, index) => (
-              <div key={index} className={`log-entry ${log.level}`}>
-                <span className="log-timestamp">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                <span className="log-level">[{log.level.toUpperCase()}]</span>
-                <span className="log-message">{log.message}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <ConsoleContentComponent
         content={content}
         handleCopyToClipboard={copyToClipboard}
@@ -1081,7 +906,7 @@ function Console() {
           <textarea
             value={context}
             onChange={handleContextChange}
-            placeholder="Context History: "
+            placeholder="Chat history💭: "
             className={`input-textarea ${contextTextarea}`}
             aria-label="chat history"
           ></textarea>
@@ -1091,7 +916,7 @@ function Console() {
           <textarea
             value={knowledge}
             onChange={handleKnowledgeChange}
-            placeholder="Knowledge:"
+            placeholder="Knowledge📝: examples, data, code"
             className={`input-textarea ${knowledgeTextarea}`}
             aria-label="knowledge content"
           ></textarea>
@@ -1101,7 +926,7 @@ function Console() {
           <textarea
             value={question}
             onChange={handleInputChange}
-            placeholder="Ask: "
+            placeholder="Chat💬: "
             className="input-textarea question-textarea"
             aria-label="chat text"
           ></textarea>
@@ -1112,4 +937,4 @@ function Console() {
   );
 }
 
-export default Console;
+export default Consolebak;
