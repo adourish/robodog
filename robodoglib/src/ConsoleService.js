@@ -463,16 +463,18 @@ class ConsoleService {
   // Function to generate a message with a timestamp
 
   getVerb(command) {
-    let model = { cmd: "", verb: "", isCommand: false };
+    let model = { cmd: "", verb: "", args: [], isCommand: false };
 
     // Regular Expression to handle strings with spaces within quotes
     let regexp = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
     let commandParts = command.match(regexp);
     let cmd = commandParts[0];
     let verb = "";
+    let args = [];
 
     if (commandParts.length > 1) {
-      verb = commandParts.slice(1).join(" ").replace(/"/g, "");
+      verb = commandParts[1].replace(/"/g, "");  // First argument is the verb
+      args = commandParts.slice(1).map(arg => arg.replace(/"/g, ""));  // All arguments as array
     }
 
     if (command.startsWith("/")) {
@@ -481,6 +483,7 @@ class ConsoleService {
 
     model.cmd = cmd;
     model.verb = verb;
+    model.args = args;
     return model;
   }
 
