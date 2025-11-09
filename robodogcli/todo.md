@@ -32,7 +32,7 @@ task['desc'] = task['desc']
 ```
 
 # todo  task 3
-- [x][x][-] test enhanced agent loop with small files
+- [x][x][x] test enhanced agent loop with small files
   - include: pattern=*robodogcli*robodog*dashboard.py|*robodogcli*robodog*cli.py
   - out: temp\out.py
   - plan: temp\plan.md
@@ -62,7 +62,7 @@ Expected: 3-5 chunks, multiple iterations, comprehensive summary.
 ```
 
 # todo  task 5
-- [x][-][-] test refinement with simple task
+- [x][x][-] test refinement with simple task
   - include: pattern=*robodogcli*robodog*app.py
   - out: temp\out.py
   - plan: temp\plan.md

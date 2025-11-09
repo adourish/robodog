@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Tuple, Any
 import statistics
 from smart_merge import SmartMerge
+from smart_merge_precise import PreciseSmartMerge
 
 import tiktoken
 from pydantic import BaseModel, RootModel
@@ -64,8 +65,9 @@ class TodoUtilService:
             self._file_service = file_service
             self._exclude_dirs = exclude_dirs
             self._app = app
-            self._smart_merge = SmartMerge(similarity_threshold=0.6) if enable_smart_merge else None
-            logger.info(f"SmartMerge {'enabled' if self._smart_merge else 'disabled'}", extra={'log_color': 'HIGHLIGHT'})
+            # Use PreciseSmartMerge for more reliable line-by-line changes
+            self._smart_merge = PreciseSmartMerge(similarity_threshold=0.85) if enable_smart_merge else None
+            logger.info(f"PreciseSmartMerge {'enabled' if self._smart_merge else 'disabled'} (threshold=0.85)", extra={'log_color': 'HIGHLIGHT'})
         except Exception as e:
             logger.exception(f"Error during initialization of TodoUtilService: {e}", extra={'log_color': 'DELTA'})
             raise
@@ -449,13 +451,13 @@ class TodoUtilService:
                             except Exception as e:
                                 logger.warning(f"Failed to apply unified diff for {rel}: {e}", extra={'log_color': 'DELTA'})
                                 # Keep original content_to_write if diff application fails
-                        # Try smart merge for partial content (non-diff updates)
+                        # Try precise smart merge for partial content (non-diff updates)
                         elif self._smart_merge and orig_content_for_merge:
                             try:
                                 merged_content, success, message = self._smart_merge.apply_partial_content(
                                     orig_content_for_merge,
                                     content_to_write,
-                                    context_lines=3
+                                    context_lines=5  # More context for precise matching
                                 )
                                 if success:
                                     logger.info(f"✓ Smart merge for {rel}: {message}", extra={'log_color': 'HIGHLIGHT'})
