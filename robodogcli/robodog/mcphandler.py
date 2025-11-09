@@ -136,6 +136,8 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     "TODO_DELETE","TODO_STATS","TODO_FILES","TODO_CREATE",
                     "MAP_SCAN","MAP_FIND","MAP_CONTEXT","MAP_SUMMARY",
                     "MAP_USAGES","MAP_SAVE","MAP_LOAD","MAP_INDEX",
+                    "ANALYZE_CALLGRAPH","ANALYZE_IMPACT","ANALYZE_DEPS","ANALYZE_STATS",
+                    "CASCADE_RUN",
                     "INCLUDE","CURL","PLAY","QUIT","EXIT"
                 ]}
 
@@ -410,6 +412,89 @@ class MCPHandler(socketserver.StreamRequestHandler):
                         "imports": {k: len(v) for k, v in SERVICE.code_mapper.index['imports'].items()}
                     },
                     "total_files": len(SERVICE.code_mapper.file_maps)
+                }
+            
+            # --- Advanced Analysis ---
+            if op == "ANALYZE_CALLGRAPH":
+                # Build call graph
+                if not hasattr(SERVICE, 'analyzer'):
+                    from advanced_analysis import AdvancedCodeAnalyzer
+                    SERVICE.analyzer = AdvancedCodeAnalyzer(SERVICE.code_mapper)
+                
+                call_graph = SERVICE.analyzer.build_call_graph()
+                return {
+                    "status": "ok",
+                    "function_count": len(call_graph.functions),
+                    "total_calls": sum(len(calls) for calls in call_graph.functions.values())
+                }
+            
+            if op == "ANALYZE_IMPACT":
+                # Analyze impact of changing a function
+                if not hasattr(SERVICE, 'analyzer'):
+                    from advanced_analysis import AdvancedCodeAnalyzer
+                    SERVICE.analyzer = AdvancedCodeAnalyzer(SERVICE.code_mapper)
+                
+                function_name = p.get("function_name")
+                if not function_name:
+                    raise ValueError("Missing 'function_name'")
+                
+                impact = SERVICE.analyzer.find_impact(function_name)
+                return {
+                    "status": "ok",
+                    "impact": impact
+                }
+            
+            if op == "ANALYZE_DEPS":
+                # Analyze file dependencies
+                if not hasattr(SERVICE, 'analyzer'):
+                    from advanced_analysis import AdvancedCodeAnalyzer
+                    SERVICE.analyzer = AdvancedCodeAnalyzer(SERVICE.code_mapper)
+                
+                file_path = p.get("file_path")
+                if not file_path:
+                    raise ValueError("Missing 'file_path'")
+                
+                deps = SERVICE.analyzer.find_dependencies(file_path)
+                return {
+                    "status": "ok",
+                    "dependencies": {
+                        "file_path": deps.file_path,
+                        "imports": deps.imports,
+                        "internal": deps.internal_deps,
+                        "external": deps.external_deps
+                    }
+                }
+            
+            if op == "ANALYZE_STATS":
+                # Get codebase statistics
+                if not hasattr(SERVICE, 'analyzer'):
+                    from advanced_analysis import AdvancedCodeAnalyzer
+                    SERVICE.analyzer = AdvancedCodeAnalyzer(SERVICE.code_mapper)
+                
+                stats = SERVICE.analyzer.get_stats()
+                return {
+                    "status": "ok",
+                    "stats": stats
+                }
+            
+            # --- Cascade Mode ---
+            if op == "CASCADE_RUN":
+                # Run task with cascade mode
+                if not hasattr(SERVICE, 'cascade_engine'):
+                    from cascade_mode import CascadeEngine
+                    SERVICE.cascade_engine = CascadeEngine(SERVICE, SERVICE.code_mapper, SERVICE.file_service)
+                
+                task = p.get("task")
+                context = p.get("context", "")
+                
+                if not task:
+                    raise ValueError("Missing 'task'")
+                
+                import asyncio
+                result = asyncio.run(SERVICE.cascade_engine.execute_cascade(task, context))
+                return {
+                    "status": "ok",
+                    "result": result
                 }
 
             # --- include/ask ---

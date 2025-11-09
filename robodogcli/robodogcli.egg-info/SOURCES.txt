@@ -2,11 +2,13 @@ README.md
 pyproject.toml
 setup.py
 robodog/__init__.py
+robodog/advanced_analysis.py
 robodog/agent_context.py
 robodog/agent_loop.py
 robodog/agent_loop_enhanced.py
 robodog/app.py
 robodog/base.py
+robodog/cascade_mode.py
 robodog/cli.py
 robodog/code_map.py
 robodog/dashboard.py

@@ -32,7 +32,7 @@ task['desc'] = task['desc']
 ```
 
 # todo  task 3
-- [x][-][-] test enhanced agent loop with small files
+- [x][x][-] test enhanced agent loop with small files
   - include: pattern=*robodogcli*robodog*dashboard.py|*robodogcli*robodog*cli.py
   - out: temp\out.py
   - plan: temp\plan.md

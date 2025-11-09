@@ -24,6 +24,13 @@ except ImportError:
         """Stub class for when enhancements are not available."""
         pass
 
+# Import context builder for code map integration
+try:
+    from agent_context import AgentContextBuilder
+except ImportError:
+    AgentContextBuilder = None
+    logger.warning("AgentContextBuilder not available - code map context disabled")
+
 
 class AgentState:
     """Tracks the state of the agentic loop execution."""
@@ -124,11 +131,18 @@ class AgentLoop(AgentLoopEnhancements):
     Enhanced with self-reflection, adaptive chunking, and iterative refinement.
     """
     
-    def __init__(self, svc, file_service, prompt_builder, parser):
+    def __init__(self, svc, file_service, prompt_builder, parser, code_mapper=None):
         self.svc = svc
         self.file_service = file_service
         self.prompt_builder = prompt_builder
         self.parser = parser
+        self.code_mapper = code_mapper
+        
+        # Initialize context builder if code mapper available
+        self.context_builder = None
+        if code_mapper and AgentContextBuilder:
+            self.context_builder = AgentContextBuilder(code_mapper, file_service)
+            logger.info("Code map context builder initialized")
         
         # Adaptive chunking configuration
         self.min_chunk_size = 1  # Minimum files per chunk
@@ -468,20 +482,28 @@ class AgentLoop(AgentLoopEnhancements):
         plan_content: str,
         state: AgentState
     ) -> str:
-        """Build a focused prompt for a specific subtask."""
+        """Build a focused prompt for a specific subtask with code map context."""
         
-        # Load only relevant files for this subtask
-        target_files = subtask.get('target_files', [])
         focused_context = ""
         
-        if target_files:
-            focused_context = "# Relevant Files:\n"
-            for file_path in target_files[:3]:  # Limit to 3 files per subtask
-                try:
-                    content = self.file_service.safe_read_file(Path(file_path))
-                    focused_context += f"\n## {file_path}\n```\n{content}\n```\n"
-                except Exception as e:
-                    logger.warning(f"Could not read {file_path}: {e}")
+        # Try to use code map context builder for targeted context
+        if self.context_builder:
+            try:
+                # Build minimal context for this specific subtask
+                subtask_desc = subtask.get('description', '')
+                minimal_context = self.context_builder.build_minimal_context(
+                    subtask_desc, 
+                    max_files=3
+                )
+                focused_context = minimal_context
+                logger.info(f"Using code map context for subtask: {subtask_desc[:50]}")
+            except Exception as e:
+                logger.warning(f"Failed to build code map context: {e}")
+                # Fall back to manual file loading
+                focused_context = self._load_target_files_manually(subtask)
+        else:
+            # Fall back to manual file loading
+            focused_context = self._load_target_files_manually(subtask)
         
         # Build prompt
         prompt = f"""# Task: {task['desc']}
@@ -507,9 +529,26 @@ Focus ONLY on: {subtask['description']}
 Generate code changes for the specified files only.
 Use the format: # file: <filename> followed by the code.
 Keep changes minimal and focused.
+Provide working, tested code that follows best practices.
 """
         
         return prompt
+    
+    def _load_target_files_manually(self, subtask: Dict[str, Any]) -> str:
+        """Fallback method to load target files manually when code map not available."""
+        target_files = subtask.get('target_files', [])
+        focused_context = ""
+        
+        if target_files:
+            focused_context = "# Relevant Files:\n"
+            for file_path in target_files[:3]:  # Limit to 3 files per subtask
+                try:
+                    content = self.file_service.safe_read_file(Path(file_path))
+                    focused_context += f"\n## {file_path}\n```\n{content}\n```\n"
+                except Exception as e:
+                    logger.warning(f"Could not read {file_path}: {e}")
+        
+        return focused_context
     
     def _validate_result(
         self,
@@ -550,14 +589,22 @@ def enable_agent_loop(todo_service, enable: bool = True):
         enable_agent_loop(todo_service, True)
     """
     if enable:
+        # Get code_mapper from service if available
+        code_mapper = getattr(todo_service._svc, 'code_mapper', None)
+        
         agent_loop = AgentLoop(
             svc=todo_service._svc,
             file_service=todo_service._file_service,
             prompt_builder=todo_service._prompt_builder,
-            parser=todo_service.parser
+            parser=todo_service.parser,
+            code_mapper=code_mapper
         )
         todo_service._agent_loop = agent_loop
-        logger.info("🤖 Agentic loop enabled", extra={'log_color': 'HIGHLIGHT'})
+        
+        if code_mapper:
+            logger.info("🤖 Agentic loop enabled with code map context", extra={'log_color': 'HIGHLIGHT'})
+        else:
+            logger.info("🤖 Agentic loop enabled", extra={'log_color': 'HIGHLIGHT'})
     else:
         todo_service._agent_loop = None
         logger.info("Agentic loop disabled")

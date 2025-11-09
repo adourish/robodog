@@ -256,14 +256,14 @@ function Consolebak() {
           break;
           
         case 'find':
-          if (!args || args.length === 0) {
+          if (!args || args.length < 2) {
             message = 'Usage: /map find <name>';
             list.push(formatService.getMessageWithTimestamp(message, 'setting'));
             setContent(list);
             return;
           }
           
-          const findResult = await mcpService.callMCP('MAP_FIND', { name: args[0] });
+          const findResult = await mcpService.callMCP('MAP_FIND', { name: args[1] });
           if (findResult.results && findResult.results.length > 0) {
             message = `Found ${findResult.results.length} definition(s):\n`;
             findResult.results.forEach(r => {
@@ -271,21 +271,21 @@ function Consolebak() {
               if (r.docstring) message += `\n  ${r.docstring}`;
             });
           } else {
-            message = `No definition found for '${args[0]}'`;
+            message = `No definition found for '${args[1]}'`;
           }
           list.push(formatService.getMessageWithTimestamp(message, 'model'));
           setContent(list);
           break;
           
         case 'context':
-          if (!args || args.length === 0) {
+          if (!args || args.length < 2) {
             message = 'Usage: /map context <task description>';
             list.push(formatService.getMessageWithTimestamp(message, 'setting'));
             setContent(list);
             return;
           }
           
-          const taskDesc = args.join(' ');
+          const taskDesc = args.slice(1).join(' ');
           const contextResult = await mcpService.callMCP('MAP_CONTEXT', { task_description: taskDesc });
           message = `Context for: ${taskDesc}\nKeywords: ${contextResult.context.keywords.join(', ')}\nRelevant files: ${contextResult.context.total_files}\n`;
           
@@ -316,6 +316,149 @@ function Consolebak() {
           message = 'Map commands: scan, find <name>, context <task>, save, load';
           list.push(formatService.getMessageWithTimestamp(message, 'setting'));
           setContent(list);
+      }
+    } catch (error) {
+      message = `Error: ${error.message}`;
+      list.push(formatService.getMessageWithTimestamp(message, 'system'));
+      setContent(list);
+    }
+  }
+
+  const handleAnalyzeCommand = async (subcommand, args) => {
+    let message = '';
+    let list = [...content];
+    
+    try {
+      switch(subcommand) {
+        case 'callgraph':
+          message = '🔍 Building call graph...';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          
+          const cgResult = await mcpService.callMCP('ANALYZE_CALLGRAPH', {});
+          message = `✅ Call graph built:\n  Functions: ${cgResult.function_count}\n  Total calls: ${cgResult.total_calls}`;
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'impact':
+          if (!args || args.length < 2) {
+            message = 'Usage: /analyze impact <function_name>';
+            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+            setContent(list);
+            return;
+          }
+          
+          const funcName = args[1];
+          message = `🔍 Analyzing impact of '${funcName}'...`;
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          
+          const impactResult = await mcpService.callMCP('ANALYZE_IMPACT', { function_name: funcName });
+          const impact = impactResult.impact;
+          message = `📊 Impact analysis for ${funcName}:\n`;
+          message += `  Direct callers: ${impact.direct_callers.length}\n`;
+          message += `  Total impacted: ${impact.impact_count}\n`;
+          if (impact.direct_callers.length > 0) {
+            message += `  Callers: ${impact.direct_callers.slice(0, 5).join(', ')}`;
+          }
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'deps':
+          if (!args || args.length < 2) {
+            message = 'Usage: /analyze deps <file_path>';
+            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+            setContent(list);
+            return;
+          }
+          
+          const filePath = args[1];
+          message = `🔍 Analyzing dependencies for ${filePath}...`;
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          
+          const depsResult = await mcpService.callMCP('ANALYZE_DEPS', { file_path: filePath });
+          const deps = depsResult.dependencies;
+          message = `📦 Dependencies:\n`;
+          message += `  Total imports: ${deps.imports.length}\n`;
+          message += `  Internal: ${deps.internal.length}\n`;
+          message += `  External: ${deps.external.length}\n`;
+          if (deps.external.length > 0) {
+            message += `  Packages: ${deps.external.slice(0, 10).join(', ')}`;
+          }
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'stats':
+          message = '📊 Calculating codebase statistics...';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          
+          const statsResult = await mcpService.callMCP('ANALYZE_STATS', {});
+          const stats = statsResult.stats;
+          message = `📊 Codebase Statistics:\n`;
+          message += `  Total functions: ${stats.total_functions}\n`;
+          message += `  Total calls: ${stats.total_calls}\n`;
+          message += `  Avg calls/function: ${stats.avg_calls_per_function.toFixed(1)}\n`;
+          message += `  Total files: ${stats.total_files}`;
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        default:
+          message = 'Analyze commands: callgraph, impact <function>, deps <file>, stats';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+      }
+    } catch (error) {
+      message = `Error: ${error.message}`;
+      list.push(formatService.getMessageWithTimestamp(message, 'system'));
+      setContent(list);
+    }
+  }
+
+  const handleCascadeCommand = async (subcommand, args) => {
+    let message = '';
+    let list = [...content];
+    
+    try {
+      if (subcommand === 'run') {
+        if (!args || args.length < 2) {
+          message = 'Usage: /cascade run <task_description>';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          return;
+        }
+        
+        const task = args.slice(1).join(' ');
+        message = `🌊 Running cascade for: ${task}`;
+        list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+        setContent(list);
+        
+        const cascadeResult = await mcpService.callMCP('CASCADE_RUN', { 
+          task,
+          context: context || ''
+        });
+        
+        const result = cascadeResult.result;
+        if (result.status === 'completed') {
+          message = `✅ Cascade completed:\n`;
+          message += `  Steps: ${result.steps}\n`;
+          message += `  Successful: ${result.successful}\n`;
+          message += `  Failed: ${result.failed}\n`;
+          message += `  Duration: ${result.duration.toFixed(1)}s`;
+        } else {
+          message = `❌ Cascade failed: ${result.error || 'Unknown error'}`;
+        }
+        list.push(formatService.getMessageWithTimestamp(message, 'model'));
+        setContent(list);
+      } else {
+        message = 'Cascade commands: run <task>';
+        list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+        setContent(list);
       }
     } catch (error) {
       message = `Error: ${error.message}`;
@@ -477,6 +620,12 @@ function Consolebak() {
           break;
         case '/map':
           handleMapCommand(_command.verb, _command.args)
+          break;
+        case '/analyze':
+          handleAnalyzeCommand(_command.verb, _command.args)
+          break;
+        case '/cascade':
+          handleCascadeCommand(_command.verb, _command.args)
           break;
         case '/watch':
           handleSetWatch(_command.verb)

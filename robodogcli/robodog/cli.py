@@ -109,6 +109,17 @@ def print_help():
         "play":                "run AI-driven Playwright tests",
         "mcp":                 "invoke raw MCP operation",
         "todo":                "select and run task",
+        "map scan":            "scan codebase and create index",
+        "map find <name>":     "find class/function definition",
+        "map context <task>":  "get relevant files for task",
+        "map save <file>":     "save code map to file",
+        "map load <file>":     "load code map from file",
+        "analyze callgraph":   "build call graph for codebase",
+        "analyze impact <fn>": "find what breaks if function changes",
+        "analyze deps <file>": "show file dependencies",
+        "analyze stats":       "show codebase statistics",
+        "cascade on/off":      "enable/disable parallel execution",
+        "cascade run <task>":  "run task with cascade mode",
     }
     logging.info("Available /commands:")
     for cmd, desc in cmds.items():
@@ -382,6 +393,167 @@ def interact(svc: RobodogService, app_instance: RobodogApp, pipboy_ui=None):  # 
                         logs = app_instance.get_log()
                         if logs:
                             logging.info(f"App logs after todo: {len(logs)} entries")
+
+                elif cmd == "map":
+                    # Code mapping commands
+                    if not args:
+                        logging.info("Usage: /map <scan|find|context|save|load>")
+                    elif args[0] == "scan":
+                        logging.info("🗺️ Scanning codebase...")
+                        file_maps = svc.code_mapper.scan_codebase()
+                        logging.info(f"✅ Scanned {len(file_maps)} files")
+                        logging.info(f"   Classes: {len(svc.code_mapper.index['classes'])}")
+                        logging.info(f"   Functions: {len(svc.code_mapper.index['functions'])}")
+                    elif args[0] == "find":
+                        if len(args) < 2:
+                            logging.warning("Usage: /map find <name>")
+                        else:
+                            name = args[1]
+                            results = svc.code_mapper.find_definition(name)
+                            if not results:
+                                logging.info(f"No definition found for '{name}'")
+                            else:
+                                logging.info(f"Found {len(results)} definition(s) for '{name}':")
+                                for r in results:
+                                    logging.info(f"  {r['type']}: {r['name']}")
+                                    logging.info(f"    File: {r['file']}:{r['line_start']}")
+                                    if r.get('docstring'):
+                                        logging.info(f"    Doc: {r['docstring'][:60]}...")
+                    elif args[0] == "context":
+                        if len(args) < 2:
+                            logging.warning("Usage: /map context <task_description>")
+                        else:
+                            task_desc = " ".join(args[1:])
+                            context = svc.code_mapper.get_context_for_task(task_desc)
+                            logging.info(f"Context for: {task_desc}")
+                            logging.info(f"Keywords: {', '.join(context['keywords'])}")
+                            logging.info(f"Relevant files: {context['total_files']}")
+                            for file_path, info in list(context['relevant_files'].items())[:5]:
+                                logging.info(f"  [{info['score']:.2f}] {file_path}")
+                                summary = info['summary']
+                                if summary['classes']:
+                                    logging.info(f"    Classes: {', '.join(summary['classes'][:3])}")
+                                if summary['functions']:
+                                    logging.info(f"    Functions: {', '.join(summary['functions'][:3])}")
+                    elif args[0] == "save":
+                        if len(args) < 2:
+                            filename = "codemap.json"
+                        else:
+                            filename = args[1]
+                        svc.code_mapper.save_map(filename)
+                        logging.info(f"💾 Saved map to {filename}")
+                    elif args[0] == "load":
+                        if len(args) < 2:
+                            filename = "codemap.json"
+                        else:
+                            filename = args[1]
+                        svc.code_mapper.load_map(filename)
+                        logging.info(f"📂 Loaded map from {filename}")
+                        logging.info(f"   Files: {len(svc.code_mapper.file_maps)}")
+                    else:
+                        logging.warning(f"Unknown map subcommand: {args[0]}")
+                        logging.info("Map commands: scan, find <name>, context <task>, save [file], load [file]")
+
+                elif cmd == "analyze":
+                    # Advanced code analysis
+                    if not hasattr(svc, 'analyzer'):
+                        from advanced_analysis import AdvancedCodeAnalyzer
+                        svc.analyzer = AdvancedCodeAnalyzer(svc.code_mapper)
+                    
+                    # Check if code map has been scanned
+                    if not svc.code_mapper.file_maps:
+                        logging.warning("⚠️  Code map not scanned. Run '/map scan' first.")
+                        continue
+                    
+                    if not args:
+                        logging.info("Usage: /analyze <callgraph|impact|deps|stats>")
+                    elif args[0] == "callgraph":
+                        logging.info("🔍 Building call graph...")
+                        call_graph = svc.analyzer.build_call_graph()
+                        logging.info(f"✅ Functions: {len(call_graph.functions)}")
+                        logging.info(f"   Total calls: {sum(len(calls) for calls in call_graph.functions.values())}")
+                    elif args[0] == "impact":
+                        if len(args) < 2:
+                            logging.warning("Usage: /analyze impact <function_name>")
+                        else:
+                            func_name = args[1]
+                            logging.info(f"🔍 Analyzing impact of '{func_name}'...")
+                            # Auto-build call graph if not already built
+                            if not svc.analyzer.call_graph:
+                                logging.info("🔍 Building call graph first...")
+                                svc.analyzer.build_call_graph()
+                            impact = svc.analyzer.find_impact(func_name)
+                            logging.info(f"📊 Impact analysis for {func_name}:")
+                            logging.info(f"   Direct callers: {len(impact['direct_callers'])}")
+                            logging.info(f"   Total impacted: {impact['impact_count']}")
+                            if impact['direct_callers']:
+                                logging.info("   Direct callers:")
+                                for caller in impact['direct_callers'][:5]:
+                                    logging.info(f"     - {caller}")
+                    elif args[0] == "deps":
+                        if len(args) < 2:
+                            logging.warning("Usage: /analyze deps <file_path>")
+                        else:
+                            file_path = args[1]
+                            logging.info(f"🔍 Analyzing dependencies for {file_path}...")
+                            deps = svc.analyzer.find_dependencies(file_path)
+                            logging.info(f"📦 Dependencies:")
+                            logging.info(f"   Total imports: {len(deps.imports)}")
+                            logging.info(f"   Internal: {len(deps.internal_deps)}")
+                            logging.info(f"   External: {len(deps.external_deps)}")
+                            if deps.external_deps:
+                                logging.info("   External packages:")
+                                for dep in deps.external_deps[:10]:
+                                    logging.info(f"     - {dep}")
+                    elif args[0] == "stats":
+                        logging.info("📊 Calculating codebase statistics...")
+                        # Auto-build call graph if not already built
+                        if not svc.analyzer.call_graph:
+                            logging.info("🔍 Building call graph first...")
+                            svc.analyzer.build_call_graph()
+                        stats = svc.analyzer.get_stats()
+                        logging.info(f"   Total functions: {stats['total_functions']}")
+                        logging.info(f"   Total calls: {stats['total_calls']}")
+                        logging.info(f"   Avg calls/function: {stats['avg_calls_per_function']:.1f}")
+                        logging.info(f"   Total files: {stats['total_files']}")
+                        if stats['most_called']:
+                            logging.info("   Most called functions:")
+                            for item in stats['most_called'][:5]:
+                                logging.info(f"     {item['name']}: {item['call_count']} calls")
+
+                elif cmd == "cascade":
+                    # Cascade mode control
+                    if not hasattr(svc, 'cascade_engine'):
+                        from cascade_mode import CascadeEngine
+                        svc.cascade_engine = CascadeEngine(svc, svc.code_mapper, svc.file_service)
+                        svc.cascade_mode = False
+                    
+                    if not args:
+                        status = "enabled" if svc.cascade_mode else "disabled"
+                        logging.info(f"🌊 Cascade mode: {status}")
+                        logging.info("Usage: /cascade <on|off|run>")
+                    elif args[0] == "on":
+                        svc.cascade_mode = True
+                        logging.info("🌊 Cascade mode enabled")
+                    elif args[0] == "off":
+                        svc.cascade_mode = False
+                        logging.info("Cascade mode disabled")
+                    elif args[0] == "run":
+                        if len(args) < 2:
+                            logging.warning("Usage: /cascade run <task_description>")
+                        else:
+                            task = " ".join(args[1:])
+                            logging.info(f"🌊 Running cascade for: {task}")
+                            import asyncio
+                            result = asyncio.run(svc.cascade_engine.execute_cascade(task))
+                            if result['status'] == 'completed':
+                                logging.info(f"✅ Cascade completed:")
+                                logging.info(f"   Steps: {result['steps']}")
+                                logging.info(f"   Successful: {result['successful']}")
+                                logging.info(f"   Failed: {result['failed']}")
+                                logging.info(f"   Duration: {result['duration']:.1f}s")
+                            else:
+                                logging.error(f"❌ Cascade failed: {result.get('error', 'Unknown error')}")
 
                 else:
                     logging.error("unknown /cmd: %s", cmd)
