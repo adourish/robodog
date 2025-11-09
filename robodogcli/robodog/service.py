@@ -24,6 +24,11 @@ try:
 except ImportError:
     from todo_manager import TodoManager
 
+try:
+    from .code_map import CodeMapper
+except ImportError:
+    from code_map import CodeMapper
+
 logger = logging.getLogger('robodog.service')
 
 
@@ -44,6 +49,7 @@ class RobodogService:
         self._init_llm(api_key)
         self._app = app
         self.todo_mgr = TodoManager(self._roots)  # Initialize TodoManager
+        self.code_mapper = CodeMapper(self._roots, self._exclude_dirs)  # Initialize CodeMapper
 
     def set_ui_callback(self, callback):
         """Set callback for UI updates during streaming. Ensures no logger conflicts."""

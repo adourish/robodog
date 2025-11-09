@@ -132,8 +132,11 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     "LIST_FILES","GET_ALL_CONTENTS","READ_FILE","UPDATE_FILE",
                     "CREATE_FILE","DELETE_FILE","APPEND_FILE","CREATE_DIR",
                     "DELETE_DIR","RENAME","MOVE","COPY_FILE","SEARCH",
-                    "CHECKSUM","TODO","INCLUDE","CURL","PLAY",
-                    "QUIT","EXIT"
+                    "CHECKSUM","TODO","TODO_LIST","TODO_ADD","TODO_UPDATE",
+                    "TODO_DELETE","TODO_STATS","TODO_FILES","TODO_CREATE",
+                    "MAP_SCAN","MAP_FIND","MAP_CONTEXT","MAP_SUMMARY",
+                    "MAP_USAGES","MAP_SAVE","MAP_LOAD","MAP_INDEX",
+                    "INCLUDE","CURL","PLAY","QUIT","EXIT"
                 ]}
 
             if op == "SET_ROOTS":
@@ -333,6 +336,81 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 path = p.get("path")
                 created_path = SERVICE.todo_mgr.create_todo_file(path)
                 return {"status":"ok","path":created_path}
+            
+            # --- code map ---
+            if op == "MAP_SCAN":
+                # Scan codebase and create map
+                extensions = p.get("extensions")
+                file_maps = SERVICE.code_mapper.scan_codebase(extensions)
+                return {
+                    "status": "ok",
+                    "file_count": len(file_maps),
+                    "class_count": len(SERVICE.code_mapper.index['classes']),
+                    "function_count": len(SERVICE.code_mapper.index['functions'])
+                }
+            
+            if op == "MAP_FIND":
+                # Find definition of class or function
+                name = p.get("name")
+                if not name:
+                    raise ValueError("Missing 'name'")
+                results = SERVICE.code_mapper.find_definition(name)
+                return {"status": "ok", "results": results}
+            
+            if op == "MAP_CONTEXT":
+                # Get context for a task
+                task_desc = p.get("task_description")
+                if not task_desc:
+                    raise ValueError("Missing 'task_description'")
+                patterns = p.get("include_patterns")
+                context = SERVICE.code_mapper.get_context_for_task(task_desc, patterns)
+                return {"status": "ok", "context": context}
+            
+            if op == "MAP_SUMMARY":
+                # Get file summary
+                file_path = p.get("file_path")
+                if not file_path:
+                    raise ValueError("Missing 'file_path'")
+                summary = SERVICE.code_mapper.get_file_summary(file_path)
+                if not summary:
+                    raise ValueError(f"File not found in map: {file_path}")
+                return {"status": "ok", "summary": summary}
+            
+            if op == "MAP_USAGES":
+                # Find module usages
+                module = p.get("module")
+                if not module:
+                    raise ValueError("Missing 'module'")
+                files = SERVICE.code_mapper.find_usages(module)
+                return {"status": "ok", "module": module, "files": files}
+            
+            if op == "MAP_SAVE":
+                # Save map to file
+                output_path = p.get("output_path", "codemap.json")
+                SERVICE.code_mapper.save_map(output_path)
+                return {"status": "ok", "path": output_path}
+            
+            if op == "MAP_LOAD":
+                # Load map from file
+                input_path = p.get("input_path", "codemap.json")
+                SERVICE.code_mapper.load_map(input_path)
+                return {
+                    "status": "ok",
+                    "path": input_path,
+                    "file_count": len(SERVICE.code_mapper.file_maps)
+                }
+            
+            if op == "MAP_INDEX":
+                # Get index statistics
+                return {
+                    "status": "ok",
+                    "index": {
+                        "classes": {k: len(v) for k, v in SERVICE.code_mapper.index['classes'].items()},
+                        "functions": {k: len(v) for k, v in SERVICE.code_mapper.index['functions'].items()},
+                        "imports": {k: len(v) for k, v in SERVICE.code_mapper.index['imports'].items()}
+                    },
+                    "total_files": len(SERVICE.code_mapper.file_maps)
+                }
 
             # --- include/ask ---
             if op == "INCLUDE":

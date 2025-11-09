@@ -722,6 +722,69 @@ def main():
                             show_shortcuts()
                             sys.stdout = old_stdout
                             pipboy_ui.set_output(buffer.getvalue())
+                        
+                        elif cmd == "map":
+                            # Code mapping commands
+                            if not cmd_args:
+                                pipboy_ui.log_status("Usage: /map <scan|find|context|save|load>", "WARNING")
+                                pipboy_ui.set_output("Code Map Commands:\n/map scan - Scan codebase\n/map find <name> - Find definition\n/map context <task> - Get context for task\n/map save <file> - Save map\n/map load <file> - Load map")
+                            elif cmd_args[0] == "scan":
+                                pipboy_ui.log_status("Scanning codebase...", "INFO")
+                                file_maps = svc.code_mapper.scan_codebase()
+                                pipboy_ui.log_status(f"Scanned {len(file_maps)} files", "SUCCESS")
+                                pipboy_ui.set_output(f"Code Map Created:\n{len(file_maps)} files mapped\n{len(svc.code_mapper.index['classes'])} classes\n{len(svc.code_mapper.index['functions'])} functions")
+                            elif cmd_args[0] == "find":
+                                if len(cmd_args) < 2:
+                                    pipboy_ui.log_status("Usage: /map find <name>", "WARNING")
+                                else:
+                                    name = cmd_args[1]
+                                    results = svc.code_mapper.find_definition(name)
+                                    if not results:
+                                        pipboy_ui.set_output(f"No definition found for '{name}'")
+                                    else:
+                                        output = f"Found {len(results)} definition(s) for '{name}':\n\n"
+                                        for r in results:
+                                            output += f"{r['type']}: {r['name']}\n"
+                                            output += f"  File: {os.path.basename(r['file'])}:{r['line_start']}\n"
+                                            if r.get('docstring'):
+                                                output += f"  Doc: {r['docstring'][:60]}...\n"
+                                        pipboy_ui.set_output(output)
+                            elif cmd_args[0] == "context":
+                                if len(cmd_args) < 2:
+                                    pipboy_ui.log_status("Usage: /map context <task_description>", "WARNING")
+                                else:
+                                    task_desc = " ".join(cmd_args[1:])
+                                    context = svc.code_mapper.get_context_for_task(task_desc)
+                                    output = f"Context for: {task_desc}\n\n"
+                                    output += f"Keywords: {', '.join(context['keywords'])}\n"
+                                    output += f"Relevant files: {context['total_files']}\n\n"
+                                    for file_path, info in list(context['relevant_files'].items())[:5]:
+                                        output += f"[{info['score']}] {os.path.basename(file_path)}\n"
+                                        summary = info['summary']
+                                        if summary['classes']:
+                                            output += f"  Classes: {', '.join(summary['classes'][:3])}\n"
+                                        if summary['functions']:
+                                            output += f"  Functions: {', '.join(summary['functions'][:3])}\n"
+                                    pipboy_ui.set_output(output)
+                            elif cmd_args[0] == "save":
+                                if len(cmd_args) < 2:
+                                    pipboy_ui.log_status("Usage: /map save <filename>", "WARNING")
+                                else:
+                                    filename = cmd_args[1]
+                                    svc.code_mapper.save_map(filename)
+                                    pipboy_ui.log_status(f"Saved map to {filename}", "SUCCESS")
+                                    pipboy_ui.set_output(f"Code map saved to:\n{filename}")
+                            elif cmd_args[0] == "load":
+                                if len(cmd_args) < 2:
+                                    pipboy_ui.log_status("Usage: /map load <filename>", "WARNING")
+                                else:
+                                    filename = cmd_args[1]
+                                    svc.code_mapper.load_map(filename)
+                                    pipboy_ui.log_status(f"Loaded map from {filename}", "SUCCESS")
+                                    pipboy_ui.set_output(f"Code map loaded:\n{len(svc.code_mapper.file_maps)} files")
+                            else:
+                                pipboy_ui.log_status("Unknown map subcommand", "WARNING")
+                                pipboy_ui.set_output("Map commands:\n/map scan\n/map find <name>\n/map context <task>\n/map save <file>\n/map load <file>")
                             
                         elif cmd == "todo":
                             # Todo management commands

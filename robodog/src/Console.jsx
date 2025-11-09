@@ -380,20 +380,6 @@ function Console() {
           }
           var item = formatService.getMessageWithTimestamp(modelsText, 'model')
           list.push(item);
-          setContent(list);
-
-          console.log(models);
-
-          break;
-        case '/model':
-          handleSetModel(_command.verb)
-          break;
-
-        case '/search':
-          if (search !== '') {
-            setSearch('');
-          } else {
-            setSearch('🔎');
             setModel('search')
           }
 
@@ -653,6 +639,92 @@ function Console() {
     providerService.setCurrentModel(event)
     setModel(event)
     setContent([...content, formatService.getMessageWithTimestamp(message, 'model')]);
+  }
+
+  const handleMapCommand = async (subcommand, args) => {
+    let message = '';
+    let list = [...content];
+    
+    try {
+      switch(subcommand) {
+        case 'scan':
+          message = '🗺️ Scanning codebase...';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          
+          const scanResult = await providerService.callMCP('MAP_SCAN', {});
+          message = `Scanned ${scanResult.file_count} files, ${scanResult.class_count} classes, ${scanResult.function_count} functions`;
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'find':
+          if (!args || args.length === 0) {
+            message = 'Usage: /map find <name>';
+            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+            setContent(list);
+            return;
+          }
+          
+          const findResult = await providerService.callMCP('MAP_FIND', { name: args[0] });
+          if (findResult.results && findResult.results.length > 0) {
+            message = `Found ${findResult.results.length} definition(s):\n`;
+            findResult.results.forEach(r => {
+              message += `\n${r.type}: ${r.name} at ${r.file}:${r.line_start}`;
+              if (r.docstring) message += `\n  ${r.docstring}`;
+            });
+          } else {
+            message = `No definition found for '${args[0]}'`;
+          }
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'context':
+          if (!args || args.length === 0) {
+            message = 'Usage: /map context <task description>';
+            list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+            setContent(list);
+            return;
+          }
+          
+          const taskDesc = args.join(' ');
+          const contextResult = await providerService.callMCP('MAP_CONTEXT', { task_description: taskDesc });
+          message = `Context for: ${taskDesc}\nKeywords: ${contextResult.context.keywords.join(', ')}\nRelevant files: ${contextResult.context.total_files}\n`;
+          
+          const topFiles = Object.entries(contextResult.context.relevant_files).slice(0, 5);
+          topFiles.forEach(([path, info]) => {
+            message += `\n[${info.score}] ${path.split('/').pop()}`;
+          });
+          
+          list.push(formatService.getMessageWithTimestamp(message, 'model'));
+          setContent(list);
+          break;
+          
+        case 'save':
+          await providerService.callMCP('MAP_SAVE', { output_path: 'codemap.json' });
+          message = '💾 Code map saved to codemap.json';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          break;
+          
+        case 'load':
+          const loadResult = await providerService.callMCP('MAP_LOAD', { input_path: 'codemap.json' });
+          message = `📂 Code map loaded: ${loadResult.file_count} files`;
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+          break;
+          
+        default:
+          message = 'Map commands: scan, find <name>, context <task>, save, load';
+          list.push(formatService.getMessageWithTimestamp(message, 'setting'));
+          setContent(list);
+      }
+    } catch (error) {
+      message = `Error: ${error.message}`;
+      list.push(formatService.getMessageWithTimestamp(message, 'system'));
+      setContent(list);
+    }
   }
 
   function handleDropdownChange(event) {
