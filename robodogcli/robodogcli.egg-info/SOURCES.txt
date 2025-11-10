@@ -34,3 +34,4 @@ robodogcli.egg-info/PKG-INFO
 robodogcli.egg-info/SOURCES.txt
 robodogcli.egg-info/dependency_links.txt
 robodogcli.egg-info/top_level.txt
+tests/test_cascade.py

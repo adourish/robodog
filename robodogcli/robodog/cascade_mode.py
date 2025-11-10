@@ -58,12 +58,18 @@ class CascadeEngine:
     async def execute_cascade(self, task: str, context: str = "") -> Dict[str, Any]:
         """Execute a task using cascade mode with parallel execution"""
         
-        logger.info(f"🌊 Starting cascade for task: {task[:50]}...")
+        logger.info(f"🌊 Starting cascade for task: {task}...")
+        logger.debug(f"Context provided: {context[:100] if context else 'None'}...")
         start_time = datetime.now()
+        logger.debug(f"Start time: {start_time}")
         
         try:
             # 1. Plan: Break down task into steps with dependencies
+            logger.debug("Step 1: Planning cascade steps...")
             plan = await self._plan_cascade(task, context)
+            logger.info(f"📋 Plan created: {len(plan)} steps")
+            for i, step in enumerate(plan, 1):
+                logger.debug(f"  Step {i}: {step.action} (id={step.step_id}, deps={step.dependencies})")
             
             if not plan:
                 return {
@@ -74,20 +80,33 @@ class CascadeEngine:
             logger.info(f"📋 Plan created: {len(plan)} steps")
             
             # 2. Execute: Run steps in parallel where possible
+            logger.debug("Step 2: Executing cascade steps...")
             results = await self._execute_parallel(plan)
+            logger.debug(f"Execution completed: {len(results)} results")
             
             # 3. Verify: Check results and self-correct if needed
+            logger.debug("Step 3: Verifying results...")
             if self.enable_self_correction:
+                logger.debug("Self-correction enabled, checking for errors...")
                 verified = await self._verify_and_correct(results, task)
             else:
+                logger.debug("Self-correction disabled, using results as-is")
                 verified = results
             
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
+            logger.debug(f"End time: {end_time}, Duration: {duration:.2f}s")
             
             # Calculate statistics
             successful = sum(1 for s in self.steps if s.status == 'completed')
             failed = sum(1 for s in self.steps if s.status == 'failed')
+            logger.info(f"✨ Cascade completed: {successful}/{len(self.steps)} steps successful, {failed} failed")
+            
+            # Convert any Exception objects to strings for JSON serialization
+            serializable_results = [
+                {'error': str(r)} if isinstance(r, Exception) else r
+                for r in verified
+            ]
             
             return {
                 'status': 'completed',
@@ -95,7 +114,7 @@ class CascadeEngine:
                 'steps': len(self.steps),
                 'successful': successful,
                 'failed': failed,
-                'results': verified,
+                'results': serializable_results,
                 'duration': duration,
                 'steps_detail': [self._step_to_dict(s) for s in self.steps]
             }
@@ -111,16 +130,40 @@ class CascadeEngine:
     async def _plan_cascade(self, task: str, context: str) -> List[CascadeStep]:
         """Use LLM to plan cascade steps with dependencies"""
         
+        # Get project structure hint
+        project_hint = ""
+        if self.code_mapper and hasattr(self.code_mapper, '_roots'):
+            roots = self.code_mapper._roots
+            if roots:
+                project_hint = f"\nProject root: {roots[0]}"
+        
         prompt = f"""Break down this task into parallel executable steps.
 
 Task: {task}
 
-Context: {context}
+Context: {context}{project_hint}
+
+IMPORTANT: When specifying file paths, use paths relative to the project root.
+For example:
+- CORRECT: "robodog/app.py" (includes subdirectory)
+- WRONG: "app.py" (missing subdirectory)
+- CORRECT: "robodog/cli.py"
+- WRONG: "cli.py"
+
+Available actions and REQUIRED parameters:
+1. read_file: {{"path": "robodog/file.py"}} (use full relative path!)
+2. edit_file: {{"path": "file.py", "changes": "description"}}
+3. create_file: {{"path": "file.py", "content": "file content"}}
+4. search: {{"query": "search term"}}
+5. analyze: {{"prompt": "what to analyze"}}
+6. map_context: {{"task": "task description"}}
+
+IMPORTANT: Each action MUST include ALL required parameters!
 
 For each step, specify:
 1. step_id: unique identifier (step_1, step_2, etc.)
-2. action: one of [read_file, edit_file, search, analyze, map_context, create_file]
-3. params: parameters for the action
+2. action: one of the actions above
+3. params: MUST include all required parameters for that action
 4. dependencies: list of step_ids that must complete first (empty if no dependencies)
 
 Return ONLY a JSON array of steps, no other text:
@@ -128,20 +171,28 @@ Return ONLY a JSON array of steps, no other text:
   {{
     "step_id": "step_1",
     "action": "map_context",
-    "params": {{"task": "find relevant files"}},
+    "params": {{"task": "find app.py files"}},
     "dependencies": []
   }},
   {{
     "step_id": "step_2",
     "action": "read_file",
-    "params": {{"path": "file.py"}},
+    "params": {{"path": "robodog/app.py"}},  // MUST include 'robodog/' prefix!
     "dependencies": ["step_1"]
+  }},
+  {{
+    "step_id": "step_3",
+    "action": "analyze",
+    "params": {{"prompt": "Analyze the structure of app.py"}},
+    "dependencies": ["step_2"]
   }}
 ]
 """
         
         try:
+            logger.debug(f"Sending planning prompt to LLM (length: {len(prompt)} chars)")
             response = self.svc.ask(prompt)
+            logger.debug(f"Received LLM response (length: {len(response)} chars)")
             
             # Extract JSON from response
             json_str = self._extract_json(response)
@@ -149,11 +200,15 @@ Return ONLY a JSON array of steps, no other text:
                 logger.warning("No JSON found in response, using fallback plan")
                 return self._create_fallback_plan(task)
             
-            plan_data = json.loads(json_str)
+            steps_data = json.loads(json_str)
+            logger.debug(f"Parsed {len(steps_data)} steps from JSON")
+            
+            # Fix common path issues
+            self._fix_paths_in_plan(steps_data)
             
             # Convert to CascadeStep objects
             steps = []
-            for step_data in plan_data:
+            for step_data in steps_data:
                 step = CascadeStep(
                     step_id=step_data.get('step_id', f'step_{len(steps)+1}'),
                     action=step_data.get('action', 'analyze'),
@@ -165,8 +220,14 @@ Return ONLY a JSON array of steps, no other text:
             self.steps = steps
             return steps
         
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing failed: {e}")
+            logger.debug(f"Failed JSON string: {json_str[:200] if json_str else 'None'}...")
+            return self._create_fallback_plan(task)
         except Exception as e:
-            logger.warning(f"Failed to parse plan: {e}, using fallback")
+            logger.error(f"Planning failed: {e}")
+            logger.debug(f"Exception type: {type(e).__name__}")
+            # Return fallback plan
             return self._create_fallback_plan(task)
     
     def _extract_json(self, text: str) -> Optional[str]:
@@ -188,6 +249,31 @@ Return ONLY a JSON array of steps, no other text:
                     return text[start:i+1]
         
         return None
+    
+    def _fix_paths_in_plan(self, steps_data: List[Dict[str, Any]]) -> None:
+        """Fix common path issues in LLM-generated plans"""
+        
+        # Common files that should be in robodog/ subdirectory
+        robodog_files = {
+            'app.py', 'cli.py', 'service.py', 'base.py', 'models.py',
+            'todo.py', 'task_manager.py', 'file_service.py', 'code_map.py',
+            'cascade_mode.py', 'agent_loop.py', 'mcphandler.py'
+        }
+        
+        for step in steps_data:
+            action = step.get('action')
+            params = step.get('params', {})
+            
+            # Fix paths in read_file, edit_file, create_file actions
+            if action in ['read_file', 'edit_file', 'create_file']:
+                path = params.get('path', '')
+                if path:
+                    # Check if it's a bare filename that should be in robodog/
+                    filename = path.split('/')[-1]
+                    if filename in robodog_files and not path.startswith('robodog/'):
+                        corrected_path = f'robodog/{path}'
+                        logger.debug(f"Correcting path: '{path}' -> '{corrected_path}'")
+                        params['path'] = corrected_path
     
     def _create_fallback_plan(self, task: str) -> List[CascadeStep]:
         """Create a simple fallback plan if LLM planning fails"""
@@ -227,12 +313,16 @@ Return ONLY a JSON array of steps, no other text:
                 pending = [s for s in steps if s.status == 'pending']
                 if pending:
                     logger.warning(f"Stuck with {len(pending)} pending steps")
+                    for p in pending:
+                        missing_deps = [d for d in p.dependencies if d not in completed]
+                        logger.debug(f"  {p.step_id} waiting for: {missing_deps}")
                     # Execute them anyway (dependencies might be optional)
                     ready = pending
                 else:
                     break
             
             logger.info(f"🔄 Executing {len(ready)} steps in parallel...")
+            logger.debug(f"  Ready steps: {[s.step_id for s in ready]}")
             
             # Execute ready steps in parallel
             tasks = [self._execute_step(step) for step in ready]
@@ -243,10 +333,13 @@ Return ONLY a JSON array of steps, no other text:
                     step.status = 'failed'
                     step.error = str(result)
                     logger.error(f"❌ Step {step.step_id} failed: {result}")
+                    logger.debug(f"  Action: {step.action}, Params: {step.params}")
                 else:
                     step.status = 'completed'
                     step.result = result
+                    result_preview = str(result)[:100] if result else 'None'
                     logger.info(f"✅ Step {step.step_id} completed")
+                    logger.debug(f"  Result preview: {result_preview}...")
                 
                 completed.add(step.step_id)
                 results.append(result)
@@ -261,6 +354,7 @@ Return ONLY a JSON array of steps, no other text:
         
         try:
             logger.debug(f"Executing {step.step_id}: {step.action}")
+            logger.debug(f"  Params: {step.params}")
             
             if step.action == 'read_file':
                 result = await self._action_read_file(step.params)
@@ -284,20 +378,30 @@ Return ONLY a JSON array of steps, no other text:
                 raise ValueError(f"Unknown action: {step.action}")
             
             step.end_time = datetime.now()
+            duration = step.duration()
+            logger.debug(f"Step {step.step_id} completed in {duration:.2f}s")
             return result
         
         except Exception as e:
             step.end_time = datetime.now()
+            duration = step.duration()
+            logger.debug(f"Step {step.step_id} failed after {duration:.2f}s: {e}")
             raise
     
     async def _action_read_file(self, params: Dict[str, Any]) -> str:
         """Read a file"""
         path = params.get('path')
-        if not path or not self.file_service:
-            raise ValueError("Missing path or file_service")
         
+        if not path:
+            raise ValueError("Missing required parameter 'path' for read_file action")
+        
+        if not self.file_service:
+            raise ValueError("File service not available")
+        
+        logger.debug(f"Reading file: {path}")
         from pathlib import Path
         content = self.file_service.safe_read_file(Path(path))
+        logger.debug(f"Read {len(content)} characters from {path}")
         return content
     
     async def _action_edit_file(self, params: Dict[str, Any]) -> str:
@@ -311,7 +415,7 @@ Return ONLY a JSON array of steps, no other text:
         content = params.get('content', '')
         
         if not path:
-            raise ValueError("Missing path")
+            raise ValueError("Missing required parameter 'path' for create_file action")
         
         with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
@@ -322,18 +426,28 @@ Return ONLY a JSON array of steps, no other text:
         """Search for code"""
         query = params.get('query')
         
-        if not query or not self.code_mapper:
-            raise ValueError("Missing query or code_mapper")
+        if not query:
+            raise ValueError("Missing required parameter 'query' for search action")
         
+        if not self.code_mapper:
+            logger.warning("Code mapper not available, returning empty results")
+            return {'results': [], 'message': 'Code mapper not initialized'}
+        
+        logger.debug(f"Searching for: {query}")
         results = self.code_mapper.find_definition(query)
+        logger.debug(f"Found {len(results) if results else 0} results")
         return {'results': results}
     
     async def _action_map_context(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get context from code map"""
         task = params.get('task')
         
-        if not task or not self.code_mapper:
-            raise ValueError("Missing task or code_mapper")
+        if not task:
+            raise ValueError("Missing required parameter 'task' for map_context action")
+        
+        if not self.code_mapper:
+            logger.warning("Code mapper not available, returning empty context")
+            return {'context': '', 'message': 'Code mapper not initialized'}
         
         context = self.code_mapper.get_context_for_task(task)
         return context
@@ -343,9 +457,11 @@ Return ONLY a JSON array of steps, no other text:
         prompt = params.get('prompt')
         
         if not prompt:
-            raise ValueError("Missing prompt")
+            raise ValueError("Missing required parameter 'prompt' for analyze action")
         
+        logger.debug(f"Analyzing with prompt (length: {len(prompt)} chars)")
         response = self.svc.ask(prompt)
+        logger.debug(f"Received analysis response (length: {len(response)} chars)")
         return response
     
     async def _verify_and_correct(self, results: List[Any], task: str) -> List[Any]:
@@ -358,9 +474,11 @@ Return ONLY a JSON array of steps, no other text:
         ]
         
         if not errors:
+            logger.debug("No errors found, verification passed")
             return results
         
         logger.info(f"🔍 Found {len(errors)} errors, attempting self-correction...")
+        logger.debug(f"Error indices: {[i for i, _ in errors]}")
         
         # Build correction prompt
         error_summary = "\n".join([
@@ -380,25 +498,34 @@ Provide specific corrective actions.
 """
         
         try:
+            logger.debug(f"Sending correction prompt to LLM (length: {len(correction_prompt)} chars)")
             correction = self.svc.ask(correction_prompt)
             logger.info(f"💡 Correction suggestion: {correction[:100]}...")
+            logger.debug(f"Full correction: {correction}")
             
             # For now, just log the correction
             # A full implementation would retry failed steps
             
         except Exception as e:
             logger.warning(f"Self-correction failed: {e}")
+            logger.debug(f"Exception type: {type(e).__name__}")
         
         return results
     
     def _step_to_dict(self, step: CascadeStep) -> Dict[str, Any]:
         """Convert step to dictionary for serialization"""
+        # Ensure result is JSON serializable
+        result_value = step.result
+        if isinstance(result_value, Exception):
+            result_value = {'error': str(result_value)}
+        
         return {
             'step_id': step.step_id,
             'action': step.action,
             'status': step.status,
             'duration': step.duration(),
-            'error': step.error
+            'error': step.error,
+            'result': result_value
         }
     
     def get_stats(self) -> Dict[str, Any]:
