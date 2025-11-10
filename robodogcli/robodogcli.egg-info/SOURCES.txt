@@ -28,6 +28,7 @@ robodog/task_manager.py
 robodog/task_parser.py
 robodog/throttle_spinner.py
 robodog/todo.py
+robodog/todo_cascade_integration.py
 robodog/todo_manager.py
 robodog/todo_util.py
 robodogcli.egg-info/PKG-INFO

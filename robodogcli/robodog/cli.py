@@ -120,6 +120,10 @@ def print_help():
         "analyze stats":       "show codebase statistics",
         "cascade on/off":      "enable/disable parallel execution",
         "cascade run <task>":  "run task with cascade mode",
+        "todorun <id>":        "run todo task with cascade+map",
+        "todorun auto":        "auto-run pending tasks",
+        "todorun batch <ids>": "run multiple tasks in parallel",
+        "stats":               "show execution statistics",
     }
     logging.info("Available /commands:")
     for cmd, desc in cmds.items():
@@ -554,6 +558,71 @@ def interact(svc: RobodogService, app_instance: RobodogApp, pipboy_ui=None):  # 
                                 logging.info(f"   Duration: {result['duration']:.1f}s")
                             else:
                                 logging.error(f"❌ Cascade failed: {result.get('error', 'Unknown error')}")
+                
+                # --- Integrated Todo-Cascade-Map Commands ---
+                elif cmd == "todorun":
+                    # Execute todo tasks with cascade mode
+                    if not hasattr(svc, 'cascade_engine'):
+                        from cascade_mode import CascadeEngine
+                        svc.cascade_engine = CascadeEngine(svc, svc.code_mapper, svc.file_service)
+                    
+                    if not hasattr(svc, 'todo_cascade_integration'):
+                        from todo_cascade_integration import create_integration
+                        svc.todo_cascade_integration = create_integration(
+                            svc.todo, svc.cascade_engine, svc.code_mapper
+                        )
+                    
+                    if not args:
+                        logging.info("Usage: /todorun <task_id|auto|batch> [options]")
+                        logging.info("  /todorun 1           - Run task 1 with cascade")
+                        logging.info("  /todorun auto        - Auto-run pending tasks")
+                        logging.info("  /todorun batch 1 2 3 - Run tasks 1, 2, 3 in parallel")
+                    elif args[0] == "auto":
+                        max_tasks = int(args[1]) if len(args) > 1 else 5
+                        logging.info(f"🤖 Auto-executing up to {max_tasks} pending tasks...")
+                        import asyncio
+                        result = asyncio.run(svc.todo_cascade_integration.auto_execute_pending_todos(max_tasks))
+                        logging.info(f"✅ Completed: {result['successful']}/{result['total_tasks']} tasks")
+                    elif args[0] == "batch":
+                        if len(args) < 2:
+                            logging.warning("Usage: /todorun batch <task_id1> <task_id2> ...")
+                        else:
+                            task_ids = [int(tid) for tid in args[1:]]
+                            logging.info(f"🔄 Running {len(task_ids)} tasks in parallel...")
+                            import asyncio
+                            result = asyncio.run(svc.todo_cascade_integration.execute_multiple_todos(task_ids))
+                            logging.info(f"✅ Completed: {result['successful']}/{result['total_tasks']} tasks")
+                            logging.info(f"   Duration: {result['duration']:.1f}s")
+                    else:
+                        # Single task execution
+                        try:
+                            task_id = int(args[0])
+                            use_map = "--no-map" not in args
+                            logging.info(f"🚀 Executing task {task_id} with cascade (map_context={use_map})...")
+                            import asyncio
+                            result = asyncio.run(svc.todo_cascade_integration.execute_todo_with_cascade(
+                                task_id, use_map_context=use_map
+                            ))
+                            if result['status'] == 'success':
+                                logging.info(f"✅ Task {task_id} completed in {result['duration']:.1f}s")
+                            else:
+                                logging.error(f"❌ Task {task_id} failed: {result.get('error', 'Unknown')}")
+                        except ValueError:
+                            logging.error(f"Invalid task ID: {args[0]}")
+                
+                elif cmd == "stats":
+                    # Show execution statistics
+                    if hasattr(svc, 'todo_cascade_integration'):
+                        stats = svc.todo_cascade_integration.get_stats()
+                        logging.info("📊 Execution Statistics:")
+                        logging.info(f"   Total tasks: {stats['total_tasks']}")
+                        logging.info(f"   Completed: {stats['completed']}")
+                        logging.info(f"   Failed: {stats['failed']}")
+                        logging.info(f"   Success rate: {stats['success_rate']*100:.1f}%")
+                        logging.info(f"   Avg duration: {stats['avg_duration']:.2f}s")
+                        logging.info(f"   Total time: {stats['total_duration']:.1f}s")
+                    else:
+                        logging.info("No execution stats available yet")
 
                 else:
                     logging.error("unknown /cmd: %s", cmd)

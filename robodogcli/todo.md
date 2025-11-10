@@ -67,10 +67,5 @@ Expected: 3-5 chunks, multiple iterations, comprehensive summary.
   - out: temp\out.py
   - plan: temp\plan.md
 ```knowledge
-Simple test with single file to verify:
-1. Basic execution flow
-2. Self-reflection works on single file
-3. Quality scoring
-4. Logging is clear and readable
-
-Expected: 1 chunk, 1 iteration, quality score shown.
+remove simple ui
+```

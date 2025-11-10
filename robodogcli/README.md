@@ -22,6 +22,18 @@ NEVER TRUST A CODE SPEWING ROBOT!
 
 ---
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) folder:
+
+- **[Documentation Index](docs/INDEX.md)** - Complete guide to all documentation
+- **[Todo-Cascade-Map Integration](docs/TODO_CASCADE_MAP_INTEGRATION.md)** - ⭐ NEW! Integrated execution
+- **[Quick Start: Code Map](docs/QUICK_START_CODE_MAP.md)** - Get started with code mapping
+- **[Quick Start: Agent Loop](docs/QUICK_START_AGENT_LOOP.md)** - Agentic task execution
+- **[Todo API Guide](docs/TODO_API_GUIDE.md)** - Complete todo task reference
+
+---
+
 ## Try Robodog  
 
 - **Web**: https://adourish.github.io/robodog/robodog/dist/  
