@@ -29,6 +29,7 @@ class AmplenoteService:
                 - baseUrl: API base URL
                 - authUrl: OAuth authorization URL
                 - tokenUrl: OAuth token URL
+                - apiKey: Direct API token (alternative to OAuth)
                 - clientId: OAuth client ID (optional, for registered apps)
                 - scopes: List of OAuth scopes
         """
@@ -36,6 +37,7 @@ class AmplenoteService:
         self.auth_url = config.get("authUrl", "https://login.amplenote.com/login")
         self.token_url = config.get("tokenUrl", "https://api.amplenote.com/oauth/token")
         self.client_id = config.get("clientId", "")
+        self.api_key = config.get("apiKey", "")
         self.scopes = config.get("scopes", [
             "notes:create",
             "notes:create-content-action",
@@ -49,7 +51,13 @@ class AmplenoteService:
         
         self.access_token = None
         self.refresh_token = None
-        self._load_token()
+        
+        # If API key is provided, use it directly
+        if self.api_key:
+            self.access_token = self.api_key
+            logger.info("Using Amplenote API key from config")
+        else:
+            self._load_token()
     
     def _generate_pkce_pair(self) -> tuple[str, str]:
         """Generate PKCE code verifier and challenge."""
@@ -87,6 +95,7 @@ class AmplenoteService:
     def authenticate(self, redirect_uri: str = "http://localhost:8080/callback") -> bool:
         """
         Perform OAuth2 PKCE authentication flow.
+        Note: If API key is configured, authentication is not needed.
         
         Args:
             redirect_uri: OAuth redirect URI
@@ -94,6 +103,10 @@ class AmplenoteService:
         Returns:
             True if authentication successful, False otherwise
         """
+        # If API key is already set, no need to authenticate
+        if self.api_key:
+            print("\n✓ Using API key from config.yaml - no OAuth needed!")
+            return True
         # Generate PKCE pair
         code_verifier, code_challenge = self._generate_pkce_pair()
         
@@ -179,9 +192,20 @@ class AmplenoteService:
         
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         headers = kwargs.pop("headers", {})
+        
+        # Amplenote uses Bearer token for OAuth, but API key might need different format
+        # Try Bearer first, but log the request for debugging
         headers["Authorization"] = f"Bearer {self.access_token}"
         
+        logger.debug(f"Making {method} request to {url}")
+        logger.debug(f"Using token: {self.access_token[:20]}...")
+        
         response = requests.request(method, url, headers=headers, **kwargs)
+        
+        # Log response for debugging
+        if response.status_code != 200 and response.status_code != 201:
+            logger.error(f"Request failed with status {response.status_code}: {response.text}")
+        
         response.raise_for_status()
         return response
     

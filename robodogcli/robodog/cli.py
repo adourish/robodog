@@ -652,11 +652,14 @@ def interact(svc: RobodogService, app_instance: RobodogApp, pipboy_ui=None):  # 
                         
                         if subcmd == "auth":
                             # Authenticate with Amplenote
-                            logging.info("Starting Amplenote authentication...")
-                            if svc.amplenote.authenticate():
-                                logging.info("✅ Successfully authenticated with Amplenote")
+                            if svc.amplenote.api_key:
+                                logging.info("✅ Using API key from config.yaml - already authenticated!")
                             else:
-                                logging.error("❌ Authentication failed")
+                                logging.info("Starting Amplenote OAuth authentication...")
+                                if svc.amplenote.authenticate():
+                                    logging.info("✅ Successfully authenticated with Amplenote")
+                                else:
+                                    logging.error("❌ Authentication failed")
                         
                         elif subcmd == "list":
                             # List notes
