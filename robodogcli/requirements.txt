@@ -13,3 +13,6 @@ colorama
 
 # New dependency for Textual UI
 textual>=0.40.0
+
+# Amplenote API integration
+authlib>=1.2.0

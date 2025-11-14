@@ -138,6 +138,10 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     "MAP_USAGES","MAP_SAVE","MAP_LOAD","MAP_INDEX",
                     "ANALYZE_CALLGRAPH","ANALYZE_IMPACT","ANALYZE_DEPS","ANALYZE_STATS",
                     "CASCADE_RUN",
+                    "AMPLENOTE_AUTH","AMPLENOTE_LIST","AMPLENOTE_CREATE","AMPLENOTE_ADD",
+                    "AMPLENOTE_TASK","AMPLENOTE_LINK","AMPLENOTE_UPLOAD",
+                    "TODOIST_AUTH","TODOIST_PROJECTS","TODOIST_TASKS","TODOIST_CREATE",
+                    "TODOIST_COMPLETE","TODOIST_PROJECT","TODOIST_LABELS","TODOIST_COMMENT",
                     "INCLUDE","CURL","PLAY","QUIT","EXIT"
                 ]}
 
@@ -571,6 +575,158 @@ class MCPHandler(socketserver.StreamRequestHandler):
             if op == "PLAY":
                 SERVICE.play(p.get("instructions",""))
                 return {"status":"ok"}
+            
+            # --- Amplenote Integration ---
+            if op == "AMPLENOTE_AUTH":
+                if not SERVICE.amplenote:
+                    raise ValueError("Amplenote service not configured")
+                redirect_uri = p.get("redirect_uri", "http://localhost:8080/callback")
+                success = SERVICE.amplenote.authenticate(redirect_uri)
+                return {"status":"ok" if success else "error","authenticated":success}
+            
+            if op == "AMPLENOTE_LIST":
+                if not SERVICE.amplenote or not SERVICE.amplenote.is_authenticated():
+                    raise ValueError("Not authenticated with Amplenote")
+                since = p.get("since")
+                notes = SERVICE.amplenote.list_notes(since=since)
+                return {"status":"ok","notes":notes}
+            
+            if op == "AMPLENOTE_CREATE":
+                if not SERVICE.amplenote or not SERVICE.amplenote.is_authenticated():
+                    raise ValueError("Not authenticated with Amplenote")
+                name = p.get("name")
+                if not name:
+                    raise ValueError("Missing 'name'")
+                tags = p.get("tags")
+                note = SERVICE.amplenote.create_note(name, tags=tags)
+                return {"status":"ok","note":note}
+            
+            if op == "AMPLENOTE_ADD":
+                if not SERVICE.amplenote or not SERVICE.amplenote.is_authenticated():
+                    raise ValueError("Not authenticated with Amplenote")
+                note_uuid = p.get("note_uuid")
+                content = p.get("content")
+                if not note_uuid or not content:
+                    raise ValueError("Missing 'note_uuid' or 'content'")
+                content_type = p.get("content_type", "paragraph")
+                SERVICE.amplenote.insert_content(note_uuid, content, content_type)
+                return {"status":"ok"}
+            
+            if op == "AMPLENOTE_TASK":
+                if not SERVICE.amplenote or not SERVICE.amplenote.is_authenticated():
+                    raise ValueError("Not authenticated with Amplenote")
+                note_uuid = p.get("note_uuid")
+                task_text = p.get("task_text")
+                if not note_uuid or not task_text:
+                    raise ValueError("Missing 'note_uuid' or 'task_text'")
+                due = p.get("due")
+                flags = p.get("flags")
+                SERVICE.amplenote.insert_task(note_uuid, task_text, due=due, flags=flags)
+                return {"status":"ok"}
+            
+            if op == "AMPLENOTE_LINK":
+                if not SERVICE.amplenote or not SERVICE.amplenote.is_authenticated():
+                    raise ValueError("Not authenticated with Amplenote")
+                note_uuid = p.get("note_uuid")
+                url = p.get("url")
+                link_text = p.get("link_text")
+                if not note_uuid or not url or not link_text:
+                    raise ValueError("Missing 'note_uuid', 'url', or 'link_text'")
+                description = p.get("description")
+                SERVICE.amplenote.insert_link(note_uuid, url, link_text, description=description)
+                return {"status":"ok"}
+            
+            if op == "AMPLENOTE_UPLOAD":
+                if not SERVICE.amplenote or not SERVICE.amplenote.is_authenticated():
+                    raise ValueError("Not authenticated with Amplenote")
+                note_uuid = p.get("note_uuid")
+                file_path = p.get("file_path")
+                if not note_uuid or not file_path:
+                    raise ValueError("Missing 'note_uuid' or 'file_path'")
+                if not _is_path_allowed(file_path):
+                    raise PermissionError("Access denied")
+                src_url = SERVICE.amplenote.upload_media(note_uuid, file_path)
+                return {"status":"ok","src_url":src_url}
+            
+            # --- Todoist Integration ---
+            if op == "TODOIST_AUTH":
+                if not SERVICE.todoist:
+                    raise ValueError("Todoist service not configured")
+                redirect_uri = p.get("redirect_uri", "http://localhost:8080")
+                success = SERVICE.todoist.authenticate(redirect_uri)
+                return {"status":"ok" if success else "error","authenticated":success}
+            
+            if op == "TODOIST_PROJECTS":
+                if not SERVICE.todoist or not SERVICE.todoist.is_authenticated():
+                    raise ValueError("Not authenticated with Todoist")
+                projects = SERVICE.todoist.get_projects()
+                return {"status":"ok","projects":projects}
+            
+            if op == "TODOIST_TASKS":
+                if not SERVICE.todoist or not SERVICE.todoist.is_authenticated():
+                    raise ValueError("Not authenticated with Todoist")
+                project_id = p.get("project_id")
+                label = p.get("label")
+                filter_query = p.get("filter")
+                tasks = SERVICE.todoist.get_tasks(project_id=project_id, label=label, filter_query=filter_query)
+                return {"status":"ok","tasks":tasks}
+            
+            if op == "TODOIST_CREATE":
+                if not SERVICE.todoist or not SERVICE.todoist.is_authenticated():
+                    raise ValueError("Not authenticated with Todoist")
+                content = p.get("content")
+                if not content:
+                    raise ValueError("Missing 'content'")
+                description = p.get("description")
+                project_id = p.get("project_id")
+                due_string = p.get("due_string")
+                priority = p.get("priority", 1)
+                labels = p.get("labels")
+                task = SERVICE.todoist.create_task(
+                    content=content,
+                    description=description,
+                    project_id=project_id,
+                    due_string=due_string,
+                    priority=priority,
+                    labels=labels
+                )
+                return {"status":"ok","task":task}
+            
+            if op == "TODOIST_COMPLETE":
+                if not SERVICE.todoist or not SERVICE.todoist.is_authenticated():
+                    raise ValueError("Not authenticated with Todoist")
+                task_id = p.get("task_id")
+                if not task_id:
+                    raise ValueError("Missing 'task_id'")
+                SERVICE.todoist.close_task(task_id)
+                return {"status":"ok"}
+            
+            if op == "TODOIST_PROJECT":
+                if not SERVICE.todoist or not SERVICE.todoist.is_authenticated():
+                    raise ValueError("Not authenticated with Todoist")
+                name = p.get("name")
+                if not name:
+                    raise ValueError("Missing 'name'")
+                color = p.get("color")
+                is_favorite = p.get("is_favorite", False)
+                project = SERVICE.todoist.create_project(name, color=color, is_favorite=is_favorite)
+                return {"status":"ok","project":project}
+            
+            if op == "TODOIST_LABELS":
+                if not SERVICE.todoist or not SERVICE.todoist.is_authenticated():
+                    raise ValueError("Not authenticated with Todoist")
+                labels = SERVICE.todoist.get_labels()
+                return {"status":"ok","labels":labels}
+            
+            if op == "TODOIST_COMMENT":
+                if not SERVICE.todoist or not SERVICE.todoist.is_authenticated():
+                    raise ValueError("Not authenticated with Todoist")
+                task_id = p.get("task_id")
+                content = p.get("content")
+                if not task_id or not content:
+                    raise ValueError("Missing 'task_id' or 'content'")
+                comment = SERVICE.todoist.create_comment(content, task_id=task_id)
+                return {"status":"ok","comment":comment}
 
             if op in ("QUIT","EXIT"):
                 return {"status":"ok","message":"Goodbye!"}

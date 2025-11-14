@@ -4,6 +4,8 @@
 
 - **[Quick Start: Agent Loop](QUICK_START_AGENT_LOOP.md)** - Get started with agentic task execution
 - **[Quick Start: Code Map](QUICK_START_CODE_MAP.md)** - Learn to use the code mapping feature
+- **[Quick Start: Amplenote](QUICK_START_AMPLENOTE.md)** - ⭐ **NEW!** Integrate with Amplenote
+- **[Quick Start: Todoist](QUICK_START_TODOIST.md)** - ⭐ **NEW!** Integrate with Todoist
 - **[Analyze Quick Start](ANALYZE_QUICK_START.md)** - Advanced code analysis features
 
 ## 🎯 Core Features
@@ -26,10 +28,15 @@
 - **[Test Agent Loop](TEST_AGENT_LOOP.md)** - Testing and validation
 
 ### Cascade Mode
+- **[Todo Cascade Execution](TODO_CASCADE_EXECUTION.md)** - ⭐ **NEW!** Automatic cascade for todos
 - **[Todo-Cascade-Map Integration](TODO_CASCADE_MAP_INTEGRATION.md)** - ⭐ **NEW!** Integrated execution
 - **[Cascade Logging Improvements](CASCADE_LOGGING_IMPROVEMENTS.md)** - Enhanced debugging
 - **[Cascade Parameter Fix](CASCADE_PARAMETER_FIX.md)** - Parameter validation
 - **[Cascade JSON Fix](CASCADE_JSON_FIX.md)** - JSON serialization fixes
+
+### Integrations
+- **[Amplenote Integration](AMPLENOTE_INTEGRATION.md)** - ⭐ **NEW!** Complete Amplenote API integration
+- **[Todoist Integration](TODOIST_INTEGRATION.md)** - ⭐ **NEW!** Complete Todoist API integration
 
 ### Smart Merge
 - **[Precise Smart Merge](PRECISE_SMART_MERGE.md)** - Line-by-line merge algorithm
@@ -95,8 +102,11 @@
 ### For New Users:
 1. [Quick Start: Code Map](QUICK_START_CODE_MAP.md)
 2. [Quick Start: Agent Loop](QUICK_START_AGENT_LOOP.md)
-3. [Todo API Guide](TODO_API_GUIDE.md)
-4. [Todo-Cascade-Map Integration](TODO_CASCADE_MAP_INTEGRATION.md) ⭐ **NEW!**
+3. [Quick Start: Amplenote](QUICK_START_AMPLENOTE.md) ⭐ **NEW!**
+4. [Quick Start: Todoist](QUICK_START_TODOIST.md) ⭐ **NEW!**
+5. [Todo API Guide](TODO_API_GUIDE.md)
+6. [Todo Cascade Execution](TODO_CASCADE_EXECUTION.md)
+7. [Todo-Cascade-Map Integration](TODO_CASCADE_MAP_INTEGRATION.md)
 
 ### For Developers:
 1. [Code Map Guide](CODE_MAP_GUIDE.md)
@@ -112,5 +122,5 @@
 
 ---
 
-*Last Updated: November 9, 2025*
-*Total Documents: 50*
+*Last Updated: November 13, 2025*
+*Total Documents: 54*

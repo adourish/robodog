@@ -29,6 +29,16 @@ try:
 except ImportError:
     from code_map import CodeMapper
 
+try:
+    from .amplenote_service import AmplenoteService
+except ImportError:
+    from amplenote_service import AmplenoteService
+
+try:
+    from .todoist_service import TodoistService
+except ImportError:
+    from todoist_service import TodoistService
+
 logger = logging.getLogger('robodog.service')
 
 
@@ -50,6 +60,24 @@ class RobodogService:
         self._app = app
         self.todo_mgr = TodoManager(self._roots)  # Initialize TodoManager
         self.code_mapper = CodeMapper(self._roots, self._exclude_dirs)  # Initialize CodeMapper
+        
+        # Initialize Amplenote service if configured
+        self.amplenote = None
+        if "amplenote" in self.providers:
+            try:
+                self.amplenote = AmplenoteService(self.providers["amplenote"])
+                logger.info("Amplenote service initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Amplenote service: {e}")
+        
+        # Initialize Todoist service if configured
+        self.todoist = None
+        if "todoist" in self.providers:
+            try:
+                self.todoist = TodoistService(self.providers["todoist"])
+                logger.info("Todoist service initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Todoist service: {e}")
 
     def set_ui_callback(self, callback):
         """Set callback for UI updates during streaming. Ensures no logger conflicts."""

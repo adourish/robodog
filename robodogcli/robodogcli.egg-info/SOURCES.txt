@@ -6,6 +6,7 @@ robodog/advanced_analysis.py
 robodog/agent_context.py
 robodog/agent_loop.py
 robodog/agent_loop_enhanced.py
+robodog/amplenote_service.py
 robodog/app.py
 robodog/base.py
 robodog/cascade_mode.py
@@ -31,6 +32,7 @@ robodog/todo.py
 robodog/todo_cascade_integration.py
 robodog/todo_manager.py
 robodog/todo_util.py
+robodog/todoist_service.py
 robodogcli.egg-info/PKG-INFO
 robodogcli.egg-info/SOURCES.txt
 robodogcli.egg-info/dependency_links.txt

@@ -655,10 +655,59 @@ class TodoService:
                 st = self.start_task(task, file_lines_map, cur_model, 2)
                 
                 task['_start_stamp'] = st
-                ai_out = svc.ask(prompt)
-                if not ai_out:
-                    logger.warning(f"No AI output generated{diff_mode_text}, retrying once", extra={'log_color': 'DELTA'})
+                
+                # Use cascade mode for better parallelization and automatic change application
+                use_cascade = hasattr(svc, 'cascade_engine') and svc.cascade_engine is not None
+                
+                if use_cascade:
+                    logger.info("🌊 Using cascade mode for todo execution", extra={'log_color': 'HIGHLIGHT'})
+                    
+                    # Build context from plan and includes
+                    context_parts = []
+                    if plan_knowledge:
+                        context_parts.append(plan_knowledge)
+                    if include_text:
+                        context_parts.append(f"Included files:\n{include_text}")
+                    if knowledge_text:
+                        context_parts.append(f"Task knowledge:\n{knowledge_text}")
+                    
+                    cascade_context = "\n\n".join(context_parts)
+                    
+                    # Execute with cascade
+                    import asyncio
+                    cascade_result = asyncio.run(svc.cascade_engine.execute_cascade(
+                        task=prompt_desc,
+                        context=cascade_context
+                    ))
+                    
+                    if cascade_result.get('status') == 'completed':
+                        logger.info(f"✅ Cascade completed: {cascade_result['successful']}/{cascade_result['steps']} steps", extra={'log_color': 'HIGHLIGHT'})
+                        
+                        # Extract results and format as AI output
+                        results = cascade_result.get('results', [])
+                        ai_out_parts = []
+                        for i, result in enumerate(results):
+                            if isinstance(result, dict) and 'content' in result:
+                                ai_out_parts.append(result['content'])
+                            elif isinstance(result, str):
+                                ai_out_parts.append(result)
+                        
+                        ai_out = "\n\n".join(ai_out_parts) if ai_out_parts else ""
+                        
+                        # If no structured output, ask LLM to format the results
+                        if not ai_out:
+                            summary_prompt = f"{prompt}\n\nCascade execution completed with {len(results)} steps. Please format the changes."
+                            ai_out = svc.ask(summary_prompt)
+                    else:
+                        logger.warning(f"⚠️ Cascade failed: {cascade_result.get('error', 'Unknown')}, falling back to standard execution", extra={'log_color': 'DELTA'})
+                        ai_out = svc.ask(prompt)
+                else:
+                    # Standard execution
                     ai_out = svc.ask(prompt)
+                    if not ai_out:
+                        logger.warning(f"No AI output generated{diff_mode_text}, retrying once", extra={'log_color': 'DELTA'})
+                        ai_out = svc.ask(prompt)
+                
                 self._todo_util._write_full_ai_output(svc, task, ai_out, 0, base_folder=base_folder)
                 parsed_files_raw = self.parser.parse_llm_output(ai_out, base_dir=str(basedir), file_service=self._file_service, ai_out_path=out_path, task=task, svc=svc) if ai_out else []
                 parsed_files = self._normalize_parsed_files(parsed_files_raw, base_folder or "")
@@ -666,7 +715,8 @@ class TodoService:
                 committed, compare = self._todo_util._write_parsed_files(parsed_files, task, False, base_folder=base_folder, current_filename=None)
                 task['_pending_files'] = compare or []
                 action_text = "files parsed" if not diff_mode else "diffs/files parsed"
-                logger.info(f"LLM step: {committed} {action_text} (not committed){diff_mode_text}", extra={'log_color': 'PERCENT'})
+                cascade_text = " (cascade mode)" if use_cascade else ""
+                logger.info(f"LLM step: {committed} {action_text} (not committed){diff_mode_text}{cascade_text}", extra={'log_color': 'PERCENT'})
                 ct = self.complete_task(task, file_lines_map, self._svc.get_cur_model(), 0, compare, True, 2)
                 task['_complete_stamp'] = ct
             elif step == 3 or (status == 'x' and commit == ' ' and plan == 'x'):

@@ -124,6 +124,23 @@ def print_help():
         "todorun auto":        "auto-run pending tasks",
         "todorun batch <ids>": "run multiple tasks in parallel",
         "stats":               "show execution statistics",
+        "amplenote auth":      "authenticate with Amplenote",
+        "amplenote list":      "list all notes",
+        "amplenote create":    "create a new note",
+        "amplenote add":       "add content to a note",
+        "amplenote task":      "add a task to a note",
+        "amplenote link":      "add a link to a note",
+        "amplenote upload":    "upload media to a note",
+        "amplenote logout":    "clear Amplenote authentication",
+        "todoist auth":        "authenticate with Todoist",
+        "todoist projects":    "list all projects",
+        "todoist tasks":       "list tasks",
+        "todoist create":      "create a task",
+        "todoist complete":    "complete a task",
+        "todoist project":     "create a project",
+        "todoist labels":      "list all labels",
+        "todoist comment":     "add comment to task",
+        "todoist logout":      "clear Todoist authentication",
     }
     logging.info("Available /commands:")
     for cmd, desc in cmds.items():
@@ -623,6 +640,263 @@ def interact(svc: RobodogService, app_instance: RobodogApp, pipboy_ui=None):  # 
                         logging.info(f"   Total time: {stats['total_duration']:.1f}s")
                     else:
                         logging.info("No execution stats available yet")
+                
+                elif cmd == "amplenote":
+                    # Amplenote commands
+                    if not svc.amplenote:
+                        logging.error("Amplenote service not configured. Check config.yaml")
+                    elif not args:
+                        logging.info("Usage: /amplenote <auth|list|create|add|task|link|upload|logout>")
+                    else:
+                        subcmd = args[0]
+                        
+                        if subcmd == "auth":
+                            # Authenticate with Amplenote
+                            logging.info("Starting Amplenote authentication...")
+                            if svc.amplenote.authenticate():
+                                logging.info("✅ Successfully authenticated with Amplenote")
+                            else:
+                                logging.error("❌ Authentication failed")
+                        
+                        elif subcmd == "list":
+                            # List notes
+                            if not svc.amplenote.is_authenticated():
+                                logging.error("Not authenticated. Run /amplenote auth first")
+                            else:
+                                try:
+                                    notes = svc.amplenote.list_notes()
+                                    logging.info(f"📝 Found {len(notes)} notes:")
+                                    for note in notes[:10]:  # Show first 10
+                                        logging.info(f"   {note['uuid']}: {note['name']}")
+                                    if len(notes) > 10:
+                                        logging.info(f"   ... and {len(notes) - 10} more")
+                                except Exception as e:
+                                    logging.error(f"Failed to list notes: {e}")
+                        
+                        elif subcmd == "create":
+                            # Create a new note
+                            if not svc.amplenote.is_authenticated():
+                                logging.error("Not authenticated. Run /amplenote auth first")
+                            elif len(args) < 2:
+                                logging.warning("Usage: /amplenote create <title> [tag1,tag2,...]")
+                            else:
+                                title = args[1]
+                                tags = args[2].split(',') if len(args) > 2 else None
+                                try:
+                                    note = svc.amplenote.create_note(title, tags=tags)
+                                    logging.info(f"✅ Created note: {note['name']} (UUID: {note['uuid']})")
+                                except Exception as e:
+                                    logging.error(f"Failed to create note: {e}")
+                        
+                        elif subcmd == "add":
+                            # Add content to a note
+                            if not svc.amplenote.is_authenticated():
+                                logging.error("Not authenticated. Run /amplenote auth first")
+                            elif len(args) < 3:
+                                logging.warning("Usage: /amplenote add <note_uuid> <content>")
+                            else:
+                                note_uuid = args[1]
+                                content = " ".join(args[2:])
+                                try:
+                                    svc.amplenote.insert_content(note_uuid, content)
+                                    logging.info(f"✅ Added content to note {note_uuid}")
+                                except Exception as e:
+                                    logging.error(f"Failed to add content: {e}")
+                        
+                        elif subcmd == "task":
+                            # Add a task to a note
+                            if not svc.amplenote.is_authenticated():
+                                logging.error("Not authenticated. Run /amplenote auth first")
+                            elif len(args) < 3:
+                                logging.warning("Usage: /amplenote task <note_uuid> <task_text>")
+                            else:
+                                note_uuid = args[1]
+                                task_text = " ".join(args[2:])
+                                try:
+                                    svc.amplenote.insert_task(note_uuid, task_text)
+                                    logging.info(f"✅ Added task to note {note_uuid}")
+                                except Exception as e:
+                                    logging.error(f"Failed to add task: {e}")
+                        
+                        elif subcmd == "link":
+                            # Add a link to a note
+                            if not svc.amplenote.is_authenticated():
+                                logging.error("Not authenticated. Run /amplenote auth first")
+                            elif len(args) < 4:
+                                logging.warning("Usage: /amplenote link <note_uuid> <url> <link_text>")
+                            else:
+                                note_uuid = args[1]
+                                url = args[2]
+                                link_text = " ".join(args[3:])
+                                try:
+                                    svc.amplenote.insert_link(note_uuid, url, link_text)
+                                    logging.info(f"✅ Added link to note {note_uuid}")
+                                except Exception as e:
+                                    logging.error(f"Failed to add link: {e}")
+                        
+                        elif subcmd == "upload":
+                            # Upload media to a note
+                            if not svc.amplenote.is_authenticated():
+                                logging.error("Not authenticated. Run /amplenote auth first")
+                            elif len(args) < 3:
+                                logging.warning("Usage: /amplenote upload <note_uuid> <file_path>")
+                            else:
+                                note_uuid = args[1]
+                                file_path = args[2]
+                                try:
+                                    src_url = svc.amplenote.upload_media(note_uuid, file_path)
+                                    logging.info(f"✅ Uploaded media: {src_url}")
+                                except Exception as e:
+                                    logging.error(f"Failed to upload media: {e}")
+                        
+                        elif subcmd == "logout":
+                            # Clear authentication
+                            svc.amplenote.clear_authentication()
+                            logging.info("✅ Logged out from Amplenote")
+                        
+                        else:
+                            logging.error(f"Unknown amplenote subcommand: {subcmd}")
+                            logging.info("Available: auth, list, create, add, task, link, upload, logout")
+                
+                elif cmd == "todoist":
+                    # Todoist commands
+                    if not svc.todoist:
+                        logging.error("Todoist service not configured. Check config.yaml")
+                    elif not args:
+                        logging.info("Usage: /todoist <auth|projects|tasks|create|complete|project|labels|comment|logout>")
+                    else:
+                        subcmd = args[0]
+                        
+                        if subcmd == "auth":
+                            # Authenticate with Todoist
+                            logging.info("Starting Todoist authentication...")
+                            if svc.todoist.authenticate():
+                                logging.info("✅ Successfully authenticated with Todoist")
+                            else:
+                                logging.error("❌ Authentication failed")
+                        
+                        elif subcmd == "projects":
+                            # List projects
+                            if not svc.todoist.is_authenticated():
+                                logging.error("Not authenticated. Run /todoist auth first")
+                            else:
+                                try:
+                                    projects = svc.todoist.get_projects()
+                                    logging.info(f"📁 Found {len(projects)} projects:")
+                                    for project in projects:
+                                        fav = "⭐" if project.get('is_favorite') else ""
+                                        logging.info(f"   {project['id']}: {project['name']} {fav}")
+                                except Exception as e:
+                                    logging.error(f"Failed to list projects: {e}")
+                        
+                        elif subcmd == "tasks":
+                            # List tasks
+                            if not svc.todoist.is_authenticated():
+                                logging.error("Not authenticated. Run /todoist auth first")
+                            else:
+                                try:
+                                    project_id = args[1] if len(args) > 1 else None
+                                    tasks = svc.todoist.get_tasks(project_id=project_id)
+                                    logging.info(f"✓ Found {len(tasks)} tasks:")
+                                    for task in tasks[:20]:  # Show first 20
+                                        priority_emoji = {4: "🔴", 3: "🟡", 2: "🔵", 1: "⚪"}
+                                        emoji = priority_emoji.get(task.get('priority', 1), "⚪")
+                                        due = f" (due: {task['due']['date']})" if task.get('due') else ""
+                                        logging.info(f"   {emoji} {task['id']}: {task['content']}{due}")
+                                    if len(tasks) > 20:
+                                        logging.info(f"   ... and {len(tasks) - 20} more")
+                                except Exception as e:
+                                    logging.error(f"Failed to list tasks: {e}")
+                        
+                        elif subcmd == "create":
+                            # Create a task
+                            if not svc.todoist.is_authenticated():
+                                logging.error("Not authenticated. Run /todoist auth first")
+                            elif len(args) < 2:
+                                logging.warning("Usage: /todoist create <task_content> [due:tomorrow] [p:1-4] [project:id]")
+                            else:
+                                content = " ".join(args[1:])
+                                
+                                # Parse quick add format
+                                parsed = svc.todoist.get_quick_add_task(content)
+                                
+                                try:
+                                    task = svc.todoist.create_task(
+                                        content=parsed["content"],
+                                        priority=parsed["priority"],
+                                        labels=parsed["labels"],
+                                        due_string=parsed["due_string"]
+                                    )
+                                    logging.info(f"✅ Created task: {task['content']} (ID: {task['id']})")
+                                except Exception as e:
+                                    logging.error(f"Failed to create task: {e}")
+                        
+                        elif subcmd == "complete":
+                            # Complete a task
+                            if not svc.todoist.is_authenticated():
+                                logging.error("Not authenticated. Run /todoist auth first")
+                            elif len(args) < 2:
+                                logging.warning("Usage: /todoist complete <task_id>")
+                            else:
+                                task_id = args[1]
+                                try:
+                                    svc.todoist.close_task(task_id)
+                                    logging.info(f"✅ Completed task {task_id}")
+                                except Exception as e:
+                                    logging.error(f"Failed to complete task: {e}")
+                        
+                        elif subcmd == "project":
+                            # Create a project
+                            if not svc.todoist.is_authenticated():
+                                logging.error("Not authenticated. Run /todoist auth first")
+                            elif len(args) < 2:
+                                logging.warning("Usage: /todoist project <name> [color]")
+                            else:
+                                name = args[1]
+                                color = args[2] if len(args) > 2 else None
+                                try:
+                                    project = svc.todoist.create_project(name, color=color)
+                                    logging.info(f"✅ Created project: {project['name']} (ID: {project['id']})")
+                                except Exception as e:
+                                    logging.error(f"Failed to create project: {e}")
+                        
+                        elif subcmd == "labels":
+                            # List labels
+                            if not svc.todoist.is_authenticated():
+                                logging.error("Not authenticated. Run /todoist auth first")
+                            else:
+                                try:
+                                    labels = svc.todoist.get_labels()
+                                    logging.info(f"🏷️  Found {len(labels)} labels:")
+                                    for label in labels:
+                                        fav = "⭐" if label.get('is_favorite') else ""
+                                        logging.info(f"   {label['id']}: {label['name']} {fav}")
+                                except Exception as e:
+                                    logging.error(f"Failed to list labels: {e}")
+                        
+                        elif subcmd == "comment":
+                            # Add comment to task
+                            if not svc.todoist.is_authenticated():
+                                logging.error("Not authenticated. Run /todoist auth first")
+                            elif len(args) < 3:
+                                logging.warning("Usage: /todoist comment <task_id> <comment_text>")
+                            else:
+                                task_id = args[1]
+                                comment_text = " ".join(args[2:])
+                                try:
+                                    comment = svc.todoist.create_comment(comment_text, task_id=task_id)
+                                    logging.info(f"✅ Added comment to task {task_id}")
+                                except Exception as e:
+                                    logging.error(f"Failed to add comment: {e}")
+                        
+                        elif subcmd == "logout":
+                            # Clear authentication
+                            svc.todoist.clear_authentication()
+                            logging.info("✅ Logged out from Todoist")
+                        
+                        else:
+                            logging.error(f"Unknown todoist subcommand: {subcmd}")
+                            logging.info("Available: auth, projects, tasks, create, complete, project, labels, comment, logout")
 
                 else:
                     logging.error("unknown /cmd: %s", cmd)
