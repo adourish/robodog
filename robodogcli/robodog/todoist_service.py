@@ -28,6 +28,7 @@ class TodoistService:
                 - baseUrl: API base URL
                 - authUrl: OAuth authorization URL
                 - tokenUrl: OAuth token URL
+                - apiKey: Direct API token (alternative to OAuth)
                 - clientId: OAuth client ID
                 - clientSecret: OAuth client secret
                 - scopes: List of OAuth scopes
@@ -35,6 +36,7 @@ class TodoistService:
         self.base_url = config.get("baseUrl", "https://api.todoist.com/rest/v2")
         self.auth_url = config.get("authUrl", "https://todoist.com/oauth/authorize")
         self.token_url = config.get("tokenUrl", "https://todoist.com/oauth/access_token")
+        self.api_key = config.get("apiKey", "")
         self.client_id = config.get("clientId", "")
         self.client_secret = config.get("clientSecret", "")
         self.scopes = config.get("scopes", ["data:read_write", "data:delete"])
@@ -44,7 +46,13 @@ class TodoistService:
         self.token_file.parent.mkdir(parents=True, exist_ok=True)
         
         self.access_token = None
-        self._load_token()
+        
+        # If API key is provided, use it directly
+        if self.api_key:
+            self.access_token = self.api_key
+            logger.info("Using Todoist API key from config")
+        else:
+            self._load_token()
     
     def _load_token(self):
         """Load stored access token if available."""
@@ -69,6 +77,7 @@ class TodoistService:
     def authenticate(self, redirect_uri: str = "http://localhost:8080") -> bool:
         """
         Perform OAuth2 authentication flow.
+        Note: If API key is configured, authentication is not needed.
         
         Args:
             redirect_uri: OAuth redirect URI
@@ -76,6 +85,11 @@ class TodoistService:
         Returns:
             True if authentication successful, False otherwise
         """
+        # If API key is already set, no need to authenticate
+        if self.api_key:
+            print("\n✓ Using API key from config.yaml - no OAuth needed!")
+            return True
+        
         if not self.client_id or not self.client_secret:
             logger.error("Client ID and Client Secret are required. Please update config.yaml")
             print("\n" + "="*60)
