@@ -31,19 +31,6 @@ if os.name == 'nt' and 'PSModulePath' in os.environ:
     logger.info("Detected PowerShell environment; ANSI colors may need colorama for full support", extra={'log_color': 'HIGHLIGHT'})
 else:
     POWERSHELL_ENV = False
-# cli.py (somewhere near the top)
-from service        import RobodogService
-from parse_service  import ParseService
-from file_service   import FileService
-from file_watcher   import FileWatcher
-from task_parser    import TaskParser
-from task_manager   import TaskManager
-from prompt_builder import PromptBuilder
-from todo_util           import TodoUtilService
-from todo           import TodoService
-from diff_service   import DiffService  # newly added
-from app            import RobodogApp   # Added import for RobodogApp integration
-from dashboard      import Dashboard, TaskSelector, CommitConfirmation, TokenBudgetDisplay, show_shortcuts
 # support both "python -m robodog.cli" and "python cli.py" invocations:
 try:
     from .service import RobodogService
@@ -54,12 +41,13 @@ try:
     from .file_service import FileService
     from .file_watcher import FileWatcher
     from .task_manager import TaskManager
-    from .todo_util           import TodoUtilService
+    from .todo_util import TodoUtilService
     from .task_parser import TaskParser
     from .prompt_builder import PromptBuilder
     from .throttle_spinner import ThrottledSpinner
-    from .app import RobodogApp  # Added relative import for RobodogApp
-    from .simple_ui import SimpleUIWrapper  # Simple UI
+    from .app import RobodogApp
+    from .simple_ui import SimpleUIWrapper
+    from .diff_service import DiffService
 except ImportError:
     from service import RobodogService
     from mcphandler import run_robodogmcp
@@ -68,12 +56,13 @@ except ImportError:
     from models import TaskModel, Change, ChangesList, IncludeSpec
     from file_service import FileService
     from file_watcher import FileWatcher
-    from todo_util           import TodoUtilService
+    from todo_util import TodoUtilService
     from task_manager import TaskManager
     from task_parser import TaskParser
     from prompt_builder import PromptBuilder
     from throttle_spinner import ThrottledSpinner
-    from app import RobodogApp  # Direct import for RobodogApp
+    from app import RobodogApp
+    from diff_service import DiffService
     from simple_ui import SimpleUIWrapper  # Simple UI
 
 

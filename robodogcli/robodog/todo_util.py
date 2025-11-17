@@ -14,8 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Tuple, Any
 import statistics
-from smart_merge import SmartMerge
-from smart_merge_precise import PreciseSmartMerge
+from .smart_merge import SmartMerge
+from .smart_merge_precise import PreciseSmartMerge
 
 import tiktoken
 from pydantic import BaseModel, RootModel

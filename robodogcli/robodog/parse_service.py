@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Union
 import logging
 from pathlib import Path
 from datetime import datetime
-from diff_service import DiffService
+from .diff_service import DiffService
 
 logger = logging.getLogger(__name__)
 

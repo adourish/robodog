@@ -39,6 +39,17 @@ try:
 except ImportError:
     from todoist_service import TodoistService
 
+# Add path for google_service
+google_service_path = Path(__file__).parent.parent
+if str(google_service_path) not in sys.path:
+    sys.path.insert(0, str(google_service_path))
+
+try:
+    from google_service import GoogleService
+except ImportError:
+    GoogleService = None
+    logging.getLogger('robodog.service').warning("Google service not available")
+
 logger = logging.getLogger('robodog.service')
 
 
@@ -78,6 +89,31 @@ class RobodogService:
                 logger.info("Todoist service initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize Todoist service: {e}")
+        
+        # Initialize Google service if configured
+        self.google = None
+        if GoogleService and "google" in self.providers:
+            try:
+                google_cfg = self.providers["google"]
+                self.google = GoogleService(
+                    client_id=google_cfg.get("client_id"),
+                    client_secret=google_cfg.get("client_secret"),
+                    redirect_uri=google_cfg.get("redirect_uri")
+                )
+                logger.info("Google service initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Google service: {e}")
+        elif GoogleService:
+            # Initialize with default client ID even if not in config
+            try:
+                self.google = GoogleService()
+                # Try to load client secret from environment
+                client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+                if client_secret:
+                    self.google.client_secret = client_secret
+                logger.info("Google service initialized with defaults")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Google service: {e}")
 
     def set_ui_callback(self, callback):
         """Set callback for UI updates during streaming. Ensures no logger conflicts."""

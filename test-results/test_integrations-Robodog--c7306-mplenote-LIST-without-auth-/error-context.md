@@ -1,0 +1,82 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - combobox [ref=e6]:
+      - option "Select an option" [disabled] [selected]
+      - option "/help Get help."
+      - option "/import Import files into knowledge (.md, .txt, .js, .cs, .java, .py, json, .yaml, .php, .csv, .json)"
+      - option "/export <name> Export knowledge to a file."
+      - option "/clear Clear screen."
+      - option "/rest Use rest completions"
+      - option "/stream Use stream completions"
+      - option "/reset Reset API key"
+      - option "/stash <name> Stash questions and knowledge"
+      - option "/pop <name> Pop questions and knowledge"
+      - option "/list list stashed questions and knowledge"
+      - option "/temperature <number> Temperature is a number between 0 and 2, Default value of 1 or 0.7 depending on the model."
+      - option "/max_tokens <number> Set max tokens."
+      - option "/top_p <number> Set top p."
+      - option "/frequency_penalty <number> Set frequency penalty."
+      - option "/presence_penalty <number> Set presence penalty."
+      - option "CTRL+SHIFT+UP Cycle through stash list."
+      - option "CTRL+S Save a snapshot to storage."
+      - 'option "/include pattern=*robodog*.css|*robodog*.js|*robodog*.jsx recursive` include all robodog files"'
+      - 'option "/include file=*.txt` → glob search across all roots ."'
+      - 'option "/include pattern=*.txt|*.js recursive` ."'
+      - option "/models List all configured models."
+      - option "/folders <dirs> Update MCP root folders."
+      - option "/curl <url> [<js>] Fetch web pages or run JS snippets."
+      - option "/play <instructions> Run AI-driven Playwright tests end-to-end."
+      - option "/mcp <OP> [JSON] Invoke raw MCP operation."
+      - option "/map scan Scan codebase and create index (saves 90% tokens!)."
+      - option "/map find <name> Find class or function definition."
+      - option "/map context <task> Get relevant files for a task."
+      - option "/map save Save code map to codemap.json."
+      - option "/map load Load code map from codemap.json."
+      - option "/analyze callgraph Build call graph for codebase."
+      - option "/analyze impact <fn> Find what breaks if function changes."
+      - option "/analyze deps <file> Show file dependencies."
+      - option "/analyze stats Show codebase statistics."
+      - option "/cascade run <task> Run task with parallel execution (Windsurf-style)."
+      - option "/filter Toggle chat/knowledge filter mode."
+      - option "/toggle Toggle visibility of text areas."
+      - option "/search Toggle web search mode."
+      - option "/dark Toggle dark/light UI theme."
+    - combobox [ref=e7]:
+      - option "Select a save point" [disabled] [selected]
+  - generic [ref=e8]:
+    - generic [ref=e9]: ":build: 2.6.0 - 1763342260 - Sun Nov 16 2025 8:17:40 PM"
+    - generic [ref=e10]: ":model: null"
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]: "[0]"
+      - generic [ref=e14]: "[gpt-3.5-turbo]"
+      - generic [ref=e15]: "[1]"
+      - generic [ref=e16]: "[🦥]"
+      - generic [ref=e17]: "[🐁]"
+      - generic [ref=e18]: "[]"
+      - generic [ref=e19]: "[]"
+      - generic [ref=e20]: "[]"
+      - generic [ref=e21]: "[autosave]"
+      - generic [ref=e22]: "[]"
+      - generic [ref=e23]: "[]"
+      - generic [ref=e24]: "[]"
+      - button "history" [ref=e25] [cursor=pointer]: 📤
+      - button "history" [ref=e26] [cursor=pointer]: 📥
+      - button "settings" [ref=e27] [cursor=pointer]: ⚙️
+      - button "history" [ref=e28] [cursor=pointer]: 📍
+    - generic [ref=e29]:
+      - textbox "chat history" [ref=e30]:
+        - /placeholder: "Chat history💭: "
+      - button "history" [ref=e31] [cursor=pointer]: ⬜
+    - generic [ref=e32]:
+      - textbox "knowledge content" [ref=e33]:
+        - /placeholder: "Knowledge📝: examples, data, code"
+      - button "knowledge" [ref=e34] [cursor=pointer]: ⬜
+    - generic [ref=e35]:
+      - textbox "chat text" [ref=e36]:
+        - /placeholder: "Chat💬: "
+      - button "chat submit" [ref=e37] [cursor=pointer]: 🤖
+```

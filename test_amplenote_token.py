@@ -2,10 +2,12 @@
 """Test Amplenote API token"""
 
 import requests
+import os
 
-# Your API token from config.yaml
-API_TOKEN = "b889d2968aaee9169fc6981dcf175c2f63af8cddf1bfdce0a431fa1757534502"
+# Your API token - testing new key
+API_TOKEN = os.getenv('AMPLENOTE_API_TOKEN') or "YOUR_AMPLENOTE_API_TOKEN_HERE"
 BASE_URL = "https://api.amplenote.com/v4"
+print("Testing with NEW token (PMAK)...")
 
 def test_token():
     """Test if the API token works"""

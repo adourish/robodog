@@ -727,6 +727,338 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     raise ValueError("Missing 'task_id' or 'content'")
                 comment = SERVICE.todoist.create_comment(content, task_id=task_id)
                 return {"status":"ok","comment":comment}
+            
+            # ==================== Google API Operations ====================
+            
+            if op == "GOOGLE_AUTH":
+                # Authenticate with Google
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                result = SERVICE.google.authenticate()
+                return {"status":"ok","authenticated":True,"result":result}
+            
+            if op == "GOOGLE_SET_TOKEN":
+                # Set Google access token manually
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                token = p.get("token")
+                refresh_token = p.get("refresh_token")
+                if not token:
+                    raise ValueError("Missing 'token'")
+                SERVICE.google.set_access_token(token, refresh_token)
+                return {"status":"ok","authenticated":True}
+            
+            if op == "GOOGLE_STATUS":
+                # Check Google authentication status
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    return {"status":"ok","authenticated":False,"available":False}
+                is_auth = SERVICE.google.is_authenticated()
+                token = SERVICE.google.get_access_token()
+                return {"status":"ok","authenticated":is_auth,"has_token":bool(token),"available":True}
+            
+            # --- Google Docs Operations ---
+            
+            if op == "GDOC_CREATE":
+                # Create a new Google Doc
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google. Run GOOGLE_AUTH first.")
+                title = p.get("title")
+                content = p.get("content", "")
+                if not title:
+                    raise ValueError("Missing 'title'")
+                doc = SERVICE.google.create_document(title, content)
+                return {"status":"ok","document":doc}
+            
+            if op == "GDOC_GET":
+                # Get a Google Doc
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                doc_id = p.get("document_id") or p.get("doc_id")
+                if not doc_id:
+                    raise ValueError("Missing 'document_id'")
+                doc = SERVICE.google.get_document(doc_id)
+                return {"status":"ok","document":doc}
+            
+            if op == "GDOC_READ":
+                # Read text content from a Google Doc
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                doc_id = p.get("document_id") or p.get("doc_id")
+                if not doc_id:
+                    raise ValueError("Missing 'document_id'")
+                text = SERVICE.google.read_document_text(doc_id)
+                return {"status":"ok","document_id":doc_id,"text":text}
+            
+            if op == "GDOC_UPDATE":
+                # Update a Google Doc
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                doc_id = p.get("document_id") or p.get("doc_id")
+                content = p.get("content")
+                insert_index = p.get("insert_index", 1)
+                if not doc_id or not content:
+                    raise ValueError("Missing 'document_id' or 'content'")
+                result = SERVICE.google.update_document(doc_id, content, insert_index)
+                return {"status":"ok","document_id":doc_id,"result":result}
+            
+            if op == "GDOC_DELETE":
+                # Delete a Google Doc (move to trash)
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                doc_id = p.get("document_id") or p.get("doc_id")
+                if not doc_id:
+                    raise ValueError("Missing 'document_id'")
+                result = SERVICE.google.delete_document(doc_id)
+                return {"status":"ok","document_id":doc_id,"deleted":True}
+            
+            # --- Gmail Operations ---
+            
+            if op == "GMAIL_SEND":
+                # Send an email via Gmail
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                to = p.get("to")
+                subject = p.get("subject")
+                body = p.get("body")
+                is_html = p.get("is_html", False)
+                cc = p.get("cc")
+                bcc = p.get("bcc")
+                if not to or not subject or not body:
+                    raise ValueError("Missing 'to', 'subject', or 'body'")
+                result = SERVICE.google.send_email(to, subject, body, is_html, cc, bcc)
+                return {"status":"ok","email":result}
+            
+            if op == "GMAIL_LIST":
+                # List emails
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                max_results = p.get("max_results", 10)
+                query = p.get("query", "")
+                emails = SERVICE.google.list_emails(max_results, query)
+                return {"status":"ok","emails":emails}
+            
+            if op == "GMAIL_GET":
+                # Get a specific email
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                message_id = p.get("message_id")
+                if not message_id:
+                    raise ValueError("Missing 'message_id'")
+                email = SERVICE.google.get_email(message_id)
+                return {"status":"ok","email":email}
+            
+            if op == "GMAIL_DRAFT":
+                # Create an email draft
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                to = p.get("to")
+                subject = p.get("subject")
+                body = p.get("body")
+                is_html = p.get("is_html", False)
+                cc = p.get("cc")
+                bcc = p.get("bcc")
+                if not to or not subject or not body:
+                    raise ValueError("Missing 'to', 'subject', or 'body'")
+                draft = SERVICE.google.create_draft(to, subject, body, is_html, cc, bcc)
+                return {"status":"ok","draft":draft}
+            
+            if op == "GMAIL_DELETE_DRAFT":
+                # Delete an email draft
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                draft_id = p.get("draft_id")
+                if not draft_id:
+                    raise ValueError("Missing 'draft_id'")
+                result = SERVICE.google.delete_draft(draft_id)
+                return {"status":"ok","draft_id":draft_id,"deleted":True}
+            
+            # ==================== Google Calendar Operations ====================
+            
+            # --- Calendar Management ---
+            
+            if op == "GCAL_LIST":
+                # List all calendars
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendars = SERVICE.google.list_calendars()
+                return {"status":"ok","calendars":calendars}
+            
+            if op == "GCAL_CREATE":
+                # Create a new calendar
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                summary = p.get("summary")
+                if not summary:
+                    raise ValueError("Missing 'summary'")
+                description = p.get("description", "")
+                timezone = p.get("timezone", "America/New_York")
+                calendar = SERVICE.google.create_calendar(summary, description, timezone)
+                return {"status":"ok","calendar":calendar}
+            
+            if op == "GCAL_GET":
+                # Get calendar details
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id")
+                if not calendar_id:
+                    raise ValueError("Missing 'calendar_id'")
+                calendar = SERVICE.google.get_calendar(calendar_id)
+                return {"status":"ok","calendar":calendar}
+            
+            if op == "GCAL_UPDATE":
+                # Update calendar
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id")
+                if not calendar_id:
+                    raise ValueError("Missing 'calendar_id'")
+                summary = p.get("summary")
+                description = p.get("description")
+                timezone = p.get("timezone")
+                calendar = SERVICE.google.update_calendar(calendar_id, summary, description, timezone)
+                return {"status":"ok","calendar":calendar}
+            
+            if op == "GCAL_DELETE":
+                # Delete calendar
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id")
+                if not calendar_id:
+                    raise ValueError("Missing 'calendar_id'")
+                result = SERVICE.google.delete_calendar(calendar_id)
+                return {"status":"ok","calendar_id":calendar_id,"deleted":True}
+            
+            if op == "GCAL_SEARCH":
+                # Search calendars (wildcard)
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                query = p.get("query", "")
+                result = SERVICE.google.search_calendars(query)
+                return {"status":"ok","calendars":result}
+            
+            # --- Calendar Events ---
+            
+            if op == "GEVENT_LIST":
+                # List events from a calendar
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id", "primary")
+                max_results = p.get("max_results", 10)
+                time_min = p.get("time_min")
+                time_max = p.get("time_max")
+                query = p.get("query")
+                events = SERVICE.google.list_events(calendar_id, max_results, time_min, time_max, query)
+                return {"status":"ok","events":events}
+            
+            if op == "GEVENT_CREATE":
+                # Create a calendar event
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id", "primary")
+                summary = p.get("summary")
+                if not summary:
+                    raise ValueError("Missing 'summary'")
+                description = p.get("description", "")
+                start_time = p.get("start_time")
+                end_time = p.get("end_time")
+                if not start_time or not end_time:
+                    raise ValueError("Missing 'start_time' or 'end_time'")
+                location = p.get("location", "")
+                attendees = p.get("attendees")
+                event = SERVICE.google.create_event(calendar_id, summary, description, start_time, end_time, location, attendees)
+                return {"status":"ok","event":event}
+            
+            if op == "GEVENT_GET":
+                # Get event details
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id", "primary")
+                event_id = p.get("event_id")
+                if not event_id:
+                    raise ValueError("Missing 'event_id'")
+                event = SERVICE.google.get_event(calendar_id, event_id)
+                return {"status":"ok","event":event}
+            
+            if op == "GEVENT_UPDATE":
+                # Update an event
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id", "primary")
+                event_id = p.get("event_id")
+                if not event_id:
+                    raise ValueError("Missing 'event_id'")
+                summary = p.get("summary")
+                description = p.get("description")
+                start_time = p.get("start_time")
+                end_time = p.get("end_time")
+                location = p.get("location")
+                event = SERVICE.google.update_event(calendar_id, event_id, summary, description, start_time, end_time, location)
+                return {"status":"ok","event":event}
+            
+            if op == "GEVENT_DELETE":
+                # Delete an event
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id", "primary")
+                event_id = p.get("event_id")
+                if not event_id:
+                    raise ValueError("Missing 'event_id'")
+                result = SERVICE.google.delete_event(calendar_id, event_id)
+                return {"status":"ok","event_id":event_id,"deleted":True}
+            
+            if op == "GEVENT_SEARCH":
+                # Search events (wildcard)
+                if not hasattr(SERVICE, 'google') or not SERVICE.google:
+                    raise ValueError("Google service not initialized")
+                if not SERVICE.google.is_authenticated():
+                    raise ValueError("Not authenticated with Google")
+                calendar_id = p.get("calendar_id", "primary")
+                query = p.get("query", "")
+                max_results = p.get("max_results", 25)
+                events = SERVICE.google.search_events(calendar_id, query, max_results)
+                return {"status":"ok","events":events}
 
             if op in ("QUIT","EXIT"):
                 return {"status":"ok","message":"Goodbye!"}

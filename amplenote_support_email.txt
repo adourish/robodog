@@ -1,0 +1,26 @@
+Subject: Request for Renewed Client Key - Robodog CLI Integration
+
+Dear Amplenote Support Team,
+
+I am writing to request assistance with renewing my API client key for my approved application "Robodog CLI Integration."
+
+My current client key is no longer working, and I need a renewed key to continue using the API.
+
+Account Details:
+- Account Type: PI Account
+- Current Client Key: b889d2968aaee9169fc6981dcf175c2f63af8cddf1bfdce0a431fa1757534502
+- API Application Status: Approved
+- Application Submitted: May 17, 2023
+
+Application Information:
+- Company/Developer Name: Robodog CLI Integration
+- Application Name: Robodog CLI
+- Application Description: CLI tool for programmatic Amplenote note and task management. Enables creating notes, adding content, tasks, links, and media uploads via command-line interface.
+- Redirect URI: http://localhost:8080/callback
+
+Could you please provide guidance on how to obtain a renewed client key? If there are any additional steps I need to take or information you require, please let me know.
+
+Thank you for your assistance.
+
+Best regards,
+[Your Name]
