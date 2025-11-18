@@ -39,13 +39,8 @@ try:
 except ImportError:
     from todoist_service import TodoistService
 
-# Add path for google_service
-google_service_path = Path(__file__).parent.parent
-if str(google_service_path) not in sys.path:
-    sys.path.insert(0, str(google_service_path))
-
 try:
-    from google_service import GoogleService
+    from .google_service import GoogleService
 except ImportError:
     GoogleService = None
     logging.getLogger('robodog.service').warning("Google service not available")

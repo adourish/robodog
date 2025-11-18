@@ -9,7 +9,7 @@ import os
 # Add robodogcli to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'robodogcli'))
 
-from google_service import GoogleService
+from robodog.google_service import GoogleService
 
 
 def test_initialization():

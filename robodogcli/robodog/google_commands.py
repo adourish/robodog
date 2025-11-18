@@ -6,7 +6,7 @@ Provides command-line interface for Google Docs and Gmail operations
 import os
 import sys
 import yaml
-from google_service import GoogleService
+from .google_service import GoogleService
 
 
 class GoogleCommands:
