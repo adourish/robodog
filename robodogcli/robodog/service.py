@@ -45,6 +45,12 @@ except ImportError:
     GoogleService = None
     logging.getLogger('robodog.service').warning("Google service not available")
 
+try:
+    from .sharepoint_service import SharePointService
+except ImportError:
+    SharePointService = None
+    logging.getLogger('robodog.service').warning("SharePoint service not available")
+
 logger = logging.getLogger('robodog.service')
 
 
@@ -109,6 +115,16 @@ class RobodogService:
                 logger.info("Google service initialized with defaults")
             except Exception as e:
                 logger.warning(f"Failed to initialize Google service: {e}")
+        
+        # Initialize SharePoint service if configured
+        self.sharepoint = None
+        if SharePointService and "sharepoint" in self.providers:
+            try:
+                sp_cfg = self.providers["sharepoint"]
+                self.sharepoint = SharePointService(sp_cfg)
+                logger.info("SharePoint service initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize SharePoint service: {e}")
 
     def set_ui_callback(self, callback):
         """Set callback for UI updates during streaming. Ensures no logger conflicts."""

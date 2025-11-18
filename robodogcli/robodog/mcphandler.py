@@ -143,6 +143,10 @@ class MCPHandler(socketserver.StreamRequestHandler):
                     "GMAIL_SEND","GMAIL_LIST","GMAIL_GET","GMAIL_CREATE_DRAFT","GMAIL_DELETE_DRAFT",
                     "GCAL_LIST","GCAL_CREATE","GCAL_GET","GCAL_UPDATE","GCAL_DELETE","GCAL_SEARCH",
                     "GEVENT_LIST","GEVENT_CREATE","GEVENT_GET","GEVENT_UPDATE","GEVENT_DELETE","GEVENT_SEARCH",
+                    "SHAREPOINT_AUTH","SHAREPOINT_STATUS",
+                    "SP_SEARCH_SITES","SP_GET_SITE","SP_GET_LISTS","SP_GET_LIST","SP_CREATE_LIST","SP_DELETE_LIST",
+                    "SP_GET_ITEMS","SP_GET_ITEM","SP_CREATE_ITEM","SP_UPDATE_ITEM","SP_DELETE_ITEM",
+                    "SP_GET_FILES","SP_UPLOAD_FILE","SP_DOWNLOAD_FILE","SP_DELETE_FILE","SP_SEARCH_FILES",
                     "AMPLENOTE_AUTH","AMPLENOTE_LIST","AMPLENOTE_CREATE","AMPLENOTE_ADD",
                     "AMPLENOTE_TASK","AMPLENOTE_LINK","AMPLENOTE_UPLOAD",
                     "TODOIST_AUTH","TODOIST_PROJECTS","TODOIST_TASKS","TODOIST_CREATE",
@@ -1064,6 +1068,249 @@ class MCPHandler(socketserver.StreamRequestHandler):
                 max_results = p.get("max_results", 25)
                 events = SERVICE.google.search_events(calendar_id, query, max_results)
                 return {"status":"ok","events":events}
+            
+            # ==================== SharePoint Operations ====================
+            
+            if op == "SHAREPOINT_AUTH":
+                # Authenticate with SharePoint
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                success = SERVICE.sharepoint.authenticate()
+                return {"status":"ok" if success else "error","authenticated":success}
+            
+            if op == "SHAREPOINT_STATUS":
+                # Check SharePoint authentication status
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    return {"status":"ok","authenticated":False,"available":False}
+                authenticated = SERVICE.sharepoint.is_authenticated()
+                return {"status":"ok","authenticated":authenticated,"available":True}
+            
+            # --- Site Operations ---
+            
+            if op == "SP_SEARCH_SITES":
+                # Search for SharePoint sites
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                query = p.get("query")
+                if not query:
+                    raise ValueError("Missing 'query'")
+                sites = SERVICE.sharepoint.search_sites(query)
+                return {"status":"ok","sites":sites}
+            
+            if op == "SP_GET_SITE":
+                # Get site information
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                site_id = p.get("site_id")
+                site_url = p.get("site_url")
+                if site_url:
+                    site = SERVICE.sharepoint.get_site_by_url(site_url)
+                elif site_id:
+                    site = SERVICE.sharepoint.get_site(site_id)
+                else:
+                    raise ValueError("Missing 'site_id' or 'site_url'")
+                return {"status":"ok","site":site}
+            
+            # --- List Operations ---
+            
+            if op == "SP_GET_LISTS":
+                # Get all lists in a site
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                site_id = p.get("site_id")
+                lists = SERVICE.sharepoint.get_lists(site_id)
+                return {"status":"ok","lists":lists}
+            
+            if op == "SP_GET_LIST":
+                # Get list information
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                list_id = p.get("list_id")
+                if not list_id:
+                    raise ValueError("Missing 'list_id'")
+                site_id = p.get("site_id")
+                list_info = SERVICE.sharepoint.get_list(list_id, site_id)
+                return {"status":"ok","list":list_info}
+            
+            if op == "SP_CREATE_LIST":
+                # Create a new list
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                display_name = p.get("display_name")
+                if not display_name:
+                    raise ValueError("Missing 'display_name'")
+                template = p.get("template", "genericList")
+                site_id = p.get("site_id")
+                list_info = SERVICE.sharepoint.create_list(display_name, template, site_id)
+                return {"status":"ok","list":list_info}
+            
+            if op == "SP_DELETE_LIST":
+                # Delete a list
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                list_id = p.get("list_id")
+                if not list_id:
+                    raise ValueError("Missing 'list_id'")
+                site_id = p.get("site_id")
+                SERVICE.sharepoint.delete_list(list_id, site_id)
+                return {"status":"ok","deleted":True}
+            
+            # --- List Item Operations ---
+            
+            if op == "SP_GET_ITEMS":
+                # Get items from a list
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                list_id = p.get("list_id")
+                if not list_id:
+                    raise ValueError("Missing 'list_id'")
+                site_id = p.get("site_id")
+                expand = p.get("expand", "fields")
+                items = SERVICE.sharepoint.get_list_items(list_id, site_id, expand)
+                return {"status":"ok","items":items}
+            
+            if op == "SP_GET_ITEM":
+                # Get a specific list item
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                list_id = p.get("list_id")
+                item_id = p.get("item_id")
+                if not list_id or not item_id:
+                    raise ValueError("Missing 'list_id' or 'item_id'")
+                site_id = p.get("site_id")
+                item = SERVICE.sharepoint.get_list_item(list_id, item_id, site_id)
+                return {"status":"ok","item":item}
+            
+            if op == "SP_CREATE_ITEM":
+                # Create a list item
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                list_id = p.get("list_id")
+                fields = p.get("fields")
+                if not list_id or not fields:
+                    raise ValueError("Missing 'list_id' or 'fields'")
+                site_id = p.get("site_id")
+                item = SERVICE.sharepoint.create_list_item(list_id, fields, site_id)
+                return {"status":"ok","item":item}
+            
+            if op == "SP_UPDATE_ITEM":
+                # Update a list item
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                list_id = p.get("list_id")
+                item_id = p.get("item_id")
+                fields = p.get("fields")
+                if not list_id or not item_id or not fields:
+                    raise ValueError("Missing 'list_id', 'item_id', or 'fields'")
+                site_id = p.get("site_id")
+                item = SERVICE.sharepoint.update_list_item(list_id, item_id, fields, site_id)
+                return {"status":"ok","item":item}
+            
+            if op == "SP_DELETE_ITEM":
+                # Delete a list item
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                list_id = p.get("list_id")
+                item_id = p.get("item_id")
+                if not list_id or not item_id:
+                    raise ValueError("Missing 'list_id' or 'item_id'")
+                site_id = p.get("site_id")
+                SERVICE.sharepoint.delete_list_item(list_id, item_id, site_id)
+                return {"status":"ok","deleted":True}
+            
+            # --- Document Library Operations ---
+            
+            if op == "SP_GET_FILES":
+                # Get files from a folder
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                folder_path = p.get("folder_path", "root")
+                site_id = p.get("site_id")
+                files = SERVICE.sharepoint.get_files(folder_path, site_id)
+                return {"status":"ok","files":files}
+            
+            if op == "SP_UPLOAD_FILE":
+                # Upload a file
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                file_path = p.get("file_path")
+                content = p.get("content")
+                if not file_path or not content:
+                    raise ValueError("Missing 'file_path' or 'content'")
+                # Convert content to bytes if it's a string
+                if isinstance(content, str):
+                    content = content.encode('utf-8')
+                site_id = p.get("site_id")
+                file_info = SERVICE.sharepoint.upload_file(file_path, content, site_id)
+                return {"status":"ok","file":file_info}
+            
+            if op == "SP_DOWNLOAD_FILE":
+                # Download a file
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                file_path = p.get("file_path")
+                if not file_path:
+                    raise ValueError("Missing 'file_path'")
+                site_id = p.get("site_id")
+                content = SERVICE.sharepoint.download_file(file_path, site_id)
+                # Convert bytes to base64 for JSON transport
+                import base64
+                content_b64 = base64.b64encode(content).decode('utf-8')
+                return {"status":"ok","content":content_b64}
+            
+            if op == "SP_DELETE_FILE":
+                # Delete a file
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                file_path = p.get("file_path")
+                if not file_path:
+                    raise ValueError("Missing 'file_path'")
+                site_id = p.get("site_id")
+                SERVICE.sharepoint.delete_file(file_path, site_id)
+                return {"status":"ok","deleted":True}
+            
+            if op == "SP_SEARCH_FILES":
+                # Search for files
+                if not hasattr(SERVICE, 'sharepoint') or not SERVICE.sharepoint:
+                    raise ValueError("SharePoint service not initialized")
+                if not SERVICE.sharepoint.is_authenticated():
+                    raise ValueError("Not authenticated with SharePoint")
+                query = p.get("query")
+                if not query:
+                    raise ValueError("Missing 'query'")
+                site_id = p.get("site_id")
+                files = SERVICE.sharepoint.search_files(query, site_id)
+                return {"status":"ok","files":files}
 
             if op in ("QUIT","EXIT"):
                 return {"status":"ok","message":"Goodbye!"}
