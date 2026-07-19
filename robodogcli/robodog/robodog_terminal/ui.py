@@ -84,9 +84,12 @@ def _input_key_bindings():
 
 class UI:
     def __init__(self, model_name: str = "elsa/sonnet", cwd: Optional[str] = None,
-                 commands: Optional[List[str]] = None, stderr: bool = False):
+                 commands: Optional[List[str]] = None, stderr: bool = False,
+                 editor: Optional[str] = None):
         self.model_name = model_name
         self.cwd = str(cwd or os.getcwd())
+        # Editor for clickable file:line jumps (file | vscode | cursor | vscodium).
+        self.editor = editor or os.environ.get("ROBODOG_EDITOR", "file")
         self.total_tokens = 0
         self.bg_running = 0          # background tasks (wired later)
         self.context_pct = 0         # transcript fill estimate (loop sets)
@@ -311,21 +314,52 @@ class UI:
             print(text)
 
     # ---- clickable links -----------------------------------------------
-    def _file_uri(self, path_str: str):
-        """file:// URI for a path (so the terminal can open it), or None."""
+    def _abs(self, path_str: str):
         try:
             p = Path(path_str)
             if not p.is_absolute():
                 p = Path(self.cwd) / p
-            return p.resolve().as_uri()
+            return p.resolve()
         except Exception:
             return None
 
-    def _linked_path(self, path_str: str, style: str = "dim"):
-        """A rich Text whose displayed path is a clickable file:// hyperlink."""
+    def _editor_uri(self, path_str: str, line: Optional[int] = None):
+        """
+        Build a clickable URI honoring the configured editor so clicks jump to
+        the file (and line, when the editor supports it):
+          file    -> file://<abs>            (opens the file, no line)
+          vscode  -> vscode://file/<abs>[:line]
+          cursor  -> cursor://file/<abs>[:line]
+          vscodium-> vscodium://file/<abs>[:line]
+        """
+        p = self._abs(path_str)
+        if p is None:
+            return None
+        editor = (self.editor or "file").lower()
+        if editor in ("vscode", "code", "cursor", "vscodium"):
+            scheme = {"vscode": "vscode", "code": "vscode",
+                      "cursor": "cursor", "vscodium": "vscodium"}[editor]
+            # vscode://file/C:/path/to/file.py:LINE  (forward slashes)
+            posix = str(p).replace("\\", "/")
+            if not posix.startswith("/"):
+                posix = "/" + posix          # vscode wants a leading slash
+            uri = f"{scheme}://file{posix}"
+            return uri + (f":{line}" if line else "")
+        try:
+            return p.as_uri()                # plain file:// (no line support)
+        except Exception:
+            return None
+
+    def _file_uri(self, path_str: str):
+        """file:// (or editor) URI for a path, or None."""
+        return self._editor_uri(path_str, None)
+
+    def _linked_path(self, path_str: str, style: str = "dim",
+                     line: Optional[int] = None):
+        """A rich Text whose displayed path is a clickable, editor-aware link."""
         from rich.text import Text as _T
         from rich.style import Style as _S
-        uri = self._file_uri(path_str)
+        uri = self._editor_uri(path_str, line)
         if uri:
             return _T(path_str, style=_S.parse(style) + _S(link=uri, underline=True))
         return _T(path_str, style=style)
@@ -372,7 +406,9 @@ class UI:
                 path, lineno = m.group(1), (m.group(2) or "")
                 pre, post = snippet[:m.start()], snippet[m.end():]
                 line.append(pre, style="dim")
-                lp = self._linked_path(path, "dim")
+                # editor-aware: link jumps to the exact line when known
+                ln_int = int(lineno[1:]) if lineno else None
+                lp = self._linked_path(path, "dim", line=ln_int)
                 if lineno:
                     lp.append(lineno, style="dim")
                 line.append_text(lp)

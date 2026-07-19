@@ -124,6 +124,27 @@ def main() -> int:
     check("\x1b]8;" in out, "file:line reference is a clickable link")
     check("mod.py:42" in plain(out), "line number stays visible")
 
+    # ---------------- editor-aware links (vscode jumps to the line) ------
+    ui, buf = capture(); ui.editor = "vscode"
+    ui.tool_result("grep", "src/mod.py:42: def handler():")
+    out = buf.getvalue()
+    check("vscode://file" in out and ":42" in out,
+          "vscode editor: link is vscode://file/…:42 (jumps to line)")
+    ui, buf = capture(); ui.editor = "cursor"
+    ui.tool_result("grep", "src/mod.py:7: x = 1")
+    check("cursor://file" in buf.getvalue(), "cursor editor scheme honored")
+    # default editor is plain file://
+    ui, buf = capture()
+    ui.tool_result("grep", "src/mod.py:42: def handler():")
+    check("file://" in buf.getvalue() and "vscode://" not in buf.getvalue(),
+          "default editor uses plain file://")
+    # _editor_uri unit
+    ui2 = capture()[0]; ui2.editor = "vscode"
+    uri = ui2._editor_uri("a/b.py", 10)
+    check(uri.startswith("vscode://file/") and uri.endswith(":10"),
+          "_editor_uri builds vscode URI with line")
+    check(ui2.editor == "vscode", "editor field set")
+
     # ---------------- markdown answer ------------------------------------
     ui, buf = capture()
     ui.assistant("# Title\n\n- one\n- two\n\n`code`")

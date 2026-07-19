@@ -95,8 +95,9 @@ Keys load automatically from the KeePass automation DB (ELSA `SEMOSS-Elsa-Dev`,
   KeePass keys) is built and wire-tested; validate the real round-trip and the
   302/sticky-cookie async path. (Run `/doctor` there first.)
 - [ ] **Streaming responses** (Pack C) for OpenAI-compatible backends.
-- [ ] **Editor-aware `file:line` links** (`vscode://file/…:line`) to jump to the
-  exact line; **syntax-highlighted diffs**.
+- [x] **Editor-aware `file:line` links** — `--editor vscode|cursor|vscodium` (or
+  `$ROBODOG_EDITOR`) makes file:line clicks jump to the exact line.
+- [ ] **Syntax-highlighted diffs**.
 - [ ] **Per-agent model overrides** in `.robodog/agents/*.md` (cheap model for
   `explore`, Sonnet for the main loop).
 - [ ] Wire `terminal` in as a `robodog terminal` subcommand of the main CLI.

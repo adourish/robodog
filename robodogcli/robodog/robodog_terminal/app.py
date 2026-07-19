@@ -405,6 +405,10 @@ def main(argv=None) -> int:
                         help="resume a saved session by id (or 'latest')")
     parser.add_argument("--continue", dest="continue_latest", action="store_true",
                         help="resume the most recent session in this project")
+    parser.add_argument("--editor", default=None,
+                        choices=["file", "vscode", "cursor", "vscodium"],
+                        help="editor for clickable file:line jumps (default: file:// "
+                             "or $ROBODOG_EDITOR)")
     parser.add_argument("--verbose", action="store_true",
                         help="print full tool results, not one-line summaries")
     parser.add_argument("--version", action="store_true", help="print version and exit")
@@ -425,7 +429,8 @@ def main(argv=None) -> int:
     cwd = str(Path(args.cwd).resolve())
     headless = args.print_prompt is not None
     # SkillsRegistry is created below; build the completer list after discovery.
-    ui = UI(model_name="…", cwd=cwd, commands=SLASH_COMMANDS, stderr=headless)
+    ui = UI(model_name="…", cwd=cwd, commands=SLASH_COMMANDS, stderr=headless,
+            editor=args.editor)
     # Claude Code-style visible retry line: "API error · Retrying in Ns · attempt n/N"
     def on_retry(a, m, d, r):
         ui.spinner_stop()
