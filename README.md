@@ -152,18 +152,37 @@ new value on next unlock.
 
 ### Adding a new model
 
-On the OpenRouter/OpenAI backend, no code changes are needed — the client
-just forwards whatever model string you give it:
+A model is just an ID string forwarded to the provider — there is no list to
+edit. Three levels, by what you actually mean:
+
+**1. A different model on the current provider — no code.** The default provider
+is OpenRouter, so any catalog ID works right away. OpenRouter uses *dotted*
+version ids (`-4.8`, **not** `-4-8`; the terminal auto-corrects that common
+slip and inline `# comments`):
 
 ```bash
-robodog-terminal --model anthropic/claude-opus-4-8
-/model anthropic/claude-opus-4-8        # or switch live, mid-session
+robodog-terminal --model deepseek/deepseek-chat         # at launch
+/model anthropic/claude-opus-4.8                        # live, mid-session
+echo 'ROBODOG_MODEL=anthropic/claude-opus-4.8' >> ~/.robodog/config.env  # persist default
 ```
 
-Adding an entirely new **provider** (not OpenAI-compatible) means adding an
-`LLMClient` subclass in `robodog_terminal/llm_client.py` and wiring it into
-`build_backend()` in `app.py` — see `OpenAICompatClient`/`GatewayClient`
-there as templates.
+**2. A different provider — env vars, still no code.** Point the
+OpenAI-compatible client at any base URL + key (Groq, Together, Fireworks,
+Azure, or a local Ollama at `http://localhost:11434/v1`):
+
+```bash
+# ~/.robodog/config.env
+ROBODOG_LLM_URL=https://api.groq.com/openai/v1
+ROBODOG_LLM_KEY=<key>            # or store it in the KeePass automation DB
+# then:  robodog-terminal --model llama-3.1-8b-instant
+```
+
+**3. A named `--backend` shortcut or a non-OpenAI provider — small code change.**
+For a first-class flag (`--backend groq`), add the name to the `--backend`
+`choices` list and a `make_openai_compat(...)` branch in `build_backend()`
+(`app.py`). For a provider that isn't OpenAI-compatible at all, add an
+`LLMClient` subclass in `robodog_terminal/llm_client.py` — see
+`OpenAICompatClient`/`GatewayClient` as templates.
 
 ### Project instructions
 
