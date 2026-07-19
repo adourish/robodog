@@ -1,0 +1,1 @@
+print("robodog terminal is alive:", 6 * 7)

@@ -1,595 +1,335 @@
-# file: README.md
-# Robodog Code
-![Robodog MCP File Service](screenshot-mcp.png)
+# 🤖 Robodog
 
-## Overview  
-Robodog Code is a lightweight, zero-install, fast, command-line style generative AI client that integrates multiple providers (OpenAI, OpenRouter, LlamaAI, DeepSeek, Anthropic, Sarvam AI, Google Search API, and more) into a unified interface. Key capabilities include:
+Robodog Terminal is an **agentic coding terminal** for your shell — a tool-use loop
+that reads and edits files, runs commands, runs tests, and self-corrects, driven by
+a large language model. It's built to run leading models on **self-hosted / air-gapped LLM gateways**, and works just as well with OpenAI-compatible
+models or a fully offline mock for development.
 
-NEVER TRUST A CODE SPEWING ROBOT!
+> This repository is a monorepo. Terminal mode (`apps/cli/robodog/robodog_terminal`)
+> is the active, flagship client — everything else is archived.
 
-- Access to cutting-edge models: `o4-mini` (200k context), `gpt-4`, `gpt-4-turbo`, `dall-e-3`, Llama3-70b, Claude Opus/Sonnet, Mistral, Sarvam-M, Gemma 3n, etc.  
-- Massive context windows (up to 200k tokens) across different models.  
-- Seamless chat history & knowledge management with stashes and snapshots.  
-- File import/export (text, Markdown, code, PDF, images via OCR).  
-- In-chat file inclusion from a local MCP server.  
-- Built-in web search integration.  
-- Image generation & OCR pipelines.  
-- Limit scope of the context window using filter tagging pattern=*robodog*.py recursive
-- AI-driven web automation/testing via Playwright (`/play`).  
-- Raw MCP operations (`/mcp`).  
-- `/todo` feature: automate and track tasks defined in `todo.md`.  
-- **Code Map**: Intelligent codebase indexing for 90% faster context loading.
-- **Advanced Analysis**: Call graphs, impact analysis, dependency tracking.
-- **Cascade Mode**: Windsurf-style parallel execution (2-3x faster multi-step tasks).
-- Accessible, retro “console” UI with customizable themes and responsive design.  
+## Preview
 
----
-
-## Try Robodog  
-
-- **Web**: https://adourish.github.io/robodog/robodog/dist/  
-- **Android**: https://play.google.com/store/apps/details?id=com.unclebulgaria.robodog  
-- **npm packages**:  
-  - `npm install robodoglib`  
-  - `npm install robodogcli`  
-  - `npm install robodog`  
-- **Python**:  
-  - `pip install robodogcli`  
-  - `pip show -f robodogcli`  
-  - `python -m robodogcli.cli --help`  
-  - `pip install --upgrade requests tiktoken PyYAML openai playwright pydantic langchain` (optional)  
-
----
-
-## Configuration  
-
-Click the ⚙️ icon in the top-menu to open settings, or edit your YAML directly:
-
-```yaml
-configs:
-  providers:
-    - provider: openAI
-      baseUrl: "https://api.openai.com"
-      apiKey: "<open ai token>"
-      httpReferer: "https://adourish.github.io"
-    - provider: openRouter
-      baseUrl: "https://openrouter.ai/api/v1"
-      apiKey: "<open router token>"
-      httpReferer: "https://adourish.github.io"
-    - provider: searchAPI
-      baseUrl: "https://google-search74.p.rapidapi.com"
-      apiKey: "<search token>"
-      httpReferer: "https://adourish.github.io"
-  
-  mcpServer:
-    baseUrl: "http://localhost:2500"  
-    apiKey:   "testtoken"  
-
-  specialists:
-    - specialist: nlp
-      resume: natural language processing, chatbots, content generation, language translation
-    - specialist: gi
-      resume: generates images from textual descriptions. understanding and interpreting textual descriptions 
-    - specialist: search
-      resume: generate simple search results
-
-  models:
-    - provider: openRouter
-      model: openai/gpt-5-mini
-      stream: true
-      specialist: nlp
-      about: "Best for performance. Context window: 1.05M tokens. Competitive in Academia (#2), Marketing/Seo (#3), Health (#4), Legal (#4), Science (#4)."
-    - provider: openRouter
-      model: GPT-4o-mini
-      stream: true
-      specialist: nlp
-      about: "Best for most questions. Context window: 1.05M tokens. Pricing: $0.40/M input, $1.60/M output."
-    - provider: openAI
-      model: o4-mini
-      stream: true
-      specialist: nlp
-      about: "Biggest model with 200k context window and world view. Best for critical thinking. Context window: 200K tokens."
-    - provider: openAI
-      model: o1
-      stream: true
-      specialist: nlp
-      about: "Big model with 128k context window and small world view. Good for critical thinking. Context window: 128K tokens."
-    - provider: openRouter
-      model: openai/o4-mini
-      stream: true
-      specialist: nlp
-      about: "Best for big content. Context window: 200K tokens."
-    - provider: openRouter
-      model: deepseek/deepseek-r1
-      stream: true
-      specialist: nlp
-      about: "Best for summarizing. Context window: 128K tokens. Model size: 671B parameters (37B active). Performance: #2 in Roleplay, #6 in Translation, #9 in Programming, #10 in Science. Supports thinking and non-thinking modes."
-    - provider: openRouter
-      model: google/gemini-2.5-pro
-      stream: true
-      specialist: nlp
-      about: "Best for speed. Context window: 1.05M tokens. Performance: #3 in Health, #5 in Marketing, Roleplay, Academia, Science. Advanced reasoning, coding, mathematics, scientific tasks. Pricing: $1.25/M input, $10/M output."
-    - provider: openRouter
-      model: qwen/qwen3-coder
-      stream: true
-      specialist: nlp
-      about: "Best for large docs when speed is not an issue. Context window: 262K tokens. Model size: 480B parameters (35B active). Optimized for agentic coding tasks. Performance: #3 in Programming, #7 in Technology, #8 in Science. Pricing: $0.20/M input, $0.80/M output."
-    - provider: openRouter
-      model: anthropic/claude-sonnet-4
-      stream: false
-      specialist: gi
-      about: "Best for creating images."
-    - provider: openRouter
-      model: x-ai/grok-code-fast-1
-      stream: false
-      specialist: search
-      about: "Best for searching. Context window: 256K tokens. Performance: #1 in Programming, #3 in Technology, #6 in Marketing/Seo, #10 in Trivia. Speedy and economical reasoning model. Pricing: $0.20/M input, $1.50/M output."
-    - provider: searchAPI
-      model: search
-      stream: false
-      specialist: search
-      about: "Best for searching. Context window: 256K tokens. Performance: #1 in Programming, #3 in Technology, #6 in Marketing/Seo, #10 in Trivia. Speedy and economical reasoning model. Pricing: $0.20/M input, $1.50/M output."
-
+```text
+┌──────────────────────────── 🤖 robodog ─────────────────────────────┐
+│                                                                     │
+│  Robodog Terminal   agentic coding in your shell                    │
+│                                                                     │
+│  model: gpt-4o                                                      │
+│  cwd:   C:\projects\robodog                                         │
+│                                                                     │
+│  /help commands   ! run shell   /rewind undo edits   /exit quit     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+🫧 64% | 🔋 15.6k | 🦾 gpt-4o | 📁 apps/cli
+› create fib.py that prints fib(10), run it, and report the result
+  ⚙ write_file fib.py
+  ⚙ bash python fib.py
+    ↳ $ python fib.py  (exit 0)  ·  55
+The script printed 55. Created fib.py and ran it.
+[3 steps · 5.7k tok · 4.2s]
 ```
 
----
+## Setup
 
-## Supported Models  
-
-### OpenAI  
-- gpt-4, gpt-4-turbo, gpt-3.5-turbo, gpt-3.5-turbo-16k, o4-mini, o1  
-- dall-e-3  
-
-### Others  
-- LlamaAI: llama3-70b  
-- Anthropic: Claude Opus 4, Claude Sonnet 4  
-- DeepSeek R1  
-- Mistral Medium 3, Devstral-Small  
-- Sarvam-M  
-- Google Gemma 3n E4B  
-
----
-
-## Key Features  
-
-- **Multi-Provider Support**: Switch between any configured provider or model on the fly (`/model`).  
-- **Chat & Knowledge**: Separate panes for Chat History (💭) and Knowledge (📝)—both resizable.  
-- **Stash Management**:  
-  - `/stash <name>` — save current chat+knowledge  
-  - `/pop <name>`   — restore a stash  
-  - `/list`         — list all stashes  
-- **File Import/Export**:  
-  - `/import <glob>` — import files (.md, .js, .py, .pdf, images via OCR)  
-  - `/export <file>` — export chat+knowledge snapshot  
-- **MCP File Inclusion**:  
-  - `/include all`  
-  - `/include file=README.md`  
-  - `/include pattern=*.js|*.css recursive`  
-  - `/include dir=src pattern=*.py recursive`  
-- **Raw MCP Operations**:  
-  - `/mcp OP [JSON]` — e.g. `/mcp LIST_FILES`, `/mcp READ_FILE {"path":"./foo.py"}`  
-- **Web Fetch & Automation**:  
-  - `/curl [--no-headless] <url> [<url2>|<js>]` — fetch pages or run JS  
-  - `/play <instructions>` — run AI-driven Playwright tests end-to-end  
-- **Web Search**:  
-  - Use `search` model or click 🔎 to perform live web queries.  
-- **Image Generation & OCR**: Ask questions to `dall-e-3` or drop an image to extract text via OCR.  
-- **Interactive Console UI**: Retro “pip-boy green” theme, responsive on desktop/mobile, accessible.  
-- **Performance & Size Indicators**: Emoji feedback for processing speed and token usage.  
-- **Extensive Command Palette**: `/help` lists all commands, indicators, and settings.  
-- **Todo Automation**: Use `/todo` to execute tasks defined in `todo.md` across your project roots.
-- **Code Map**: Intelligent codebase indexing with 90% token savings—scan, find, and get targeted context instantly.
-- **Advanced Code Analysis**:
-  - **Call Graphs**: Visualize function relationships across your codebase
-  - **Impact Analysis**: Find what breaks before you change code
-  - **Dependency Tracking**: See all internal/external dependencies
-  - **Codebase Statistics**: Get metrics on complexity and usage
-- **Cascade Mode**: Windsurf-style parallel execution for 2-3x faster multi-step tasks with automatic tool selection and self-correction.  
-
----
-
-## Usage Examples  
-
-### 1) AI-Driven Web Tests with `/play`
-```
-/play navigate to https://example.com, extract the page title, and verify it contains 'Example Domain'
-```
-
-### 2) Fetch & Scrape with `/curl`
-```
-/curl https://example.com
-```
-
-### 3) Include Local Files via MCP
-```
-/include pattern=*.js recursive fix bug in parser
-```
-
-### 4) Raw MCP Commands
-```
-/mcp LIST_FILES
-/mcp READ_FILE {"path":"./src/cli.py"}
-```
-
-### 5) Switch Model on the Fly
-```
-/model o4-mini
-```
-
-### 6) Import & Export
-```
-/import **/*.md
-/export conversation_snapshot.txt
-```
-
----
-
-### 7) Auto Side by Side Diff
-
-![Robodog MCP File Service](screenshot-diff.png)
-
----
-
-## 🗺️ Code Map & Advanced Analysis
-
-Robodog includes Windsurf-inspired features for intelligent codebase understanding and parallel execution.
-
-### Code Map - 90% Faster Context Loading
-
-Index your entire codebase for instant, targeted context retrieval:
+Requires **Python 3.9+**. Install from PyPI:
 
 ```bash
-# Scan your codebase (required first!)
-/map scan
-
-# Find any class or function
-/map find TodoManager
-
-# Get relevant files for a task
-/map context implement user authentication
-
-# Save/load the map
-/map save codemap.json
-/map load codemap.json
+pip install -U robodog-terminal
 ```
 
-**Example Output:**
-```
-🗺️ Scanning codebase...
-✅ Scanned 29 files
-   Classes: 12
-   Functions: 87
-
-/map find TodoManager
-Found 1 definition(s) for 'TodoManager':
-  class: TodoManager
-    File: robodog/todo_manager.py:45
-    Doc: Manages todo tasks across multiple files
-```
-
-**Benefits:**
-- **90% token savings** - Load only relevant code
-- **Instant search** - Find any definition in milliseconds
-- **Smart context** - AI gets exactly what it needs
-
-### Advanced Code Analysis
-
-Understand your codebase structure with call graphs, impact analysis, and dependency tracking:
+That gives you the command from any directory — note the **dash** (the
+Python *package* is `robodog_terminal` with an underscore, but the *command*
+is dashed):
 
 ```bash
-# Build complete call graph
-/analyze callgraph
-
-# Find what breaks if you change a function
-/analyze impact execute_subtask
-
-# Show file dependencies (internal/external)
-/analyze deps robodog/cli.py
-
-# Get codebase statistics
-/analyze stats
+robodog-terminal --echo          # offline demo, no keys needed
+robodogt --echo                  # short alias, same thing
+python -m robodog_terminal       # module form (works even if the pip
+                                 # scripts dir isn't on PATH)
 ```
 
-**Example Output:**
-```
-/analyze callgraph
-🔍 Building call graph...
-✅ Functions: 245
-   Total calls: 1,234
+For live models, set an API key first (see Configuration) — OpenRouter/OpenAI
+via env or KeePass, or GATEWAY_* vars for an enterprise gateway.
 
-/analyze impact TodoManager
-📊 Impact analysis for TodoManager:
-   Direct callers: 5
-   Total impacted: 15
-   Direct callers:
-     - TodoService
-     - cli
-     - app
-     - service
-     - main
-
-/analyze deps robodog/cli.py
-📦 Dependencies:
-   Total imports: 25
-   Internal: 12
-   External: 13
-   External packages:
-     - argparse, json, logging, os, sys...
-
-/analyze stats
-📊 Codebase Statistics:
-   Total functions: 245
-   Total calls: 1,234
-   Avg calls/function: 5.0
-   Total files: 29
-   Most called functions:
-     ask: 45 calls
-     call_mcp: 38 calls
-     read_file: 32 calls
-```
-
-**Use Cases:**
-- **Before refactoring**: Check impact to avoid breaking changes
-- **Code review**: Understand function relationships
-- **Dependency audit**: See all external packages used
-- **Complexity analysis**: Find most complex functions
-
-### 🌊 Cascade Mode - Parallel Execution
-
-Execute multi-step tasks 2-3x faster with Windsurf-style parallel execution:
+Or run from a source checkout instead:
 
 ```bash
-# Run any task with automatic parallelization
-/cascade run implement user authentication
-
-# More examples
-/cascade run refactor the file service module
-/cascade run add unit tests for TodoManager
-/cascade run fix error handling in cascade_mode.py
+git clone https://github.com/adourish/robodog.git
+cd robodog/apps/cli/robodog
+pip install rich prompt_toolkit requests        # core deps
+python robodog_terminal/app.py --echo
 ```
 
-**Example Output:**
-```
-🌊 Running cascade for: implement user authentication
-✅ Cascade completed:
-   Steps: 7
-   Successful: 7
-   Failed: 0
-   Duration: 18.5s
-```
-
-**How It Works:**
-1. **LLM breaks down task** into independent steps
-2. **Parallel execution** of steps with no dependencies
-3. **Automatic tool selection** (read, edit, create, search, analyze)
-4. **Self-correction** on errors
-5. **2-3x faster** than sequential execution
-
-**Performance:**
-| Task Type | Sequential | Cascade | Speedup |
-|-----------|-----------|---------|---------|
-| Multi-file changes | 60s | 25s | **2.4x** |
-| Code analysis | 45s | 18s | **2.5x** |
-| Test generation | 90s | 35s | **2.6x** |
-
-### Complete Workflow Example
+## Quickstart
 
 ```bash
-# 1. Start CLI with code map enabled
-python robodog\cli.py --folders c:\projects\myapp --port 2500 --token testtoken --model openai/o4-mini
+# offline demo — no keys needed (scripted, just to see the UI)
+robodog-terminal --echo
 
-# 2. Scan codebase
-/map scan
+# live via OpenRouter (default provider; any catalog id works)
+robodog-terminal --backend openrouter --model anthropic/claude-sonnet-4.6
 
-# 3. Understand the code
-/analyze stats
-/map find AuthService
-/analyze impact AuthService
+# live against OpenAI directly (bare ids, no provider/ prefix)
+robodog-terminal --backend openai --model gpt-4o
 
-# 4. Check dependencies before refactoring
-/analyze deps src/auth.py
+# air-gapped gateway (SEMOSS-style runPixel; keys from KeePass)
+robodog-terminal --backend gateway
 
-# 5. Implement changes with cascade mode
-/cascade run refactor AuthService to use async/await
-
-# 6. Verify changes
-/analyze impact AuthService
+# one-shot, non-interactive (great for scripts/CI)
+robodog-terminal --backend openai -p "fix the bug in x.py and run the tests"
 ```
+
+From a source checkout, replace `robodog-terminal` with
+`python robodog_terminal/app.py` (run inside `apps/cli/robodog`). The test
+suite runs from there too:
+
+```bash
+cd apps/cli/robodog
+
+# deterministic, keyless
+python robodog_terminal/run_tests.py
+
+# opt-in LIVE performance test: fires N real subagents concurrently and
+# reports the fan-out speedup (needs a live backend; skips cleanly without one)
+ROBODOG_PERF=1 python robodog_terminal/run_tests.py
+python robodog_terminal/perf_fanout.py 12        # or run it directly
+```
+
+Inside the terminal, just type a task (`create hello.py and run it`). Useful commands:
+
+| | |
+|---|---|
+| `/help` | list all commands |
+| `/plan` | read-only: propose a plan, then approve to implement |
+| `/bg <task>` · `/tasks` · `/tail` · `/kill` | background subagents |
+| `/rewind` | undo file changes from a previous prompt |
+| `/model <name>` · `/doctor` · `/context` · `/compact` | switch model · diagnostics · context |
+| `! <cmd>` | run a shell command directly (shared with the agent) |
+| `@path/to/file` | inline a file into your message |
+
+Handy flags: `--guard confirm` (ask before destructive commands),
+`--permission-mode plan`, `--editor vscode` (clickable `file:line` jumps),
+`--verbose`.
+
+## What it does
+
+Prompted tool-use loop (intent nudge + circuit breaker) · tools:
+`read_file / write_file / edit_file / multi_edit / bash / run_script / run_tests
+/ glob / grep / list_dir` with read-before-edit, post-edit syntax verification,
+and whitespace-tolerant edits · **parallel subagents** (fan out several in one
+turn — they run concurrently) plus background subagents ·
+per-prompt **checkpoints** with `/rewind` · JSONL **sessions** (`/resume`,
+`--continue`) · **plan mode** · **skills & custom commands** (`.robodog/`) ·
+`CLAUDE.md`/`ROBODOG.md` instruction hierarchy · a rich + prompt_toolkit **TUI**
+(emoji/color status line, clickable file & `file:line` links, multiline paste,
+mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
+
+## Configuration
+
+### First run: from install to first prompt
+
+The fastest path — an [OpenRouter](https://openrouter.ai/keys) key in
+`~/.robodog/config.env` (created if missing; loaded automatically at startup):
+
+```bash
+pip install -U robodog-terminal
+mkdir -p ~/.robodog
+echo "ROBODOG_LLM_KEY=<your OpenRouter key>" >> ~/.robodog/config.env
+robodog-terminal            # defaults to OpenRouter + a Claude model
+```
+
+That's it — type a task at the `›` prompt. Run `/doctor` if anything looks
+off: it reports which keys/vars were found (never their values) and flags
+config mistakes like a mismatched backend/model pairing.
+
+### Keys — all the options
+
+Environment variables (or `config.env` lines — same names) always win:
+
+| Env var | Purpose |
+|---|---|
+| `ROBODOG_LLM_KEY` | API key for the OpenAI-compatible backend (OpenRouter by default) |
+| `ROBODOG_LLM_URL` | override the base URL (OpenAI, Groq, LiteLLM, local Ollama, …) |
+| `ROBODOG_MODEL` | default model id |
+| `GATEWAY_ENDPOINT` / `GATEWAY_ENGINE` / `GATEWAY_ACCESS_KEY` / `GATEWAY_SECRET_KEY` | self-hosted runPixel-style gateway |
+
+### KeePass setup (optional, step by step)
+
+Instead of a key in a plaintext `config.env`, Robodog can pull keys from a
+**KeePass** database at startup. It looks for three files in `~/.robodog/`
+(or wherever `ROBODOG_KEEPASS_DIR` points; `ROBODOG_KEEPASS_DB` /
+`ROBODOG_KEEPASS_KEYFILE` override the exact paths):
+
+```
+~/.robodog/
+├── keepass_loader.py           # the loader module (code below)
+├── automation-keys.kdbx        # the database
+└── automation-keys.keyfile     # keyfile auth -> no password prompt
+```
+
+**1. Install pykeepass and create the database + keyfile:**
+
+```bash
+pip install pykeepass
+```
+
+```python
+import os
+from pathlib import Path
+from pykeepass import create_database
+
+d = Path.home() / ".robodog"
+keyfile = d / "automation-keys.keyfile"
+keyfile.write_bytes(os.urandom(32))           # random keyfile, no master password
+kp = create_database(str(d / "automation-keys.kdbx"), password=None,
+                     keyfile=str(keyfile))
+kp.add_entry(kp.root_group, "OpenRouter", "robodog", "<your OpenRouter key>",
+             url="https://openrouter.ai/api/v1")
+kp.save()
+```
+
+**2. Add entries for the providers you use.** Robodog looks them up by
+**exact title**; the API key goes in the *password* field:
+
+| Entry title | Used by | URL field (optional override) |
+|---|---|---|
+| `OpenRouter` | `--backend openrouter` / auto | `https://openrouter.ai/api/v1` |
+| `OpenAI` | `--backend openai` | `https://api.openai.com/v1` |
+| `Gateway` | `--backend gateway` (username = access key, password = secret key) | — |
+
+**3. Drop in the loader module** (`~/.robodog/keepass_loader.py`) — Robodog
+imports it and calls exactly this interface:
+
+```python
+# ~/.robodog/keepass_loader.py
+from pykeepass import PyKeePass
+
+class KeePassLoader:
+    def __init__(self, db_path, keyfile=None):
+        self.db_path, self.keyfile, self.kp = db_path, keyfile, None
+
+    def unlock(self, password=None):
+        self.kp = PyKeePass(self.db_path, password=password, keyfile=self.keyfile)
+
+    def get_credentials(self, title):
+        e = self.kp.find_entries(title=title, first=True)
+        if e is None:
+            return None
+        return {"title": e.title, "username": e.username,
+                "password": e.password, "url": e.url}
+```
+
+**4. Verify:** start `robodog-terminal` and run `/doctor` — the `keepass`
+line reports "unlocked" and which entry titles were found (values are never
+printed). Remove any `ROBODOG_LLM_KEY` from `config.env` so the KeePass path
+is actually exercised (env vars win when both are set).
+
+To rotate a token later, overwrite the entry's password field (in KeePassXC
+or a short `pykeepass` script) — Robodog picks up the new value on next
+start.
+
+### Adding a new model
+
+A model is just an ID string forwarded to the provider — there is no list to
+edit. Three levels, by what you actually mean:
+
+**1. A different model on the current provider — no code.** The default provider
+is OpenRouter, so any catalog ID works right away. OpenRouter uses *dotted*
+version ids (`-4.8`, **not** `-4-8`; the terminal auto-corrects that common
+slip and inline `# comments`):
+
+```bash
+robodog-terminal --model deepseek/deepseek-chat         # at launch
+/model anthropic/claude-opus-4.8                        # live, mid-session
+echo 'ROBODOG_MODEL=anthropic/claude-opus-4.8' >> ~/.robodog/config.env  # persist default
+```
+
+**2. A different provider — env vars, still no code.** Point the
+OpenAI-compatible client at any base URL + key (Groq, Together, Fireworks,
+Azure, or a local Ollama at `http://localhost:11434/v1`):
+
+```bash
+# ~/.robodog/config.env
+ROBODOG_LLM_URL=https://api.groq.com/openai/v1
+ROBODOG_LLM_KEY=<key>            # or store it in the KeePass automation DB
+# then:  robodog-terminal --model llama-3.1-8b-instant
+```
+
+**3. A named `--backend` shortcut or a non-OpenAI provider — small code change.**
+For a first-class flag (`--backend groq`), add the name to the `--backend`
+`choices` list and a `make_openai_compat(...)` branch in `build_backend()`
+(`app.py`). For a provider that isn't OpenAI-compatible at all, add an
+`LLMClient` subclass in `robodog_terminal/llm_client.py` — see
+`OpenAICompatClient`/`GatewayClient` as templates.
+
+### Project instructions
+
+Read from `CLAUDE.md` / `ROBODOG.md` / `.robodog.md` walking from the repo
+root to your working directory, plus `~/.robodog/CLAUDE.md` or
+`~/.robodog/ROBODOG.md` for global instructions.
+
+## Repository layout
+
+```
+robodog/
+└── apps/cli/robodog/robodog_terminal/   Robodog Terminal — the active project
+```
+
+Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`**.
+
+## Changelog
+
+Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
+(`pip install -U robodog-terminal`).
+
+### 0.2.3
+
+- **Add:** actionable hints on the LLM errors users actually hit — 401/403
+  (key rejected: points at `ROBODOG_LLM_KEY` / the KeePass entry), 402
+  (credits/quota), and 404 (wrong base URL: points at `ROBODOG_LLM_URL`) —
+  alongside the existing 400 model-mismatch hint.
+- **Fix:** `--model` / `ROBODOG_MODEL` is normalized at startup, not just at
+  `/model` — a dashed version slip (`anthropic/claude-sonnet-4-6`) no longer
+  fails the first request with an opaque `invalid model ID`.
+- **Add:** `/doctor` gains a `model-backend` check that flags a mismatched
+  pairing (OpenRouter-style id on `--backend openai`, or a bare id on
+  `--backend openrouter`) before any request is sent.
+
+### 0.2.2
+
+- **Add:** OpenAI-compatible backends now surface a hint on HTTP 400s caused
+  by the common `provider/model` id mismatch (an OpenRouter-style id sent to
+  OpenAI directly, or a bare model id sent to OpenRouter).
+- **Add:** subagent fan-out stress tests (concurrency, failure isolation,
+  background storm, cancel-under-load) and a live perf benchmark
+  (`perf_fanout.py`).
+- **Fix:** dropped stale legal/branding exposure — the docs no longer name
+  any specific model vendor's product, and a proper `LICENSE` (MIT) now
+  ships with the package.
+
+### 0.2.1
+
+- **Fix:** clipboard pastes containing lone UTF-16 surrogates (e.g. a split
+  emoji on Windows) no longer crash with `'utf-8' codec can't encode…
+  surrogates not allowed`. Input is sanitized at the boundary, so every
+  downstream encode (HTTP body, session JSONL) is safe.
+- **Fix:** running `app.py` directly no longer hit a `NameError` on first input
+  (missing import on the direct-run fallback path).
+- **Add:** `Ctrl+U` clears the whole input (all lines).
+- **Add:** `/model` normalizes ids — strips inline `# comments` and corrects the
+  common dashed OpenRouter/Anthropic slip (`claude-opus-4-8` → `claude-opus-4.8`).
+- **Tests:** multi-provider model coverage (OpenRouter/OpenAI/Groq/Together/
+  Ollama ids, temperature/max_tokens passthrough) and surrogate-safe wire
+  payloads for every backend. 18/18 suites green.
+
+### 0.2.0
+
+- First public release: agentic tool-use loop, file edit/run tools, parallel &
+  background subagents, plan mode, sessions/checkpoints, rich + prompt_toolkit
+  TUI, headless `-p`, gateway / OpenAI-compatible / offline backends.
 
 ---
 
-## /todo Feature  
-
-Robodog’s `/todo` command scans one or more `todo.md` files in your configured project roots, detects tasks marked `[ ][-]`, transitions them to `[~][-]` (Doing) when started, and `[x][-]` (Done) when completed. Additionally, flipping from [x[[ ] will commit the changes to from the out file to the destination file(s). Each task may include:
-
-- [ ][-] task status and task commit status
-  - `include:` pattern or file specification to gather relevant knowledge
-  - `out:` file path where the AI will write or update content
-  - Optional code fences below the task as initial context
-
-You can have multiple `todo.md` files anywhere under your roots. `/todo` processes the earliest outstanding task, runs the AI with gathered knowledge, updates the focus file, stamps start/completion times, and advances to the next.
-
-![Robodog MCP File Service](screenshot-todo.png)
-
-
-### Example `todo.md` File Formats
-
-```markdown
-# file: project1/todo.md
-- [ ][-] Revise API client
-  - include: pattern=api/*.js recursive
-  - out: temp/out.js
-```knowledge
-// existing stub
-```
-
-
-```markdown
-- [ ][-] Add unit tests
-  - include: file=tests/template.spec.js
-  - out: temp/out.js
-```
-
-```markdown
-# file: project2/docs/todo.md
-- [ ][-] Update README
-  - out: file=README.md
-- [ ][-] Generate changelog
-  - include: pattern=CHANGELOG*.md
-  - out: out.md
-```knowledge
-
-```
-
-```markdown
-# todo readme
-- [x][-] readme
-  - include: pattern=*robodog*.md|*robodog*.py|*todo.md   recursive`
-  - out: temp/out.js
-```knowledge
-1. do not remove any content
-2. add a new readme section for the /todo feature with examples of the todo.md files and how you can have as many as possible
-3. give lots of exampkes of file formats
-```
-# todo 
-- [~][-] changes todo
-  - started: 2025-09-16 22:53 | knowledge: 36 | include: 25181 | prompt: 25492 | cur_model: openai/o4-mini
-  - include: pattern=*robodogcli*robodog*service.py|*robodogcli*robodog*todo.py|*robodogcli*robodog*builder.py|*robodogcli*robodog*cli.py   recursive`
-  - out:  temp\out.py
-```knowledge
-
-1. detect if the parsed file is new or not. 
-2. # file: <filename.ext> NEW
-3. add if the file is new to the list of objects from parse_llm_output
-4. give me all of the code. 
-```
-
-```markdown
-# watch
-- [ ][-] change app prints in service logger.INFO
-  - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - out: temp/out.js
-```knowledge
-do not remove any features.
-give me full drop in code file
-```
-
-
-```markdown
-# fix logging
-- [ ][-] ask: fix logging. change logging so that it gets log level through command line. change logger so that it takes log level from the command line param
-  - include: pattern=*robodog*.md|*robodog*.py  recursive`
-  - focus: file=c:\projects\robodog\robodogcli\robodog\cli3.py
-```knowledge
-my knowledge
-```
-
-You can chain as many tasks and files as needed. Each can reside in different directories, and Robodog will locate all `todo.md` files automatically.
-
-## Configuration & Command Reference  
-
-### Robodog UI
-
-See command palette in-app (`/help`) or the reference below:
-
-```
-/help             — show help  
-/models           — list configured models  
-/model <name>     — switch model  
-/import <glob>    — import files into knowledge  
-/export <file>    — export snapshot  
-/clear            — clear chat & knowledge  
-/stash <name>     — stash state  
-/pop <name>       — restore stash  
-/list             — list stashes  
-/temperature <n>  — set temperature  
-/top_p <n>        — set top_p  
-/max_tokens <n>   — set max_tokens  
-/frequency_penalty <n> — set frequency_penalty  
-/presence_penalty <n>  — set presence_penalty  
-/dark             — toggle light/dark 
-/folders <dirs>   — set MCP roots  
-/include …        — include files via MCP  
-/curl …           — fetch pages / run JS  
-/play …           — AI-driven Playwright tests  
-/mcp …            — invoke raw MCP operation  
-/todo             — run next To Do task  
-
-Code Map & Analysis:
-/map scan         — scan codebase and create index
-/map find <name>  — find class/function definition
-/map context <task> — get relevant files for task
-/map save [file]  — save code map (default: codemap.json)
-/map load [file]  — load code map (default: codemap.json)
-/analyze callgraph — build call graph for codebase
-/analyze impact <fn> — find what breaks if function changes
-/analyze deps <file> — show file dependencies
-/analyze stats    — show codebase statistics
-/cascade run <task> — run task with parallel execution (2-3x faster)
-```
-### Robodog CLI
-
-```
-/help             — show help  
-/models           — list configured models  
-/model <name>     — switch model  
-/clear            — clear chat & knowledge  
-/temperature <n>  — set temperature  
-/folders <dirs>   — set MCP roots  
-/include …        — include files via MCP  
-/todo             — run next To Do task
-
-Code Map & Analysis:
-/map scan         — scan codebase and create index
-/map find <name>  — find class/function definition
-/map context <task> — get relevant files for task
-/map save [file]  — save code map
-/map load [file]  — load code map
-/analyze callgraph — build call graph for codebase
-/analyze impact <fn> — find what breaks if function changes
-/analyze deps <file> — show file dependencies
-/analyze stats    — show codebase statistics
-/cascade run <task> — run task with parallel execution (2-3x faster)
-```
-
----
-
-## Build & Run  
-
-```bash
-# Clone or unzip robodog
-cd robodog
-python build.py
-open ./dist/robodog.html
-```
-
-```bash
-npm install robodoglib  
-npm install robodogcli  
-npm install robodog  
-pip install robodogcli  
-pip show -f robodogcli  
-python -m robodogcli.cli --help  
-python -m robodogcli.cli --folders "c:\projects\robodog" --port 2500 --token testtoken --config config.yaml --model  openai/o4-mini --backupFolder "c:\temp"
-
-```
-
----
-
-## 🚀 What's New in v2.6.16
-
-**Windsurf-Inspired Features:**
-- ✅ **Code Map** - 90% faster context loading with intelligent indexing
-- ✅ **Advanced Analysis** - Call graphs, impact analysis, dependency tracking
-- ✅ **Cascade Mode** - 2-3x faster parallel execution for multi-step tasks
-
-**Performance Improvements:**
-- Multi-file changes: **2.4x faster**
-- Code analysis: **2.5x faster**
-- Test generation: **2.6x faster**
-
-See the [Code Map & Advanced Analysis](#-code-map--advanced-analysis) section for detailed examples and usage.
-
----
-
-Enjoy Robodog AI—the future of fast, contextual, and extensible AI interaction!
+*Robodog is an independent project. It integrates various LLM providers, but is not affiliated with or endorsed
+by Anthropic or any provider.*
