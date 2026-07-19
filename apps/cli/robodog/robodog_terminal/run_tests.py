@@ -29,6 +29,7 @@ SUITES = [
     "test_input.py",          # multiline paste, backslash-continuation
     "test_skills.py",         # custom commands / agents / skills discovery
     "test_concurrency.py",    # bg concurrency + /btw side questions
+    "test_subagent_stress.py",  # fan-out concurrency, failure isolation, bg storm, cancel-under-load
     "test_turnrunner.py",     # threaded turns: cancel/background/queue
     "test_rendering.py",      # banner, status, diff, markdown, clickable links, /open
     "test_llm_client.py",     # the gateway/OpenAI-compat wire + retry + factory
