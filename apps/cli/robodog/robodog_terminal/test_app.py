@@ -235,6 +235,24 @@ def main() -> int:
     check(n("anthropic/claude-opus-4.8-fast") == "anthropic/claude-opus-4.8-fast",
           "model id: -fast suffix preserved")
 
+    # ---- --model is normalized at STARTUP too (not just /model) ----------
+    import os as _os
+    import types as _types
+    _dash_args = _types.SimpleNamespace(
+        echo=False, backend="openrouter", model="anthropic/claude-sonnet-4-6")
+    _saved_key = _os.environ.get("ROBODOG_LLM_KEY")
+    _os.environ["ROBODOG_LLM_KEY"] = "test-key-not-real"
+    try:
+        client, label = app_mod.build_backend(_dash_args)
+        check(getattr(client, "model", "") == "anthropic/claude-sonnet-4.6",
+              "build_backend normalizes a dashed --model at startup")
+        check("4.6" in label, "backend label shows the normalized id")
+    finally:
+        if _saved_key is None:
+            _os.environ.pop("ROBODOG_LLM_KEY", None)
+        else:
+            _os.environ["ROBODOG_LLM_KEY"] = _saved_key
+
     print("\nAPP:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

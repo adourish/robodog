@@ -222,6 +222,22 @@ def main() -> int:
         check(False, "matched backend/model still raises")
     except RuntimeError as exc:
         check("Hint:" not in str(exc), "no spurious hint for matched backend/model")
+
+    # ---- actionable hints for 401 / 402 / 404 -----------------------------
+    for status, want, label in [
+        (401, "ROBODOG_LLM_KEY", "401 hints at the key source"),
+        (403, "ROBODOG_LLM_KEY", "403 hints at the key source"),
+        (402, "credits", "402 hints at credits/quota"),
+        (404, "ROBODOG_LLM_URL", "404 hints at the base URL"),
+    ]:
+        oc = OpenAICompatClient(base_url="https://openrouter.ai/api", api_key="k",
+                                model="anthropic/claude-sonnet-4.6",
+                                session=FakeSession([FakeResp(status, text="err")]))
+        try:
+            oc.complete("q")
+            check(False, f"HTTP {status} raises")
+        except RuntimeError as exc:
+            check(want in str(exc) and f"{status}" in str(exc), label)
     oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
                             max_attempts=2,
                             session=FakeSession([FakeResp(200, oai_payload("")),

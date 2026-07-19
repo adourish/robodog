@@ -199,6 +199,27 @@ def _check_which(name: str, exe: str) -> CheckResult:
     return CheckResult(name, False, f"{exe} not found on PATH")
 
 
+def _check_model_backend(backend: str, model: str) -> CheckResult:
+    """
+    Catch the backend/model pairings that fail at request time with an opaque
+    HTTP 400 — before the user ever sends a prompt.
+    """
+    if not model or not backend:
+        return CheckResult("model-backend", None, "no model/backend configured")
+    b = backend.lower()
+    if b == "openai" and "/" in model:
+        return CheckResult(
+            "model-backend", False,
+            f"'{model}' is an OpenRouter-style id (provider/model) but the "
+            "backend is OpenAI's API directly — use --backend openrouter")
+    if b == "openrouter" and "/" not in model:
+        return CheckResult(
+            "model-backend", False,
+            f"OpenRouter ids need a provider prefix — try 'openai/{model}' "
+            f"or 'anthropic/{model}'")
+    return CheckResult("model-backend", True, f"{model} @ {backend}")
+
+
 def _check_terminal_modules() -> CheckResult:
     """All terminal package modules must import; report the FIRST failure."""
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -215,8 +236,10 @@ def _check_terminal_modules() -> CheckResult:
 
 # ---------------------------------------------------------------- driver ----
 
-def run_doctor(cwd: str) -> List[CheckResult]:
-    """Run every diagnostic. Never raises; every check yields one CheckResult."""
+def run_doctor(cwd: str, backend: str = "", model: str = "") -> List[CheckResult]:
+    """Run every diagnostic. Never raises; every check yields one CheckResult.
+    backend/model are optional (the /doctor command passes the live config so
+    misconfigured pairings are flagged before a request ever fails)."""
     checks: List[Tuple[str, Callable[[], CheckResult]]] = [
         ("python", _check_python),
         ("rich", lambda: _check_importable("rich")),
@@ -232,6 +255,7 @@ def run_doctor(cwd: str) -> List[CheckResult]:
         ("openai-endpoint", lambda: _check_openai_endpoint()),
         ("git", lambda: _check_which("git", "git")),
         ("powershell", lambda: _check_which("powershell", "powershell")),
+        ("model-backend", lambda: _check_model_backend(backend, model)),
         ("terminal-modules", lambda: _check_terminal_modules()),
     ]
     results: List[CheckResult] = []

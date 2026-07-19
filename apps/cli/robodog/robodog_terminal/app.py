@@ -190,8 +190,11 @@ def build_backend(args, on_retry=None) -> tuple:
                                    on_retry=on_retry),
                 f"{model}")
 
-    model = getattr(args, "model", None) or os.environ.get(
-        "ROBODOG_MODEL", DEFAULT_MODEL)
+    # Normalize here too, not just at /model — a dashed slip typed at the CLI
+    # (--model anthropic/claude-sonnet-4-6) or via ROBODOG_MODEL otherwise goes
+    # to the wire raw and fails with an opaque "invalid model ID".
+    model = _normalize_model_id(getattr(args, "model", None) or os.environ.get(
+        "ROBODOG_MODEL", DEFAULT_MODEL))
 
     if backend == "gateway":
         made = make_gateway(None)
@@ -873,7 +876,12 @@ def main(argv=None) -> int:
                     from .doctor import run_doctor, format_report
                 except ImportError:
                     from robodog_terminal.doctor import run_doctor, format_report
-                ui.info(format_report(run_doctor(ui.cwd)))
+                _doc_model = _normalize_model_id(
+                    getattr(args, "model", None)
+                    or os.environ.get("ROBODOG_MODEL", DEFAULT_MODEL))
+                ui.info(format_report(run_doctor(
+                    ui.cwd, backend=getattr(args, "backend", "") or "",
+                    model=_doc_model)))
             elif cmd == "todos":
                 lines = checklist.render_lines()
                 ui.info("\n".join(lines) if lines else "(no tasks)")

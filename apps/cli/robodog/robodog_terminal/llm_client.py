@@ -39,6 +39,27 @@ def _model_mismatch_hint(url: str, model: str) -> str:
     return ""
 
 
+def _http_error_hint(status: int, url: str, model: str) -> str:
+    """
+    One actionable line for the non-retryable HTTP failures users actually hit,
+    appended to the raw error so nobody has to decode a bare status code.
+    """
+    if status in (401, 403):
+        return ("\nHint: the API key was rejected. Check ROBODOG_LLM_KEY (env) "
+                "or the KeePass 'OpenRouter'/'OpenAI' entry — the key may be "
+                "missing, expired, or for a different provider.")
+    if status == 402:
+        return ("\nHint: the provider reports insufficient credits/quota for "
+                "this key — top up or switch models.")
+    if status == 404:
+        return (f"\nHint: nothing is served at {url} — the base URL is likely "
+                "wrong. Check ROBODOG_LLM_URL (it should look like "
+                "https://openrouter.ai/api/v1).")
+    if status == 400:
+        return _model_mismatch_hint(url, model)
+    return ""
+
+
 def clean_text(s):
     """
     Strip lone UTF-16 surrogate code points that sneak in from Windows clipboard
@@ -324,7 +345,7 @@ class OpenAICompatClient(LLMClient):
                 elif resp.status_code in (429,) or resp.status_code >= 500:
                     last_err = f"HTTP {resp.status_code}"
                 else:
-                    hint = _model_mismatch_hint(self.url, self.model)
+                    hint = _http_error_hint(resp.status_code, self.url, self.model)
                     raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}{hint}")
             except (_rq.ConnectionError, _rq.Timeout) as exc:
                 last_err = f"network: {type(exc).__name__}"

@@ -30,7 +30,7 @@ except ImportError:
 EXPECTED_NAMES = [
     "python", "rich", "prompt_toolkit", "requests", "tty", "encoding",
     "cwd-writable", "robodog-home", "keepass", "gateway-env", "gateway-endpoint",
-    "openai-endpoint", "git", "powershell", "terminal-modules",
+    "openai-endpoint", "git", "powershell", "model-backend", "terminal-modules",
 ]
 
 # A secret-looking string: a long unbroken alnum run (real keys are 25+ chars
@@ -204,6 +204,22 @@ def main() -> int:
     check(tty.name == "tty" and tty.ok in (True, None), "tty check returns pass/warn")
     enc = doctor._check_encoding()
     check(enc.name == "encoding" and "encoding" in enc.detail, "encoding check reports codec")
+
+    # model/backend coherence (the opaque-HTTP-400-before-it-happens check)
+    mb = doctor._check_model_backend("openai", "anthropic/claude-sonnet-4.6")
+    check(mb.ok is False and "openrouter" in mb.detail.lower(),
+          "openai backend + provider-prefixed model -> fail with openrouter hint")
+    mb = doctor._check_model_backend("openrouter", "gpt-4o")
+    check(mb.ok is False and "provider prefix" in mb.detail,
+          "openrouter backend + bare model -> fail with prefix hint")
+    mb = doctor._check_model_backend("openrouter", "anthropic/claude-sonnet-4.6")
+    check(mb.ok is True, "matched openrouter pairing passes")
+    mb = doctor._check_model_backend("openai", "gpt-4o-mini")
+    check(mb.ok is True, "matched openai pairing passes")
+    mb = doctor._check_model_backend("", "")
+    check(mb.ok is None, "no config -> informational, not a failure")
+    mb = doctor._check_model_backend("auto", "anthropic/claude-sonnet-4.6")
+    check(mb.ok is True, "auto backend never flags a mismatch")
 
     # KeePass unlock-failure path via a fake loader that raises.
     fake_dir = Path(tempfile.mkdtemp(prefix="robodog_fakekp_"))
