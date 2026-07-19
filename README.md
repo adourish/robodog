@@ -199,6 +199,32 @@ robodog/
 
 Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`**.
 
+## Changelog
+
+Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
+(`pip install -U robodog-terminal`).
+
+### 0.2.1
+
+- **Fix:** clipboard pastes containing lone UTF-16 surrogates (e.g. a split
+  emoji on Windows) no longer crash with `'utf-8' codec can't encode…
+  surrogates not allowed`. Input is sanitized at the boundary, so every
+  downstream encode (HTTP body, session JSONL) is safe.
+- **Fix:** running `app.py` directly no longer hit a `NameError` on first input
+  (missing import on the direct-run fallback path).
+- **Add:** `Ctrl+U` clears the whole input (all lines).
+- **Add:** `/model` normalizes ids — strips inline `# comments` and corrects the
+  common dashed OpenRouter/Anthropic slip (`claude-opus-4-8` → `claude-opus-4.8`).
+- **Tests:** multi-provider model coverage (OpenRouter/OpenAI/Groq/Together/
+  Ollama ids, temperature/max_tokens passthrough) and surrogate-safe wire
+  payloads for every backend. 18/18 suites green.
+
+### 0.2.0
+
+- First public release: agentic tool-use loop, file edit/run tools, parallel &
+  background subagents, plan mode, sessions/checkpoints, rich + prompt_toolkit
+  TUI, headless `-p`, gateway / OpenAI-compatible / offline backends.
+
 ---
 
 *Robodog is an independent project. It integrates various LLM providers, but is not affiliated with or endorsed
