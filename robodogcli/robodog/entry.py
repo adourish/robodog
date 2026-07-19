@@ -16,9 +16,9 @@ def main() -> int:
     argv = sys.argv[1:]
     if argv and argv[0] == "terminal":
         try:
-            from robodog.terminal.app import main as terminal_main
-        except ImportError:  # running from a source checkout
-            from terminal.app import main as terminal_main
+            from robodog.robodog_terminal.app import main as terminal_main
+        except ImportError:  # standalone install / source checkout
+            from robodog_terminal.app import main as terminal_main
         return terminal_main(argv[1:])
     # default: the combined MCP file-server + Robodog CLI
     from robodog.cli import main as cli_main

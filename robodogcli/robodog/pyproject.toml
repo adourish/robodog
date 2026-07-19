@@ -24,15 +24,12 @@ dependencies = [
 yaml = ["PyYAML>=6"]     # nicer .yaml verification in edits
 
 [project.scripts]
-robodog-terminal = "terminal.app:main"
-robodogt = "terminal.app:main"
+robodog-terminal = "robodog_terminal.app:main"
+robodogt = "robodog_terminal.app:main"
 
 [project.urls]
 Homepage = "https://github.com/adourish/robodog"
 Repository = "https://github.com/adourish/robodog.git"
 
 [tool.setuptools]
-packages = ["terminal"]
-
-[tool.setuptools.package-data]
-terminal = ["truncation_phrases.txt"]
+packages = ["robodog_terminal"]

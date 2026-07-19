@@ -24,7 +24,7 @@ setup(
             # server imports; everything else goes to the original CLI.
             "robodog=robodog.entry:main",
             # Direct first-class launcher for Terminal Mode.
-            "robodog-terminal=robodog.terminal.app:main",
+            "robodog-terminal=robodog.robodog_terminal.app:main",
         ],
     },
 )

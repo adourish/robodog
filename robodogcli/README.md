@@ -28,7 +28,7 @@ NEVER TRUST A CODE SPEWING ROBOT!
 
 ## 🖥️ Terminal Mode (Claude Code-style) — NEW
 
-`robodog/terminal/` is a self-contained, Claude Code-style interactive coding
+`robodog/robodog_terminal/` is a self-contained, Claude Code-style interactive coding
 terminal: an agentic tool-use loop that reads/edits files, runs commands, runs
 tests, and self-corrects — over pluggable LLM backends. It is designed to run
 **Claude Sonnet on the FDA ELSA/SEMOSS gateway** (air-gapped, where Claude Code
@@ -43,7 +43,7 @@ pip install -e "robodogcli[terminal]"        # pulls rich, prompt_toolkit, reque
 
 robodog terminal --backend openai --model gpt-4o    # via the robodog command
 robodog-terminal --backend elsa                     # dedicated launcher (FDA box / Sonnet)
-python -m robodog.terminal --echo                   # module form
+python -m robodog.robodog_terminal --echo                   # module form
 ```
 
 **From a source checkout (no install):**
@@ -51,10 +51,10 @@ python -m robodog.terminal --echo                   # module form
 cd robodogcli/robodog
 pip install rich prompt_toolkit requests
 
-python terminal/app.py --backend openai --model gpt-4o     # live (OpenAI/OpenRouter)
-python terminal/app.py --echo                               # offline demo, no keys
-python terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"   # headless
-python terminal/run_tests.py                                # 18 test suites
+python robodog_terminal/app.py --backend openai --model gpt-4o     # live (OpenAI/OpenRouter)
+python robodog_terminal/app.py --echo                               # offline demo, no keys
+python robodog_terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"   # headless
+python robodog_terminal/run_tests.py                                # 18 test suites
 ```
 Keys load automatically from the KeePass automation DB (ELSA `SEMOSS-Elsa-Dev`,
 `OpenAI`, `OpenRouter`) or from `ELSA_*` / `ROBODOG_LLM_*` env vars.
