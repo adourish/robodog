@@ -209,6 +209,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.2.2
+
+- **Add:** OpenAI-compatible backends now surface a hint on HTTP 400s caused
+  by the common `provider/model` id mismatch (an OpenRouter-style id sent to
+  OpenAI directly, or a bare model id sent to OpenRouter).
+- **Add:** subagent fan-out stress tests (concurrency, failure isolation,
+  background storm, cancel-under-load) and a live perf benchmark
+  (`perf_fanout.py`).
+- **Fix:** dropped stale legal/branding exposure — the docs no longer name
+  any specific model vendor's product, and a proper `LICENSE` (MIT) now
+  ships with the package.
+
 ### 0.2.1
 
 - **Fix:** clipboard pastes containing lone UTF-16 surrogates (e.g. a split
