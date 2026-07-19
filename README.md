@@ -30,45 +30,73 @@ The script printed 55. Created fib.py and ran it.
 [3 steps · 5.7k tok · 4.2s]
 ```
 
-## Setup
+## Get Started
 
-Requires **Python 3.9+**. Install from PyPI:
+New here? Follow these five steps in order — each one unblocks the next.
+
+**1. Install** (requires Python 3.9+):
 
 ```bash
 pip install -U robodog-terminal
 ```
 
-That gives you the command from any directory — note the **dash** (the
-Python *package* is `robodog_terminal` with an underscore, but the *command*
-is dashed):
+**2. Confirm the command works:**
 
 ```bash
-robodog-terminal --echo          # offline demo, no keys needed
-robodogt --echo                  # short alias, same thing
-python -m robodog_terminal       # module form (works even if the pip
-                                 # scripts dir isn't on PATH)
+robodog-terminal --echo          # offline demo, no keys needed yet
 ```
 
-For live models, set an API key first (see Configuration) — OpenRouter/OpenAI
-via env or KeePass, or GATEWAY_* vars for an enterprise gateway.
+Note the **dash** — the Python *package* is `robodog_terminal` (underscore),
+but the installed *command* is `robodog-terminal` (dash). `robodogt` is a
+short alias for the same thing.
 
-**`robodog-terminal: command not found` right after install?** Your pip
-scripts directory isn't on `PATH` yet — pip warns about this during install
-(`WARNING: The script ... is installed in ... which is not on PATH`). Use
-`python -m robodog_terminal` in the meantime, or add the directory permanently:
+> **`robodog-terminal: command not found`?** Your pip scripts directory
+> isn't on `PATH` yet — pip warns about this during install (`WARNING: The
+> script ... is installed in ... which is not on PATH`). Two fixes:
+>
+> - **Right now, no setup:** `python -m robodog_terminal --echo` works
+>   regardless of PATH.
+> - **Permanently (Windows):**
+>   ```powershell
+>   python -m pip show -f robodog-terminal   # note the Location: + Scripts entries
+>   setx PATH "$($env:PATH);<the-scripts-dir-from-above>"
+>   ```
+>   **Then close this terminal and open a brand-new one** — `setx` only
+>   updates the registry; already-open terminals (and anything spawned from
+>   them) keep their old PATH until you start a fresh window.
+> - **Permanently (macOS/Linux)**, usually `~/.local/bin`:
+>   ```bash
+>   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+>   ```
 
-```powershell
-# Windows: find the dir, then add it to your user PATH (new terminals pick it up)
-python -m pip show -f robodog-terminal   # Location: line + Scripts entries
-setx PATH "$($env:PATH);<the-scripts-dir-from-above>"
-```
+**3. Get an API key.** The default provider is [OpenRouter](https://openrouter.ai/keys)
+— any model in its catalog works without code changes.
+
+**4. Store the key.** Pick one:
+
+- **Quick — plaintext file** (`~/.robodog/config.env`, created if missing,
+  loaded automatically at startup):
+  ```bash
+  mkdir -p ~/.robodog
+  echo "ROBODOG_LLM_KEY=<your OpenRouter key>" >> ~/.robodog/config.env
+  ```
+- **Encrypted — KeePass**, if you already keep API keys in a KeePass vault:
+  see [KeePass setup](#keepass-setup-optional-step-by-step) below instead of
+  the plaintext file. Skip step 4's plaintext option entirely — env vars win
+  over KeePass when both are set, so don't set both.
+
+**5. Run it:**
 
 ```bash
-# macOS/Linux: usually ~/.local/bin — add to your shell profile
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+robodog-terminal            # defaults to OpenRouter + a Claude model
 ```
 
-Or run from a source checkout instead:
+Type a task at the `›` prompt (e.g. `create fib.py that prints fib(10), run
+it`). Run `/doctor` any time — it reports which keys/vars were found (never
+their values) and flags config mistakes like a mismatched backend/model
+pairing.
+
+Prefer building from source instead of PyPI?
 
 ```bash
 git clone https://github.com/adourish/robodog.git
@@ -77,7 +105,7 @@ pip install rich prompt_toolkit requests        # core deps
 python robodog_terminal/app.py --echo
 ```
 
-## Quickstart
+## More examples
 
 ```bash
 # offline demo — no keys needed (scripted, just to see the UI)
@@ -143,21 +171,8 @@ mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
 
 ## Configuration
 
-### First run: from install to first prompt
-
-The fastest path — an [OpenRouter](https://openrouter.ai/keys) key in
-`~/.robodog/config.env` (created if missing; loaded automatically at startup):
-
-```bash
-pip install -U robodog-terminal
-mkdir -p ~/.robodog
-echo "ROBODOG_LLM_KEY=<your OpenRouter key>" >> ~/.robodog/config.env
-robodog-terminal            # defaults to OpenRouter + a Claude model
-```
-
-That's it — type a task at the `›` prompt. Run `/doctor` if anything looks
-off: it reports which keys/vars were found (never their values) and flags
-config mistakes like a mismatched backend/model pairing.
+First-time setup lives in [Get Started](#get-started) above. This section is
+the reference for everything beyond the basic OpenRouter-key path.
 
 ### Keys — all the options
 
@@ -244,6 +259,23 @@ is actually exercised (env vars win when both are set).
 To rotate a token later, overwrite the entry's password field (in KeePassXC
 or a short `pykeepass` script) — Robodog picks up the new value on next
 start.
+
+**Already use KeePass for other credentials?** Point Robodog at your
+existing vault instead of creating a second one — no new database needed.
+Two requirements: the vault has an entry titled exactly `OpenRouter` (or
+`OpenAI` / `Gateway`), and its folder has a `keepass_loader.py` implementing
+the `KeePassLoader` interface above (many personal automation setups already
+have one). Then in `~/.robodog/config.env`:
+
+```bash
+ROBODOG_KEEPASS_DB=/path/to/your/existing.kdbx
+ROBODOG_KEEPASS_DIR=/path/to/the/folder/containing/keepass_loader.py
+```
+
+The keyfile is assumed to sit next to the database with the same name and a
+`.keyfile` extension; set `ROBODOG_KEEPASS_KEYFILE` explicitly if yours
+lives elsewhere. `pip install pykeepass` if it isn't already in your
+environment.
 
 ### Adding a new model
 
