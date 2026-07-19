@@ -47,6 +47,10 @@ DEMO_SCRIPT = [
 ]
 
 
+# Default model for OpenAI-compatible backends (OpenRouter). Sonnet is the
+# strongest coding model and matches the ELSA Claude Sonnet on the FDA box.
+DEFAULT_MODEL = "anthropic/claude-sonnet-4.6"
+
 # ELSA dev defaults from the FDA API guide (endpoint/engine are not secrets).
 ELSA_DEV_ENDPOINT = "https://elsa-dev.preprod.fda.gov/Monolith/api/engine/runPixel"
 ELSA_DEV_ENGINE = "7bd59c7b-92d6-4bc9-91eb-4d17f74b5b3f"
@@ -168,7 +172,7 @@ def build_backend(args, on_retry=None) -> tuple:
                 f"{model}")
 
     model = getattr(args, "model", None) or os.environ.get(
-        "ROBODOG_MODEL", "openai/gpt-4o-mini")
+        "ROBODOG_MODEL", DEFAULT_MODEL)
 
     if backend == "elsa":
         made = make_elsa(None)
@@ -218,6 +222,7 @@ Commands:
   /todos             show the agent's task checklist
   /cwd [path]        show or change working directory
   /open <file|url>   open a file or URL with the OS default app
+  /paste             multi-line paste (end with a lone . ) — works in any terminal
   /tools             list available tools
   /exit, /quit       leave
 
@@ -235,7 +240,7 @@ and delegate to subagents.
 
 SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
-                  "/skills", "/todos", "/cwd", "/open", "/tools", "/bg", "/tasks", "/tail",
+                  "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/bg", "/tasks", "/tail",
                   "/kill", "/exit", "/quit"]
 
 INIT_PROMPT = (
@@ -362,7 +367,7 @@ def main(argv=None) -> int:
                         choices=["auto", "elsa", "openrouter", "openai", "echo"],
                         help="LLM backend (default: auto — ELSA env > OpenRouter keepass > ELSA keepass > echo)")
     parser.add_argument("--model", default=None,
-                        help="model for openai-compat backends (default openai/gpt-4o-mini)")
+                        help="model for openai-compat backends (default anthropic/claude-sonnet-4.6)")
     parser.add_argument("--elsa-endpoint", default=None,
                         help="override ELSA runPixel endpoint URL")
     parser.add_argument("--elsa-engine", default=None,
@@ -662,13 +667,18 @@ def main(argv=None) -> int:
         # Drain any queued follow-up prompts before reading new input.
         if pending_prompts:
             line = pending_prompts.pop(0)
-            ui.dim(f"› (queued) {line}")
+            preview = line.replace("\n", " ")
+            ui.dim(f"› (queued) {preview[:70]}"
+                   + (f" … [{line.count(chr(10)) + 1} lines]" if "\n" in line else ""))
         else:
             try:
                 line = ui.prompt()
             except (EOFError, KeyboardInterrupt):
                 ui.info("\nbye")
                 return 0
+        # Confirm a multi-line paste was captured whole (native bracketed paste).
+        if line and "\n" in line:
+            ui.dim(f"  [pasted {line.count(chr(10)) + 1} lines]")
         if not line:
             continue
 
@@ -847,6 +857,30 @@ def main(argv=None) -> int:
                     ui.error("usage: /open <file-or-url>")
                 else:
                     ui.info(_open_target(rest, ui.cwd))
+            elif cmd == "paste":
+                # Reliable multi-line entry for terminals where bracketed paste
+                # doesn't capture the whole block. Paste, then end with a lone '.'.
+                ui.info("paste your text, then a line with only '.' to submit "
+                        "(Ctrl-C to cancel):")
+                buf = []
+                while True:
+                    try:
+                        raw = input()
+                    except (EOFError, KeyboardInterrupt):
+                        buf = None
+                        break
+                    if raw.strip() == ".":
+                        break
+                    buf.append(raw)
+                if not buf:
+                    ui.info("(paste cancelled)")
+                    continue
+                block = "\n".join(buf).strip()
+                if block:
+                    msg = f"{rest}\n{block}" if rest else block
+                    pending_prompts.insert(0, msg)   # run it as a normal turn
+                else:
+                    ui.info("(nothing pasted)")
             elif cmd == "skills":
                 if not (skills.commands or skills.skills or skills.agents):
                     ui.info("no extensions found. Add files under "

@@ -210,11 +210,41 @@ class ToolRegistry:
         return tool.run(args)
 
     # ---- path helper ----------------------------------------------------
-    def _resolve(self, p: str) -> Path:
+    def _project_root(self) -> Optional[Path]:
+        """Nearest ancestor of cwd containing a .git (the repo root), or None."""
+        for base in (self.cwd, *self.cwd.parents):
+            if (base / ".git").exists():
+                return base
+        return None
+
+    def _resolve(self, p: str, search: bool = False) -> Path:
+        """
+        Resolve a path. Absolute paths pass through. Relative paths join to cwd.
+        With search=True (read tools), if cwd/p doesn't exist, also try the
+        repo root and cwd's ancestors — so a REPO-RELATIVE path like `apps/cli`
+        still resolves even when cwd is deep inside the tree (no more doubling
+        like cwd/apps/cli/…/apps/cli). Falls back to cwd-relative if nothing
+        exists, so the not-found error stays sensible.
+        """
         path = Path(p)
-        if not path.is_absolute():
-            path = self.cwd / path
-        return path
+        if path.is_absolute():
+            return path
+        direct = self.cwd / path
+        if not search or direct.exists():
+            return direct
+        root = self._project_root()
+        bases = []
+        if root is not None:
+            bases.append(root)
+        for anc in self.cwd.parents:
+            bases.append(anc)
+            if root is not None and anc == root:
+                break
+        for base in bases:
+            cand = base / path
+            if cand.exists():
+                return cand
+        return direct
 
     # ---- system-prompt catalog -----------------------------------------
     def catalog(self) -> str:
@@ -280,7 +310,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
 
     # --- read_file -------------------------------------------------------
     def _read_file(args):
-        path = reg._resolve(args["path"])
+        path = reg._resolve(args["path"], search=True)
         if not path.exists():
             return f"ERROR: file not found: {path}"
         reg.read_paths.add(str(path))
@@ -700,7 +730,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
     # --- glob ------------------------------------------------------------
     def _glob(args):
         pattern = args["pattern"]
-        root = reg._resolve(args.get("path", ".") or ".")
+        root = reg._resolve(args.get("path", ".") or ".", search=True)
         matches = sorted(str(p.relative_to(reg.cwd)) if str(p).startswith(str(reg.cwd)) else str(p)
                          for p in root.rglob("*")
                          if p.is_file() and not _is_excluded(p.relative_to(root))
@@ -723,7 +753,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
     def _grep(args):
         import re as _re
         pattern = args["pattern"]
-        root = reg._resolve(args.get("path", ".") or ".")
+        root = reg._resolve(args.get("path", ".") or ".", search=True)
         file_glob = args.get("glob", "*")
         try:
             rx = _re.compile(pattern)
@@ -762,7 +792,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
 
     # --- list_dir --------------------------------------------------------
     def _list_dir(args):
-        path = reg._resolve(args.get("path", ".") or ".")
+        path = reg._resolve(args.get("path", ".") or ".", search=True)
         if not path.exists():
             return f"ERROR: not found: {path}"
         entries = []

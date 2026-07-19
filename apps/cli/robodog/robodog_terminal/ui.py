@@ -233,13 +233,17 @@ class UI:
 
     # ---- banner ---------------------------------------------------------
     def welcome(self):
+        try:
+            from . import __version__ as _ver
+        except Exception:
+            _ver = "?"
         tips = (
             "[bold]/help[/bold] commands   [bold]![/bold] run shell   "
             "[bold]/rewind[/bold] undo edits   [bold]/exit[/bold] quit"
         )
         if self.console and self.console.width >= 60:
             body = Text.from_markup(
-                "[bold cyan]Robodog Terminal[/bold cyan]  "
+                f"[bold cyan]Robodog Terminal[/bold cyan] [dim]v{_ver}[/dim]  "
                 "[dim]agentic coding in your shell[/dim]\n\n"
                 f"model: [green]{self.model_name}[/green]\n"
                 f"cwd:   [blue]{self.cwd}[/blue]\n\n"
@@ -251,7 +255,7 @@ class UI:
                                      padding=(1, 2), width=self.console.width,
                                      expand=False))
         else:  # narrow terminal or no rich: plain lines
-            print("Robodog Terminal — agentic coding in your shell")
+            print(f"Robodog Terminal v{_ver} — agentic coding in your shell")
             print(f" model: {self.model_name}")
             print(f" cwd:   {self.cwd}")
             print(" /help  !cmd  /rewind  /exit")
