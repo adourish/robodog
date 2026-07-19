@@ -8,16 +8,22 @@ OpenAI-compatible models or a fully offline mock.
 
 ## Install
 ```bash
-pip install robodog-terminal          # or: pip install -e robodogcli/robodog
+pip install -U robodog-terminal       # or, from a checkout: pip install -e apps/cli/robodog
 ```
 
 ## Run
+
+The command is **dashed** (`robodog-terminal` or the short alias `robodogt`);
+the Python package is `robodog_terminal` with an underscore
+(`python -m robodog_terminal` also works).
+
 ```bash
-robodog-terminal --backend openai --model gpt-4o     # live (OpenAI/OpenRouter)
-robodog-terminal --backend gateway                       # enterprise box (the gateway / leading models)
+robodog-terminal --backend openrouter --model anthropic/claude-sonnet-4.6  # live via OpenRouter (provider/model ids)
+robodog-terminal --backend openai --model gpt-4o      # live via OpenAI directly (bare ids)
+robodog-terminal --backend gateway                    # enterprise box (the gateway / leading models)
 robodog-terminal --echo                               # offline demo, no keys
 robodog-terminal --backend openai -p "fix x.py and run the tests"   # headless (-p)
-python -m terminal.run_tests                          # 18 test suites
+python -m robodog_terminal.run_tests                  # test suites (from a checkout)
 ```
 
 ## Features

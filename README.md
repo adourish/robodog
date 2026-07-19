@@ -32,43 +32,62 @@ The script printed 55. Created fib.py and ran it.
 
 ## Setup
 
-Requires **Python 3.9+**.
+Requires **Python 3.9+**. Install from PyPI:
+
+```bash
+pip install -U robodog-terminal
+```
+
+That gives you the command from any directory — note the **dash** (the
+Python *package* is `robodog_terminal` with an underscore, but the *command*
+is dashed):
+
+```bash
+robodog-terminal --echo          # offline demo, no keys needed
+robodogt --echo                  # short alias, same thing
+python -m robodog_terminal       # module form (works even if the pip
+                                 # scripts dir isn't on PATH)
+```
+
+For live models, set an API key first (see Configuration) — OpenRouter/OpenAI
+via env or KeePass, or GATEWAY_* vars for an enterprise gateway.
+
+Or run from a source checkout instead:
 
 ```bash
 git clone https://github.com/adourish/robodog.git
 cd robodog/apps/cli/robodog
 pip install rich prompt_toolkit requests        # core deps
-
-# optional, for live models:
-#   OpenAI/OpenRouter  -> set an API key (see Configuration)
-#   enterprise the gateway           -> keys load from the KeePass automation DB
-```
-
-Or install it as a package (first-class commands):
-
-```bash
-pip install -e "robodog/apps/cli/robodog[terminal]"
-robodog-terminal --echo         # then: robodog-terminal --backend openai --model gpt-4o
+python robodog_terminal/app.py --echo
 ```
 
 ## Quickstart
 
 ```bash
-cd apps/cli/robodog
-
 # offline demo — no keys needed (scripted, just to see the UI)
-python robodog_terminal/app.py --echo
+robodog-terminal --echo
 
-# live with an OpenAI-compatible model
-python robodog_terminal/app.py --backend openai --model gpt-4o
+# live via OpenRouter (default provider; any catalog id works)
+robodog-terminal --backend openrouter --model anthropic/claude-sonnet-4.6
+
+# live against OpenAI directly (bare ids, no provider/ prefix)
+robodog-terminal --backend openai --model gpt-4o
 
 # air-gapped gateway (SEMOSS-style runPixel; keys from KeePass)
-python robodog_terminal/app.py --backend gateway
+robodog-terminal --backend gateway
 
 # one-shot, non-interactive (great for scripts/CI)
-python robodog_terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"
+robodog-terminal --backend openai -p "fix the bug in x.py and run the tests"
+```
 
-# run the test suite (deterministic, keyless)
+From a source checkout, replace `robodog-terminal` with
+`python robodog_terminal/app.py` (run inside `apps/cli/robodog`). The test
+suite runs from there too:
+
+```bash
+cd apps/cli/robodog
+
+# deterministic, keyless
 python robodog_terminal/run_tests.py
 
 # opt-in LIVE performance test: fires N real subagents concurrently and
