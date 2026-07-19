@@ -649,6 +649,14 @@ python -m robodogcli.cli --folders "c:\projects\robodog" --port 2500 --token tes
 
 ## 🚀 What's New in v2.6.16
 
+**New Features:**
+- 🆕 **Terminal Mode** - Claude Code-style agentic coding terminal with tool-use loop, file operations, and test execution.
+- **Agentic Loop** - Prompted XML tool-calling with intent nudge and circuit breaker.
+- **Tools** - Comprehensive set of tools including read, write, edit, bash, run script, run tests, and more.
+- **Safety & Undo** - File checkpoints with `/rewind` and diff previews.
+- **Sessions & Context** - JSONL persistence, auto-trim of old tool output, and `/btw` side-questions.
+
+
 **Windsurf-Inspired Features:**
 - ✅ **Code Map** - 90% faster context loading with intelligent indexing
 - ✅ **Advanced Analysis** - Call graphs, impact analysis, dependency tracking
