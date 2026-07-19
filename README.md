@@ -2,8 +2,7 @@
 
 Robodog Terminal is an **agentic coding terminal** for your shell — a tool-use loop
 that reads and edits files, runs commands, runs tests, and self-corrects, driven by
-a large language model. It's built to run **Claude Sonnet on the FDA ELSA/SEMOSS
-gateway** (air-gapped environments), and works just as well with OpenAI-compatible
+a large language model. It's built to run leading models on **self-hosted / air-gapped LLM gateways**, and works just as well with OpenAI-compatible
 models or a fully offline mock for development.
 
 > This repository is a monorepo. Terminal mode (`apps/cli/robodog/robodog_terminal`)
@@ -42,7 +41,7 @@ pip install rich prompt_toolkit requests        # core deps
 
 # optional, for live models:
 #   OpenAI/OpenRouter  -> set an API key (see Configuration)
-#   FDA ELSA           -> keys load from the KeePass automation DB
+#   enterprise the gateway           -> keys load from the KeePass automation DB
 ```
 
 Or install it as a package (first-class commands):
@@ -63,8 +62,8 @@ python robodog_terminal/app.py --echo
 # live with an OpenAI-compatible model
 python robodog_terminal/app.py --backend openai --model gpt-4o
 
-# air-gapped FDA box (Claude Sonnet via ELSA; keys from KeePass)
-python robodog_terminal/app.py --backend elsa
+# air-gapped gateway (SEMOSS-style runPixel; keys from KeePass)
+python robodog_terminal/app.py --backend gateway
 
 # one-shot, non-interactive (great for scripts/CI)
 python robodog_terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"
@@ -103,9 +102,8 @@ mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
 
 ## Configuration
 
-Keys load automatically from the KeePass automation DB (`SEMOSS-Elsa-Dev`,
-`OpenAI`, `OpenRouter`) or from environment variables
-(`ELSA_ENDPOINT`/`ELSA_ENGINE`/`ELSA_ACCESS_KEY`/`ELSA_SECRET_KEY`,
+Keys load automatically from the KeePass automation DB (`OpenAI`, `OpenRouter`) or from environment variables
+(`GATEWAY_ENDPOINT`/`GATEWAY_ENGINE`/`GATEWAY_ACCESS_KEY`/`GATEWAY_SECRET_KEY`,
 `ROBODOG_LLM_URL`/`ROBODOG_LLM_KEY`). Run `/doctor` to see which entries/vars
 were found (values are never printed). Project instructions are read from
 `CLAUDE.md` / `ROBODOG.md` / `.robodog.md` walking from the repo root to your
@@ -123,6 +121,5 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 
 ---
 
-*Robodog is an independent project. It integrates Anthropic's Claude models (via
-the FDA ELSA gateway) and other providers, but is not affiliated with or endorsed
+*Robodog is an independent project. It integrates various LLM providers, but is not affiliated with or endorsed
 by Anthropic or any provider.*

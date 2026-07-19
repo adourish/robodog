@@ -31,7 +31,7 @@ SUITES = [
     "test_concurrency.py",    # bg concurrency + /btw side questions
     "test_turnrunner.py",     # threaded turns: cancel/background/queue
     "test_rendering.py",      # banner, status, diff, markdown, clickable links, /open
-    "test_llm_client.py",     # ELSA/OpenAI-compat wire + retry + factory
+    "test_llm_client.py",     # the gateway/OpenAI-compat wire + retry + factory
     "test_loop_checkpoint.py",# loop trim/nudge/breaker/cancel + checkpointer + tool safety
     "test_app.py",            # headless -p, CLI flags, interactive REPL drive, agents bg
     "test_integration.py",    # plan mode, @-mentions, bg-bash hook, wiring

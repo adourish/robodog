@@ -2,7 +2,7 @@
 """
 The agentic loop for terminal mode.
 
-Because ELSA has no native tool API, this is a prompted tool-calling loop:
+Because the gateway has no native tool API, this is a prompted tool-calling loop:
   1. system context = tool catalog + output contract
   2. build a transcript prompt from the running history
   3. ask the model to complete
@@ -59,7 +59,7 @@ class AgentLoop:
         self.system_suffix = system_suffix
         self.cancel_event = cancel_event  # threading.Event; checked between steps
         self.history: List[Turn] = []
-        # ELSA re-sends the full transcript every iteration, so trim old tool
+        # the gateway re-sends the full transcript every iteration, so trim old tool
         # outputs first (a modern agentic terminal's compaction order) before any summarizing.
         self.max_transcript_chars = 120_000  # ~30k tokens
 

@@ -2,7 +2,7 @@
 """
 Parse prompted (text-based) tool calls out of an LLM completion.
 
-Since ELSA has no native tool API, the model is instructed (via the system
+Since the gateway has no native tool API, the model is instructed (via the system
 `context`) to emit tool calls as XML-tag blocks:
 
     <tool name="bash">

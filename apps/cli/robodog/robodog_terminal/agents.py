@@ -3,7 +3,7 @@
 Subagents: an `agent` tool the model can call to delegate scoped work to a
 child agent with its OWN context (a modern agentic terminal's Agent/Task tool).
 
-Why this matters on ELSA especially: the parent re-sends its whole transcript
+Why this matters on the gateway especially: the parent re-sends its whole transcript
 every iteration, so delegating a search/read-heavy job to a child — whose
 transcript is DISCARDED, with only its final text returned as the tool result —
 keeps the parent's context (and token bill) small.
@@ -65,7 +65,7 @@ def register_agent_tool(
 ) -> None:
     """
     Add the `agent` tool to `registry`. `client` is the shared LLMClient
-    (the client layer's semaphore caps ELSA concurrency). `on_child_event`
+    (the client layer's semaphore caps the gateway concurrency). `on_child_event`
     receives the child loop's events for indented rendering. `manager` is an
     optional BackgroundManager enabling background=true subagents + the
     task_output tool.

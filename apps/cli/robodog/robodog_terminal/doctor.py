@@ -3,9 +3,9 @@
 /doctor — environment diagnostics for Robodog Terminal (like `claude doctor`).
 
 Runs a battery of small, independent checks (python version, deps, TTY,
-encoding, writable dirs, KeePass loader, ELSA env/network, git/powershell,
+encoding, writable dirs, KeePass loader, the gateway env/network, git/powershell,
 package imports) and renders a compact report. Built for debugging
-deployment on the FDA box, where network and key storage differ from home.
+deployment on a self-hosted gateway, where network and key storage differ from home.
 
 Every check is exception-proof: run_doctor() NEVER raises, and no detail
 line ever contains a secret value (long token-like runs are redacted).
@@ -31,13 +31,13 @@ from typing import Callable, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# ELSA dev defaults (endpoint/engine are not secrets — mirrors robodog_terminal/app.py).
-ELSA_DEV_ENDPOINT = "https://elsa-dev.preprod.fda.gov/Monolith/api/engine/runPixel"
-ELSA_ENV_VARS = ("ELSA_ENDPOINT", "ELSA_ENGINE", "ELSA_ACCESS_KEY", "ELSA_SECRET_KEY")
+# gateway endpoint (endpoint/engine are not secrets — mirrors robodog_terminal/app.py).
+GATEWAY_DEFAULT_ENDPOINT = os.environ.get("GATEWAY_ENDPOINT", "")
+GATEWAY_ENV_VARS = ("GATEWAY_ENDPOINT", "GATEWAY_ENGINE", "GATEWAY_ACCESS_KEY", "GATEWAY_SECRET_KEY")
 
-# KeePass automation DB (home setup; the FDA box may use C:\keys instead).
+# KeePass automation DB (home setup; a self-hosted gateway may use C:\keys instead).
 KEEPASS_LOADER_DIR = "G:/My Drive/Areas/Keys"
-KEEPASS_ENTRIES = ("OpenAI", "OpenRouter", "SEMOSS-Elsa-Dev", "SearchAPI-RapidAPI")
+KEEPASS_ENTRIES = ("OpenAI", "OpenRouter", "Gateway", "SearchAPI-RapidAPI")
 
 # Modules of the terminal package that must import cleanly.
 TERMINAL_MODULES = ("loop", "tools", "llm_client", "toolcall", "agents",
@@ -129,7 +129,7 @@ def _check_keepass() -> CheckResult:
     if not loader_dir.is_dir() or not (loader_dir / "keepass_loader.py").exists():
         return CheckResult("keepass", None,
                            f"loader not found at {KEEPASS_LOADER_DIR} "
-                           r"(FDA box may use C:\keys instead)")
+                           r"(self-hosted gateway may use C:\keys instead)")
     try:
         sys.path.insert(0, str(loader_dir))
         from keepass_loader import KeePassLoader  # type: ignore
@@ -155,13 +155,13 @@ def _check_keepass() -> CheckResult:
         return CheckResult("keepass", False, f"unlock failed: {type(exc).__name__}")
 
 
-def _check_elsa_env() -> CheckResult:
-    """Informational: WHICH ELSA_* vars are set — never their values."""
-    is_set = [v for v in ELSA_ENV_VARS if os.environ.get(v)]
-    unset = [v for v in ELSA_ENV_VARS if not os.environ.get(v)]
+def _check_gateway_env() -> CheckResult:
+    """Informational: WHICH GATEWAY_* vars are set — never their values."""
+    is_set = [v for v in GATEWAY_ENV_VARS if os.environ.get(v)]
+    unset = [v for v in GATEWAY_ENV_VARS if not os.environ.get(v)]
     detail = ("set: " + (", ".join(is_set) or "none")
               + "; unset: " + (", ".join(unset) or "none"))
-    return CheckResult("elsa-env", None, detail)
+    return CheckResult("gateway-env", None, detail)
 
 
 def _check_tcp(name: str, host: str, fail_note: str) -> CheckResult:
@@ -173,22 +173,22 @@ def _check_tcp(name: str, host: str, fail_note: str) -> CheckResult:
         return CheckResult(name, False, f"{host}:443 {fail_note}")
 
 
-def _check_elsa_endpoint() -> CheckResult:
-    url = os.environ.get("ELSA_ENDPOINT") or ELSA_DEV_ENDPOINT
+def _check_gateway_endpoint() -> CheckResult:
+    url = os.environ.get("GATEWAY_ENDPOINT") or GATEWAY_DEFAULT_ENDPOINT
     try:
         host = urllib.parse.urlparse(url).hostname
     except Exception:
         host = None
     if not host:
-        return CheckResult("elsa-endpoint", False,
-                           "could not parse host from ELSA_ENDPOINT")
-    return _check_tcp("elsa-endpoint", host,
-                      "unreachable (expected off FDA network)")
+        return CheckResult("gateway-endpoint", False,
+                           "could not parse host from GATEWAY_ENDPOINT")
+    return _check_tcp("gateway-endpoint", host,
+                      "unreachable (expected off gateway network)")
 
 
 def _check_openai_endpoint() -> CheckResult:
     return _check_tcp("openai-endpoint", "api.openai.com",
-                      "unreachable (no internet, or blocked — expected on FDA network)")
+                      "unreachable (no internet, or blocked — expected on gateway network)")
 
 
 def _check_which(name: str, exe: str) -> CheckResult:
@@ -226,8 +226,8 @@ def run_doctor(cwd: str) -> List[CheckResult]:
         ("cwd-writable", lambda: _check_cwd_writable(cwd)),
         ("robodog-home", lambda: _check_robodog_home()),
         ("keepass", lambda: _check_keepass()),
-        ("elsa-env", lambda: _check_elsa_env()),
-        ("elsa-endpoint", lambda: _check_elsa_endpoint()),
+        ("gateway-env", lambda: _check_gateway_env()),
+        ("gateway-endpoint", lambda: _check_gateway_endpoint()),
         ("openai-endpoint", lambda: _check_openai_endpoint()),
         ("git", lambda: _check_which("git", "git")),
         ("powershell", lambda: _check_which("powershell", "powershell")),

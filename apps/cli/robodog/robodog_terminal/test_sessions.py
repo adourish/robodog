@@ -91,10 +91,10 @@ def main() -> int:
 
     # ---- set_meta merge/override ----------------------------------------
     print("=== set_meta ===")
-    store.set_meta(sid1, name="renamed", model="elsa", total_tokens=123)
+    store.set_meta(sid1, name="renamed", model="gateway", total_tokens=123)
     m = store.load(sid1)["meta"]
     check(m["name"] == "renamed", "meta_update overrides earlier name")
-    check(m["model"] == "elsa" and m["total_tokens"] == 123,
+    check(m["model"] == "gateway" and m["total_tokens"] == 123,
           "meta_update adds new keys")
     check(m["created"] == meta_line["created"], "untouched meta keys survive merge")
 

@@ -2,7 +2,7 @@
 
 A agentic **agentic coding terminal**: a prompted tool-use loop that
 reads/edits files, runs commands, runs tests, and self-corrects — over pluggable
-LLM backends. Designed to run **Claude Sonnet on the FDA ELSA/SEMOSS gateway**
+LLM backends. Designed to run **leading models on self-hosted gateways**
 (air-gapped, where an agentic coding terminal can't reach), and works equally with
 OpenAI-compatible models or a fully offline mock.
 
@@ -14,7 +14,7 @@ pip install robodog-terminal          # or: pip install -e robodogcli/robodog
 ## Run
 ```bash
 robodog-terminal --backend openai --model gpt-4o     # live (OpenAI/OpenRouter)
-robodog-terminal --backend elsa                       # FDA box (ELSA / Claude Sonnet)
+robodog-terminal --backend gateway                       # enterprise box (the gateway / leading models)
 robodog-terminal --echo                               # offline demo, no keys
 robodog-terminal --backend openai -p "fix x.py and run the tests"   # headless (-p)
 python -m terminal.run_tests                          # 18 test suites

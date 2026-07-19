@@ -6,7 +6,7 @@ Wires the UI, the agentic loop, slash commands, and the LLM backend.
 
 Backend selection (in priority order):
   1. --echo flag or ROBODOG_TERMINAL_ECHO=1  -> EchoClient (offline demo)
-  2. ELSA_ENDPOINT + ELSA_ENGINE + ELSA_ACCESS_KEY + ELSA_SECRET_KEY  -> ElsaClient
+  2. GATEWAY_ENDPOINT + GATEWAY_ENGINE + GATEWAY_ACCESS_KEY + GATEWAY_SECRET_KEY  -> GatewayClient
   3. otherwise                                 -> EchoClient (with a notice)
 
 Run:
@@ -22,14 +22,14 @@ import sys
 from pathlib import Path
 
 try:
-    from .llm_client import EchoClient, ElsaClient, LLMClient, OpenAICompatClient
+    from .llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient
     from .tools import default_registry
     from .loop import AgentLoop
     from .ui import UI
     from .agents import register_agent_tool
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from robodog_terminal.llm_client import EchoClient, ElsaClient, LLMClient, OpenAICompatClient
+    from robodog_terminal.llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient
     from robodog_terminal.tools import default_registry
     from robodog_terminal.loop import AgentLoop
     from robodog_terminal.ui import UI
@@ -47,28 +47,30 @@ DEMO_SCRIPT = [
 ]
 
 
-# Default model for OpenAI-compatible backends (OpenRouter). Sonnet is the
-# strongest coding model and matches the ELSA Claude Sonnet on the FDA box.
-DEFAULT_MODEL = "anthropic/claude-sonnet-4.6"
+# Default model for OpenAI-compatible backends (OpenRouter). Overridable with
+# --model or the ROBODOG_MODEL env var.
+DEFAULT_MODEL = os.environ.get("ROBODOG_MODEL", "anthropic/claude-sonnet-4.6")
 
-# ELSA dev defaults from the FDA API guide (endpoint/engine are not secrets).
-ELSA_DEV_ENDPOINT = "https://elsa-dev.preprod.fda.gov/Monolith/api/engine/runPixel"
-ELSA_DEV_ENGINE = "7bd59c7b-92d6-4bc9-91eb-4d17f74b5b3f"
-KEEPASS_ENTRY = "SEMOSS-Elsa-Dev"
+# The runPixel "gateway" backend (a SEMOSS-style enterprise LLM gateway) is fully
+# env-driven — no endpoints or engine ids are baked in. Set GATEWAY_ENDPOINT,
+# GATEWAY_ENGINE, GATEWAY_ACCESS_KEY, GATEWAY_SECRET_KEY (or --gateway-endpoint /
+# --gateway-engine). Credentials may also come from a KeePass entry named by
+# GATEWAY_KEEPASS_ENTRY.
+KEEPASS_ENTRY = os.environ.get("GATEWAY_KEEPASS_ENTRY", "Gateway")
 
 
-def _load_elsa_keys() -> tuple:
+def _load_gateway_keys() -> tuple:
     """
     Resolve (access_key, secret_key) without ever printing them.
-    Order: ELSA_* env vars -> KeePass automation DB (pykeepass loader, then
-    keepassxc-cli fallback, matching the fda-serio probe's pattern).
+    Order: GATEWAY_* env vars -> KeePass automation DB (pykeepass loader, then
+    keepassxc-cli fallback, matching a common keyfile pattern).
     """
-    access = os.environ.get("ELSA_ACCESS_KEY")
-    secret = os.environ.get("ELSA_SECRET_KEY")
+    access = os.environ.get("GATEWAY_ACCESS_KEY")
+    secret = os.environ.get("GATEWAY_SECRET_KEY")
     if access and secret:
         return access, secret, "env"
 
-    candidates = [  # (db, keyfile, loader_dir) — home setup and FDA-box setup
+    candidates = [  # (db, keyfile, loader_dir) — home setup and alternate keyfile setup
         ("G:/My Drive/Areas/Keys/automation-keys.kdbx",
          "G:/My Drive/Areas/Keys/automation-keys.keyfile",
          "G:/My Drive/Areas/Keys"),
@@ -91,7 +93,7 @@ def _load_elsa_keys() -> tuple:
                     return creds.get("username"), creds.get("password"), f"keepass:{KEEPASS_ENTRY}"
             except Exception:
                 pass
-        # 2) keepassxc-cli fallback (FDA box pattern)
+        # 2) keepassxc-cli fallback (self-hosted gateway pattern)
         cli = r"C:\Program Files\KeePassXC\keepassxc-cli.exe"
         if Path(cli).exists():
             import subprocess
@@ -136,28 +138,29 @@ def build_backend(args, on_retry=None) -> tuple:
     """
     Selection order:
       --echo               -> offline scripted demo
-      --backend elsa       -> ELSA (env endpoint/engine or dev defaults; keys env->KeePass)
+      --backend gateway    -> runPixel gateway (env endpoint/engine; keys env->KeePass)
       --backend openrouter/openai -> OpenAI-compat with keys from env or KeePass
-      auto (default)       -> ELSA if ELSA_* env is set, else OpenRouter via KeePass,
-                              else ELSA via KeePass keys, else echo
+      auto (default)       -> gateway if GATEWAY_* env is set, else OpenRouter via
+                              KeePass, else gateway via KeePass keys, else echo
     """
     backend = getattr(args, "backend", "auto") or "auto"
     if args.echo or os.environ.get("ROBODOG_TERMINAL_ECHO") == "1" or backend == "echo":
         return EchoClient(script=DEMO_SCRIPT), "echo/demo"
 
-    def make_elsa(source_note):
-        endpoint = (os.environ.get("ELSA_ENDPOINT")
-                    or os.environ.get("ELSA_ASYNC_ENDPOINT") or ELSA_DEV_ENDPOINT)
-        engine = (os.environ.get("ELSA_ENGINE")
-                  or os.environ.get("ELSA_MODEL_ENGINE") or ELSA_DEV_ENGINE)
-        access, secret, source = _load_elsa_keys()
+    def make_gateway(source_note):
+        endpoint = (os.environ.get("GATEWAY_ENDPOINT")
+                    or os.environ.get("GATEWAY_ASYNC_ENDPOINT"))
+        engine = os.environ.get("GATEWAY_ENGINE")
+        if not endpoint or not engine:
+            return None   # no baked-in endpoints; the gateway is fully env-driven
+        access, secret, source = _load_gateway_keys()
         if not (access and secret):
             return None
-        return (ElsaClient(endpoint=endpoint, engine_id=engine,
+        return (GatewayClient(endpoint=endpoint, engine_id=engine,
                            access_key=access, secret_key=secret,
-                           use_history=os.environ.get("ELSA_USE_HISTORY") == "1",
+                           use_history=os.environ.get("GATEWAY_USE_HISTORY") == "1",
                            on_retry=on_retry),
-                f"elsa/{engine[:8]} ({source_note or source})")
+                f"gateway/{engine[:8]} ({source_note or source})")
 
     def make_openai_compat(entry_title, default_url, model):
         key = os.environ.get("ROBODOG_LLM_KEY")
@@ -174,11 +177,11 @@ def build_backend(args, on_retry=None) -> tuple:
     model = getattr(args, "model", None) or os.environ.get(
         "ROBODOG_MODEL", DEFAULT_MODEL)
 
-    if backend == "elsa":
-        made = make_elsa(None)
+    if backend == "gateway":
+        made = make_gateway(None)
         if made:
             return made
-        return EchoClient(script=DEMO_SCRIPT), "echo/demo (no ELSA keys found)"
+        return EchoClient(script=DEMO_SCRIPT), "echo/demo (no gateway endpoint/keys)"
     if backend == "openrouter":
         made = make_openai_compat("OpenRouter", "https://openrouter.ai/api/v1", model)
         if made:
@@ -190,15 +193,15 @@ def build_backend(args, on_retry=None) -> tuple:
             return made
         return EchoClient(script=DEMO_SCRIPT), "echo/demo (no OpenAI key)"
 
-    # auto: explicit ELSA env wins (FDA box), else OpenRouter (home), else ELSA keys, else echo
-    if os.environ.get("ELSA_ACCESS_KEY") or os.environ.get("ELSA_ENDPOINT"):
-        made = make_elsa("env")
+    # auto: explicit gateway env wins, else OpenRouter (home), else gateway keys, else echo
+    if os.environ.get("GATEWAY_ACCESS_KEY") or os.environ.get("GATEWAY_ENDPOINT"):
+        made = make_gateway("env")
         if made:
             return made
     made = make_openai_compat("OpenRouter", "https://openrouter.ai/api/v1", model)
     if made:
         return made
-    made = make_elsa("keepass")
+    made = make_gateway("keepass")
     if made:
         return made
     return EchoClient(script=DEMO_SCRIPT), "echo/demo (no LLM keys found)"
@@ -364,14 +367,14 @@ def main(argv=None) -> int:
     # -------- backend / model ------------------------------------------
     parser.add_argument("--echo", action="store_true", help="use offline demo backend")
     parser.add_argument("--backend", default="auto",
-                        choices=["auto", "elsa", "openrouter", "openai", "echo"],
-                        help="LLM backend (default: auto — ELSA env > OpenRouter keepass > ELSA keepass > echo)")
+                        choices=["auto", "gateway", "openrouter", "openai", "echo"],
+                        help="LLM backend (default: auto — the gateway env > OpenRouter keepass > the gateway keepass > echo)")
     parser.add_argument("--model", default=None,
                         help="model for openai-compat backends (default anthropic/claude-sonnet-4.6)")
-    parser.add_argument("--elsa-endpoint", default=None,
-                        help="override ELSA runPixel endpoint URL")
-    parser.add_argument("--elsa-engine", default=None,
-                        help="override ELSA model engine GUID")
+    parser.add_argument("--gateway-endpoint", default=None,
+                        help="override the runPixel gateway endpoint URL")
+    parser.add_argument("--gateway-engine", default=None,
+                        help="override the gateway model engine id")
     # -------- headless / print mode ------------------------------------
     parser.add_argument("-p", "--print", dest="print_prompt", default=None,
                         metavar="PROMPT",
@@ -426,10 +429,10 @@ def main(argv=None) -> int:
             from robodog_terminal import __version__
         print(f"robodog-terminal {__version__}")
         return 0
-    if args.elsa_endpoint:
-        os.environ["ELSA_ENDPOINT"] = args.elsa_endpoint
-    if args.elsa_engine:
-        os.environ["ELSA_ENGINE"] = args.elsa_engine
+    if args.gateway_endpoint:
+        os.environ["GATEWAY_ENDPOINT"] = args.gateway_endpoint
+    if args.gateway_engine:
+        os.environ["GATEWAY_ENGINE"] = args.gateway_engine
 
     cwd = str(Path(args.cwd).resolve())
     headless = args.print_prompt is not None
@@ -589,7 +592,7 @@ def main(argv=None) -> int:
 
     ui.welcome()
     if model_label.startswith("echo"):
-        ui.dim("(offline echo backend — set ELSA_* env vars for live Claude Sonnet via ELSA)")
+        ui.dim("(offline echo backend — set GATEWAY_* env vars for a self-hosted runPixel gateway)")
     if system_suffix:
         ui.dim("(loaded project instructions: CLAUDE.md/ROBODOG.md)")
     if skills.commands or skills.agents or skills.skills:
@@ -790,7 +793,7 @@ def main(argv=None) -> int:
                     ui.info(f"model: {ui.model_name}")
                     ui.dim("  suggestions: gpt-4o-mini · gpt-4o · "
                            "anthropic/claude-sonnet-4.5 (openrouter) · "
-                           "elsa engine GUID via --backend elsa")
+                           "gateway engine id via --backend gateway")
             elif cmd == "plan":
                 registry.mode = "plan" if registry.mode != "plan" else "yolo"
                 if registry.mode == "plan":

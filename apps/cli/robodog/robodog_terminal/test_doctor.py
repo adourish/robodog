@@ -5,7 +5,7 @@ Tests for robodog_terminal/doctor.py — the /doctor environment diagnostics.
 Verifies: every check reports, no secret-looking strings in any detail,
 known-good checks pass on this machine, bogus cwd fails without raising,
 report summary counts match, and exception paths are exercised (unreachable
-ELSA host, missing KeePass loader, crashing check, failing imports).
+a gateway host, missing KeePass loader, crashing check, failing imports).
 
 Run:  python robodog_terminal/test_doctor.py          (from robodogcli/robodog/)
    or: python -m robodog.robodog_terminal.test_doctor (from robodogcli/)
@@ -29,13 +29,13 @@ except ImportError:
 
 EXPECTED_NAMES = [
     "python", "rich", "prompt_toolkit", "requests", "tty", "encoding",
-    "cwd-writable", "robodog-home", "keepass", "elsa-env", "elsa-endpoint",
+    "cwd-writable", "robodog-home", "keepass", "gateway-env", "gateway-endpoint",
     "openai-endpoint", "git", "powershell", "terminal-modules",
 ]
 
 # A secret-looking string: a long unbroken alnum run (real keys are 25+ chars
 # of [A-Za-z0-9]; versions "3.11.9", paths "C:\\Users\\sol90", and hostnames
-# "elsa-dev.preprod.fda.gov" all contain separators so they pass).
+# "a gateway host" all contain separators so they pass).
 SECRET_RE = re.compile(r"[A-Za-z0-9]{25,}")
 
 ok = True
@@ -74,7 +74,7 @@ def main() -> int:
           f"terminal package modules import ({r['terminal-modules'].detail})")
     check(r["cwd-writable"].ok is True, "cwd is writable")
     check(r["robodog-home"].ok is True, "~/.robodog is writable")
-    check(r["elsa-env"].ok is None, "elsa-env is informational (ok=None)")
+    check(r["gateway-env"].ok is None, "gateway-env is informational (ok=None)")
     check(r["tty"].ok in (True, None), "tty check is pass or warn, never fail")
     check(r["encoding"].ok in (True, None), "encoding check is pass or warn")
     check(all(isinstance(x, CheckResult) and x.detail for x in results),
@@ -112,10 +112,10 @@ def main() -> int:
         check(False, f"run_doctor raised on bogus cwd: {type(exc).__name__}")
 
     # ============ scenario 4: garbage cwd + forced failure paths =========
-    # One combined run: empty cwd, unreachable ELSA host, missing KeePass
+    # One combined run: empty cwd, unreachable a gateway host, missing KeePass
     # loader dir, and a check function that crashes outright.
-    print("\n=== scenario 4: empty cwd, unreachable ELSA, crashed check ===")
-    saved_endpoint = os.environ.get("ELSA_ENDPOINT")
+    print("\n=== scenario 4: empty cwd, unreachable the gateway, crashed check ===")
+    saved_endpoint = os.environ.get("GATEWAY_ENDPOINT")
     saved_kp_dir = doctor.KEEPASS_LOADER_DIR
     saved_py_check = doctor._check_python
 
@@ -123,17 +123,17 @@ def main() -> int:
         raise RuntimeError("synthetic check crash")
 
     try:
-        os.environ["ELSA_ENDPOINT"] = "https://localhost-nonexistent-host-xyz.invalid/"
+        os.environ["GATEWAY_ENDPOINT"] = "https://localhost-nonexistent-host-xyz.invalid/"
         doctor.KEEPASS_LOADER_DIR = "Z:\\no-such-keys-dir"
         doctor._check_python = _boom
         garbage = run_doctor("")
         all_results.extend(garbage)
         g = by_name(garbage)
         check(len(garbage) == len(EXPECTED_NAMES), "run_doctor('') completed all checks")
-        check(g["elsa-endpoint"].ok is False, "unreachable ELSA host -> ok=False")
-        check("unreachable" in g["elsa-endpoint"].detail
-              and "expected off FDA network" in g["elsa-endpoint"].detail,
-              f"ELSA failure notes off-network is expected ({g['elsa-endpoint'].detail})")
+        check(g["gateway-endpoint"].ok is False, "unreachable a gateway host -> ok=False")
+        check("unreachable" in g["gateway-endpoint"].detail
+              and "expected off gateway network" in g["gateway-endpoint"].detail,
+              f"the gateway failure notes off-network is expected ({g['gateway-endpoint'].detail})")
         check(g["keepass"].ok is None
               and "loader not found" in g["keepass"].detail
               and "C:\\keys" in g["keepass"].detail,
@@ -145,9 +145,9 @@ def main() -> int:
         check(False, f"run_doctor raised in scenario 4: {type(exc).__name__}: {exc}")
     finally:
         if saved_endpoint is None:
-            os.environ.pop("ELSA_ENDPOINT", None)
+            os.environ.pop("GATEWAY_ENDPOINT", None)
         else:
-            os.environ["ELSA_ENDPOINT"] = saved_endpoint
+            os.environ["GATEWAY_ENDPOINT"] = saved_endpoint
         doctor.KEEPASS_LOADER_DIR = saved_kp_dir
         doctor._check_python = saved_py_check
 
@@ -182,23 +182,23 @@ def main() -> int:
     check(which.ok is False and "not found on PATH" in which.detail,
           "which check fails for a missing executable")
 
-    os.environ["ELSA_ENDPOINT"] = "not a url"
+    os.environ["GATEWAY_ENDPOINT"] = "not a url"
     try:
-        parse = doctor._check_elsa_endpoint()
+        parse = doctor._check_gateway_endpoint()
         check(parse.ok is False and "could not parse" in parse.detail,
-              "elsa-endpoint fails cleanly on an unparseable URL")
+              "gateway-endpoint fails cleanly on an unparseable URL")
     finally:
         if saved_endpoint is None:
-            os.environ.pop("ELSA_ENDPOINT", None)
+            os.environ.pop("GATEWAY_ENDPOINT", None)
         else:
-            os.environ["ELSA_ENDPOINT"] = saved_endpoint
+            os.environ["GATEWAY_ENDPOINT"] = saved_endpoint
 
-    env = doctor._check_elsa_env()
+    env = doctor._check_gateway_env()
     check(env.ok is None and "set:" in env.detail and "unset:" in env.detail,
-          "elsa-env reports set/unset names only")
-    for var in doctor.ELSA_ENV_VARS:
+          "gateway-env reports set/unset names only")
+    for var in doctor.GATEWAY_ENV_VARS:
         check(os.environ.get(var, "") not in env.detail or not os.environ.get(var),
-              f"elsa-env never leaks the value of {var}")
+              f"gateway-env never leaks the value of {var}")
 
     tty = doctor._check_tty()
     check(tty.name == "tty" and tty.ok in (True, None), "tty check returns pass/warn")
@@ -298,16 +298,16 @@ def main() -> int:
         if str(fake_dir2) in sys.path:
             sys.path.remove(str(fake_dir2))
 
-    os.environ["ELSA_ENDPOINT"] = "http://[bad-ipv6-url"
+    os.environ["GATEWAY_ENDPOINT"] = "http://[bad-ipv6-url"
     try:
-        parse2 = doctor._check_elsa_endpoint()
+        parse2 = doctor._check_gateway_endpoint()
         check(parse2.ok is False and "could not parse" in parse2.detail,
               "urlparse raising -> ok=False could-not-parse")
     finally:
         if saved_endpoint is None:
-            os.environ.pop("ELSA_ENDPOINT", None)
+            os.environ.pop("GATEWAY_ENDPOINT", None)
         else:
-            os.environ["ELSA_ENDPOINT"] = saved_endpoint
+            os.environ["GATEWAY_ENDPOINT"] = saved_endpoint
 
     saved_mods = doctor.TERMINAL_MODULES
     try:

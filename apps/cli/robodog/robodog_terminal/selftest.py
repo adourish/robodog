@@ -1,9 +1,9 @@
 # file: robodog_terminal/selftest.py
 """
 Offline end-to-end self-test of the agentic loop, tools, and tool-call parser
-using a scripted EchoClient. No network / no ELSA creds required.
+using a scripted EchoClient. No network / no the gateway creds required.
 
-Proves the core Claude-Code-style flow: model asks to create a file, run it,
+Proves the core agentic flow: model asks to create a file, run it,
 read the output, then gives a final answer.
 
 Run:  python -m robodog.robodog_terminal.selftest      (from robodogcli/)

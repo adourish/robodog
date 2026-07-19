@@ -83,7 +83,7 @@ def _input_key_bindings():
 
 
 class UI:
-    def __init__(self, model_name: str = "elsa/sonnet", cwd: Optional[str] = None,
+    def __init__(self, model_name: str = "gateway/sonnet", cwd: Optional[str] = None,
                  commands: Optional[List[str]] = None, stderr: bool = False,
                  editor: Optional[str] = None):
         self.model_name = model_name
@@ -142,7 +142,7 @@ class UI:
         m = self.model_name.lower()
         if "opus" in m:
             return "👾"
-        if "sonnet" in m or "elsa" in m:
+        if "sonnet" in m or "gateway" in m:
             return "🤖"
         if "haiku" in m:
             return "🛸"

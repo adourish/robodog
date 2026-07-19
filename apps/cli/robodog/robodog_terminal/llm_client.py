@@ -2,13 +2,13 @@
 """
 LLM client abstraction for terminal mode.
 
-ELSA (the FDA SEMOSS "Monolith" runPixel API) is prompt-in / text-out with NO
+the runPixel gateway is prompt-in / text-out with NO
 native tool-calling, so the interface is deliberately a single `complete()` call.
 Tool-calling is done in the loop via prompting (see loop.py / toolcall.py).
 
 Backends:
-  - EchoClient : offline/dev mock (scriptable) — default when no ELSA config.
-  - ElsaClient : real FDA ELSA runPixel endpoint (Basic auth, form-urlencoded).
+  - EchoClient : offline/dev mock (scriptable) — default when no the gateway config.
+  - GatewayClient : real runPixel gateway endpoint (Basic auth, form-urlencoded).
   - (OpenAI-compatible backend can be added later by reusing service.client.)
 """
 from __future__ import annotations
@@ -22,9 +22,9 @@ from urllib.parse import quote_plus
 
 logger = logging.getLogger(__name__)
 
-# Cap concurrent ELSA calls across ALL loops (foreground + background agents).
-# Internal FDA gateway with unknown rate limits — stay conservative.
-_ELSA_SEMAPHORE = threading.Semaphore(2)
+# Cap concurrent the gateway calls across ALL loops (foreground + background agents).
+# Internal gateway with unknown rate limits — stay conservative.
+_GATEWAY_SEMAPHORE = threading.Semaphore(2)
 
 
 @dataclass
@@ -88,19 +88,19 @@ class EchoClient(LLMClient):
         )
 
 
-class _ElsaHTTPError(Exception):
-    """HTTP-level ELSA failure; `retryable` marks 5xx/429 vs. hard 4xx."""
+class _GatewayHTTPError(Exception):
+    """HTTP-level the gateway failure; `retryable` marks 5xx/429 vs. hard 4xx."""
 
     def __init__(self, msg: str, retryable: bool):
         super().__init__(msg)
         self.retryable = retryable
 
 
-class ElsaClient(LLMClient):
+class GatewayClient(LLMClient):
     """
-    FDA ELSA (SEMOSS Monolith) runPixel backend.
+    SEMOSS-style runPixel gateway backend.
 
-    POST {endpoint}  (e.g. https://elsa-dev.preprod.fda.gov/Monolith/api/engine/runPixel)
+    POST {endpoint}  (e.g. https://<host>/Monolith/api/engine/runPixel)
       Auth:  HTTP Basic (access_key : secret_key)
       Header: Content-Type: application/x-www-form-urlencoded
       Body:  expression=<url-encoded LLM(...) pixel>&tz=America/New_York
@@ -108,11 +108,11 @@ class ElsaClient(LLMClient):
     Response text is at pixelReturn[0].output.response.
 
     Credentials & endpoint are passed in (never hard-coded). Typical wiring:
-      keys  from KeePass entry 'SEMOSS-Elsa-Dev'
-      host/engine from config or ELSA_* env vars.
+      keys  from KeePass entry 'Gateway'
+      host/engine from config or env vars.
     """
 
-    name = "elsa"
+    name = "gateway"
 
     def __init__(
         self,
@@ -128,9 +128,9 @@ class ElsaClient(LLMClient):
         on_retry: Optional[Callable[[int, int, float, str], None]] = None,
     ):
         if not endpoint or not engine_id:
-            raise ValueError("ElsaClient requires endpoint and engine_id")
+            raise ValueError("GatewayClient requires endpoint and engine_id")
         if not access_key or not secret_key:
-            raise ValueError("ElsaClient requires access_key and secret_key")
+            raise ValueError("GatewayClient requires access_key and secret_key")
         self.endpoint = endpoint
         self.engine_id = engine_id
         self.access_key = access_key
@@ -142,7 +142,7 @@ class ElsaClient(LLMClient):
         # on_retry(attempt, max_attempts, delay_seconds, reason) — UI hook for the
         # agentic "API error · Retrying in Ns · attempt n/N" line.
         self.on_retry = on_retry or (
-            lambda a, m, d, r: logger.warning("ELSA retry %d/%d in %.0fs: %s", a, m, d, r)
+            lambda a, m, d, r: logger.warning("the gateway retry %d/%d in %.0fs: %s", a, m, d, r)
         )
         # requests is a robodog dependency already
         import requests  # noqa: WPS433 (local import keeps module import cheap)
@@ -150,7 +150,7 @@ class ElsaClient(LLMClient):
 
     @staticmethod
     def _encode_command(prompt: str) -> str:
-        # ELSA wraps the user prompt in <encode>...</encode>; the whole LLM(...)
+        # the gateway wraps the user prompt in <encode>...</encode>; the whole LLM(...)
         # expression is then form-url-encoded as a single `expression` field.
         return prompt
 
@@ -170,7 +170,7 @@ class ElsaClient(LLMClient):
     def complete(self, prompt, context="", max_tokens=8192, temperature=0.3) -> Completion:
         """
         One completion with retry + backoff. Retryable: network errors, HTTP 5xx,
-        429, and the known ELSA empty-response failure mode. Non-retryable: 4xx
+        429, and the known the gateway empty-response failure mode. Non-retryable: 4xx
         auth/config errors (fail fast — bad keys won't fix themselves).
         """
         import requests as _rq
@@ -180,11 +180,11 @@ class ElsaClient(LLMClient):
                 completion = self._complete_once(prompt, context, max_tokens, temperature)
                 if completion.text.strip():
                     return completion
-                # Empty response: known ELSA failure mode (token cap / no context).
-                last_err = "empty response from ELSA"
+                # Empty response: known the gateway failure mode (token cap / no context).
+                last_err = "empty response from the gateway"
             except (_rq.ConnectionError, _rq.Timeout) as exc:
                 last_err = f"network: {type(exc).__name__}"
-            except _ElsaHTTPError as exc:
+            except _GatewayHTTPError as exc:
                 if not exc.retryable:
                     raise RuntimeError(str(exc)) from exc
                 last_err = str(exc)[:120]
@@ -193,12 +193,12 @@ class ElsaClient(LLMClient):
                 self.on_retry(attempt, self.max_attempts, delay, last_err)
                 time.sleep(delay)
         raise RuntimeError(
-            f"ELSA failed after {self.max_attempts} attempts: {last_err}")
+            f"the gateway failed after {self.max_attempts} attempts: {last_err}")
 
     def _complete_once(self, prompt, context, max_tokens, temperature) -> Completion:
         expression = self._build_expression(prompt, context, max_tokens, temperature)
         body = "expression=" + quote_plus(expression) + "&tz=" + quote_plus(self.tz)
-        with _ELSA_SEMAPHORE:
+        with _GATEWAY_SEMAPHORE:
             resp = self._session.post(
                 self.endpoint,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -208,8 +208,8 @@ class ElsaClient(LLMClient):
             )
         if resp.status_code != 200:
             retryable = resp.status_code >= 500 or resp.status_code == 429
-            raise _ElsaHTTPError(
-                f"ELSA HTTP {resp.status_code}: {resp.text[:300]}", retryable)
+            raise _GatewayHTTPError(
+                f"the gateway HTTP {resp.status_code}: {resp.text[:300]}", retryable)
         data = resp.json()
         return self._parse(data)
 
@@ -226,14 +226,14 @@ class ElsaClient(LLMClient):
             else:
                 text, ptok, ctok = str(output), 0, 0
         except (KeyError, IndexError, TypeError) as exc:
-            raise RuntimeError(f"Unexpected ELSA response shape: {exc}: {str(data)[:500]}")
+            raise RuntimeError(f"Unexpected the gateway response shape: {exc}: {str(data)[:500]}")
         return Completion(text=text, prompt_tokens=ptok, completion_tokens=ctok, raw=data)
 
 
 class OpenAICompatClient(LLMClient):
     """
     OpenAI-compatible /chat/completions backend (OpenRouter, OpenAI, LiteLLM…).
-    Used for live testing of the agentic loop without ELSA, and as a general
+    Used for live testing of the agentic loop without the gateway, and as a general
     fallback. Same complete() contract: prompt+context in, text out — the loop's
     prompted tool-calling works identically on any backend.
     """
@@ -308,16 +308,16 @@ class OpenAICompatClient(LLMClient):
 def build_client_from_config(cfg: Optional[dict]) -> LLMClient:
     """
     Factory. cfg example:
-      {"protocol": "elsa", "endpoint": "...", "engine_id": "...",
+      {"protocol": "gateway", "endpoint": "...", "engine_id": "...",
        "access_key": "...", "secret_key": "...", "use_history": false}
     Falls back to EchoClient when cfg is missing or protocol == 'echo'.
     """
     if not cfg or cfg.get("protocol") == "echo":
         logger.info("terminal: using EchoClient (offline mock)")
         return EchoClient()
-    proto = cfg.get("protocol", "elsa")
-    if proto == "elsa":
-        return ElsaClient(
+    proto = cfg.get("protocol", "gateway")
+    if proto == "gateway":
+        return GatewayClient(
             endpoint=cfg["endpoint"],
             engine_id=cfg["engine_id"],
             access_key=cfg["access_key"],

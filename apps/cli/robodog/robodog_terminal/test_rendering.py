@@ -114,8 +114,8 @@ def main() -> int:
     ui, buf = capture(); ui.context_pct = 90; ui.print_status()
     check("🚨 💥 10%" in plain(buf.getvalue()), "≥80% used -> alarm tier")
     # model emoji
-    ui, buf = capture(); ui.model_name = "elsa/claude-sonnet-4"; ui.print_status()
-    check("🤖" in plain(buf.getvalue()), "sonnet/elsa model -> robot emoji")
+    ui, buf = capture(); ui.model_name = "gateway/sonnet"; ui.print_status()
+    check("🤖" in plain(buf.getvalue()), "sonnet/gateway model -> robot emoji")
 
     # ---------------- file:line clickable (grep / traceback) -------------
     ui, buf = capture()
