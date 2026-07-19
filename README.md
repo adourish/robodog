@@ -93,7 +93,8 @@ Handy flags: `--guard confirm` (ask before destructive commands),
 Prompted tool-use loop (intent nudge + circuit breaker) · tools:
 `read_file / write_file / edit_file / multi_edit / bash / run_script / run_tests
 / glob / grep / list_dir` with read-before-edit, post-edit syntax verification,
-and whitespace-tolerant edits · foreground **and background subagents** ·
+and whitespace-tolerant edits · **parallel subagents** (fan out several in one
+turn — they run concurrently) plus background subagents ·
 per-prompt **checkpoints** with `/rewind` · JSONL **sessions** (`/resume`,
 `--continue`) · **plan mode** · **skills & custom commands** (`.robodog/`) ·
 `CLAUDE.md`/`ROBODOG.md` instruction hierarchy · a rich + prompt_toolkit **TUI**
