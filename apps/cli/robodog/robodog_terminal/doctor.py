@@ -36,7 +36,7 @@ GATEWAY_DEFAULT_ENDPOINT = os.environ.get("GATEWAY_ENDPOINT", "")
 GATEWAY_ENV_VARS = ("GATEWAY_ENDPOINT", "GATEWAY_ENGINE", "GATEWAY_ACCESS_KEY", "GATEWAY_SECRET_KEY")
 
 # KeePass automation DB (home setup; a self-hosted gateway may use C:\keys instead).
-KEEPASS_LOADER_DIR = "G:/My Drive/Areas/Keys"
+KEEPASS_LOADER_DIR = os.environ.get("ROBODOG_KEEPASS_DIR", str(Path.home() / ".robodog"))
 KEEPASS_ENTRIES = ("OpenAI", "OpenRouter", "Gateway", "SearchAPI-RapidAPI")
 
 # Modules of the terminal package that must import cleanly.
@@ -174,7 +174,10 @@ def _check_tcp(name: str, host: str, fail_note: str) -> CheckResult:
 
 
 def _check_gateway_endpoint() -> CheckResult:
-    url = os.environ.get("GATEWAY_ENDPOINT") or GATEWAY_DEFAULT_ENDPOINT
+    url = os.environ.get("GATEWAY_ENDPOINT")
+    if not url:
+        return CheckResult("gateway-endpoint", None,
+                           "GATEWAY_ENDPOINT not set (gateway backend unused)")
     try:
         host = urllib.parse.urlparse(url).hostname
     except Exception:

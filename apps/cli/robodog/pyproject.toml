@@ -8,12 +8,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "robodog-terminal"
 version = "0.2.0"
-description = "Agentic coding terminal for the shell (ELSA / OpenAI-compatible / offline backends)"
+description = "Agentic coding terminal for the shell (runPixel gateway / OpenAI-compatible / offline backends)"
 readme = "TERMINAL_README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [{ name = "adourish" }]
-keywords = ["claude", "agent", "coding", "terminal", "cli", "elsa", "llm"]
+keywords = ["agent", "coding", "terminal", "cli", "gateway", "llm", "openrouter"]
 dependencies = [
   "rich>=13",
   "prompt_toolkit>=3",

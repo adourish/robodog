@@ -59,6 +59,25 @@ DEFAULT_MODEL = os.environ.get("ROBODOG_MODEL", "anthropic/claude-sonnet-4.6")
 KEEPASS_ENTRY = os.environ.get("GATEWAY_KEEPASS_ENTRY", "Gateway")
 
 
+def _keepass_candidates():
+    """
+    (db, keyfile, loader_dir) locations to try for the KeePass automation DB.
+    Fully env-configurable — no personal paths are baked in:
+      ROBODOG_KEEPASS_DB, ROBODOG_KEEPASS_KEYFILE, ROBODOG_KEEPASS_DIR
+    Falls back to ~/.robodog/automation-keys.kdbx.
+    """
+    out = []
+    db = os.environ.get("ROBODOG_KEEPASS_DB")
+    if db:
+        kf = os.environ.get("ROBODOG_KEEPASS_KEYFILE",
+                            str(Path(db).with_suffix(".keyfile")))
+        out.append((db, kf, os.environ.get("ROBODOG_KEEPASS_DIR")))
+    home = Path.home() / ".robodog"
+    out.append((str(home / "automation-keys.kdbx"),
+                str(home / "automation-keys.keyfile"), str(home)))
+    return out
+
+
 def _load_gateway_keys() -> tuple:
     """
     Resolve (access_key, secret_key) without ever printing them.
@@ -70,12 +89,7 @@ def _load_gateway_keys() -> tuple:
     if access and secret:
         return access, secret, "env"
 
-    candidates = [  # (db, keyfile, loader_dir) — home setup and alternate keyfile setup
-        ("G:/My Drive/Areas/Keys/automation-keys.kdbx",
-         "G:/My Drive/Areas/Keys/automation-keys.keyfile",
-         "G:/My Drive/Areas/Keys"),
-        (r"C:\keys\automation-keys.kdbx", r"C:\keys\automation-keys.keyfile", None),
-    ]
+    candidates = _keepass_candidates()
     for db, keyfile, loader_dir in candidates:
         if not Path(db).exists():
             continue
@@ -118,20 +132,22 @@ def _load_keepass_entry(title: str):
     """Fetch (username, password, url) from the automation KeePass, or Nones.
     Loader chatter is redirected to stderr so headless (-p) stdout stays clean."""
     import contextlib
-    loader_dir = "G:/My Drive/Areas/Keys"
-    if not Path(loader_dir, "keepass_loader.py").exists():
-        return None, None, None
-    try:
-        sys.path.insert(0, loader_dir)
-        from keepass_loader import KeePassLoader  # type: ignore
-        with contextlib.redirect_stdout(sys.stderr):
-            kp = KeePassLoader(db_path=f"{loader_dir}/automation-keys.kdbx",
-                               keyfile=f"{loader_dir}/automation-keys.keyfile")
-            kp.unlock()
-            creds = kp.get_credentials(title=title) or {}
-        return creds.get("username"), creds.get("password"), creds.get("url")
-    except Exception:
-        return None, None, None
+    for db, keyfile, loader_dir in _keepass_candidates():
+        if not (loader_dir and Path(loader_dir, "keepass_loader.py").exists()
+                and Path(db).exists()):
+            continue
+        try:
+            sys.path.insert(0, loader_dir)
+            from keepass_loader import KeePassLoader  # type: ignore
+            with contextlib.redirect_stdout(sys.stderr):
+                kp = KeePassLoader(db_path=db, keyfile=keyfile)
+                kp.unlock()
+                creds = kp.get_credentials(title=title) or {}
+            if creds:
+                return creds.get("username"), creds.get("password"), creds.get("url")
+        except Exception:
+            continue
+    return None, None, None
 
 
 def build_backend(args, on_retry=None) -> tuple:
