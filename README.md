@@ -32,71 +32,262 @@ The script printed 55. Created fib.py and ran it.
 
 ## Get Started
 
-New here? Follow these five steps in order — each one unblocks the next.
+This walkthrough assumes **nothing is installed yet**. Read it top to bottom
+— every step is here in order, and you never need to jump ahead. Budget
+about 5 minutes (15 if you choose the encrypted KeePass option in step 6).
 
-**1. Install** (requires Python 3.9+):
+### Step 1 — Check you have Python 3.9+
+
+```bash
+python --version         # try python3 --version if that isn't found
+```
+
+No Python? Install it from [python.org/downloads](https://www.python.org/downloads/)
+(on Windows, tick **"Add Python to PATH"** in the installer — it saves you
+step 3), then reopen your terminal and check again.
+
+### Step 2 — Install Robodog
 
 ```bash
 pip install -U robodog-terminal
 ```
 
-**2. Confirm the command works:**
+Watch the output for a line like `WARNING: The script robodog-terminal.exe
+is installed in '...' which is not on PATH`. If you see it, note that
+directory — step 3 needs it.
+
+### Step 3 — Make the `robodog-terminal` command work
 
 ```bash
-robodog-terminal --echo          # offline demo, no keys needed yet
+robodog-terminal --version
 ```
 
-Note the **dash** — the Python *package* is `robodog_terminal` (underscore),
-but the installed *command* is `robodog-terminal` (dash). `robodogt` is a
-short alias for the same thing.
+If that prints a version, skip to step 4. If you get **`command not
+found`** (or `not recognized` on Windows), pip's scripts directory isn't on
+your `PATH`. Either work around it or fix it properly:
 
-> **`robodog-terminal: command not found`?** Your pip scripts directory
-> isn't on `PATH` yet — pip warns about this during install (`WARNING: The
-> script ... is installed in ... which is not on PATH`). Two fixes:
->
-> - **Right now, no setup:** `python -m robodog_terminal --echo` works
->   regardless of PATH.
-> - **Permanently (Windows):**
->   ```powershell
->   python -m pip show -f robodog-terminal   # note the Location: + Scripts entries
->   setx PATH "$($env:PATH);<the-scripts-dir-from-above>"
->   ```
->   **Then close this terminal and open a brand-new one** — `setx` only
->   updates the registry; already-open terminals (and anything spawned from
->   them) keep their old PATH until you start a fresh window.
-> - **Permanently (macOS/Linux)**, usually `~/.local/bin`:
->   ```bash
->   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
->   ```
-
-**3. Get an API key.** The default provider is [OpenRouter](https://openrouter.ai/keys)
-— any model in its catalog works without code changes.
-
-**4. Store the key.** Pick one:
-
-- **Quick — plaintext file** (`~/.robodog/config.env`, created if missing,
-  loaded automatically at startup):
-  ```bash
-  mkdir -p ~/.robodog
-  echo "ROBODOG_LLM_KEY=<your OpenRouter key>" >> ~/.robodog/config.env
-  ```
-- **Encrypted — KeePass**, if you already keep API keys in a KeePass vault:
-  see [KeePass setup](#keepass-setup-optional-step-by-step) below instead of
-  the plaintext file. Skip step 4's plaintext option entirely — env vars win
-  over KeePass when both are set, so don't set both.
-
-**5. Run it:**
+**Work around it (nothing to configure)** — this always works:
 
 ```bash
-robodog-terminal            # defaults to OpenRouter + a Claude model
+python -m robodog_terminal --version
 ```
 
-Type a task at the `›` prompt (e.g. `create fib.py that prints fib(10), run
-it`). Run `/doctor` any time — it reports which keys/vars were found (never
-their values) and flags config mistakes like a mismatched backend/model
-pairing.
+Use `python -m robodog_terminal` in place of `robodog-terminal` for the rest
+of this guide.
 
-Prefer building from source instead of PyPI?
+**Or fix PATH permanently — Windows:**
+
+```powershell
+python -m pip show -f robodog-terminal    # note the Location: line + Scripts entries
+setx PATH "$($env:PATH);<the-scripts-dir-from-above>"
+```
+
+⚠️ **Then close your terminal and open a brand-new one.** `setx` only writes
+the registry — already-open terminals keep their old `PATH` forever. This is
+the single most common reason people think the fix "didn't work".
+
+**Or fix PATH permanently — macOS/Linux** (usually `~/.local/bin`):
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+> Note the **dash**: the Python *package* is `robodog_terminal` (underscore),
+> but the installed *command* is `robodog-terminal` (dash). `robodogt` is a
+> short alias for the same command.
+
+### Step 4 — Smoke test with no API key
+
+```bash
+robodog-terminal --echo
+```
+
+This runs a scripted offline demo — no key, no network, no cost. You should
+see the 🤖 banner and a `›` prompt. Type `/exit` to quit. If this works, your
+install is sound and everything left is credentials.
+
+### Step 5 — Get an API key
+
+Robodog defaults to **OpenRouter**, which proxies most major models behind
+one key. Create one at [openrouter.ai/keys](https://openrouter.ai/keys) and
+copy it — it looks like `sk-or-v1-...`. (Prefer OpenAI, Groq, a local Ollama,
+or a self-hosted gateway? Get set up here first, then see
+[Configuration](#configuration) to switch providers.)
+
+### Step 6 — Store the key
+
+Pick **one** of these. Don't do both — plain env vars always win over
+KeePass, so a stale `ROBODOG_LLM_KEY` will silently shadow your vault.
+
+|  | Option A — config file | Option B — KeePass |
+|---|---|---|
+| Setup time | ~1 min | ~10 min |
+| Key stored as | plaintext on disk | encrypted vault |
+| Good for | trying it out, personal machines | shared/work machines, key rotation, teams already on KeePass |
+
+---
+
+#### Option A — plaintext config file
+
+Robodog reads `~/.robodog/config.env` at startup (it's user-local and
+gitignored — never committed):
+
+```bash
+mkdir -p ~/.robodog
+echo "ROBODOG_LLM_KEY=sk-or-v1-your-key-here" >> ~/.robodog/config.env
+```
+
+On Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.robodog" | Out-Null
+Add-Content "$env:USERPROFILE\.robodog\config.env" "ROBODOG_LLM_KEY=sk-or-v1-your-key-here"
+```
+
+Now skip to **step 7**.
+
+---
+
+#### Option B — encrypted KeePass vault
+
+Robodog can pull keys from a KeePass database at startup, unlocked by a
+**keyfile** so there's no password prompt. Three pieces have to line up: the
+database, a loader module, and two config lines pointing at them.
+
+**6B.1 — Install the KeePass library:**
+
+```bash
+pip install pykeepass
+```
+
+**6B.2 — Create the vault and add your key.** Save as `make_vault.py` and
+run it (`python make_vault.py`):
+
+```python
+import os
+from pathlib import Path
+from pykeepass import create_database
+
+d = Path.home() / ".robodog"
+d.mkdir(parents=True, exist_ok=True)
+
+keyfile = d / "automation-keys.keyfile"
+keyfile.write_bytes(os.urandom(32))          # random keyfile = no master password
+
+kp = create_database(str(d / "automation-keys.kdbx"), password=None,
+                     keyfile=str(keyfile))
+kp.add_entry(kp.root_group, "OpenRouter", "robodog",
+             "sk-or-v1-your-key-here",        # <-- paste your key here
+             url="https://openrouter.ai/api/v1")
+kp.save()
+print("created", d / "automation-keys.kdbx")
+```
+
+The entry **title must be exactly `OpenRouter`** — that's what Robodog looks
+up — and the key goes in the *password* field. Titles for other providers:
+
+| Entry title | Used by | URL field |
+|---|---|---|
+| `OpenRouter` | default / `--backend openrouter` | `https://openrouter.ai/api/v1` |
+| `OpenAI` | `--backend openai` | `https://api.openai.com/v1` |
+| `Gateway` | `--backend gateway` (username = access key, password = secret key) | — |
+
+⚠️ Back up `automation-keys.keyfile` somewhere safe. Without it the vault
+**cannot** be opened — there's no master password to fall back on.
+
+**6B.3 — Add the loader module.** Robodog imports this file by name and
+calls exactly this interface. Save it as `~/.robodog/keepass_loader.py`:
+
+```python
+# ~/.robodog/keepass_loader.py
+from pykeepass import PyKeePass
+
+class KeePassLoader:
+    def __init__(self, db_path, keyfile=None):
+        self.db_path, self.keyfile, self.kp = db_path, keyfile, None
+
+    def unlock(self, password=None):
+        self.kp = PyKeePass(self.db_path, password=password, keyfile=self.keyfile)
+
+    def get_credentials(self, title):
+        e = self.kp.find_entries(title=title, first=True)
+        if e is None:
+            return None
+        return {"title": e.title, "username": e.username,
+                "password": e.password, "url": e.url}
+```
+
+**6B.4 — Point Robodog at the vault.** If you used the exact paths above
+(`~/.robodog/automation-keys.kdbx`), that's the built-in default and **you
+can skip this** — go to step 7.
+
+Only if your vault lives elsewhere (e.g. you already keep API keys in an
+existing KeePass database), add these to `~/.robodog/config.env`:
+
+```bash
+ROBODOG_KEEPASS_DB=G:\My Drive\Keys\automation-keys.kdbx
+ROBODOG_KEEPASS_DIR=G:\My Drive\Keys
+```
+
+- `ROBODOG_KEEPASS_DB` — full path to the `.kdbx`
+- `ROBODOG_KEEPASS_DIR` — folder containing `keepass_loader.py`
+- `ROBODOG_KEEPASS_KEYFILE` — only if the keyfile *isn't* next to the
+  database with the same name and a `.keyfile` extension
+
+Values are read literally: no quotes, and **don't escape backslashes** —
+Windows paths and spaces work as-is.
+
+> **Reusing an existing vault?** You need only two things: an entry titled
+> exactly `OpenRouter`, and a `keepass_loader.py` (from 6B.3) in the folder
+> `ROBODOG_KEEPASS_DIR` points at. No need to create a second database.
+
+### Step 7 — Verify your setup
+
+```bash
+robodog-terminal
+```
+
+At the `›` prompt, run:
+
+```
+/doctor
+```
+
+`/doctor` reports which keys and vars it found — **never their values** — and
+flags mistakes like a mismatched backend/model pairing. On the KeePass path
+you'll also see a `keepass` line reporting `unlocked` plus the entry titles
+it matched.
+
+Common failures and what they mean:
+
+| `/doctor` says | Fix |
+|---|---|
+| no key found | `config.env` is missing, misspelled, or in the wrong folder — it must be `~/.robodog/config.env` |
+| keepass not unlocked | wrong `ROBODOG_KEEPASS_DB` path, or the keyfile isn't beside the `.kdbx` |
+| keepass unlocked, no entry | your entry title isn't exactly `OpenRouter` |
+| 401 / key rejected at runtime | key is wrong or revoked — regenerate at [openrouter.ai/keys](https://openrouter.ai/keys) |
+
+### Step 8 — Run your first real task
+
+```bash
+robodog-terminal
+```
+
+Type a task at the `›` prompt:
+
+```
+create fib.py that prints fib(10), run it, and report the result
+```
+
+Robodog writes the file, runs it, and reports back. `/rewind` undoes the file
+changes, `/help` lists every command. You're set — see
+[More examples](#more-examples) for other providers and flags.
+
+---
+
+<details>
+<summary><b>Prefer to run from source instead of PyPI?</b></summary>
 
 ```bash
 git clone https://github.com/adourish/robodog.git
@@ -104,6 +295,12 @@ cd robodog/apps/cli/robodog
 pip install rich prompt_toolkit requests        # core deps
 python robodog_terminal/app.py --echo
 ```
+
+Credential setup (steps 5–7) is identical. Substitute
+`python robodog_terminal/app.py` wherever this guide says
+`robodog-terminal`.
+
+</details>
 
 ## More examples
 
@@ -185,43 +382,22 @@ Environment variables (or `config.env` lines — same names) always win:
 | `ROBODOG_MODEL` | default model id |
 | `GATEWAY_ENDPOINT` / `GATEWAY_ENGINE` / `GATEWAY_ACCESS_KEY` / `GATEWAY_SECRET_KEY` | self-hosted runPixel-style gateway |
 
-### KeePass setup (optional, step by step)
+### KeePass reference
 
-Instead of a key in a plaintext `config.env`, Robodog can pull keys from a
-**KeePass** database at startup. It looks for three files in `~/.robodog/`
-(or wherever `ROBODOG_KEEPASS_DIR` points; `ROBODOG_KEEPASS_DB` /
-`ROBODOG_KEEPASS_KEYFILE` override the exact paths):
+Setup steps are in [step 6, Option B](#option-b--encrypted-keepass-vault).
+This is the reference for what Robodog looks for once it's configured.
+
+Default layout — all three in `~/.robodog/`, overridable by env var:
 
 ```
 ~/.robodog/
-├── keepass_loader.py           # the loader module (code below)
-├── automation-keys.kdbx        # the database
-└── automation-keys.keyfile     # keyfile auth -> no password prompt
+├── keepass_loader.py           # loader module (ROBODOG_KEEPASS_DIR)
+├── automation-keys.kdbx        # the database  (ROBODOG_KEEPASS_DB)
+└── automation-keys.keyfile     # keyfile auth  (ROBODOG_KEEPASS_KEYFILE)
 ```
 
-**1. Install pykeepass and create the database + keyfile:**
-
-```bash
-pip install pykeepass
-```
-
-```python
-import os
-from pathlib import Path
-from pykeepass import create_database
-
-d = Path.home() / ".robodog"
-keyfile = d / "automation-keys.keyfile"
-keyfile.write_bytes(os.urandom(32))           # random keyfile, no master password
-kp = create_database(str(d / "automation-keys.kdbx"), password=None,
-                     keyfile=str(keyfile))
-kp.add_entry(kp.root_group, "OpenRouter", "robodog", "<your OpenRouter key>",
-             url="https://openrouter.ai/api/v1")
-kp.save()
-```
-
-**2. Add entries for the providers you use.** Robodog looks them up by
-**exact title**; the API key goes in the *password* field:
+Entries are matched by **exact title**; the API key goes in the *password*
+field:
 
 | Entry title | Used by | URL field (optional override) |
 |---|---|---|
@@ -229,53 +405,13 @@ kp.save()
 | `OpenAI` | `--backend openai` | `https://api.openai.com/v1` |
 | `Gateway` | `--backend gateway` (username = access key, password = secret key) | — |
 
-**3. Drop in the loader module** (`~/.robodog/keepass_loader.py`) — Robodog
-imports it and calls exactly this interface:
+Resolution order per backend: `ROBODOG_LLM_KEY` env var → `config.env` →
+KeePass entry. **Env wins**, so remove `ROBODOG_LLM_KEY` from `config.env`
+if you want the vault to be used.
 
-```python
-# ~/.robodog/keepass_loader.py
-from pykeepass import PyKeePass
-
-class KeePassLoader:
-    def __init__(self, db_path, keyfile=None):
-        self.db_path, self.keyfile, self.kp = db_path, keyfile, None
-
-    def unlock(self, password=None):
-        self.kp = PyKeePass(self.db_path, password=password, keyfile=self.keyfile)
-
-    def get_credentials(self, title):
-        e = self.kp.find_entries(title=title, first=True)
-        if e is None:
-            return None
-        return {"title": e.title, "username": e.username,
-                "password": e.password, "url": e.url}
-```
-
-**4. Verify:** start `robodog-terminal` and run `/doctor` — the `keepass`
-line reports "unlocked" and which entry titles were found (values are never
-printed). Remove any `ROBODOG_LLM_KEY` from `config.env` so the KeePass path
-is actually exercised (env vars win when both are set).
-
-To rotate a token later, overwrite the entry's password field (in KeePassXC
-or a short `pykeepass` script) — Robodog picks up the new value on next
-start.
-
-**Already use KeePass for other credentials?** Point Robodog at your
-existing vault instead of creating a second one — no new database needed.
-Two requirements: the vault has an entry titled exactly `OpenRouter` (or
-`OpenAI` / `Gateway`), and its folder has a `keepass_loader.py` implementing
-the `KeePassLoader` interface above (many personal automation setups already
-have one). Then in `~/.robodog/config.env`:
-
-```bash
-ROBODOG_KEEPASS_DB=/path/to/your/existing.kdbx
-ROBODOG_KEEPASS_DIR=/path/to/the/folder/containing/keepass_loader.py
-```
-
-The keyfile is assumed to sit next to the database with the same name and a
-`.keyfile` extension; set `ROBODOG_KEEPASS_KEYFILE` explicitly if yours
-lives elsewhere. `pip install pykeepass` if it isn't already in your
-environment.
+To rotate a token, overwrite the entry's password field (KeePassXC or a
+short `pykeepass` script) — Robodog picks up the new value on next start,
+with no config change.
 
 ### Adding a new model
 
