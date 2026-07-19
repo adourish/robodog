@@ -52,6 +52,22 @@ python -m robodog_terminal       # module form (works even if the pip
 For live models, set an API key first (see Configuration) — OpenRouter/OpenAI
 via env or KeePass, or GATEWAY_* vars for an enterprise gateway.
 
+**`robodog-terminal: command not found` right after install?** Your pip
+scripts directory isn't on `PATH` yet — pip warns about this during install
+(`WARNING: The script ... is installed in ... which is not on PATH`). Use
+`python -m robodog_terminal` in the meantime, or add the directory permanently:
+
+```powershell
+# Windows: find the dir, then add it to your user PATH (new terminals pick it up)
+python -m pip show -f robodog-terminal   # Location: line + Scripts entries
+setx PATH "$($env:PATH);<the-scripts-dir-from-above>"
+```
+
+```bash
+# macOS/Linux: usually ~/.local/bin — add to your shell profile
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+```
+
 Or run from a source checkout instead:
 
 ```bash
