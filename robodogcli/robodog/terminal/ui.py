@@ -120,31 +120,106 @@ class UI:
                 prompt_continuation=lambda width, ln, wrapped: "  " if not wrapped else "",
             )
 
-    # ---- status line ----------------------------------------------------
-    def status_line(self) -> str:
+    # ---- status line (emoji + color, Claude Code custom style) ----------
+    # ANSI palette (protanopia-safe: cyan / yellow / magenta + emoji severity)
+    _C = {
+        "magenta_b": "\033[1;35m", "magenta": "\033[0;35m",
+        "cyan": "\033[0;36m", "yellow": "\033[0;33m",
+        "gray": "\033[0;90m", "reset": "\033[0m",
+    }
+
+    def _model_emoji(self) -> str:
+        m = self.model_name.lower()
+        if "opus" in m:
+            return "👾"
+        if "sonnet" in m or "elsa" in m:
+            return "🤖"
+        if "haiku" in m:
+            return "🛸"
+        if "gpt" in m or "openai" in m:
+            return "🦾"
+        if "echo" in m or "demo" in m:
+            return "🎧"
+        return "🦿"
+
+    @staticmethod
+    def _abbrev(n: int) -> str:
+        if n >= 1_000_000:
+            return f"{n / 1_000_000:.1f}M"
+        if n >= 1_000:
+            return f"{n / 1_000:.1f}k"
+        return str(n)
+
+    @staticmethod
+    def _tok_emoji(n: int) -> str:
+        for thresh, e in ((1_000_000, "🏭"), (500_000, "🔌"), (250_000, "🔩"),
+                          (100_000, "👽"), (50_000, "🛰️"), (10_000, "🔋")):
+            if n >= thresh:
+                return e
+        return "✨"
+
+    def _status_segments(self):
+        """Return [(plain_text, ansi_color), ...] for the status line."""
+        C = self._C
         cwd_short = self.cwd
         home = str(Path.home())
         if cwd_short.startswith(home):
             cwd_short = "~" + cwd_short[len(home):]
-        parts = [self.model_name, cwd_short, f"{self.total_tokens} tok"]
+        # last two path segments, like the reference statusline
+        import os as _os
+        parts_path = [p for p in cwd_short.replace("\\", "/").split("/") if p]
+        short_cwd = "/".join(parts_path[-2:]) if len(parts_path) >= 2 else (parts_path[-1] if parts_path else cwd_short)
+
+        segs = []
+        # context remaining % with escalation (FIRST, like the reference)
         if self.context_pct:
-            filled = round(self.context_pct / 100 * 8)
-            bar = "█" * filled + "·" * (8 - filled)
-            parts.append(f"ctx [{bar}] {self.context_pct}%")
+            used = int(self.context_pct)
+            rem = 100 - used
+            if used >= 80:
+                segs.append((f"🚨 💥 {rem}%", C["magenta_b"]))
+            elif used >= 60:
+                segs.append((f"⚙️ ⚠️ {rem}%", C["magenta_b"]))
+            elif used >= 40:
+                segs.append((f"🦑 {rem}%", C["yellow"]))
+            else:
+                segs.append((f"🫧 {rem}%", C["cyan"]))
+        # tokens with escalating emoji
+        if self.total_tokens:
+            segs.append((f"{self._tok_emoji(self.total_tokens)} "
+                         f"{self._abbrev(self.total_tokens)}", C["magenta"]))
+        # model with emoji
+        segs.append((f"{self._model_emoji()} {self.model_name}", C["cyan"]))
+        # background tasks
         if self.bg_running:
-            parts.append(f"⚙{self.bg_running} bg")
-        return " · ".join(parts)
+            segs.append((f"🧵 {self.bg_running} bg", C["yellow"]))
+        # folder
+        segs.append((f"📁 {short_cwd}", C["gray"]))
+        return segs
+
+    def status_line(self) -> str:
+        """Plain (uncolored) status line — fallback + tests."""
+        return "  ".join(t for t, _ in self._status_segments())
+
+    def _status_ansi(self) -> str:
+        C = self._C
+        sep = f" {C['gray']}|{C['reset']} "
+        return sep.join(f"{color}{t}{C['reset']}"
+                        for t, color in self._status_segments())
 
     def _toolbar(self):
-        # Called by prompt_toolkit on every redraw — live and resize-safe.
-        return " " + self.status_line()
+        # prompt_toolkit bottom toolbar — render ANSI colors + emoji.
+        try:
+            from prompt_toolkit.formatted_text import ANSI
+            return ANSI(" " + self._status_ansi())
+        except Exception:
+            return " " + self.status_line()
 
     def print_status(self):
-        line = self.status_line()
         if self.console:
-            self.console.print(f"[dim]{line}[/dim]")
+            from rich.text import Text as _T
+            self.console.print(_T.from_ansi(self._status_ansi()))
         else:
-            print(line)
+            print(self.status_line())
 
     # ---- banner ---------------------------------------------------------
     def welcome(self):

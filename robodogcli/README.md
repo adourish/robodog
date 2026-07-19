@@ -67,10 +67,11 @@ Keys load automatically from the KeePass automation DB (ELSA `SEMOSS-Elsa-Dev`,
 - **Plan mode** — `/plan` (read-only propose → approve → implement).
 - **Skills / commands** — `.robodog/commands/*.md` (with `$ARGUMENTS`),
   `.robodog/skills/<name>/SKILL.md`, and `CLAUDE.md`/`ROBODOG.md` hierarchy.
-- **TUI (rich + prompt_toolkit)** — welcome banner, sticky status line with a
-  context-budget bar, spinner, markdown answers, colored diffs, **OSC-8 clickable
-  file & `file:line` links**, `/open`, multiline paste, `\`+Enter continuation,
-  history, and slash-command autocomplete.
+- **TUI (rich + prompt_toolkit)** — welcome banner, an emoji + color **status
+  line** (context/token/model severity tiers, protanopia-safe cyan/yellow/
+  magenta — matching a Claude Code custom statusline), spinner, markdown answers,
+  colored diffs, **OSC-8 clickable file & `file:line` links**, `/open`, multiline
+  paste, `\`+Enter continuation, history, and slash-command autocomplete.
 - **Mid-turn interactivity** — Ctrl+C cancels a turn, **Ctrl+B backgrounds it**,
   and typed follow-ups queue while it runs.
 - **Headless `-p`** mode with `text`/`json` output; `/doctor` diagnostics.

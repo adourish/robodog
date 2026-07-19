@@ -63,7 +63,7 @@ def main() -> int:
     ui.total_tokens = 42
     ui.print_status()
     p = plain(buf.getvalue())
-    check("test/model" in p and "42 tok" in p, "status line shows model + tokens")
+    check("test/model" in p and "42" in p, "status line shows model + tokens")
 
     # ---------------- tool call with clickable file path -----------------
     ui, buf = capture()
@@ -95,16 +95,27 @@ def main() -> int:
     check("Δ" in out and "\x1b]8;" in out, "diff header path is a clickable link")
     check("\x1b[32m" in out and "\x1b[31m" in out, "diff renders +green / -red")
 
-    # ---------------- context-budget bar in status line ------------------
+    # ---------------- emoji + color status line (Claude Code style) ------
     ui, buf = capture()
-    ui.context_pct = 50
+    ui.total_tokens = 15600
+    ui.context_pct = 36     # 36% used -> 64% remaining, "calm" bubble tier
+    out = buf.getvalue() if False else None
     ui.print_status()
-    p = plain(buf.getvalue())
-    check("ctx [" in p and "50%" in p and "█" in p and "·" in p,
-          "status line shows a context-budget bar")
-    ui, buf = capture()  # no context -> no bar
-    ui.print_status()
-    check("ctx" not in plain(buf.getvalue()), "no bar when context is 0")
+    raw = buf.getvalue()
+    p = plain(raw)
+    check("🫧 64%" in p, "context shows remaining % with tier emoji")
+    check("🔋" in p or "✨" in p, "tokens show an escalation emoji")
+    check("15.6k" in p, "tokens abbreviated (15.6k)")
+    check("📁" in p, "folder segment has an emoji")
+    check("\x1b[36m" in raw or "\x1b[0;36m" in raw, "status line is colored (ANSI)")
+    # escalation tiers
+    ui, buf = capture(); ui.context_pct = 75; ui.print_status()
+    check("⚙️ ⚠️ 25%" in plain(buf.getvalue()), "≥60% used -> gears/warning tier")
+    ui, buf = capture(); ui.context_pct = 90; ui.print_status()
+    check("🚨 💥 10%" in plain(buf.getvalue()), "≥80% used -> alarm tier")
+    # model emoji
+    ui, buf = capture(); ui.model_name = "elsa/claude-sonnet-4"; ui.print_status()
+    check("🤖" in plain(buf.getvalue()), "sonnet/elsa model -> robot emoji")
 
     # ---------------- file:line clickable (grep / traceback) -------------
     ui, buf = capture()
