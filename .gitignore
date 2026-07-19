@@ -21,3 +21,9 @@ google_config.yaml
 *_credentials.json
 .google_token
 .google_refresh_token
+
+# robodog-terminal build artifacts
+robodogcli/robodog/dist/
+robodogcli/robodog/build/
+robodogcli/robodog/*.egg-info/
+robodogcli/robodog/.coverage

@@ -1,0 +1,38 @@
+# Standalone distribution for Terminal Mode.
+# Build from this directory (robodogcli/robodog):  python -m build
+# Installs the `terminal` package plus the `robodog-terminal` / `robodogt` commands.
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robodog-terminal"
+version = "0.2.0"
+description = "Claude Code-style agentic coding terminal (ELSA / OpenAI-compatible / offline backends)"
+readme = "TERMINAL_README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "adourish" }]
+keywords = ["claude", "agent", "coding", "terminal", "cli", "elsa", "llm"]
+dependencies = [
+  "rich>=13",
+  "prompt_toolkit>=3",
+  "requests>=2.25",
+]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6"]     # nicer .yaml verification in edits
+
+[project.scripts]
+robodog-terminal = "terminal.app:main"
+robodogt = "terminal.app:main"
+
+[project.urls]
+Homepage = "https://github.com/adourish/robodog"
+Repository = "https://github.com/adourish/robodog.git"
+
+[tool.setuptools]
+packages = ["terminal"]
+
+[tool.setuptools.package-data]
+terminal = ["truncation_phrases.txt"]

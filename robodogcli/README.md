@@ -36,12 +36,22 @@ can't reach), and works equally with OpenAI-compatible models or a fully offline
 mock for development.
 
 ### Run it
+
+**Installed (first-class):**
+```bash
+pip install -e "robodogcli[terminal]"        # pulls rich, prompt_toolkit, requests
+
+robodog terminal --backend openai --model gpt-4o    # via the robodog command
+robodog-terminal --backend elsa                     # dedicated launcher (FDA box / Sonnet)
+python -m robodog.terminal --echo                   # module form
+```
+
+**From a source checkout (no install):**
 ```bash
 cd robodogcli/robodog
 pip install rich prompt_toolkit requests
 
 python terminal/app.py --backend openai --model gpt-4o     # live (OpenAI/OpenRouter)
-python terminal/app.py --backend elsa                       # FDA box (ELSA/Claude Sonnet)
 python terminal/app.py --echo                               # offline demo, no keys
 python terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"   # headless
 python terminal/run_tests.py                                # 18 test suites

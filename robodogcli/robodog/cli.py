@@ -10,8 +10,11 @@ from pprint import pprint
 # pip install --upgrade requests   tiktoken   PyYAML   openai   playwright   pydantic   langchain setuptools
 # support both "python -m robodog.cli" and "python cli.py" invocations:
 # third-party for colored logs
-# pip install colorlog
-import colorlog
+# pip install colorlog  (optional — the `robodog terminal` subcommand does not need it)
+try:
+    import colorlog
+except ImportError:  # pragma: no cover
+    colorlog = None
 logger = logging.getLogger('robodog.mcphandler')
 # Enhanced: Add colorama for Windows/PowerShell ANSI support
 try:
@@ -955,27 +958,31 @@ def main():
     args = parser.parse_args()
 
     
-    # configure colored logging
+    # configure colored logging (falls back to plain logging without colorlog)
     root = logging.getLogger()
     root.setLevel(getattr(logging, args.log_level))
-    fmt = colorlog.ColoredFormatter(
-        "%(log_color)s%(asctime)s:%(reset)s %(message)s",
-        datefmt="%H:%M:%S",
-        log_colors={
-            "DEBUG":    "cyan",
-            "VERBOSE":  "blue",
-            "INFO":     "green",
-            "WARNING":  "yellow",
-            "ERROR":    "red",
-            "CRITICAL": "bold_red",
-            "NOTICE":   "magenta",
-            "SUCCESS":  "white",
-            "DELTA":    "yellow",       # New: For deltas/percentages (e.g., file changes)
-            "PERCENT":  "green",        # New: For positive percentages/metrics
-            "HIGHLIGHT":"cyan",         # New: For key highlights like tokens, summaries
-        }
-    )
-    ch = colorlog.StreamHandler(sys.stdout)
+    if colorlog is not None:
+        fmt = colorlog.ColoredFormatter(
+            "%(log_color)s%(asctime)s:%(reset)s %(message)s",
+            datefmt="%H:%M:%S",
+            log_colors={
+                "DEBUG":    "cyan",
+                "VERBOSE":  "blue",
+                "INFO":     "green",
+                "WARNING":  "yellow",
+                "ERROR":    "red",
+                "CRITICAL": "bold_red",
+                "NOTICE":   "magenta",
+                "SUCCESS":  "white",
+                "DELTA":    "yellow",       # New: For deltas/percentages (e.g., file changes)
+                "PERCENT":  "green",        # New: For positive percentages/metrics
+                "HIGHLIGHT":"cyan",         # New: For key highlights like tokens, summaries
+            }
+        )
+        ch = colorlog.StreamHandler(sys.stdout)
+    else:
+        fmt = logging.Formatter("%(asctime)s: %(message)s", datefmt="%H:%M:%S")
+        ch = logging.StreamHandler(sys.stdout)
     ch.setFormatter(fmt)
     root.addHandler(ch)
 
