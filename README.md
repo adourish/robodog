@@ -209,6 +209,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.2.3
+
+- **Add:** actionable hints on the LLM errors users actually hit — 401/403
+  (key rejected: points at `ROBODOG_LLM_KEY` / the KeePass entry), 402
+  (credits/quota), and 404 (wrong base URL: points at `ROBODOG_LLM_URL`) —
+  alongside the existing 400 model-mismatch hint.
+- **Fix:** `--model` / `ROBODOG_MODEL` is normalized at startup, not just at
+  `/model` — a dashed version slip (`anthropic/claude-sonnet-4-6`) no longer
+  fails the first request with an opaque `invalid model ID`.
+- **Add:** `/doctor` gains a `model-backend` check that flags a mismatched
+  pairing (OpenRouter-style id on `--backend openai`, or a bare id on
+  `--backend openrouter`) before any request is sent.
+
 ### 0.2.2
 
 - **Add:** OpenAI-compatible backends now surface a hint on HTTP 400s caused
