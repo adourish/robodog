@@ -29,6 +29,20 @@ class Turn:
     tool_name: str = ""
 
 
+# Tools that are safe to run concurrently within one turn. Subagents (`agent`)
+# are isolated contexts; read-only tools have no side effects. Mutating file/
+# shell tools stay sequential to avoid write conflicts.
+_PARALLEL_SAFE = {"agent", "task_output", "read_file", "glob", "grep",
+                  "list_dir", "ask_user"}
+
+
+def _batch_parallel_safe(registry, calls) -> bool:
+    """True when a batch of >1 tool calls can be executed concurrently."""
+    if len(calls) < 2:
+        return False
+    return all(c.name in _PARALLEL_SAFE for c in calls)
+
+
 @dataclass
 class LoopResult:
     final_text: str
@@ -150,17 +164,35 @@ class AgentLoop:
                 final_text = prose or text
                 break
 
-            for call in calls:
-                if self.cancel_event is not None and self.cancel_event.is_set():
-                    break
-                self.on_event("tool_start", {"name": call.name, "args": call.args})
-                result = self.registry.execute(call.name, call.args)
+            # Execute the batch of tool calls. When the whole batch is
+            # parallel-safe (multiple subagents, or read-only tools), run them
+            # CONCURRENTLY and collect results in order; otherwise sequentially.
+            if self.cancel_event is not None and self.cancel_event.is_set():
+                break
+            if _batch_parallel_safe(self.registry, calls):
+                for call in calls:
+                    self.on_event("tool_start", {"name": call.name, "args": call.args})
+                import concurrent.futures as _cf
+                with _cf.ThreadPoolExecutor(max_workers=min(8, len(calls))) as _ex:
+                    results = list(_ex.map(
+                        lambda c: self.registry.execute(c.name, c.args), calls))
+            else:
+                results = []
+                for call in calls:
+                    if self.cancel_event is not None and self.cancel_event.is_set():
+                        break
+                    self.on_event("tool_start", {"name": call.name, "args": call.args})
+                    results.append(self.registry.execute(call.name, call.args))
+
+            for call, result in zip(calls, results):
                 self.on_event("tool_done", {"name": call.name, "result": result})
                 self.history.append(Turn("tool", result, tool_name=call.name))
-
+                # Polling a background task legitimately repeats — never treat
+                # task_output/ask_user as a stuck loop.
+                if call.name in ("task_output", "ask_user"):
+                    continue
                 # Circuit breaker: the same call producing the same result over
-                # and over means the model is stuck (e.g. rewriting a file with
-                # the same broken content). Warn once, then abort the turn.
+                # and over means the model is stuck. Warn once, then abort.
                 sig = (call.name,
                        tuple(sorted(call.args.items()))[:6].__str__()[:500],
                        result[:200])

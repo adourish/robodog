@@ -124,7 +124,11 @@ def register_agent_tool(
             "reading, summarizing) and type=general for delegated work that may "
             "edit files or run commands. The subagent's final message is returned "
             "to you; its intermediate work is not. Subagents cannot spawn subagents. "
-            "Set background=true to run it concurrently and poll with task_output."
+            "PARALLEL FAN-OUT: to run subagents in parallel, emit SEVERAL agent "
+            "calls (foreground, background NOT set) in ONE response — they run "
+            "concurrently and all results return together in that same turn. "
+            "Do NOT use background=true for parallelism; background is only for "
+            "detaching a long task to poll later with task_output."
         ),
         params=[
             ToolParam("prompt", "Complete, self-contained task description for the subagent."),

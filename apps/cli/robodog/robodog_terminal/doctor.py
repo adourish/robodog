@@ -31,8 +31,6 @@ from typing import Callable, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# gateway endpoint (endpoint/engine are not secrets — mirrors robodog_terminal/app.py).
-GATEWAY_DEFAULT_ENDPOINT = os.environ.get("GATEWAY_ENDPOINT", "")
 GATEWAY_ENV_VARS = ("GATEWAY_ENDPOINT", "GATEWAY_ENGINE", "GATEWAY_ACCESS_KEY", "GATEWAY_SECRET_KEY")
 
 # KeePass automation DB (home setup; a self-hosted gateway may use C:\keys instead).
