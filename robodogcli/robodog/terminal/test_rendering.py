@@ -95,6 +95,24 @@ def main() -> int:
     check("Δ" in out and "\x1b]8;" in out, "diff header path is a clickable link")
     check("\x1b[32m" in out and "\x1b[31m" in out, "diff renders +green / -red")
 
+    # ---------------- context-budget bar in status line ------------------
+    ui, buf = capture()
+    ui.context_pct = 50
+    ui.print_status()
+    p = plain(buf.getvalue())
+    check("ctx [" in p and "50%" in p and "█" in p and "·" in p,
+          "status line shows a context-budget bar")
+    ui, buf = capture()  # no context -> no bar
+    ui.print_status()
+    check("ctx" not in plain(buf.getvalue()), "no bar when context is 0")
+
+    # ---------------- file:line clickable (grep / traceback) -------------
+    ui, buf = capture()
+    ui.tool_result("grep", "src/mod.py:42: def handler():")
+    out = buf.getvalue()
+    check("\x1b]8;" in out, "file:line reference is a clickable link")
+    check("mod.py:42" in plain(out), "line number stays visible")
+
     # ---------------- markdown answer ------------------------------------
     ui, buf = capture()
     ui.assistant("# Title\n\n- one\n- two\n\n`code`")

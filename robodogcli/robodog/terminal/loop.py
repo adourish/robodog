@@ -35,6 +35,7 @@ class LoopResult:
     iterations: int
     total_tokens: int
     turns: List[Turn]
+    duration: float = 0.0   # wall-clock seconds for the turn
 
 
 class AgentLoop:
@@ -97,6 +98,8 @@ class AgentLoop:
 
     # ---- main entry -----------------------------------------------------
     def run(self, user_message: str) -> LoopResult:
+        import time as _time
+        _t0 = _time.time()
         self.history.append(Turn("user", user_message))
         total_tokens = 0
         iterations = 0
@@ -186,4 +189,5 @@ class AgentLoop:
             iterations=iterations,
             total_tokens=total_tokens,
             turns=list(self.history),
+            duration=_time.time() - _t0,
         )

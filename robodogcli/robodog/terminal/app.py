@@ -650,7 +650,8 @@ def main(argv=None) -> int:
         ui.context_pct = min(99, loop.transcript_chars() * 100
                              // loop.max_transcript_chars)
         ui.assistant(result.final_text)
-        ui.dim(f"[{result.iterations} steps · {result.total_tokens} tok]")
+        dur = getattr(result, "duration", 0.0)
+        ui.dim(f"[{result.iterations} steps · {result.total_tokens} tok · {dur:.1f}s]")
 
     while True:
         # Drain any queued follow-up prompts before reading new input.

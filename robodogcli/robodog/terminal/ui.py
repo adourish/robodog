@@ -128,7 +128,9 @@ class UI:
             cwd_short = "~" + cwd_short[len(home):]
         parts = [self.model_name, cwd_short, f"{self.total_tokens} tok"]
         if self.context_pct:
-            parts.append(f"ctx {self.context_pct}%")
+            filled = round(self.context_pct / 100 * 8)
+            bar = "█" * filled + "·" * (8 - filled)
+            parts.append(f"ctx [{bar}] {self.context_pct}%")
         if self.bg_running:
             parts.append(f"⚙{self.bg_running} bg")
         return " · ".join(parts)
@@ -279,16 +281,22 @@ class UI:
             from rich.text import Text as _T
             import re as _re
             line = _T("    ↳ ", style="dim")
-            # Linkify a trailing/leading absolute path in the summary line
-            # (e.g. "Created C:\...\demo.py (32 bytes)").
-            m = _re.search(r"([A-Za-z]:\\[^\s(]+|/[^\s(]+\.[\w]+)", first[:100])
-            if m:
-                pre, path, post = first[:m.start()], m.group(1), first[m.end():100]
+            # Linkify an absolute path OR a file:line reference (grep results,
+            # tracebacks) in the summary line so it opens the file on click.
+            snippet = first[:100]
+            m = _re.search(
+                r"([A-Za-z]:\\[^\s():]+|[\w./\\-]+\.[A-Za-z]\w*)(:\d+)?", snippet)
+            if m and (m.group(2) or "\\" in m.group(1) or "/" in m.group(1)):
+                path, lineno = m.group(1), (m.group(2) or "")
+                pre, post = snippet[:m.start()], snippet[m.end():]
                 line.append(pre, style="dim")
-                line.append_text(self._linked_path(path, "dim"))
+                lp = self._linked_path(path, "dim")
+                if lineno:
+                    lp.append(lineno, style="dim")
+                line.append_text(lp)
                 line.append(post + suffix, style="dim")
             else:
-                line.append(first[:100] + suffix, style="dim")
+                line.append(snippet + suffix, style="dim")
             self.console.print(line)
         else:
             print(f"    -> {first[:100]}{suffix}")
