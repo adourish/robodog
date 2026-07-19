@@ -79,6 +79,11 @@ def _input_key_bindings():
     def _(event):
         event.current_buffer.insert_text("\n")
 
+    @kb.add("c-u")  # Ctrl+U -> clear the whole input (all lines)
+    def _(event):
+        event.current_buffer.text = ""
+        event.current_buffer.cursor_position = 0
+
     return kb
 
 

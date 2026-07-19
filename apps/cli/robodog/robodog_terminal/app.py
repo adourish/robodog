@@ -378,7 +378,27 @@ def _load_project_instructions(cwd: str) -> str:
     return "\n\n".join(parts)
 
 
+def _load_local_config():
+    """
+    Load ~/.robodog/config.env (KEY=VALUE lines) into the environment. This is a
+    user-local, gitignored file — NOT shipped — so personal paths (e.g. the
+    KeePass DB location) live here instead of in the code. Existing env vars win.
+    """
+    cfg = Path.home() / ".robodog" / "config.env"
+    try:
+        if cfg.exists():
+            for line in cfg.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except Exception:
+        pass
+
+
 def main(argv=None) -> int:
+    _load_local_config()
     parser = argparse.ArgumentParser(description="Robodog Terminal Mode")
     # -------- backend / model ------------------------------------------
     parser.add_argument("--echo", action="store_true", help="use offline demo backend")

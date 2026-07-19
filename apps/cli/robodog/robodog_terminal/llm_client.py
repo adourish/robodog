@@ -22,6 +22,16 @@ from urllib.parse import quote_plus
 
 logger = logging.getLogger(__name__)
 
+
+def clean_text(s):
+    """
+    Strip lone UTF-16 surrogate code points that sneak in from Windows clipboard
+    pastes — they can't be UTF-8 encoded and would crash the HTTP request.
+    """
+    if not s:
+        return s
+    return "".join(c for c in s if not 0xD800 <= ord(c) <= 0xDFFF)
+
 # Cap concurrent the gateway calls across ALL loops (foreground + background agents).
 # Internal gateway with unknown rate limits — stay conservative.
 _GATEWAY_SEMAPHORE = threading.Semaphore(2)
@@ -73,6 +83,7 @@ class EchoClient(LLMClient):
         self._i = 0
 
     def complete(self, prompt, context="", max_tokens=8192, temperature=0.3) -> Completion:
+        prompt, context = clean_text(prompt), clean_text(context)
         if callable(self._script):
             text = self._script(prompt, context)
         elif isinstance(self._script, list) and self._script:
@@ -173,6 +184,7 @@ class GatewayClient(LLMClient):
         429, and the known the gateway empty-response failure mode. Non-retryable: 4xx
         auth/config errors (fail fast — bad keys won't fix themselves).
         """
+        prompt, context = clean_text(prompt), clean_text(context)
         import requests as _rq
         last_err = "unknown"
         for attempt in range(1, self.max_attempts + 1):
@@ -266,6 +278,7 @@ class OpenAICompatClient(LLMClient):
         self._session = session or requests.Session()
 
     def complete(self, prompt, context="", max_tokens=8192, temperature=0.3) -> Completion:
+        prompt, context = clean_text(prompt), clean_text(context)
         import requests as _rq
         messages = []
         if context:
