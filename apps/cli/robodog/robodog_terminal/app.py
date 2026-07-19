@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 try:
-    from .llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient
+    from .llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient, clean_text
     from .tools import default_registry
     from .loop import AgentLoop
     from .ui import UI
@@ -715,6 +715,9 @@ def main(argv=None) -> int:
             except (EOFError, KeyboardInterrupt):
                 ui.info("\nbye")
                 return 0
+        # Strip lone UTF-16 surrogates from clipboard pastes at the boundary, so
+        # they can't crash any downstream utf-8 encode (HTTP body, session JSONL).
+        line = clean_text(line)
         # Confirm a multi-line paste was captured whole (native bracketed paste).
         if line and "\n" in line:
             ui.dim(f"  [pasted {line.count(chr(10)) + 1} lines]")

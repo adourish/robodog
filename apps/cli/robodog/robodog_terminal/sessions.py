@@ -47,10 +47,12 @@ class SessionStore:
     def _append_line(self, path: Path, obj: Dict[str, Any]) -> bool:
         """Append one JSON line. Never raises; logs and returns False on error."""
         try:
-            with path.open("a", encoding="utf-8") as fh:
+            # errors="replace": a stray surrogate (bad clipboard paste) becomes
+            # U+FFFD instead of crashing the whole session write.
+            with path.open("a", encoding="utf-8", errors="replace") as fh:
                 fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
             return True
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             logger.warning("session write failed for %s: %s", path, exc)
             return False
 
