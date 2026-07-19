@@ -43,6 +43,7 @@ try:
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.patch_stdout import patch_stdout
     from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.styles import Style as _PTStyle
     _HAVE_PT = True
 except Exception:  # pragma: no cover
     _HAVE_PT = False
@@ -118,6 +119,12 @@ class UI:
                 multiline=True,
                 key_bindings=_input_key_bindings(),
                 prompt_continuation=lambda width, ln, wrapped: "  " if not wrapped else "",
+                # Black background for the status toolbar (the default light/
+                # reversed bar looks out of place with the emoji + ANSI colors).
+                style=_PTStyle.from_dict({
+                    "bottom-toolbar": "bg:#000000 noreverse",
+                    "bottom-toolbar.text": "bg:#000000",
+                }),
             )
 
     # ---- status line (emoji + color, Claude Code custom style) ----------
