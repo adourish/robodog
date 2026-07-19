@@ -127,52 +127,107 @@ mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
 
 ## Configuration
 
-### Keys
+### First run: from install to first prompt
 
-Simplest path: environment variables. `ROBODOG_LLM_URL`/`ROBODOG_LLM_KEY` for
-any OpenAI-compatible endpoint (OpenRouter, OpenAI, LiteLLM, …), or
-`GATEWAY_ENDPOINT`/`GATEWAY_ENGINE`/`GATEWAY_ACCESS_KEY`/`GATEWAY_SECRET_KEY`
-for a self-hosted runPixel-style gateway. Env vars always win.
+The fastest path — an [OpenRouter](https://openrouter.ai/keys) key in
+`~/.robodog/config.env` (created if missing; loaded automatically at startup):
 
-Optional: a **KeePass** database, so keys never touch env vars or disk in
-plaintext. Robodog looks up credentials by entry title (`OpenAI`,
-`OpenRouter`, `Gateway`) via a `keepass_loader.py` module (bring your own —
-a thin `pykeepass` wrapper exposing `KeePassLoader(db_path, keyfile).get_credentials(title=...)`
-is all it needs; keyfile-only auth means no master-password prompt). Point
-Robodog at it with:
+```bash
+pip install -U robodog-terminal
+mkdir -p ~/.robodog
+echo "ROBODOG_LLM_KEY=<your OpenRouter key>" >> ~/.robodog/config.env
+robodog-terminal            # defaults to OpenRouter + a Claude model
+```
+
+That's it — type a task at the `›` prompt. Run `/doctor` if anything looks
+off: it reports which keys/vars were found (never their values) and flags
+config mistakes like a mismatched backend/model pairing.
+
+### Keys — all the options
+
+Environment variables (or `config.env` lines — same names) always win:
 
 | Env var | Purpose |
 |---|---|
-| `ROBODOG_KEEPASS_DIR` | directory containing `keepass_loader.py`, `automation-keys.kdbx`, `automation-keys.keyfile` |
-| `ROBODOG_KEEPASS_DB` / `ROBODOG_KEEPASS_KEYFILE` | exact file paths, if your layout differs |
+| `ROBODOG_LLM_KEY` | API key for the OpenAI-compatible backend (OpenRouter by default) |
+| `ROBODOG_LLM_URL` | override the base URL (OpenAI, Groq, LiteLLM, local Ollama, …) |
+| `ROBODOG_MODEL` | default model id |
+| `GATEWAY_ENDPOINT` / `GATEWAY_ENGINE` / `GATEWAY_ACCESS_KEY` / `GATEWAY_SECRET_KEY` | self-hosted runPixel-style gateway |
 
-Persist these without touching your system environment by dropping them in
-`~/.robodog/config.env` (`KEY=VALUE` per line, loaded automatically on
-startup; existing env vars still win). Falls back to
-`~/.robodog/automation-keys.kdbx` if nothing is set.
+### KeePass setup (optional, step by step)
 
-Run `/doctor` any time to see which entries/vars were actually found — values
-are never printed.
+Instead of a key in a plaintext `config.env`, Robodog can pull keys from a
+**KeePass** database at startup. It looks for three files in `~/.robodog/`
+(or wherever `ROBODOG_KEEPASS_DIR` points; `ROBODOG_KEEPASS_DB` /
+`ROBODOG_KEEPASS_KEYFILE` override the exact paths):
 
-<details>
-<summary>Creating a KeePass DB from scratch</summary>
+```
+~/.robodog/
+├── keepass_loader.py           # the loader module (code below)
+├── automation-keys.kdbx        # the database
+└── automation-keys.keyfile     # keyfile auth -> no password prompt
+```
+
+**1. Install pykeepass and create the database + keyfile:**
+
+```bash
+pip install pykeepass
+```
 
 ```python
 import os
+from pathlib import Path
 from pykeepass import create_database
 
-keyfile = "keys/automation-keys.keyfile"
-open(keyfile, "wb").write(os.urandom(32))     # random keyfile, no master password
-kp = create_database("keys/automation-keys.kdbx", password=None, keyfile=keyfile)
-kp.add_entry(kp.root_group, "OpenRouter", "robodog", "<your-api-key>",
+d = Path.home() / ".robodog"
+keyfile = d / "automation-keys.keyfile"
+keyfile.write_bytes(os.urandom(32))           # random keyfile, no master password
+kp = create_database(str(d / "automation-keys.kdbx"), password=None,
+                     keyfile=str(keyfile))
+kp.add_entry(kp.root_group, "OpenRouter", "robodog", "<your OpenRouter key>",
              url="https://openrouter.ai/api/v1")
 kp.save()
 ```
 
-To rotate a token later, open the same entry (in KeePassXC, or a short
-`pykeepass` script) and overwrite the password field — Robodog picks up the
-new value on next unlock.
-</details>
+**2. Add entries for the providers you use.** Robodog looks them up by
+**exact title**; the API key goes in the *password* field:
+
+| Entry title | Used by | URL field (optional override) |
+|---|---|---|
+| `OpenRouter` | `--backend openrouter` / auto | `https://openrouter.ai/api/v1` |
+| `OpenAI` | `--backend openai` | `https://api.openai.com/v1` |
+| `Gateway` | `--backend gateway` (username = access key, password = secret key) | — |
+
+**3. Drop in the loader module** (`~/.robodog/keepass_loader.py`) — Robodog
+imports it and calls exactly this interface:
+
+```python
+# ~/.robodog/keepass_loader.py
+from pykeepass import PyKeePass
+
+class KeePassLoader:
+    def __init__(self, db_path, keyfile=None):
+        self.db_path, self.keyfile, self.kp = db_path, keyfile, None
+
+    def unlock(self, password=None):
+        self.kp = PyKeePass(self.db_path, password=password, keyfile=self.keyfile)
+
+    def get_credentials(self, title):
+        e = self.kp.find_entries(title=title, first=True)
+        if e is None:
+            return None
+        return {"title": e.title, "username": e.username,
+                "password": e.password, "url": e.url}
+```
+
+**4. Verify:** start `robodog-terminal` and run `/doctor` — the `keepass`
+line reports "unlocked" and which entry titles were found (values are never
+printed). Remove any `ROBODOG_LLM_KEY` from `config.env` so the KeePass path
+is actually exercised (env vars win when both are set).
+
+To rotate a token later, overwrite the entry's password field (in KeePassXC
+or a short `pykeepass` script) — Robodog picks up the new value on next
+start.
 
 ### Adding a new model
 

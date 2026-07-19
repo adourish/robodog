@@ -26,6 +26,16 @@ robodog-terminal --backend openai -p "fix x.py and run the tests"   # headless (
 python -m robodog_terminal.run_tests                  # test suites (from a checkout)
 ```
 
+## Configure (first run)
+```bash
+mkdir -p ~/.robodog
+echo "ROBODOG_LLM_KEY=<your OpenRouter key>" >> ~/.robodog/config.env
+robodog-terminal             # then /doctor to verify what was found
+```
+Other providers (`ROBODOG_LLM_URL`), the enterprise gateway (`GATEWAY_*`),
+and KeePass-based key storage (no plaintext keys on disk) are covered in the
+[repo README](https://github.com/adourish/robodog#configuration).
+
 ## Features
 Agentic loop with an intent nudge + circuit breaker · tools (read/write/edit/
 multi_edit/bash/run_script/run_tests/glob/grep/list_dir) with read-before-edit,
