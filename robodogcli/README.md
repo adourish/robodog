@@ -22,6 +22,77 @@ NEVER TRUST A CODE SPEWING ROBOT!
 - **Advanced Analysis**: Call graphs, impact analysis, dependency tracking.
 - **Cascade Mode**: Windsurf-style parallel execution (2-3x faster multi-step tasks).
 - Accessible, retro “console” UI with customizable themes and responsive design.  
+- **🆕 Terminal Mode**: a Claude Code-style agentic coding terminal (see below).
+
+---
+
+## 🖥️ Terminal Mode (Claude Code-style) — NEW
+
+`robodog/terminal/` is a self-contained, Claude Code-style interactive coding
+terminal: an agentic tool-use loop that reads/edits files, runs commands, runs
+tests, and self-corrects — over pluggable LLM backends. It is designed to run
+**Claude Sonnet on the FDA ELSA/SEMOSS gateway** (air-gapped, where Claude Code
+can't reach), and works equally with OpenAI-compatible models or a fully offline
+mock for development.
+
+### Run it
+```bash
+cd robodogcli/robodog
+pip install rich prompt_toolkit requests
+
+python terminal/app.py --backend openai --model gpt-4o     # live (OpenAI/OpenRouter)
+python terminal/app.py --backend elsa                       # FDA box (ELSA/Claude Sonnet)
+python terminal/app.py --echo                               # offline demo, no keys
+python terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"   # headless
+python terminal/run_tests.py                                # 18 test suites
+```
+Keys load automatically from the KeePass automation DB (ELSA `SEMOSS-Elsa-Dev`,
+`OpenAI`, `OpenRouter`) or from `ELSA_*` / `ROBODOG_LLM_*` env vars.
+
+### What works today (current progress)
+- **Agentic loop** — prompted XML tool-calling (works on any model), with an
+  intent nudge and a circuit breaker to stop stuck loops.
+- **Tools** — `read_file`, `write_file`, `edit_file`, `multi_edit`, `bash`,
+  `run_script`, `run_tests`, `glob`, `grep`, `list_dir`, plus `agent` subagents
+  and `ask_user`. Read-before-edit enforced; **post-edit syntax verification**
+  auto-feeds errors back; whitespace-tolerant fuzzy edits.
+- **Command reaction** — streaming output, exit-code salience, process-tree kill
+  on timeout, and a dangerous-command guard (`--guard confirm`).
+- **Subagents** — foreground + background (`/bg`, `/tasks`, `/tail`, `/kill`) via
+  a thread-based BackgroundManager; custom agent types from `.robodog/agents/*.md`.
+- **Safety / undo** — per-prompt file checkpoints with `/rewind`; diff previews.
+- **Sessions** — JSONL persistence, `/resume`, `--continue`/`--resume`.
+- **Context** — auto-trim of old tool output, `/compact`, `/context`, `/btw`
+  side-questions that don't touch history.
+- **Plan mode** — `/plan` (read-only propose → approve → implement).
+- **Skills / commands** — `.robodog/commands/*.md` (with `$ARGUMENTS`),
+  `.robodog/skills/<name>/SKILL.md`, and `CLAUDE.md`/`ROBODOG.md` hierarchy.
+- **TUI (rich + prompt_toolkit)** — welcome banner, sticky status line with a
+  context-budget bar, spinner, markdown answers, colored diffs, **OSC-8 clickable
+  file & `file:line` links**, `/open`, multiline paste, `\`+Enter continuation,
+  history, and slash-command autocomplete.
+- **Mid-turn interactivity** — Ctrl+C cancels a turn, **Ctrl+B backgrounds it**,
+  and typed follow-ups queue while it runs.
+- **Headless `-p`** mode with `text`/`json` output; `/doctor` diagnostics.
+
+**Quality:** 18 test suites (`terminal/run_tests.py`), all passing. Benchmarked at
+**capability parity with real Claude Code** across 20 agentic scenarios
+(algorithms, cross-file debugging, regex/data, OOP+tests, refactors, Playwright).
+
+### Next steps / roadmap
+- [ ] **Live ELSA validation on the FDA box** — the ElsaClient (runPixel, retry,
+  KeePass keys) is built and wire-tested; validate the real round-trip and the
+  302/sticky-cookie async path. (Run `/doctor` there first.)
+- [ ] **Streaming responses** (Pack C) for OpenAI-compatible backends.
+- [ ] **Editor-aware `file:line` links** (`vscode://file/…:line`) to jump to the
+  exact line; **syntax-highlighted diffs**.
+- [ ] **Per-agent model overrides** in `.robodog/agents/*.md` (cheap model for
+  `explore`, Sonnet for the main loop).
+- [ ] Wire `terminal` in as a `robodog terminal` subcommand of the main CLI.
+- [ ] Optional permission gate (`--ask`) beyond the current YOLO default.
+
+See `robodogcli/docs/TERMINAL_MODE_PLAN.md` for the full design, gap analysis,
+and the Claude Code docs audit.
 
 ---
 
