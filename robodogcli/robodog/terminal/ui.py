@@ -1,0 +1,325 @@
+# file: terminal/ui.py
+"""
+Claude Code-style terminal UI.
+
+Interactive path: prompt_toolkit PromptSession — sticky bottom status bar
+(bottom_toolbar), slash-command autocomplete, persistent input history,
+Ctrl+R reverse search (free), patch_stdout so background threads can print
+safely above the input line.
+
+Non-TTY / missing-deps path: plain input() with a printed status line —
+keeps piped tests and weird consoles working.
+
+Rendering: rich (welcome panel, markdown answers, spinner, colored diffs).
+Resize rule: NEVER cache a width — rich re-measures at each print and
+prompt_toolkit redraws the toolbar on terminal resize by itself.
+"""
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+from typing import List, Optional
+
+# Force UTF-8 so box-drawing/emoji don't crash on Windows cp1252 consoles.
+try:  # pragma: no cover - environment dependent
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+try:
+    from rich.console import Console
+    from rich.markdown import Markdown
+    from rich.panel import Panel
+    from rich.text import Text
+    _HAVE_RICH = True
+except Exception:  # pragma: no cover
+    _HAVE_RICH = False
+
+try:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.completion import WordCompleter
+    from prompt_toolkit.history import FileHistory
+    from prompt_toolkit.patch_stdout import patch_stdout
+    from prompt_toolkit.key_binding import KeyBindings
+    _HAVE_PT = True
+except Exception:  # pragma: no cover
+    _HAVE_PT = False
+
+
+def _input_key_bindings():
+    """
+    Enter submits (single-line feel); a line ending in backslash continues to
+    a new line (Claude Code's `\\`+Enter); Alt/Option+Enter always inserts a
+    newline. Pasted multi-line text is delivered via bracketed paste (not key
+    events), so it lands in the buffer whole without triggering submit.
+    """
+    kb = KeyBindings()
+
+    @kb.add("enter")
+    def _(event):
+        buf = event.current_buffer
+        text = buf.text
+        # Backslash-continuation: strip the trailing '\' and add a newline.
+        if text.rstrip("\n").endswith("\\"):
+            stripped = text.rstrip("\n")
+            buf.text = stripped[:-1]
+            buf.cursor_position = len(buf.text)
+            buf.insert_text("\n")
+        else:
+            buf.validate_and_handle()
+
+    @kb.add("escape", "enter")  # Alt/Option+Enter -> hard newline
+    def _(event):
+        event.current_buffer.insert_text("\n")
+
+    @kb.add("c-j")  # Ctrl+J -> newline (works in every terminal)
+    def _(event):
+        event.current_buffer.insert_text("\n")
+
+    return kb
+
+
+class UI:
+    def __init__(self, model_name: str = "elsa/sonnet", cwd: Optional[str] = None,
+                 commands: Optional[List[str]] = None, stderr: bool = False):
+        self.model_name = model_name
+        self.cwd = str(cwd or os.getcwd())
+        self.total_tokens = 0
+        self.bg_running = 0          # background tasks (wired later)
+        self.context_pct = 0         # transcript fill estimate (loop sets)
+        # stderr=True: headless -p mode — decorations go to stderr so stdout
+        # carries only the final result.
+        self.console = Console(stderr=stderr) if _HAVE_RICH else None
+        self._stderr = stderr
+        self._status = None          # active rich spinner
+        self._interactive = bool(
+            _HAVE_PT and sys.stdin.isatty() and sys.stdout.isatty()
+        )
+        self._session = None
+        if self._interactive:
+            hist_dir = Path.home() / ".robodog"
+            hist_dir.mkdir(parents=True, exist_ok=True)
+            completer = None
+            if commands:
+                completer = WordCompleter(sorted(commands), sentence=True,
+                                          match_middle=False)
+            self._session = PromptSession(
+                history=FileHistory(str(hist_dir / "terminal_history")),
+                completer=completer,
+                bottom_toolbar=self._toolbar,
+                complete_while_typing=True,
+                # multiline=True keeps pasted newlines in the buffer instead of
+                # submitting at the first one. Bracketed paste (default in
+                # prompt_toolkit) inserts pasted text via insert_text, so the
+                # custom Enter binding below does NOT fire per pasted line —
+                # multi-line cut/paste is captured whole, like Claude Code.
+                multiline=True,
+                key_bindings=_input_key_bindings(),
+                prompt_continuation=lambda width, ln, wrapped: "  " if not wrapped else "",
+            )
+
+    # ---- status line ----------------------------------------------------
+    def status_line(self) -> str:
+        cwd_short = self.cwd
+        home = str(Path.home())
+        if cwd_short.startswith(home):
+            cwd_short = "~" + cwd_short[len(home):]
+        parts = [self.model_name, cwd_short, f"{self.total_tokens} tok"]
+        if self.context_pct:
+            parts.append(f"ctx {self.context_pct}%")
+        if self.bg_running:
+            parts.append(f"⚙{self.bg_running} bg")
+        return " · ".join(parts)
+
+    def _toolbar(self):
+        # Called by prompt_toolkit on every redraw — live and resize-safe.
+        return " " + self.status_line()
+
+    def print_status(self):
+        line = self.status_line()
+        if self.console:
+            self.console.print(f"[dim]{line}[/dim]")
+        else:
+            print(line)
+
+    # ---- banner ---------------------------------------------------------
+    def welcome(self):
+        tips = (
+            "[bold]/help[/bold] commands   [bold]![/bold] run shell   "
+            "[bold]/rewind[/bold] undo edits   [bold]/exit[/bold] quit"
+        )
+        if self.console and self.console.width >= 60:
+            body = Text.from_markup(
+                "[bold cyan]Robodog Terminal[/bold cyan]  "
+                "[dim]agentic coding in your shell[/dim]\n\n"
+                f"model: [green]{self.model_name}[/green]\n"
+                f"cwd:   [blue]{self.cwd}[/blue]\n\n"
+                f"{tips}"
+            )
+            # Explicit width avoids the off-by-one border misalignment rich can
+            # produce when it infers width from a piped (non-TTY) console.
+            self.console.print(Panel(body, title="🐕 robodog", border_style="cyan",
+                                     padding=(1, 2), width=self.console.width,
+                                     expand=False))
+        else:  # narrow terminal or no rich: plain lines
+            print("Robodog Terminal — agentic coding in your shell")
+            print(f" model: {self.model_name}")
+            print(f" cwd:   {self.cwd}")
+            print(" /help  !cmd  /rewind  /exit")
+
+    # ---- prompt ---------------------------------------------------------
+    def prompt(self) -> str:
+        if self._session is not None:
+            with patch_stdout():
+                return self._session.prompt("› ").strip()
+        # fallback: printed status + plain input
+        self.print_status()
+        if self.console:
+            self.console.print("[bold magenta]›[/bold magenta] ", end="")
+            return input().strip()
+        return input("› ").strip()
+
+    # ---- spinner --------------------------------------------------------
+    def spinner_start(self, text: str):
+        if self.console and sys.stdout.isatty() and self._status is None:
+            self._status = self.console.status(f"[cyan]{text}[/cyan]",
+                                               spinner="dots")
+            self._status.start()
+
+    def spinner_update(self, text: str):
+        if self._status is not None:
+            self._status.update(f"[cyan]{text}[/cyan]")
+
+    def spinner_stop(self):
+        if self._status is not None:
+            self._status.stop()
+            self._status = None
+
+    # ---- output ---------------------------------------------------------
+    def info(self, msg: str):
+        # markup=False: these carry arbitrary text (paths, [btw ...], [N steps])
+        # that must NOT be parsed as rich markup tags.
+        if self.console:
+            self.console.print(msg, markup=False, highlight=False)
+        else:
+            print(msg)
+
+    def dim(self, msg: str):
+        # style="dim" + markup=False so bracketed content in msg (e.g.
+        # "[3 steps · 264 tok]") renders literally, not as a markup tag.
+        if self.console:
+            self.console.print(msg, style="dim", markup=False, highlight=False)
+        else:
+            print(msg)
+
+    def assistant(self, text: str):
+        """Render a final answer as markdown (falls back to plain text)."""
+        if self.console:
+            try:
+                self.console.print(Markdown(text))
+                return
+            except Exception:
+                pass
+            self.console.print(Text(text))
+        else:
+            print(text)
+
+    # ---- clickable links -----------------------------------------------
+    def _file_uri(self, path_str: str):
+        """file:// URI for a path (so the terminal can open it), or None."""
+        try:
+            p = Path(path_str)
+            if not p.is_absolute():
+                p = Path(self.cwd) / p
+            return p.resolve().as_uri()
+        except Exception:
+            return None
+
+    def _linked_path(self, path_str: str, style: str = "dim"):
+        """A rich Text whose displayed path is a clickable file:// hyperlink."""
+        from rich.text import Text as _T
+        from rich.style import Style as _S
+        uri = self._file_uri(path_str)
+        if uri:
+            return _T(path_str, style=_S.parse(style) + _S(link=uri, underline=True))
+        return _T(path_str, style=style)
+
+    def tool_call(self, name: str, args: dict):
+        path = args.get("path")
+        preview = args.get("command") or path or args.get("pattern") \
+            or args.get("prompt") or ""
+        preview = str(preview).replace("\n", " ")
+        width = self.console.width if self.console else 80
+        maxlen = max(20, width - len(name) - 8)
+        if len(preview) > maxlen:
+            preview = preview[:maxlen] + "…"
+        if self.console:
+            from rich.text import Text as _T
+            from rich.style import Style as _S
+            line = _T("  ")
+            line.append(f"⚙ {name} ", style="yellow")
+            # If the arg is a file path, link the (possibly truncated) display
+            # text to the FULL path's file:// URI so long paths stay clickable.
+            uri = self._file_uri(str(path)) if path and preview.rstrip("…") in str(path) else None
+            if uri:
+                line.append(preview, style=_S.parse("dim") + _S(link=uri, underline=True))
+            else:
+                line.append(preview, style="dim")
+            self.console.print(line)
+        else:
+            print(f"  * {name} {preview}")
+
+    def tool_result(self, name: str, result: str):
+        first = result.strip().splitlines()[0] if result.strip() else ""
+        more = result.count("\n")
+        suffix = f"  (+{more} lines)" if more else ""
+        if self.console:
+            from rich.text import Text as _T
+            import re as _re
+            line = _T("    ↳ ", style="dim")
+            # Linkify a trailing/leading absolute path in the summary line
+            # (e.g. "Created C:\...\demo.py (32 bytes)").
+            m = _re.search(r"([A-Za-z]:\\[^\s(]+|/[^\s(]+\.[\w]+)", first[:100])
+            if m:
+                pre, path, post = first[:m.start()], m.group(1), first[m.end():100]
+                line.append(pre, style="dim")
+                line.append_text(self._linked_path(path, "dim"))
+                line.append(post + suffix, style="dim")
+            else:
+                line.append(first[:100] + suffix, style="dim")
+            self.console.print(line)
+        else:
+            print(f"    -> {first[:100]}{suffix}")
+
+    def diff(self, path: str, diff_text: str, max_lines: int = 40):
+        """Colored unified diff preview of a file change."""
+        lines = diff_text.splitlines()
+        shown = lines[:max_lines]
+        if self.console:
+            from rich.text import Text as _T
+            hdr = _T("  Δ ", style="bold")
+            hdr.append_text(self._linked_path(path, "bold"))
+            self.console.print(hdr)
+            for ln in shown:
+                if ln.startswith("+") and not ln.startswith("+++"):
+                    self.console.print(f"  [green]{ln}[/green]", highlight=False)
+                elif ln.startswith("-") and not ln.startswith("---"):
+                    self.console.print(f"  [red]{ln}[/red]", highlight=False)
+                elif ln.startswith("@@"):
+                    self.console.print(f"  [cyan]{ln}[/cyan]", highlight=False)
+                else:
+                    self.console.print(f"  [dim]{ln}[/dim]", highlight=False)
+            if len(lines) > max_lines:
+                self.console.print(f"  [dim]… {len(lines) - max_lines} more diff lines[/dim]")
+        else:
+            print(f"  Δ {path}")
+            for ln in shown:
+                print(f"  {ln}")
+
+    def error(self, msg: str):
+        if self.console:
+            self.console.print(f"[bold red]error:[/bold red] {msg}")
+        else:
+            print(f"error: {msg}")
