@@ -317,6 +317,21 @@ def _open_target(target: str, cwd: str) -> str:
         return f"could not open {t}: {exc}"
 
 
+def _normalize_model_id(raw: str) -> str:
+    """
+    Clean up a model id typed at /model or --model:
+      - drop an inline "# comment" and surrounding whitespace
+      - fix the common dashed-version slip on OpenRouter Anthropic ids
+        (anthropic/claude-opus-4-8 -> anthropic/claude-opus-4.8), which is the
+        internal dash id, not the dotted id OpenRouter actually serves.
+    """
+    import re
+    s = raw.split("#", 1)[0].strip().strip("'\"").strip()
+    # claude-<name>-<major>-<minor>  ->  claude-<name>-<major>.<minor>
+    s = re.sub(r"(claude-[a-z]+-\d+)-(\d+)", r"\1.\2", s)
+    return s
+
+
 def _mk_turn(role: str, content: str, tool_name: str = ""):
     try:
         from .loop import Turn
@@ -818,9 +833,12 @@ def main(argv=None) -> int:
                     ui.info(f"rewound {len(actions)} file(s) to before prompt {n}.")
             elif cmd == "model":
                 if rest:
+                    want = _normalize_model_id(rest)
+                    if want != rest:
+                        ui.dim(f"  (interpreting as {want})")
                     # Live model switch: rebuild the client on the same backend.
                     try:
-                        args.model = rest
+                        args.model = want
                         new_client, new_label = build_backend(args, on_retry=on_retry)
                         loop.client = new_client
                         client = new_client
@@ -830,9 +848,10 @@ def main(argv=None) -> int:
                         ui.error(f"model switch failed: {exc}")
                 else:
                     ui.info(f"model: {ui.model_name}")
-                    ui.dim("  suggestions: gpt-4o-mini · gpt-4o · "
-                           "anthropic/claude-sonnet-4.5 (openrouter) · "
-                           "gateway engine id via --backend gateway")
+                    ui.dim("  openrouter: anthropic/claude-opus-4.8 · "
+                           "anthropic/claude-sonnet-4.6 · openai/gpt-4o · "
+                           "google/gemini-2.0-flash-001")
+                    ui.dim("  (tip: OpenRouter IDs use dots, e.g. -4.8 not -4-8)")
             elif cmd == "plan":
                 registry.mode = "plan" if registry.mode != "plan" else "yolo"
                 if registry.mode == "plan":

@@ -220,6 +220,21 @@ def main() -> int:
     check("unavailable" in r, "agent background without manager refused")
     check(reg2.get("task_output") is None, "task_output absent without manager")
 
+    # ---- _normalize_model_id --------------------------------------------
+    n = app_mod._normalize_model_id
+    check(n("anthropic/claude-opus-4-8") == "anthropic/claude-opus-4.8",
+          "model id: dashed anthropic version -> dotted")
+    check(n("anthropic/claude-opus-4-8   # switch live") == "anthropic/claude-opus-4.8",
+          "model id: inline # comment stripped")
+    check(n("anthropic/claude-sonnet-4-6") == "anthropic/claude-sonnet-4.6",
+          "model id: sonnet dashed -> dotted")
+    check(n("anthropic/claude-opus-4.8") == "anthropic/claude-opus-4.8",
+          "model id: already-dotted unchanged")
+    check(n("openai/gpt-4o") == "openai/gpt-4o", "model id: non-anthropic untouched")
+    check(n("'gpt-4o'") == "gpt-4o", "model id: surrounding quotes stripped")
+    check(n("anthropic/claude-opus-4.8-fast") == "anthropic/claude-opus-4.8-fast",
+          "model id: -fast suffix preserved")
+
     print("\nAPP:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 
