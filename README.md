@@ -1,13 +1,13 @@
 # 🐕 Robodog
 
-Robodog is an **agentic coding terminal** for your shell — a tool-use loop that
-reads and edits files, runs commands, runs tests, and self-corrects, driven by a
-large language model. It's built to run **Claude Sonnet on the FDA ELSA/SEMOSS
-gateway** (air-gapped environments), and works just as well with
-OpenAI-compatible models or a fully offline mock for development.
+Robodog Terminal is an **agentic coding terminal** for your shell — a tool-use loop
+that reads and edits files, runs commands, runs tests, and self-corrects, driven by
+a large language model. It's built to run **Claude Sonnet on the FDA ELSA/SEMOSS
+gateway** (air-gapped environments), and works just as well with OpenAI-compatible
+models or a fully offline mock for development.
 
-> This repository is a monorepo. Active development lives in **`apps/cli`**;
-> older clients are archived under `archive/`.
+> This repository is a monorepo. Terminal mode (`apps/cli/robodog/robodog_terminal`)
+> is the active, flagship client — everything else is archived.
 
 ## Preview
 
@@ -31,12 +31,6 @@ The script printed 55. Created fib.py and ran it.
 [3 steps · 5.7k tok · 4.2s]
 ```
 
-<sub>Earlier Robodog UIs (CLI / MCP file service / side-by-side diff):</sub>
-
-![CLI](assets/screenshot-cli.png)
-![MCP file service](assets/screenshot-mcp.png)
-![Diff](assets/screenshot-diff.png)
-
 ## Setup
 
 Requires **Python 3.9+**.
@@ -54,7 +48,7 @@ pip install rich prompt_toolkit requests        # core deps
 Or install it as a package (first-class commands):
 
 ```bash
-pip install -e "robodog/apps/cli[terminal]"
+pip install -e "robodog/apps/cli/robodog[terminal]"
 robodog-terminal --echo         # then: robodog-terminal --backend openai --model gpt-4o
 ```
 
@@ -112,19 +106,17 @@ mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
 Keys load automatically from the KeePass automation DB (`SEMOSS-Elsa-Dev`,
 `OpenAI`, `OpenRouter`) or from environment variables
 (`ELSA_ENDPOINT`/`ELSA_ENGINE`/`ELSA_ACCESS_KEY`/`ELSA_SECRET_KEY`,
-`ROBODOG_LLM_URL`/`ROBODOG_LLM_KEY`). Project instructions are read from
+`ROBODOG_LLM_URL`/`ROBODOG_LLM_KEY`). Run `/doctor` to see which entries/vars
+were found (values are never printed). Project instructions are read from
 `CLAUDE.md` / `ROBODOG.md` / `.robodog.md` walking from the repo root to your
-working directory.
+working directory, plus `~/.robodog/CLAUDE.md` or `~/.robodog/ROBODOG.md` for
+global instructions.
 
 ## Repository layout
 
 ```
 robodog/
-├── apps/cli/           Python CLI + robodog_terminal   ← 🟢 active / flagship
-├── integrations/       one-off automation scripts (Google, email, Todoist, …)
-├── docs/               integration & setup guides, notes
-├── assets/             screenshots, slide deck, PDF, diagram, sample data
-└── archive/            unmaintained iterations (web, lib, batch, android, vscode)
+└── apps/cli/robodog/robodog_terminal/   Robodog Terminal — the active project
 ```
 
 Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`**.
