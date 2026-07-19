@@ -1,9 +1,9 @@
 # robodog-terminal
 
-A Claude Code-style **agentic coding terminal**: a prompted tool-use loop that
+A agentic **agentic coding terminal**: a prompted tool-use loop that
 reads/edits files, runs commands, runs tests, and self-corrects — over pluggable
 LLM backends. Designed to run **Claude Sonnet on the FDA ELSA/SEMOSS gateway**
-(air-gapped, where Claude Code can't reach), and works equally with
+(air-gapped, where an agentic coding terminal can't reach), and works equally with
 OpenAI-compatible models or a fully offline mock.
 
 ## Install
@@ -30,5 +30,5 @@ sessions (`/resume`, `--continue`) · plan mode · skills & custom commands
 with an emoji/color status line, clickable file & `file:line` links, multiline
 paste, and mid-turn Ctrl+B backgrounding · headless `-p` (text/json) · `/doctor`.
 
-Benchmarked at **capability parity with real Claude Code** across 20 agentic
+Benchmarked at **capability parity with a leading agentic coding assistant** across 20 agentic
 scenarios. See `robodogcli/docs/TERMINAL_MODE_PLAN.md` for the full design.

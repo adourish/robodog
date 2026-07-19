@@ -95,7 +95,7 @@ def main() -> int:
     check("Δ" in out and "\x1b]8;" in out, "diff header path is a clickable link")
     check("\x1b[32m" in out and "\x1b[31m" in out, "diff renders +green / -red")
 
-    # ---------------- emoji + color status line (Claude Code style) ------
+    # ---------------- emoji + color status line (agentic) ------
     ui, buf = capture()
     ui.total_tokens = 15600
     ui.context_pct = 36     # 36% used -> 64% remaining, "calm" bubble tier

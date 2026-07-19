@@ -1,6 +1,6 @@
 # Robodog Terminal Mode — Build Plan
 
-A Claude Code-style interactive terminal for robodog: welcome box + bottom status line,
+A agentic interactive terminal for robodog: welcome box + bottom status line,
 slash commands, a real agentic **tool-use loop**, and the ability to **edit files** and
 **run shell commands**.
 
@@ -135,7 +135,7 @@ XML-tag convention (Claude-friendly), specified in `OUTPUT_CONTRACT`.
 - Selected by a `protocol: elsa|openai|echo` field on the model/provider config.
 
 ### UI (`ui.py`)
-- **Welcome box** (rich `Panel`): logo, model, cwd, tips — like Claude Code's banner.
+- **Welcome box** (rich `Panel`): logo, model, cwd, tips — like a modern agentic terminal's banner.
 - **Bottom status line** (prompt_toolkit `bottom_toolbar`): `model · cwd · tokens used · context %`.
 - Streaming assistant text, tool-call lines, colored diffs, spinner during LLM calls.
 - `/`-prefix command autocomplete.
@@ -171,7 +171,7 @@ loading as system context, session persistence, optional permission gate (flip o
 
 # Gap Analysis & Prioritized Feature Map (2026-07-18)
 
-Audit of Phase-1 build vs. Claude Code. Priorities:
+Audit of Phase-1 build vs. leading agentic tools. Priorities:
 **P0** = blocks live use on the FDA box · **P1** = core Claude-Code parity / robustness ·
 **P2** = productivity parity · **P3** = nice-to-have / later.
 
@@ -192,7 +192,7 @@ Audit of Phase-1 build vs. Claude Code. Priorities:
 | # | Feature | Gap today | Effort |
 |---|---|---|---|
 | 1 | **Live ELSA validation** | ElsaClient never hit the real endpoint; unit-tested wire format only | S (on FDA box) |
-| 2 | **Retry w/ backoff + visible "Retrying attempt n/N" line** | Zero retry logic; one 5xx/timeout kills the turn (Claude Code shows `API error · Retrying… attempt 1/10`) | S |
+| 2 | **Retry w/ backoff + visible "Retrying attempt n/N" line** | Zero retry logic; one 5xx/timeout kills the turn (an agentic coding terminal shows `API error · Retrying… attempt 1/10`) | S |
 | 3 | **KeePass key loading (SEMOSS-Elsa-Dev)** | Backend needs 4 env vars set by hand; fda-serio already has the KeePass pattern | S |
 | 4 | **302/sticky-cookie session handling** | `requests.Session` follows redirects but we don't pin cookies across submit/poll like the fda-serio probe does | M |
 | 5 | **Empty-response guard** | Known ELSA failure mode (low token cap → empty/prose); detect empty text and retry once with adjusted params | S |
@@ -247,13 +247,13 @@ Audit of Phase-1 build vs. Claude Code. Priorities:
 Detailed designs for the five feature areas. `prompt_toolkit` 3.0.52 is now installed
 alongside `rich` — both UI plans below assume it.
 
-## 1. UI (Claude Code look-and-feel)
+## 1. UI (an agentic coding terminal look-and-feel)
 
 **Goal:** persistent input line at the bottom with a sticky status bar, scrolling
 transcript above it, spinner during LLM calls, markdown answers, colored diffs,
 slash-command autocomplete, input history.
 
-**Design — inline renderer, NOT a full-screen TUI.** Claude Code renders inline:
+**Design — inline renderer, NOT a full-screen TUI.** an agentic coding terminal renders inline:
 output scrolls in the normal terminal buffer; only the input area + status bar are
 "live". We get the same with `prompt_toolkit.PromptSession`:
 
@@ -300,7 +300,7 @@ panes, SSH) — no truncated boxes or stale-width wraps.
 ## 3. Background agents
 
 **Goal:** kick off a long agent task, keep typing; get notified when it finishes —
-Claude Code's background tasks (`/tasks`, notifications between turns).
+a modern agentic terminal's background tasks (`/tasks`, notifications between turns).
 
 **Design — `terminal/background.py`:**
 ```python
@@ -347,7 +347,7 @@ class BackgroundManager:
 ## 4. Agents (subagents the model can spawn)
 
 **Goal:** the main agent delegates scoped work to sub-agents with their own context —
-Claude Code's Agent tool (Explore/Plan/general).
+a modern agentic terminal's Agent tool (Explore/Plan/general).
 
 **Design — `terminal/agents.py`, exposed as a tool:**
 ```
@@ -368,7 +368,7 @@ Claude Code's Agent tool (Explore/Plan/general).
   - `background=true`: delegates to `BackgroundManager.spawn_agent`, immediately returns
     `"started bg3"`; parent can later call `<tool name="task_output"><param name="id">bg3…`.
 - **Safety rails:** `depth` counter passed into child registries — subagents cannot
-  spawn subagents (depth 1 max, mirrors Claude Code). Parent's iteration budget is
+  spawn subagents (depth 1 max, mirrors an agentic coding terminal). Parent's iteration budget is
   independent of the child's. Same global ELSA semaphore applies.
 - **UI:** child tool activity rendered indented + dimmed under the parent's
   `⚙ agent explore…` line (or hidden behind `--verbose`).
@@ -386,7 +386,7 @@ AgentLoop-in-a-tool). **Order:** after background agents.
 - **`!` prefix (user passthrough), in `app.py`:** `! pytest -q` runs immediately in the
   shell — no LLM round-trip — output **streams live** to the terminal AND is appended to
   the conversation history as a `tool` turn, so the next agent message can see it
-  (exactly Claude Code's `!` behavior). Empty output/exit code recorded too.
+  (exactly a modern agentic terminal's `!` behavior). Empty output/exit code recorded too.
 - **Streaming bash (upgrade `_bash` in `tools.py`):** switch `subprocess.run` →
   `Popen` + reader thread; echo each line dimmed as it arrives (callback into UI),
   while accumulating for the clamped tool result. A 30-min hard cap replaces silent
@@ -409,7 +409,7 @@ AgentLoop-in-a-tool). **Order:** after background agents.
 
 ---
 
-# Deep-Dive Addendum (2026-07-18): official Claude Code docs audit
+# Deep-Dive Addendum (2026-07-18): official agentic-tooling docs audit
 
 Two doc-research passes over docs.claude.com (interactive UX + agentic internals)
 were diffed against this plan. Most of the enormous surface (vim mode, themes,
@@ -420,8 +420,8 @@ underweighted, filtered for impact:
 ## Missed — now added
 | Priority | Feature | Why it matters for us | Disposition |
 |---|---|---|---|
-| **P1** | **File checkpointing + /rewind** | Claude Code snapshots files before every edit and keeps 100 checkpoints with a restore menu (code / conversation / both). This is the *stronger* form of our "backup before write" item — and under YOLO permissions it's the only undo we'd have. | Upgrade safety pack (task #4): snapshot to `~/.robodog/checkpoints/<session>/` before each mutating tool; `/rewind` lists prompts, restores files. |
-| **P1** | **Read-before-edit/write enforcement** | Real Claude Code refuses to Edit/Write a file the model hasn't Read this session — prevents blind clobbering. Cheap: track a `read_paths` set in ToolRegistry. | Add to safety pack (task #4). |
+| **P1** | **File checkpointing + /rewind** | an agentic coding terminal snapshots files before every edit and keeps 100 checkpoints with a restore menu (code / conversation / both). This is the *stronger* form of our "backup before write" item — and under YOLO permissions it's the only undo we'd have. | Upgrade safety pack (task #4): snapshot to `~/.robodog/checkpoints/<session>/` before each mutating tool; `/rewind` lists prompts, restores files. |
+| **P1** | **Read-before-edit/write enforcement** | Real an agentic coding terminal refuses to Edit/Write a file the model hasn't Read this session — prevents blind clobbering. Cheap: track a `read_paths` set in ToolRegistry. | Add to safety pack (task #4). |
 | **P1** | **Ignore-aware glob/grep** | Docs: Glob/Grep respect .gitignore. Ours recurse into `.git`, `node_modules`, `__pycache__`, `dist` — noise + token waste. | Add default exclude list (+ .gitignore parse later) to `tools.py`. |
 | **P1** | **Auto-compact strategy detail** | Docs: compaction *clears older tool outputs first*, then summarizes; CLAUDE.md is re-injected from disk afterward. Adopt exactly this — dropping old tool-result turns is cheap and LLM-free before any summarization. | Fold into context pack (task #5). |
 | **P2** | **Headless print mode (`-p`)** | `robodog terminal -p "prompt" --output-format json` — one-shot agentic runs for scripting/CI. FDA team already builds batch lambdas; this is the natural integration point. | New task. |

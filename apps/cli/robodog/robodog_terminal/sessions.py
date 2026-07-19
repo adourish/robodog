@@ -1,9 +1,9 @@
 # file: robodog_terminal/sessions.py
 """
-Conversation persistence — JSONL-per-project sessions, mirroring Claude Code.
+Conversation persistence — JSONL-per-project sessions, mirroring an agentic coding terminal.
 
 Each project gets a directory under <base_dir> named by a filesystem-safe slug
-of the project path (non-alphanumerics replaced with '-', like Claude Code's
+of the project path (non-alphanumerics replaced with '-', like a modern agentic terminal's
 ~/.claude/projects layout). Each session is a single append-only JSONL file:
 
   {"type": "meta", "id": ..., "name": ..., "created": ..., "project": ...}

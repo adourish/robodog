@@ -1,7 +1,7 @@
 # file: robodog_terminal/turnrunner.py
 """
 Run one agent turn in a worker thread so the REPL stays responsive while the
-agent works — the basis for Claude Code-style mid-turn interactivity:
+agent works — the basis for agentic mid-turn interactivity:
 
   * Ctrl+C  -> cancel the turn (sets the loop's cancel_event)
   * Ctrl+B  -> background it: stop watching and return to the prompt; the turn

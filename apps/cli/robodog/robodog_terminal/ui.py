@@ -1,6 +1,6 @@
 # file: robodog_terminal/ui.py
 """
-Claude Code-style terminal UI.
+agentic terminal UI.
 
 Interactive path: prompt_toolkit PromptSession — sticky bottom status bar
 (bottom_toolbar), slash-command autocomplete, persistent input history,
@@ -52,7 +52,7 @@ except Exception:  # pragma: no cover
 def _input_key_bindings():
     """
     Enter submits (single-line feel); a line ending in backslash continues to
-    a new line (Claude Code's `\\`+Enter); Alt/Option+Enter always inserts a
+    a new line (a modern agentic terminal's `\\`+Enter); Alt/Option+Enter always inserts a
     newline. Pasted multi-line text is delivered via bracketed paste (not key
     events), so it lands in the buffer whole without triggering submit.
     """
@@ -118,7 +118,7 @@ class UI:
                 # submitting at the first one. Bracketed paste (default in
                 # prompt_toolkit) inserts pasted text via insert_text, so the
                 # custom Enter binding below does NOT fire per pasted line —
-                # multi-line cut/paste is captured whole, like Claude Code.
+                # multi-line cut/paste is captured whole, like a modern agentic terminal.
                 multiline=True,
                 key_bindings=_input_key_bindings(),
                 prompt_continuation=lambda width, ln, wrapped: "  " if not wrapped else "",
@@ -130,7 +130,7 @@ class UI:
                 }),
             )
 
-    # ---- status line (emoji + color, Claude Code custom style) ----------
+    # ---- status line (emoji + color, an agentic coding terminal custom style) ----------
     # ANSI palette (protanopia-safe: cyan / yellow / magenta + emoji severity)
     _C = {
         "magenta_b": "\033[1;35m", "magenta": "\033[0;35m",

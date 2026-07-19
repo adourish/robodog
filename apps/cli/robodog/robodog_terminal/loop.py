@@ -60,7 +60,7 @@ class AgentLoop:
         self.cancel_event = cancel_event  # threading.Event; checked between steps
         self.history: List[Turn] = []
         # ELSA re-sends the full transcript every iteration, so trim old tool
-        # outputs first (Claude Code's compaction order) before any summarizing.
+        # outputs first (a modern agentic terminal's compaction order) before any summarizing.
         self.max_transcript_chars = 120_000  # ~30k tokens
 
     def transcript_chars(self) -> int:

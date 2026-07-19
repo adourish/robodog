@@ -3,7 +3,7 @@
 BackgroundManager: thread-based background tasks for terminal mode.
 
 Runs long work (shell commands, agent loops) in daemon threads so the main
-REPL stays responsive — Claude Code's Ctrl-B / `run_in_background` pattern.
+REPL stays responsive — a modern agentic terminal's Ctrl-B / `run_in_background` pattern.
 Each task gets a small id ("bg1", "bg2", ...), a capped output buffer the
 worker appends to via task.emit(), and a cancel_event / proc handle so
 kill() can stop it (killing the whole process tree for shell commands).

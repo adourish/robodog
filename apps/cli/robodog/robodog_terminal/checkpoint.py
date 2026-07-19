@@ -5,7 +5,7 @@ File checkpointing for /rewind — the undo layer under YOLO permissions.
 Before every mutating file operation the registry snapshots the target file
 here. Checkpoints are grouped by a "marker" (the prompt index: which user
 message triggered the change), so /rewind can restore the working tree to the
-state before any given prompt. Mirrors Claude Code's checkpointing (100 most
+state before any given prompt. Mirrors a modern agentic terminal's checkpointing (100 most
 recent, per-prompt restore).
 """
 from __future__ import annotations

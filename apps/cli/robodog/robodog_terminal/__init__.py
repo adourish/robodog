@@ -1,6 +1,6 @@
 # file: robodog_terminal/__init__.py
 """
-Robodog Terminal Mode — a Claude Code-style interactive terminal.
+Robodog Terminal Mode — an agentic interactive terminal.
 
 Provides an agentic tool-use loop (prompted tool-calling), file editing,
 and shell command execution, on top of pluggable LLM backends (ELSA / echo /

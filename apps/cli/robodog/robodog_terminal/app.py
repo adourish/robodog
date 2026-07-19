@@ -319,11 +319,11 @@ INSTRUCTION_FILENAMES = (
 
 def _load_project_instructions(cwd: str) -> str:
     """
-    Load agent instruction files into the system context, Claude Code style:
+    Load agent instruction files into the system context, agentic:
       1. global user file  (~/.robodog/CLAUDE.md or ~/.robodog/ROBODOG.md)
       2. every CLAUDE.md / ROBODOG.md / .robodog.md walking from filesystem
          root DOWN to cwd (so the closest/most-specific file wins by coming last)
-    Both CLAUDE.md and ROBODOG.md are honored so existing Claude Code repos work
+    Both CLAUDE.md and ROBODOG.md are honored so existing an agentic coding terminal repos work
     unchanged and robodog-specific overrides are possible.
     """
     parts = []
@@ -431,7 +431,7 @@ def main(argv=None) -> int:
     # SkillsRegistry is created below; build the completer list after discovery.
     ui = UI(model_name="…", cwd=cwd, commands=SLASH_COMMANDS, stderr=headless,
             editor=args.editor)
-    # Claude Code-style visible retry line: "API error · Retrying in Ns · attempt n/N"
+    # agentic visible retry line: "API error · Retrying in Ns · attempt n/N"
     def on_retry(a, m, d, r):
         ui.spinner_stop()
         ui.dim(f"  ⚠ API error ({r}) · Retrying in {d:.0f}s · attempt {a}/{m}")
@@ -545,7 +545,7 @@ def main(argv=None) -> int:
             ui.error("enter a number from the list")
     register_ask_tool(registry, ask_fn)
 
-    # Session persistence (JSONL per project, like Claude Code).
+    # Session persistence (JSONL per project, like a modern agentic terminal).
     try:
         from .sessions import SessionStore
     except ImportError:
@@ -967,7 +967,7 @@ def main(argv=None) -> int:
                     ui.dim("[interrupted]")
                 registry.mode = "plan"
 
-        # Auto-compact near the context ceiling (Claude Code behavior).
+        # Auto-compact near the context ceiling (an agentic coding terminal behavior).
         if loop.transcript_chars() > int(loop.max_transcript_chars * 0.9):
             ui.dim("(auto-compacting conversation…)")
             try:

@@ -140,7 +140,7 @@ class ElsaClient(LLMClient):
         self.timeout = timeout
         self.max_attempts = max_attempts
         # on_retry(attempt, max_attempts, delay_seconds, reason) — UI hook for the
-        # Claude Code-style "API error · Retrying in Ns · attempt n/N" line.
+        # agentic "API error · Retrying in Ns · attempt n/N" line.
         self.on_retry = on_retry or (
             lambda a, m, d, r: logger.warning("ELSA retry %d/%d in %.0fs: %s", a, m, d, r)
         )

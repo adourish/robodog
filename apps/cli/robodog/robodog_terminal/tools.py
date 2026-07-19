@@ -2,7 +2,7 @@
 """
 Tool registry + executors for terminal mode.
 
-These are the Claude Code-style core tools: read_file, write_file, edit_file,
+These are the agentic core tools: read_file, write_file, edit_file,
 bash, glob, grep, list_dir. Each tool has:
   - a JSON-ish spec (name, description, params) used to render the system-prompt
     tool catalog the model reads, and

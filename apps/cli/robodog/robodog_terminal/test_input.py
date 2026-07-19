@@ -1,7 +1,7 @@
 # file: robodog_terminal/test_input.py
 """
 Tests for multi-line input handling: bracketed paste captures pasted newlines
-whole (like Claude Code), backslash-continuation, and Alt+Enter / Ctrl+J
+whole (like a modern agentic terminal), backslash-continuation, and Alt+Enter / Ctrl+J
 newlines — driven through a prompt_toolkit pipe input.
 Run: python robodog_terminal/test_input.py   (from robodogcli/robodog)
 """

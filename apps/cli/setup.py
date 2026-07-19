@@ -14,7 +14,7 @@ setup(
         # … any other deps …
     ],
     extras_require={
-        # Terminal Mode (Claude Code-style agentic coding terminal).
+        # Terminal Mode (agentic coding terminal).
         "terminal": ["rich>=13", "prompt_toolkit>=3", "requests>=2.25"],
     },
     packages=find_packages(include=["robodog*"]),      # ← explicitly include your package(s)

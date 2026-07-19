@@ -1,55 +1,136 @@
-# Robodog — monorepo
+# 🐕 Robodog
 
-Robodog is a family of generative-AI clients. Active development is focused on
-the **agentic coding terminal** (Claude Code-style) in `apps/cli`. Older
-iterations are kept, read-only, under `archive/`.
+Robodog is an **agentic coding terminal** for your shell — a tool-use loop that
+reads and edits files, runs commands, runs tests, and self-corrects, driven by a
+large language model. It's built to run **Claude Sonnet on the FDA ELSA/SEMOSS
+gateway** (air-gapped environments), and works just as well with
+OpenAI-compatible models or a fully offline mock for development.
 
-## Layout
+> This repository is a monorepo. Active development lives in **`apps/cli`**;
+> older clients are archived under `archive/`.
 
+## Preview
+
+```text
+┌──────────────────────────── 🐕 robodog ─────────────────────────────┐
+│                                                                     │
+│  Robodog Terminal   agentic coding in your shell                    │
+│                                                                     │
+│  model: gpt-4o                                                      │
+│  cwd:   C:\projects\robodog                                         │
+│                                                                     │
+│  /help commands   ! run shell   /rewind undo edits   /exit quit     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+🫧 64% | 🔋 15.6k | 🦾 gpt-4o | 📁 apps/cli
+› create fib.py that prints fib(10), run it, and report the result
+  ⚙ write_file fib.py
+  ⚙ bash python fib.py
+    ↳ $ python fib.py  (exit 0)  ·  55
+The script printed 55. Created fib.py and ran it.
+[3 steps · 5.7k tok · 4.2s]
 ```
-robodog/
-├── apps/
-│   └── cli/            Python CLI + robodog_terminal   ← 🟢 ACTIVE / flagship
-├── integrations/       one-off automation scripts (Google, email, Todoist,
-│                       Amplenote, SharePoint, MCP demos) that call CLI services
-├── docs/               integration & setup guides, test-result notes
-├── assets/             screenshots, slide deck, PDF, diagram, sample data
-└── archive/            unmaintained iterations, kept for history (read-only)
-    ├── web/            React/TypeScript web client (robodog)  — last 2025-11
-    ├── lib/            shared JS services (robodoglib)         — last 2025-11
-    ├── batch/          batch tool (robodogbatch)              — last 2025-07
-    ├── android/        Android wrapper (robodogandroid)        — last 2024-11
-    └── vscode/         VS Code extension (robodogvscode)       — last 2024-06
+
+<sub>Earlier Robodog UIs (CLI / MCP file service / side-by-side diff):</sub>
+
+![CLI](assets/screenshot-cli.png)
+![MCP file service](assets/screenshot-mcp.png)
+![Diff](assets/screenshot-diff.png)
+
+## Setup
+
+Requires **Python 3.9+**.
+
+```bash
+git clone https://github.com/adourish/robodog.git
+cd robodog/apps/cli/robodog
+pip install rich prompt_toolkit requests        # core deps
+
+# optional, for live models:
+#   OpenAI/OpenRouter  -> set an API key (see Configuration)
+#   FDA ELSA           -> keys load from the KeePass automation DB
 ```
 
-## The flagship — Terminal Mode (`apps/cli`)
+Or install it as a package (first-class commands):
 
-A Claude Code-style agentic coding terminal: a prompted tool-use loop that
-reads/edits files, runs commands, runs tests, and self-corrects — over pluggable
-LLM backends. Built to run **Claude Sonnet on the FDA ELSA/SEMOSS gateway**
-(air-gapped, where Claude Code can't reach), and works with OpenAI-compatible
-models or a fully offline mock.
+```bash
+pip install -e "robodog/apps/cli[terminal]"
+robodog-terminal --echo         # then: robodog-terminal --backend openai --model gpt-4o
+```
+
+## Quickstart
 
 ```bash
 cd apps/cli/robodog
-pip install rich prompt_toolkit requests
 
-python robodog_terminal/app.py --backend openai --model gpt-4o   # live
-python robodog_terminal/app.py --echo                             # offline demo
-python robodog_terminal/run_tests.py                              # 18 test suites
+# offline demo — no keys needed (scripted, just to see the UI)
+python robodog_terminal/app.py --echo
+
+# live with an OpenAI-compatible model
+python robodog_terminal/app.py --backend openai --model gpt-4o
+
+# air-gapped FDA box (Claude Sonnet via ELSA; keys from KeePass)
+python robodog_terminal/app.py --backend elsa
+
+# one-shot, non-interactive (great for scripts/CI)
+python robodog_terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"
+
+# run the test suite (18 suites)
+python robodog_terminal/run_tests.py
 ```
 
-Installed (first-class): `pip install -e "apps/cli[terminal]"` then
-`robodog-terminal …` / `robodog terminal …` / `python -m robodog.robodog_terminal`.
+Inside the terminal, just type a task (`create hello.py and run it`). Useful commands:
 
-Full docs, design, and roadmap: **`apps/cli/README.md`** and
-**`apps/cli/docs/TERMINAL_MODE_PLAN.md`**.
+| | |
+|---|---|
+| `/help` | list all commands |
+| `/plan` | read-only: propose a plan, then approve to implement |
+| `/bg <task>` · `/tasks` · `/tail` · `/kill` | background subagents |
+| `/rewind` | undo file changes from a previous prompt |
+| `/model <name>` · `/doctor` · `/context` · `/compact` | switch model · diagnostics · context |
+| `! <cmd>` | run a shell command directly (shared with the agent) |
+| `@path/to/file` | inline a file into your message |
 
-## Archived iterations
+Handy flags: `--guard confirm` (ask before destructive commands),
+`--permission-mode plan`, `--editor vscode` (clickable `file:line` jumps),
+`--verbose`.
 
-Everything under `archive/` is retained for reference but no longer maintained.
-The web client and its shared JS lib (`archive/web`, `archive/lib`) still build
-from source if needed; the Android app and VS Code extension are historical.
+## What it does
+
+Prompted tool-use loop (intent nudge + circuit breaker) · tools:
+`read_file / write_file / edit_file / multi_edit / bash / run_script / run_tests
+/ glob / grep / list_dir` with read-before-edit, post-edit syntax verification,
+and whitespace-tolerant edits · foreground **and background subagents** ·
+per-prompt **checkpoints** with `/rewind` · JSONL **sessions** (`/resume`,
+`--continue`) · **plan mode** · **skills & custom commands** (`.robodog/`) ·
+`CLAUDE.md`/`ROBODOG.md` instruction hierarchy · a rich + prompt_toolkit **TUI**
+(emoji/color status line, clickable file & `file:line` links, multiline paste,
+mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
+
+## Configuration
+
+Keys load automatically from the KeePass automation DB (`SEMOSS-Elsa-Dev`,
+`OpenAI`, `OpenRouter`) or from environment variables
+(`ELSA_ENDPOINT`/`ELSA_ENGINE`/`ELSA_ACCESS_KEY`/`ELSA_SECRET_KEY`,
+`ROBODOG_LLM_URL`/`ROBODOG_LLM_KEY`). Project instructions are read from
+`CLAUDE.md` / `ROBODOG.md` / `.robodog.md` walking from the repo root to your
+working directory.
+
+## Repository layout
+
+```
+robodog/
+├── apps/cli/           Python CLI + robodog_terminal   ← 🟢 active / flagship
+├── integrations/       one-off automation scripts (Google, email, Todoist, …)
+├── docs/               integration & setup guides, notes
+├── assets/             screenshots, slide deck, PDF, diagram, sample data
+└── archive/            unmaintained iterations (web, lib, batch, android, vscode)
+```
+
+Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`**.
 
 ---
-*Legacy per-package READMEs live inside each directory.*
+
+*Robodog is an independent project. It integrates Anthropic's Claude models (via
+the FDA ELSA gateway) and other providers, but is not affiliated with or endorsed
+by Anthropic or any provider.*

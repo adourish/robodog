@@ -1,6 +1,6 @@
 # file: robodog_terminal/skills.py
 """
-Discovery + loading of user-extensible features, mirroring Claude Code's custom
+Discovery + loading of user-extensible features, mirroring a modern agentic terminal's custom
 commands, subagents, and skills.
 
 Two roots are scanned in order — PROJECT first, then USER — and PROJECT wins on

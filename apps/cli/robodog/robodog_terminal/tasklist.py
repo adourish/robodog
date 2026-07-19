@@ -2,13 +2,13 @@
 """
 Agent task checklist + ask-user tool for terminal mode.
 
-Two Claude Code-style features in one module:
+Two agentic features in one module:
 
 A) TaskChecklist — the visible plan the model maintains while doing multi-step
-   work (Claude Code's TaskCreate/TaskUpdate). `register_task_tools` exposes it
+   work (a modern agentic terminal's TaskCreate/TaskUpdate). `register_task_tools` exposes it
    to the model as task_add / task_update / task_list.
 
-B) register_ask_tool — an ask_user(question, options) tool (Claude Code's
+B) register_ask_tool — an ask_user(question, options) tool (a modern agentic terminal's
    AskUserQuestion) that routes a multiple-choice question to the app-supplied
    `ask_fn` (interactive UI or headless auto-answer).
 """

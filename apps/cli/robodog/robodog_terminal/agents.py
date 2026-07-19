@@ -1,7 +1,7 @@
 # file: robodog_terminal/agents.py
 """
 Subagents: an `agent` tool the model can call to delegate scoped work to a
-child agent with its OWN context (Claude Code's Agent/Task tool).
+child agent with its OWN context (a modern agentic terminal's Agent/Task tool).
 
 Why this matters on ELSA especially: the parent re-sends its whole transcript
 every iteration, so delegating a search/read-heavy job to a child — whose
