@@ -8,6 +8,7 @@ Run:  python robodog_terminal/run_tests.py            (from robodogcli/robodog)
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -37,6 +38,12 @@ SUITES = [
     "test_app.py",            # headless -p, CLI flags, interactive REPL drive, agents bg
     "test_integration.py",    # plan mode, @-mentions, bg-bash hook, wiring
 ]
+
+# Opt-in LIVE performance test (real LLM calls, needs keys + network). Off by
+# default so the standard suite stays fast, deterministic, and keyless.
+#   ROBODOG_PERF=1 python robodog_terminal/run_tests.py
+if os.environ.get("ROBODOG_PERF") == "1":
+    SUITES.append("perf_fanout.py")   # live subagent fan-out concurrency benchmark
 
 
 def main() -> int:

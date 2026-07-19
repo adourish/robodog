@@ -68,8 +68,13 @@ python robodog_terminal/app.py --backend gateway
 # one-shot, non-interactive (great for scripts/CI)
 python robodog_terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"
 
-# run the test suite (18 suites)
+# run the test suite (deterministic, keyless)
 python robodog_terminal/run_tests.py
+
+# opt-in LIVE performance test: fires N real subagents concurrently and
+# reports the fan-out speedup (needs a live backend; skips cleanly without one)
+ROBODOG_PERF=1 python robodog_terminal/run_tests.py
+python robodog_terminal/perf_fanout.py 12        # or run it directly
 ```
 
 Inside the terminal, just type a task (`create hello.py and run it`). Useful commands:
