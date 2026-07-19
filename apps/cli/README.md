@@ -1,9 +1,9 @@
 # file: README.md
-# Robodog Code
+# Robodog
 ![Robodog MCP File Service](screenshot-mcp.png)
 
 ## Overview  
-Robodog Code is a lightweight, zero-install, fast, command-line style generative AI client that integrates multiple providers (OpenAI, OpenRouter, LlamaAI, DeepSeek, Anthropic, Sarvam AI, Google Search API, and more) into a unified interface. Key capabilities include:
+Robodog is a lightweight, zero-install, fast, command-line style generative AI client that integrates multiple providers (OpenAI, OpenRouter, LlamaAI, DeepSeek, Anthropic, Sarvam AI, Google Search API, and more) into a unified interface. Key capabilities include:
 
 NEVER TRUST A CODE SPEWING ROBOT!
 
@@ -31,9 +31,8 @@ NEVER TRUST A CODE SPEWING ROBOT!
 `robodog/robodog_terminal/` is a self-contained, agentic interactive coding
 terminal: an agentic tool-use loop that reads/edits files, runs commands, runs
 tests, and self-corrects — over pluggable LLM backends. It is designed to run
-**Claude Sonnet on the FDA ELSA/SEMOSS gateway** (air-gapped, where an agentic coding terminal
-can't reach), and works equally with OpenAI-compatible models or a fully offline
-mock for development.
+**leading models on self-hosted / air-gapped LLM gateways**, and works equally
+with OpenAI-compatible models or a fully offline mock for development.
 
 ### Run it
 
@@ -42,7 +41,7 @@ mock for development.
 pip install -e "robodogcli[terminal]"        # pulls rich, prompt_toolkit, requests
 
 robodog terminal --backend openai --model gpt-4o    # via the robodog command
-robodog-terminal --backend elsa                     # dedicated launcher (FDA box / Sonnet)
+robodog-terminal --backend gateway                  # dedicated launcher (self-hosted gateway)
 python -m robodog.robodog_terminal --echo                   # module form
 ```
 
@@ -56,8 +55,9 @@ python robodog_terminal/app.py --echo                               # offline de
 python robodog_terminal/app.py --backend openai -p "fix the bug in x.py and run the tests"   # headless
 python robodog_terminal/run_tests.py                                # 18 test suites
 ```
-Keys load automatically from the KeePass automation DB (ELSA `SEMOSS-Elsa-Dev`,
-`OpenAI`, `OpenRouter`) or from `ELSA_*` / `ROBODOG_LLM_*` env vars.
+Keys load automatically from the KeePass automation DB (`Gateway`, `OpenAI`,
+`OpenRouter`) or from `GATEWAY_*` / `ROBODOG_LLM_*` env vars — see the root
+README's Configuration section.
 
 ### What works today (current progress)
 - **Agentic loop** — prompted XML tool-calling (works on any model), with an
@@ -91,15 +91,15 @@ Keys load automatically from the KeePass automation DB (ELSA `SEMOSS-Elsa-Dev`,
 (algorithms, cross-file debugging, regex/data, OOP+tests, refactors, Playwright).
 
 ### Next steps / roadmap
-- [ ] **Live ELSA validation on the FDA box** — the ElsaClient (runPixel, retry,
-  KeePass keys) is built and wire-tested; validate the real round-trip and the
+- [ ] **Live gateway validation on a self-hosted box** — the GatewayClient (runPixel,
+  retry, KeePass keys) is built and wire-tested; validate the real round-trip and the
   302/sticky-cookie async path. (Run `/doctor` there first.)
 - [ ] **Streaming responses** (Pack C) for OpenAI-compatible backends.
 - [x] **Editor-aware `file:line` links** — `--editor vscode|cursor|vscodium` (or
   `$ROBODOG_EDITOR`) makes file:line clicks jump to the exact line.
 - [ ] **Syntax-highlighted diffs**.
 - [ ] **Per-agent model overrides** in `.robodog/agents/*.md` (cheap model for
-  `explore`, Sonnet for the main loop).
+  `explore`, expensive model for the main loop).
 - [ ] Wire `terminal` in as a `robodog terminal` subcommand of the main CLI.
 - [ ] Optional permission gate (`--ask`) beyond the current YOLO default.
 

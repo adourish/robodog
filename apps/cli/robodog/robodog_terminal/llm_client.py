@@ -23,6 +23,22 @@ from urllib.parse import quote_plus
 logger = logging.getLogger(__name__)
 
 
+def _model_mismatch_hint(url: str, model: str) -> str:
+    """
+    Point out the common slip: an OpenRouter-style 'provider/model' id sent to
+    OpenAI's real API (or vice versa), which surfaces as an opaque HTTP 400.
+    """
+    host = url.lower()
+    if "api.openai.com" in host and "/" in model:
+        return (f"\nHint: '{model}' looks like an OpenRouter-style model id "
+                f"(provider/model), but this client is pointed at OpenAI's API "
+                f"directly. Use --backend openrouter (or --backend auto) instead.")
+    if "openrouter.ai" in host and "/" not in model:
+        return (f"\nHint: OpenRouter model ids need a provider prefix, e.g. "
+                f"'openai/{model}' or 'anthropic/{model}'.")
+    return ""
+
+
 def clean_text(s):
     """
     Strip lone UTF-16 surrogate code points that sneak in from Windows clipboard
@@ -308,7 +324,8 @@ class OpenAICompatClient(LLMClient):
                 elif resp.status_code in (429,) or resp.status_code >= 500:
                     last_err = f"HTTP {resp.status_code}"
                 else:
-                    raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}")
+                    hint = _model_mismatch_hint(self.url, self.model)
+                    raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}{hint}")
             except (_rq.ConnectionError, _rq.Timeout) as exc:
                 last_err = f"network: {type(exc).__name__}"
             if attempt < self.max_attempts:

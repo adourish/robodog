@@ -27,4 +27,5 @@ apps/cli/robodog/dist/
 apps/cli/robodog/build/
 apps/cli/robodog/*.egg-info/
 apps/cli/robodog/.coverage
+apps/cli/*.egg-info/
 __pycache__/

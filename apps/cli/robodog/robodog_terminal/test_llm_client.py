@@ -191,6 +191,37 @@ def main() -> int:
         check(False, "404 fails fast")
     except RuntimeError as exc:
         check("404" in str(exc), "openai-compat 404 fails fast")
+
+    # ---- backend/model mismatch hint --------------------------------------
+    oc = OpenAICompatClient(base_url="https://api.openai.com", api_key="k",
+                            model="anthropic/claude-sonnet-4.6",
+                            session=FakeSession([FakeResp(400, text="invalid model ID")]))
+    try:
+        oc.complete("q")
+        check(False, "openai + provider-prefixed model raises")
+    except RuntimeError as exc:
+        check("--backend openrouter" in str(exc),
+              "hints --backend openrouter for OpenAI + provider-prefixed model")
+
+    oc = OpenAICompatClient(base_url="https://openrouter.ai/api", api_key="k",
+                            model="gpt-4o",
+                            session=FakeSession([FakeResp(400, text="invalid model ID")]))
+    try:
+        oc.complete("q")
+        check(False, "openrouter + bare model raises")
+    except RuntimeError as exc:
+        check("provider prefix" in str(exc),
+              "hints provider prefix for OpenRouter + bare model")
+
+    # no hint when model/backend actually match
+    oc = OpenAICompatClient(base_url="https://api.openai.com", api_key="k",
+                            model="gpt-4o-mini",
+                            session=FakeSession([FakeResp(400, text="bad request")]))
+    try:
+        oc.complete("q")
+        check(False, "matched backend/model still raises")
+    except RuntimeError as exc:
+        check("Hint:" not in str(exc), "no spurious hint for matched backend/model")
     oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
                             max_attempts=2,
                             session=FakeSession([FakeResp(200, oai_payload("")),
