@@ -29,7 +29,7 @@ try:
     from .agents import register_agent_tool
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from robodog_terminal.llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient
+    from robodog_terminal.llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient, clean_text
     from robodog_terminal.tools import default_registry
     from robodog_terminal.loop import AgentLoop
     from robodog_terminal.ui import UI

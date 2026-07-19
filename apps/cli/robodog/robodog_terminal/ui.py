@@ -256,7 +256,7 @@ class UI:
             )
             # Explicit width avoids the off-by-one border misalignment rich can
             # produce when it infers width from a piped (non-TTY) console.
-            self.console.print(Panel(body, title="🐕 robodog", border_style="cyan",
+            self.console.print(Panel(body, title="🤖 robodog", border_style="cyan",
                                      padding=(1, 2), width=self.console.width,
                                      expand=False))
         else:  # narrow terminal or no rich: plain lines

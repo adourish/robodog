@@ -1,4 +1,4 @@
-# 🐕 Robodog
+# 🤖 Robodog
 
 Robodog Terminal is an **agentic coding terminal** for your shell — a tool-use loop
 that reads and edits files, runs commands, runs tests, and self-corrects, driven by
@@ -11,7 +11,7 @@ models or a fully offline mock for development.
 ## Preview
 
 ```text
-┌──────────────────────────── 🐕 robodog ─────────────────────────────┐
+┌──────────────────────────── 🤖 robodog ─────────────────────────────┐
 │                                                                     │
 │  Robodog Terminal   agentic coding in your shell                    │
 │                                                                     │

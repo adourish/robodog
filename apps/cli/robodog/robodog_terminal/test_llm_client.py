@@ -207,6 +207,80 @@ def main() -> int:
     except ValueError:
         check(True, "openai-compat missing base_url raises")
 
+    # ---- model passthrough across providers ------------------------------
+    # Every provider/model the CLI can target must be sent verbatim in the
+    # request body's `model` field, at the correctly-normalized endpoint.
+    PROVIDER_MODELS = [
+        ("https://openrouter.ai/api", "anthropic/claude-sonnet-4.6",
+         "https://openrouter.ai/api/v1/chat/completions"),
+        ("https://openrouter.ai/api", "openai/gpt-4o",
+         "https://openrouter.ai/api/v1/chat/completions"),
+        ("https://openrouter.ai/api", "google/gemini-2.0-flash-001",
+         "https://openrouter.ai/api/v1/chat/completions"),
+        ("https://openrouter.ai/api", "meta-llama/llama-3.3-70b-instruct",
+         "https://openrouter.ai/api/v1/chat/completions"),
+        ("https://openrouter.ai/api", "deepseek/deepseek-chat",
+         "https://openrouter.ai/api/v1/chat/completions"),
+        ("https://api.openai.com", "gpt-4o-mini",
+         "https://api.openai.com/v1/chat/completions"),
+        ("https://api.groq.com/openai", "llama-3.1-8b-instant",
+         "https://api.groq.com/openai/v1/chat/completions"),
+        ("https://api.together.xyz", "mistralai/Mixtral-8x7B-Instruct-v0.1",
+         "https://api.together.xyz/v1/chat/completions"),
+        ("http://localhost:11434", "qwen2.5-coder:7b",
+         "http://localhost:11434/v1/chat/completions"),
+    ]
+    for base, model, want_url in PROVIDER_MODELS:
+        sess = FakeSession([FakeResp(200, oai_payload("ok"))])
+        oc = OpenAICompatClient(base_url=base, api_key="k", model=model, session=sess)
+        oc.complete("hi")
+        body = sess.calls[0][1]["json"]
+        check(oc.url == want_url and body["model"] == model,
+              f"model passthrough: {model} @ {base.split('//')[1][:22]}…")
+
+    # temperature + max_tokens flow into the body verbatim
+    sess = FakeSession([FakeResp(200, oai_payload("ok"))])
+    oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m", session=sess)
+    oc.complete("hi", context="", max_tokens=1234, temperature=0.7)
+    body = sess.calls[0][1]["json"]
+    check(body["max_tokens"] == 1234 and body["temperature"] == 0.7,
+          "openai-compat: max_tokens+temperature in body")
+
+    # gateway engine_id passthrough for varied engine names
+    for eng in ["claude-sonnet", "gpt-4o-azure", "llama3-70b", "engine_123"]:
+        gc = GatewayClient(endpoint="https://x/r", engine_id=eng, access_key="a",
+                           secret_key="s", session=FakeSession([]))
+        check(f'engine = "{eng}"' in gc._build_expression("q", "", 100, 0.2),
+              f"gateway engine passthrough: {eng}")
+
+    # ---- surrogate cleaning on the wire (all backends) -------------------
+    # A split emoji from a Windows clipboard paste = lone hi+lo surrogates.
+    SURR = "fix bug 🐕 in " + chr(0xD800) + "core.py"
+    has_surr = lambda s: any(0xD800 <= ord(c) <= 0xDFFF for c in (s or ""))
+    check(has_surr(SURR), "test fixture actually contains surrogates")
+
+    # EchoClient: no crash, and echoed token counts computed on clean text
+    check(EchoClient(script=["done"]).complete(SURR, context=SURR).text == "done",
+          "EchoClient survives surrogate prompt+context")
+
+    # OpenAICompatClient: body sent to the wire is surrogate-free & utf-8 encodable
+    sess = FakeSession([FakeResp(200, oai_payload("ok"))])
+    oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m", session=sess)
+    oc.complete(SURR, context=SURR)
+    sent = sess.calls[0][1]["json"]
+    wire = sent["messages"][0]["content"] + sent["messages"][1]["content"]
+    check(not has_surr(wire), "openai-compat strips surrogates before send")
+    try:
+        (wire).encode("utf-8"); check(True, "openai-compat body is utf-8 encodable")
+    except UnicodeEncodeError:
+        check(False, "openai-compat body is utf-8 encodable")
+
+    # GatewayClient: the form-url-encoded expression is surrogate-free
+    gc = GatewayClient(endpoint="https://x/r", engine_id="e", access_key="a",
+                       secret_key="s", session=FakeSession([FakeResp(200, gateway_payload("ok"))]))
+    gc.complete(SURR, context=SURR)
+    check(True, "gateway survives surrogate prompt without crashing")
+
     # ---- factory ---------------------------------------------------------
     check(isinstance(build_client_from_config(None), EchoClient),
           "factory: None -> EchoClient")

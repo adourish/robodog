@@ -50,7 +50,7 @@ def main() -> int:
     out = buf.getvalue()
     box = any(c in out for c in "┌╭│└╰")
     check("robodog" in plain(out) and box, "welcome banner renders a box")
-    # borders align by DISPLAY width (cell_len counts the 🐕 emoji as 2 cells,
+    # borders align by DISPLAY width (cell_len counts the 🤖 emoji as 2 cells,
     # unlike len() which counts it as 1 — the correct terminal-width measure).
     from rich.cells import cell_len
     box_lines = [plain(l).rstrip() for l in out.splitlines()
