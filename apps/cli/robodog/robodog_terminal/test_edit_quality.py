@@ -13,7 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from robodog_terminal.tools import (  # noqa: E402
-    default_registry, verify_syntax, _fuzzy_find, edit_not_found_hint)
+    default_registry, verify_syntax, _fuzzy_find, edit_not_found_hint,
+    find_by_basename)
 
 ok = True
 
@@ -167,6 +168,28 @@ def main() -> int:
           "every diff line is a clean +/-/context/hunk line")
     check("-**See**: `a/skill.md`" in d and "+**See**: `b/skill.md`" in d,
           "both the old and new last lines appear, on their own lines")
+
+    # ---- read_file 'did you mean': right filename, wrong directory ---------
+    # From a real ELSA session: the model read_file'd IdpFlowHandler.java etc.
+    # in the wrong package dir and got a bare "file not found"; the file lived
+    # elsewhere in the tree. Suggest the same-basename path so it jumps to it.
+    (wd / "src" / "main" / "aiml").mkdir(parents=True, exist_ok=True)
+    (wd / "src" / "main" / "aiml" / "IdpFlowHandler.java").write_text(
+        "class IdpFlowHandler {}\n", encoding="utf-8")
+    (wd / "node_modules" / "junk").mkdir(parents=True, exist_ok=True)
+    (wd / "node_modules" / "junk" / "IdpFlowHandler.java").write_text(
+        "noise\n", encoding="utf-8")
+    hits = find_by_basename(wd, "IdpFlowHandler.java")
+    check(len(hits) == 1 and "aiml" in hits[0] and "node_modules" not in hits[0],
+          "find_by_basename locates the file and prunes node_modules")
+    check(bool(find_by_basename(wd, "idpflowhandler.JAVA")),
+          "find_by_basename is case-insensitive")
+    r = reg.execute("read_file", {"path": r"wrong\pkg\IdpFlowHandler.java"})
+    check("file not found" in r and "Did you mean" in r and "aiml" in r,
+          "read_file miss suggests the same-basename path elsewhere")
+    r = reg.execute("read_file", {"path": "no_such_unique_name_zzz.txt"})
+    check("Did you mean" not in r,
+          "read_file miss with no basename match gives no false suggestion")
 
     # ---- edit_not_found_hint: turn "not found" into something actionable ----
     # From a real ELSA session: two edit_file calls looped on a bare

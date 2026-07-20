@@ -168,6 +168,45 @@ def _is_excluded(path: Path) -> bool:
                for part in path.parts)
 
 
+def find_by_basename(root: Path, name: str, limit: int = 5,
+                     max_scan: int = 40_000) -> List[str]:
+    """Find files named exactly `name` (case-insensitive) anywhere under `root`,
+    skipping EXCLUDE_DIRS. Used to turn a read_file 'not found' into a 'did you
+    mean …' when the model has the right filename but the wrong directory.
+    Uses os.walk with in-place dir pruning so node_modules/.git etc. are never
+    descended into; bounded by `max_scan` files so a huge tree can't stall it."""
+    name_l = name.lower()
+    hits, scanned = [], 0
+    try:
+        for dirpath, dirnames, filenames in os.walk(str(root)):
+            dirnames[:] = [d for d in dirnames
+                           if d not in EXCLUDE_DIRS and not d.endswith(".egg-info")]
+            scanned += len(filenames)
+            for fn in filenames:
+                if fn.lower() == name_l:
+                    hits.append(os.path.join(dirpath, fn))
+                    if len(hits) >= limit:
+                        return hits
+            if scanned > max_scan:
+                break
+    except (OSError, RuntimeError):
+        pass
+    return hits
+
+
+def read_not_found_hint(root: Path, requested: Path) -> str:
+    """A 'did you mean …' for a read_file miss: same basename elsewhere in the
+    tree. Returns a hint (leading space) or "" when there's no better path."""
+    matches = find_by_basename(root, requested.name)
+    # Don't suggest the exact path we already failed to open.
+    matches = [m for m in matches if Path(m) != requested]
+    if not matches:
+        return ""
+    if len(matches) == 1:
+        return f" Did you mean: {matches[0]}"
+    return " Did you mean one of: " + " | ".join(matches)
+
+
 def _clamp(text: str, limit: int = MAX_OUTPUT) -> str:
     if len(text) <= limit:
         return text
@@ -649,7 +688,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
     def _read_file(args):
         path = reg._resolve(args["path"], search=True)
         if not path.exists():
-            return f"ERROR: file not found: {path}"
+            base = reg._project_root() or reg.cwd
+            return f"ERROR: file not found: {path}" + read_not_found_hint(base, path)
         reg.read_paths.add(str(path))
         text = path.read_text(encoding="utf-8", errors="replace")
         lines = text.splitlines()

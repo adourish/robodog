@@ -805,6 +805,14 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.22
+
+- **`read_file` "did you mean …":** a `file not found` miss now searches the
+  project tree for the same **basename** and suggests the real path(s) — so when
+  the model has the right filename but the wrong directory (a constant with deep
+  Java package trees) it jumps straight there instead of guessing. Traversal
+  prunes `node_modules`/`.git`/etc. and is bounded, so it stays fast.
+
 ### 0.3.21
 
 - **Auto-translate Unix pipe filters (Windows):** `… | head -N`, `… | tail -N`,
