@@ -126,8 +126,8 @@ def _check_keepass() -> CheckResult:
     loader_dir = Path(KEEPASS_LOADER_DIR)
     if not loader_dir.is_dir() or not (loader_dir / "keepass_loader.py").exists():
         return CheckResult("keepass", None,
-                           f"loader not found at {KEEPASS_LOADER_DIR} "
-                           r"(self-hosted gateway may use C:\keys instead)")
+                           f"loader not found at {KEEPASS_LOADER_DIR} — "
+                           "run /keepass loader to create it (won't touch the vault)")
     try:
         sys.path.insert(0, str(loader_dir))
         from keepass_loader import KeePassLoader  # type: ignore

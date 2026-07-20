@@ -179,11 +179,21 @@ def build_backend(args, on_retry=None) -> tuple:
                 f"gateway/{engine[:8]} ({source_note or source})")
 
     def make_openai_compat(entry_title, default_url, model):
+        # ROBODOG_KEEPASS_LLM_ENTRY overrides which vault entry supplies the key
+        # + base URL, so an existing entry (e.g. 'SEMOSS-Elsa-Dev') can be used
+        # without renaming it to the backend's default title.
+        entry_title = os.environ.get("ROBODOG_KEEPASS_LLM_ENTRY") or entry_title
         key = os.environ.get("ROBODOG_LLM_KEY")
         url = os.environ.get("ROBODOG_LLM_URL", default_url)
         if not key:
-            _, key, kp_url = _load_keepass_entry(entry_title)
+            user, key, kp_url = _load_keepass_entry(entry_title)
             url = os.environ.get("ROBODOG_LLM_URL") or kp_url or default_url
+            # Some OpenAI-compatible gateways (SEMOSS/ELSA) want the key as
+            # 'access:secret'. When the entry splits them across the username
+            # and password fields, ROBODOG_LLM_KEY_FORMAT=user:pass joins them.
+            fmt = (os.environ.get("ROBODOG_LLM_KEY_FORMAT") or "").strip().lower()
+            if fmt in ("user:pass", "user:password") and user and key and ":" not in key:
+                key = f"{user}:{key}"
         if not key:
             return None
         return (OpenAICompatClient(base_url=url, api_key=key, model=model,

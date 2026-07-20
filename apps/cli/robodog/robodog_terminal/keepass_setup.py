@@ -153,6 +153,22 @@ def init(key: Optional[str] = None, title: str = "OpenRouter",
     return True, "\n".join(msg)
 
 
+def write_loader(directory: Optional[Path] = None) -> Tuple[bool, str]:
+    """Write keepass_loader.py into the vault dir if it's missing — for when a
+    vault already exists (e.g. copied to C:\\Keys) but the loader robodog
+    imports to read it does not. Never overwrites an existing loader."""
+    _, _, loader = vault_paths(directory)
+    if loader.exists():
+        return True, f"loader already present: {loader}"
+    try:
+        loader.parent.mkdir(parents=True, exist_ok=True)
+        loader.write_text(LOADER_SOURCE, encoding="utf-8")
+    except OSError as exc:
+        return False, f"could not write {loader}: {type(exc).__name__}: {exc}"
+    return True, (f"created {loader}\n"
+                  "robodog can now read the vault beside it. Run /doctor to confirm.")
+
+
 def set_entry(title: str, key: str,
               directory: Optional[Path] = None) -> Tuple[bool, str]:
     """Create or update one provider entry. The key goes in the password field."""
@@ -234,6 +250,7 @@ def handle(rest: str) -> Tuple[bool, str]:
       /keepass                       -> status
       /keepass init [key]            -> create vault (+ seed OpenRouter)
       /keepass set <Title> <key>     -> add/update an entry
+      /keepass loader                -> write keepass_loader.py if missing
     """
     parts = (rest or "").strip().split()
     if not parts or parts[0] == "status":
@@ -242,6 +259,8 @@ def handle(rest: str) -> Tuple[bool, str]:
     sub = parts[0].lower()
     if sub == "init":
         return init(key=parts[1] if len(parts) > 1 else None)
+    if sub == "loader":
+        return write_loader()
     if sub == "set":
         if len(parts) < 3:
             return False, ("usage: /keepass set <Title> <key>\n"
@@ -251,4 +270,5 @@ def handle(rest: str) -> Tuple[bool, str]:
     return False, ("usage:\n"
                    "  /keepass                    show vault status\n"
                    "  /keepass init [key]         create vault + loader\n"
+                   "  /keepass loader             write the loader into an existing vault dir\n"
                    "  /keepass set <Title> <key>  add or update an entry")

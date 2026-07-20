@@ -145,6 +145,25 @@ def main() -> int:
             good10, msg10 = ks.status()
             check(not good10 and "MISSING" in msg10,
                   "status reports MISSING files when nothing is set up")
+
+        # ---- /keepass loader: write into an existing vault dir --------
+        with tempfile.TemporaryDirectory() as td3:
+            _clear_env()
+            os.environ["ROBODOG_KEEPASS_DIR"] = td3
+            (Path(td3) / "automation-keys.kdbx").write_bytes(b"fake")  # vault, no loader
+            okL, msgL = ks.handle("loader")
+            loader_path = Path(td3) / "keepass_loader.py"
+            check(okL and loader_path.exists(),
+                  "/keepass loader writes keepass_loader.py")
+            src = loader_path.read_text(encoding="utf-8")
+            check("class KeePassLoader" in src and "def unlock" in src
+                  and "def get_credentials" in src,
+                  "written loader has the interface robodog imports")
+            okL2, msgL2 = ks.handle("loader")
+            check(okL2 and "already present" in msgL2,
+                  "/keepass loader is idempotent (never clobbers)")
+            _, help_msg2 = ks.handle("bogus-subcommand")
+            check("loader" in help_msg2, "usage lists the loader subcommand")
     finally:
         _clear_env()
         for k, v in saved.items():

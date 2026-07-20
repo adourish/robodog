@@ -548,6 +548,31 @@ To rotate a token, overwrite the entry's password field (KeePassXC or a
 short `pykeepass` script) — Robodog picks up the new value on next start,
 with no config change.
 
+**Use an existing entry under a different title.** Set
+`ROBODOG_KEEPASS_LLM_ENTRY` to point the openai/openrouter backend at any
+entry instead of the default `OpenAI` / `OpenRouter`:
+
+```
+ROBODOG_KEEPASS_LLM_ENTRY=SEMOSS-Elsa-Dev
+```
+
+**Gateways that want an `access:secret` key** (SEMOSS/ELSA-style
+OpenAI-compatible endpoints). When the entry stores the two halves in its
+**username** (access key) and **password** (secret) fields,
+`ROBODOG_LLM_KEY_FORMAT=user:pass` joins them into `access:secret` for the
+`Authorization` header; the base URL comes from the entry's URL field:
+
+```
+ROBODOG_KEEPASS_LLM_ENTRY=SEMOSS-Elsa-Dev
+ROBODOG_LLM_KEY_FORMAT=user:pass
+REQUESTS_CA_BUNDLE=C:\path\to\private-ca.pem   # if the endpoint uses a private cert
+```
+
+Then `--backend openai --model <engine-id>` reads the key and URL straight
+from the vault — the secret never touches a file. (`REQUESTS_CA_BUNDLE` is a
+standard `requests` env var; robodog honors it for endpoints behind a
+private/internal CA.)
+
 ### Hooks & permissions
 
 Drop a `settings.json` in `.robodog/` or `.claude/` (project or `~`; project

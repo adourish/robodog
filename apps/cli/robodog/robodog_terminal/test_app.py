@@ -257,6 +257,52 @@ def main() -> int:
         else:
             _os.environ["ROBODOG_LLM_KEY"] = _saved_key
 
+    # ---- custom KeePass entry title + user:pass key join -----------------
+    # For gateways like SEMOSS/ELSA: point at an existing entry and join
+    # access:secret from its username/password fields.
+    _kp_saved = app_mod._load_keepass_entry
+    _clear = ["ROBODOG_LLM_KEY", "ROBODOG_LLM_URL", "ROBODOG_KEEPASS_LLM_ENTRY",
+              "ROBODOG_LLM_KEY_FORMAT"]
+    _saved_env = {k: _os.environ.get(k) for k in _clear}
+
+    def _restore_env():
+        for k, v in _saved_env.items():
+            if v is None:
+                _os.environ.pop(k, None)
+            else:
+                _os.environ[k] = v
+
+    def _fake_kp(title):
+        if title == "SEMOSS-Elsa-Dev":
+            return ("ACCESS-ID", "SECRET", "https://elsa.example/Monolith/api/model/openai")
+        if title == "OpenAI":
+            return ("robodog", "sk-plain", "https://api.openai.com/v1")
+        return (None, None, None)
+
+    try:
+        app_mod._load_keepass_entry = _fake_kp
+        _oa_args = _types.SimpleNamespace(echo=False, backend="openai", model="engine-x")
+        for k in _clear:
+            _os.environ.pop(k, None)
+
+        _os.environ["ROBODOG_KEEPASS_LLM_ENTRY"] = "SEMOSS-Elsa-Dev"
+        _os.environ["ROBODOG_LLM_KEY_FORMAT"] = "user:pass"
+        client, _ = app_mod.build_backend(_oa_args)
+        check(client.api_key == "ACCESS-ID:SECRET",
+              "custom entry + user:pass joins access:secret from the vault")
+        check("elsa.example" in client.url,
+              "base URL taken from the custom entry's URL field")
+
+        # default OpenAI entry is unaffected — no spurious username join
+        for k in _clear:
+            _os.environ.pop(k, None)
+        client, _ = app_mod.build_backend(_oa_args)
+        check(client.api_key == "sk-plain",
+              "default entry key unchanged when no format/entry override set")
+    finally:
+        app_mod._load_keepass_entry = _kp_saved
+        _restore_env()
+
     print("\nAPP:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

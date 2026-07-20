@@ -136,8 +136,8 @@ def main() -> int:
               f"the gateway failure notes off-network is expected ({g['gateway-endpoint'].detail})")
         check(g["keepass"].ok is None
               and "loader not found" in g["keepass"].detail
-              and "C:\\keys" in g["keepass"].detail,
-              "missing KeePass loader -> warn mentioning C:\\keys fallback")
+              and "/keepass loader" in g["keepass"].detail,
+              "missing KeePass loader -> warn pointing at /keepass loader")
         check(g["python"].ok is False and "check crashed" in g["python"].detail
               and "RuntimeError" in g["python"].detail,
               "a crashing check is caught and reported, not raised")
