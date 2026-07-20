@@ -1062,11 +1062,18 @@ def main(argv=None) -> int:
                 _c_ok, _c_msg = _cert_handle(rest)
                 (ui.info if _c_ok else ui.error)(_c_msg)
             elif cmd == "test":
-                # Minimal live connectivity check against the configured backend:
-                # exercises cert + key + URL + model without touching the convo.
+                # One-shot TIMED probe (no retries) so you can see the exact
+                # phase + latency: connect vs read timeout vs HTTP error.
                 if model_label.startswith("echo"):
                     ui.error("backend is echo/demo — no key resolved. Run /doctor "
                              "to see which layer is missing.")
+                elif hasattr(client, "diagnose"):
+                    ui.spinner_start("✳ probing the backend (single request)…")
+                    r = client.diagnose("Reply with the single word: pong.")
+                    ui.spinner_stop()
+                    mark = "✓" if r.get("ok") else "✗"
+                    (ui.info if r.get("ok") else ui.error)(
+                        f"{mark} {model_label}: {r.get('detail', '')}")
                 else:
                     ui.spinner_start("✳ testing the connection…")
                     try:

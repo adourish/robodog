@@ -410,6 +410,64 @@ def main() -> int:
                 _os.environ[_k] = _v
         lc._OPENAI_SEM = None
 
+    # ---- error classification: connect vs read timeout ------------------
+    import requests as _requests
+
+    class _RaiseSession:
+        def __init__(self, exc):
+            self.exc = exc
+        def post(self, *a, **k):
+            raise self.exc
+
+    oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
+                            max_attempts=1, on_retry=lambda *a: None,
+                            session=_RaiseSession(_requests.exceptions.ReadTimeout()))
+    try:
+        oc.complete("q")
+        check(False, "read timeout raises")
+    except RuntimeError as exc:
+        check("read timeout" in str(exc) and "ROBODOG_LLM_TIMEOUT" in str(exc),
+              "ReadTimeout -> 'gateway didn't answer' message + timeout hint")
+    oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
+                            max_attempts=1, on_retry=lambda *a: None,
+                            session=_RaiseSession(_requests.exceptions.ConnectTimeout()))
+    try:
+        oc.complete("q")
+        check(False, "connect timeout raises")
+    except RuntimeError as exc:
+        check("connect timeout" in str(exc) and "reach the host" in str(exc),
+              "ConnectTimeout -> 'can't reach the host' message")
+
+    # ---- diagnose(): one-shot timed probe -------------------------------
+    class _OKResp:
+        status_code = 200
+        text = ""
+        def json(self):
+            return {"choices": [{"message": {"content": "pong"}}], "usage": {}}
+    d = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
+                           session=type("S", (), {"post": lambda self, *a, **k: _OKResp()})())
+    r = d.diagnose()
+    check(r["ok"] is True and r["status"] == 200 and "replied in" in r["detail"],
+          "diagnose: 200 -> ok with latency + reply")
+
+    d2 = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
+                            session=_RaiseSession(_requests.exceptions.ReadTimeout()))
+    r = d2.diagnose()
+    check(r["ok"] is False and "read timeout" in r["detail"]
+          and "slow/overloaded" in r["detail"],
+          "diagnose: ReadTimeout -> not-ok, explains the gateway is slow")
+
+    class _Resp401:
+        status_code = 401
+        text = "Unauthorized"
+        def json(self):
+            return {}
+    d3 = OpenAICompatClient(base_url="https://api.openai.com", api_key="k", model="m",
+                            session=type("S", (), {"post": lambda self, *a, **k: _Resp401()})())
+    r = d3.diagnose()
+    check(r["ok"] is False and r["status"] == 401,
+          "diagnose: HTTP 401 reported with status")
+
     print("\nLLM CLIENT:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

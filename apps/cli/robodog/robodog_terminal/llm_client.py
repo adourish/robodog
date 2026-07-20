@@ -386,8 +386,12 @@ class OpenAICompatClient(LLMClient):
             last_err = "unknown"
             for attempt in range(1, self.max_attempts + 1):
                 try:
+                    # Split timeout: a short connect budget (a dead/unreachable
+                    # host fails fast) + the full read budget (a slow gateway
+                    # gets time to respond). This is what tells a "can't reach"
+                    # apart from a "reached it but it's slow to answer".
                     resp = self._session.post(
-                        self.url, json=payload, timeout=self.timeout,
+                        self.url, json=payload, timeout=(10, self.timeout),
                         headers={"Authorization": f"Bearer {self.api_key}",
                                  "HTTP-Referer": self.referer})
                     if resp.status_code == 200:
@@ -407,8 +411,18 @@ class OpenAICompatClient(LLMClient):
                     else:
                         hint = _http_error_hint(resp.status_code, self.url, self.model)
                         raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}{hint}")
-                except (_rq.ConnectionError, _rq.Timeout) as exc:
-                    last_err = f"network: {type(exc).__name__}"
+                except _rq.ConnectTimeout:
+                    last_err = ("connect timeout (>10s to reach the host — VPN down, "
+                                "wrong URL, or the gateway is unreachable)")
+                except _rq.ReadTimeout:
+                    last_err = (f"read timeout after {self.timeout:.0f}s (the gateway "
+                                "accepted the request but didn't answer in time — it's "
+                                "slow/overloaded, or the prompt is large. Raise "
+                                "ROBODOG_LLM_TIMEOUT, or shrink the request)")
+                except _rq.ConnectionError as exc:
+                    last_err = f"connection error ({type(exc).__name__}) — host/network unreachable"
+                except _rq.Timeout as exc:
+                    last_err = f"timeout ({type(exc).__name__})"
                 if attempt < self.max_attempts:
                     delay = min(2 ** (attempt - 1), 30)
                     self.on_retry(attempt, self.max_attempts, delay, last_err)
@@ -417,6 +431,49 @@ class OpenAICompatClient(LLMClient):
         finally:
             if sem is not None:
                 sem.release()
+
+    def diagnose(self, prompt: str = "ping", max_tokens: int = 5) -> dict:
+        """One-shot TIMED probe for /test — no retries. Returns a dict with
+        {ok, status, elapsed, detail} describing exactly what happened (a fast
+        connect failure vs a slow read timeout vs an HTTP error), so a user
+        chasing gateway timeouts can see the phase and the latency. Never raises."""
+        import time as _t
+        import requests as _rq
+        payload = {"model": self.model, "temperature": 0, "max_tokens": max_tokens,
+                   "messages": [{"role": "user", "content": prompt}]}
+        t0 = _t.time()
+        try:
+            resp = self._session.post(
+                self.url, json=payload, timeout=(10, self.timeout),
+                headers={"Authorization": f"Bearer {self.api_key}",
+                         "HTTP-Referer": self.referer})
+            elapsed = _t.time() - t0
+            if resp.status_code == 200:
+                try:
+                    txt = ((resp.json().get("choices") or [{}])[0]
+                           .get("message", {}).get("content") or "").strip()
+                except Exception:
+                    txt = ""
+                return {"ok": True, "status": 200, "elapsed": elapsed,
+                        "detail": f"replied in {elapsed:.1f}s"
+                                  + (f": {txt[:50]!r}" if txt else " (empty body)")}
+            hint = _http_error_hint(resp.status_code, self.url, self.model)
+            return {"ok": False, "status": resp.status_code, "elapsed": elapsed,
+                    "detail": f"HTTP {resp.status_code} in {elapsed:.1f}s"
+                              f"{(' — ' + resp.text[:160]) if resp.text else ''}{hint}"}
+        except _rq.ConnectTimeout:
+            return {"ok": False, "status": None, "elapsed": _t.time() - t0,
+                    "detail": "connect timeout (>10s) — can't reach the host "
+                              "(VPN down, wrong ROBODOG_LLM_URL, or gateway offline)"}
+        except _rq.ReadTimeout:
+            return {"ok": False, "status": None, "elapsed": _t.time() - t0,
+                    "detail": f"read timeout after {self.timeout:.0f}s — connected to the "
+                              "gateway but it never answered even a tiny request. It's "
+                              "slow/overloaded (not a robodog issue). Raise "
+                              "ROBODOG_LLM_TIMEOUT, or check the gateway/model health."}
+        except Exception as exc:
+            return {"ok": False, "status": None, "elapsed": _t.time() - t0,
+                    "detail": f"{type(exc).__name__}: {str(exc)[:160]}"}
 
 
 def build_client_from_config(cfg: Optional[dict]) -> LLMClient:
