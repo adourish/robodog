@@ -793,6 +793,20 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.2
+
+- **Add:** self-healing for flaky backends — a transient API error (e.g. a
+  gateway `ReadTimeout`) no longer crashes the turn. The loop retries once
+  above the client's own backoff, then ends gracefully with context kept.
+- **Add:** self-healing for stuck tool loops — a tool that keeps failing
+  (even with different args each time) gets a corrective nudge toward a
+  different approach; aborts now preserve any partial answer.
+- **Add:** PowerShell shell-syntax hints — a failed `cmd && cmd` (invalid in
+  PowerShell) or a Unix command like `head`/`grep` gets a one-line fix
+  appended, so the model self-corrects instead of looping.
+- **Change:** streamed command output default lowered 15 → 8 lines;
+  `ROBODOG_STREAM_LINES=0` is now summary-only.
+
 ### 0.3.1
 
 - **Fix:** typing a follow-up while the agent is working no longer fragments
