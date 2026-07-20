@@ -768,6 +768,14 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.2.9
+
+- **Add:** `/doctor` verifies a configured `REQUESTS_CA_BUNDLE` /
+  `SSL_CERT_FILE` actually points at an existing file — a private-CA gateway
+  otherwise fails only at request time with an opaque
+  "Could not find a suitable TLS CA certificate bundle". Now flagged before
+  you send a prompt.
+
 ### 0.2.8
 
 - **Add:** `/doctor` now probes the KeePass entry the current backend will
