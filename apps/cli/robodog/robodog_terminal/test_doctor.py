@@ -30,7 +30,8 @@ except ImportError:
 EXPECTED_NAMES = [
     "python", "rich", "prompt_toolkit", "requests", "tty", "encoding",
     "cwd-writable", "robodog-home", "keepass", "gateway-env", "gateway-endpoint",
-    "openai-endpoint", "git", "powershell", "model-backend", "terminal-modules",
+    "openai-endpoint", "ca-bundle", "git", "powershell", "model-backend",
+    "terminal-modules",
 ]
 
 # A secret-looking string: a long unbroken alnum run (real keys are 25+ chars
@@ -199,6 +200,32 @@ def main() -> int:
     for var in doctor.GATEWAY_ENV_VARS:
         check(os.environ.get(var, "") not in env.detail or not os.environ.get(var),
               f"gateway-env never leaks the value of {var}")
+
+    # CA bundle: set-and-present passes, set-and-missing fails, unset is info
+    _saved_ca = os.environ.pop("REQUESTS_CA_BUNDLE", None)
+    _saved_ssl = os.environ.pop("SSL_CERT_FILE", None)
+    try:
+        cab = doctor._check_ca_bundle()
+        check(cab.ok is None and "no custom CA bundle" in cab.detail,
+              "ca-bundle: unset -> informational")
+        real_pem = Path(tempfile.mkdtemp(prefix="rd_ca_")) / "ca.pem"
+        real_pem.write_text("-----BEGIN CERTIFICATE-----", encoding="utf-8")
+        os.environ["REQUESTS_CA_BUNDLE"] = str(real_pem)
+        cab = doctor._check_ca_bundle()
+        check(cab.ok is True and "present" in cab.detail,
+              "ca-bundle: existing file -> pass")
+        os.environ["REQUESTS_CA_BUNDLE"] = r"C:\nope\missing-ca.pem"
+        cab = doctor._check_ca_bundle()
+        check(cab.ok is False and "missing file" in cab.detail
+              and "TLS requests will fail" in cab.detail,
+              "ca-bundle: missing file -> fail with the actionable reason")
+    finally:
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        if _saved_ca is not None:
+            os.environ["REQUESTS_CA_BUNDLE"] = _saved_ca
+        if _saved_ssl is not None:
+            os.environ["SSL_CERT_FILE"] = _saved_ssl
 
     tty = doctor._check_tty()
     check(tty.name == "tty" and tty.ok in (True, None), "tty check returns pass/warn")

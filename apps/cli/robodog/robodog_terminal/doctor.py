@@ -191,6 +191,24 @@ def _check_gateway_env() -> CheckResult:
     return CheckResult("gateway-env", None, detail)
 
 
+def _check_ca_bundle() -> CheckResult:
+    """If a custom TLS CA bundle is configured (REQUESTS_CA_BUNDLE / SSL_CERT_FILE
+    — e.g. for a gateway behind a private CA), verify the file actually exists.
+    A missing path fails at request time with an opaque OSError; catch it here."""
+    for var in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
+        val = os.environ.get(var)
+        if not val:
+            continue
+        p = Path(val)
+        if p.is_file():
+            return CheckResult("ca-bundle", True, f"{var} -> {val} (present)")
+        return CheckResult("ca-bundle", False,
+                           f"{var} points at a missing file: {val} — "
+                           "TLS requests will fail until the cert is placed there")
+    return CheckResult("ca-bundle", None,
+                       "no custom CA bundle set (using system trust store)")
+
+
 def _check_tcp(name: str, host: str, fail_note: str) -> CheckResult:
     try:
         with socket.create_connection((host, 443), timeout=3):
@@ -282,6 +300,7 @@ def run_doctor(cwd: str, backend: str = "", model: str = "") -> List[CheckResult
         ("gateway-env", lambda: _check_gateway_env()),
         ("gateway-endpoint", lambda: _check_gateway_endpoint()),
         ("openai-endpoint", lambda: _check_openai_endpoint()),
+        ("ca-bundle", lambda: _check_ca_bundle()),
         ("git", lambda: _check_which("git", "git")),
         ("powershell", lambda: _check_which("powershell", "powershell")),
         ("model-backend", lambda: _check_model_backend(backend, model)),
