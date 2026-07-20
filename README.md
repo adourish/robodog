@@ -793,6 +793,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.0
+
+- **Add:** `/cert [host]` captures a gateway's TLS certificate chain and
+  writes a PEM to `REQUESTS_CA_BUNDLE` — for endpoints behind a private/
+  internal CA. Prints subject/issuer per cert to verify before trusting;
+  full chain via `openssl`, leaf-only fallback.
+- **Add:** `/test` sends a tiny request through the live backend and reports
+  `✓ connected` or the exact failing layer (key / URL / TLS / model),
+  without touching the conversation.
+- Full private-CA gateway setup is now doable entirely inside robodog:
+  `/keepass loader` → `/cert` → `/doctor` → `/test`.
+
 ### 0.2.9
 
 - **Add:** `/doctor` verifies a configured `REQUESTS_CA_BUNDLE` /
