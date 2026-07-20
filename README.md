@@ -793,6 +793,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.3
+
+- **Fix:** pasting text with lone UTF-16 surrogates (a split emoji/box char
+  from a Windows console) no longer crashes the prompt. The history save
+  path (`FileHistory` → UTF-8 encode) was unguarded; a surrogate-safe
+  history strips them and can't take down input.
+
 ### 0.3.2
 
 - **Add:** self-healing for flaky backends — a transient API error (e.g. a
