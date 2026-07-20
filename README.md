@@ -729,6 +729,21 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.2.7
+
+- **Add:** hooks & permission rules via `settings.json` in `.robodog/` or
+  `.claude/` — `PreToolUse`/`PostToolUse`/`Stop` shell hooks and
+  allow/deny tool rules.
+- **Add:** `.claude/` extension discovery — a Claude Code project's
+  `commands`, `agents`, and `skills` work in robodog unchanged.
+- **Add:** KeePass flexibility for self-hosted gateways —
+  `ROBODOG_KEEPASS_LLM_ENTRY` (use any entry title),
+  `ROBODOG_LLM_KEY_FORMAT=user:pass` (join `access:secret` from the
+  username/password fields, for SEMOSS/ELSA-style endpoints), and
+  `/keepass loader` (write the loader into an existing vault dir without
+  touching the vault). `REQUESTS_CA_BUNDLE` is honored for private-CA
+  endpoints.
+
 ### 0.2.6
 
 - **Add:** attributed subagent results. A fan-out used to render N identical
