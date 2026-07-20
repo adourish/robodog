@@ -66,6 +66,47 @@ def _check_python() -> CheckResult:
     return CheckResult("python", False, f"{ver} (need >= 3.9)")
 
 
+def _ver_tuple(v: str):
+    """'0.3.5' -> (0, 3, 5); non-numeric parts are ignored so it never raises."""
+    out = []
+    for part in str(v).split("."):
+        num = "".join(c for c in part if c.isdigit())
+        out.append(int(num) if num else 0)
+    return tuple(out)
+
+
+def _check_version() -> CheckResult:
+    """Best-effort staleness check against PyPI. Network-optional: a short
+    timeout and any failure -> a quiet 'could not check', never a hard fail.
+    Exists because a stale FDA install kept re-hitting already-fixed bugs."""
+    try:
+        from . import __version__ as installed
+    except Exception:
+        try:
+            from robodog_terminal import __version__ as installed
+        except Exception:
+            return CheckResult("version", None, "installed version unknown")
+    if os.environ.get("ROBODOG_NO_VERSION_CHECK") == "1":
+        return CheckResult("version", True, f"{installed} (update check disabled)")
+    try:
+        import json
+        import urllib.request
+        req = urllib.request.Request(
+            "https://pypi.org/pypi/robodog-terminal/json",
+            headers={"Cache-Control": "no-cache"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            latest = json.load(r)["info"]["version"]
+    except Exception:
+        return CheckResult("version", None,
+                           f"{installed} installed (couldn't reach PyPI to check for updates)")
+    if _ver_tuple(installed) < _ver_tuple(latest):
+        return CheckResult("version", None,
+                           f"{installed} installed, {latest} available — run "
+                           "`pip install -U robodog-terminal` (close all robodog "
+                           "windows first, or the exe stays locked)")
+    return CheckResult("version", True, f"{installed} (latest)")
+
+
 def _check_importable(module: str) -> CheckResult:
     try:
         mod = importlib.import_module(module)
@@ -288,6 +329,7 @@ def run_doctor(cwd: str, backend: str = "", model: str = "") -> List[CheckResult
     backend/model are optional (the /doctor command passes the live config so
     misconfigured pairings are flagged before a request ever fails)."""
     checks: List[Tuple[str, Callable[[], CheckResult]]] = [
+        ("version", _check_version),
         ("python", _check_python),
         ("rich", lambda: _check_importable("rich")),
         ("prompt_toolkit", lambda: _check_importable("prompt_toolkit")),

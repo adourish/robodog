@@ -28,6 +28,7 @@ except ImportError:
     from robodog_terminal.doctor import CheckResult, format_report, run_doctor
 
 EXPECTED_NAMES = [
+    "version",
     "python", "rich", "prompt_toolkit", "requests", "tty", "encoding",
     "cwd-writable", "robodog-home", "keepass", "gateway-env", "gateway-endpoint",
     "openai-endpoint", "ca-bundle", "git", "powershell", "model-backend",
@@ -226,6 +227,24 @@ def main() -> int:
             os.environ["REQUESTS_CA_BUNDLE"] = _saved_ca
         if _saved_ssl is not None:
             os.environ["SSL_CERT_FILE"] = _saved_ssl
+
+    # version staleness: tuple compare + disable flag (no network needed)
+    check(doctor._ver_tuple("0.3.5") == (0, 3, 5), "_ver_tuple parses dotted version")
+    check(doctor._ver_tuple("0.3.10") > doctor._ver_tuple("0.3.9"),
+          "_ver_tuple compares numerically (0.3.10 > 0.3.9)")
+    check(doctor._ver_tuple("1.0") < doctor._ver_tuple("1.0.1"),
+          "_ver_tuple: shorter version sorts below its patch")
+    _saved_vc = os.environ.get("ROBODOG_NO_VERSION_CHECK")
+    os.environ["ROBODOG_NO_VERSION_CHECK"] = "1"
+    try:
+        vr = doctor._check_version()
+        check(vr.name == "version" and vr.ok is True and "disabled" in vr.detail,
+              "version check honors ROBODOG_NO_VERSION_CHECK (no network)")
+    finally:
+        if _saved_vc is None:
+            os.environ.pop("ROBODOG_NO_VERSION_CHECK", None)
+        else:
+            os.environ["ROBODOG_NO_VERSION_CHECK"] = _saved_vc
 
     tty = doctor._check_tty()
     check(tty.name == "tty" and tty.ok in (True, None), "tty check returns pass/warn")
