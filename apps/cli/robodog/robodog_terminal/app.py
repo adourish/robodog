@@ -1131,8 +1131,17 @@ def main(argv=None) -> int:
         runner.start(expanded, _threading.Event())
         if not headless and sys.stdin.isatty():
             ui.dim("  (Ctrl+C cancel · Ctrl+B background · type + Enter to queue)")
+        # Opt-in sticky mid-turn input (ROBODOG_STICKY_INPUT=1): a fixed bottom
+        # prompt while the agent works, output scrolling above. Falls back to
+        # the raw key reader by default.
+        _sticky = (os.environ.get("ROBODOG_STICKY_INPUT") == "1"
+                   and not headless and sys.stdin.isatty()
+                   and getattr(ui, "_session", None) is not None)
         try:
-            outcome = runner.watch(key_source)
+            if _sticky:
+                outcome = ui.watch_turn_sticky(runner)
+            else:
+                outcome = runner.watch(key_source)
         except KeyboardInterrupt:
             # A SECOND Ctrl+C escaped the cancel wait — the user wants OUT even
             # though the turn is stuck (e.g. blocked in a network retry). The

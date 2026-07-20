@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -42,7 +43,7 @@ try:
     from prompt_toolkit.completion import WordCompleter
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.patch_stdout import patch_stdout
-    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
     from prompt_toolkit.styles import Style as _PTStyle
     _HAVE_PT = True
 
@@ -380,6 +381,97 @@ class UI:
             self.console.print("[bold magenta]›[/bold magenta] ", end="")
             return input().strip()
         return input("› ").strip()
+
+    # ---- sticky mid-turn input (opt-in: ROBODOG_STICKY_INPUT=1) ----------
+    def watch_turn_sticky(self, runner):
+        """
+        Claude Code-style mid-turn input: a real PromptSession anchored at the
+        bottom while the agent works, with tool output scrolling ABOVE it via
+        patch_stdout — so typing never gets scrambled by streamed output.
+
+        Enter queues a follow-up (turn keeps running); Ctrl+B backgrounds;
+        Ctrl+C cancels. The prompt closes on its own when the turn finishes.
+
+        Robustness vs the earlier attempt that lost output: patch_stdout is
+        held across the WHOLE watch (never opened/closed per-prompt, which left
+        a window where writes went nowhere), and app.exit is guarded + retried
+        so a race between a typed line and turn-completion can't hang the prompt.
+        """
+        from .turnrunner import TurnOutcome
+        session = self._session
+        if session is None:                      # non-interactive: just wait
+            runner.join()
+            if runner.error is not None:
+                raise runner.error
+            return TurnOutcome("done", runner.result, list(runner.queued))
+
+        app = session.app
+        DONE = ("__sticky_done__",)
+        BG = ("__sticky_bg__",)
+        kb = KeyBindings()
+
+        @kb.add("c-b")
+        def _(event):
+            event.app.exit(result=BG)
+
+        orig_kb = session.key_bindings
+        session.key_bindings = merge_key_bindings([orig_kb, kb])
+        self._typing = True                      # suppress the rich Live spinner
+        stop = threading.Event()
+
+        def _watcher():
+            runner.join()                        # block until the turn finishes
+            # Keep asking the running prompt to close until it actually does —
+            # covers the gap between one prompt() returning and the next starting.
+            while not stop.wait(0.03):
+                if app.is_running and app.loop is not None:
+                    def _safe_exit():
+                        try:
+                            if app.is_running:
+                                app.exit(result=DONE)
+                        except Exception:        # pragma: no cover - "already set" race
+                            pass
+                    try:
+                        app.loop.call_soon_threadsafe(_safe_exit)
+                    except Exception:
+                        pass
+
+        threading.Thread(target=_watcher, daemon=True).start()
+
+        outcome = None
+        try:
+            with patch_stdout(raw=True):
+                while True:
+                    try:
+                        line = session.prompt("› ")
+                    except KeyboardInterrupt:
+                        cancel_event = runner.loop.cancel_event
+                        if cancel_event is not None:
+                            cancel_event.set()
+                        runner.join(timeout=10)
+                        outcome = TurnOutcome("cancelled", runner.result,
+                                             list(runner.queued))
+                        break
+                    if line is DONE:
+                        break
+                    if line is BG:
+                        outcome = TurnOutcome("backgrounded", None,
+                                             list(runner.queued))
+                        break
+                    if isinstance(line, str) and line.strip():
+                        runner.queued.append(line.strip())
+                    if not runner.running():
+                        break
+        finally:
+            stop.set()
+            self._typing = False
+            session.key_bindings = orig_kb
+
+        if outcome is not None:
+            return outcome
+        if runner.error is not None:
+            raise runner.error
+        return TurnOutcome("done", runner.result, list(runner.queued))
 
     # ---- spinner --------------------------------------------------------
     def spinner_start(self, text: str):

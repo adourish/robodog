@@ -32,6 +32,7 @@ SUITES = [
     "test_skills.py",         # custom commands / agents / skills discovery
     "test_hooks.py",          # settings.json permissions + Pre/Post/Stop hooks
     "test_certs.py",          # /cert TLS chain capture for private-CA gateways
+    "test_sticky_input.py",   # opt-in sticky bottom input (watch_turn_sticky)
     "test_concurrency.py",    # bg concurrency + /btw side questions
     "test_subagent_stress.py",  # fan-out concurrency, failure isolation, bg storm, cancel-under-load
     "test_turnrunner.py",     # threaded turns: cancel/background/queue

@@ -375,6 +375,12 @@ Handy flags: `--guard confirm` (ask before destructive commands),
 `--permission-mode plan`, `--editor vscode` (clickable `file:line` jumps),
 `--verbose`.
 
+**Experimental — sticky input** (`ROBODOG_STICKY_INPUT=1`): a fixed input box
+anchored at the bottom while the agent works, with tool output scrolling
+above it, so a follow-up you type mid-turn never gets scrambled by streamed
+output. Off by default (the raw reader is used otherwise); enable it in
+`config.env` or the environment and report back if anything looks off.
+
 ## What it does
 
 Prompted tool-use loop (intent nudge + circuit breaker) · tools:
