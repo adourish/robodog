@@ -805,6 +805,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.12
+
+- **Add:** `/test agents [N]` probes the **subagent** path — spawns N tiny
+  parallel subagents, times the fan-out, and reports N/N ok + wall time +
+  the effective concurrency cap. `/test` alone still does the single-request
+  reachability probe.
+
 ### 0.3.11
 
 - **Add:** a custom gateway's per-request timeout now defaults to **300s**
