@@ -366,6 +366,19 @@ def main() -> int:
         # explicit env always wins over the auto-default
         _os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = "1"
         check(lc._effective_max_concurrency() == 1, "explicit cap wins over auto-default")
+        _os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
+
+        # timeout: custom gateway gets a longer default; explicit wins
+        _os.environ.pop("ROBODOG_LLM_TIMEOUT", None)
+        _os.environ["ROBODOG_LLM_URL"] = "https://elsa.example/Monolith/api/model/openai"
+        check(lc._effective_timeout() == lc._DEFAULT_CUSTOM_TIMEOUT,
+              "custom gateway -> longer default timeout")
+        _os.environ["ROBODOG_LLM_URL"] = "https://openrouter.ai/api/v1"
+        check(lc._effective_timeout() == lc._DEFAULT_TIMEOUT,
+              "known provider -> standard default timeout")
+        _os.environ["ROBODOG_LLM_TIMEOUT"] = "600"
+        check(lc._effective_timeout() == 600.0, "explicit ROBODOG_LLM_TIMEOUT wins")
+        _os.environ.pop("ROBODOG_LLM_TIMEOUT", None)
         _os.environ.pop("ROBODOG_LLM_URL", None)
 
         _os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = "2"

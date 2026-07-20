@@ -313,24 +313,26 @@ def _check_llm_config() -> CheckResult:
     SEE the concurrency cap actually in effect — including the auto-default a
     custom gateway gets."""
     try:
-        from .llm_client import _effective_max_concurrency
+        from .llm_client import _effective_max_concurrency, _effective_timeout
     except Exception:
         try:
-            from robodog_terminal.llm_client import _effective_max_concurrency
+            from robodog_terminal.llm_client import (_effective_max_concurrency,
+                                                     _effective_timeout)
         except Exception:
-            _effective_max_concurrency = lambda: 0  # noqa: E731
+            _effective_max_concurrency = lambda: 0          # noqa: E731
+            _effective_timeout = lambda url=None: 120.0      # noqa: E731
     cap_n = _effective_max_concurrency()
-    explicit = bool(os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY"))
-    try:
-        timeout = float(os.environ.get("ROBODOG_LLM_TIMEOUT", "120") or 120)
-    except ValueError:
-        timeout = 120.0
+    explicit_cap = bool(os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY"))
+    timeout = _effective_timeout()
+    explicit_to = bool(os.environ.get("ROBODOG_LLM_TIMEOUT"))
+    to_src = "set" if explicit_to else "auto"
     if cap_n > 0:
-        src = "set" if explicit else "auto: custom gateway"
-        detail = (f"max concurrency: {cap_n} ({src}); request timeout: {timeout:.0f}s")
+        cap_src = "set" if explicit_cap else "auto: custom gateway"
+        detail = (f"max concurrency: {cap_n} ({cap_src}); "
+                  f"request timeout: {timeout:.0f}s ({to_src})")
         return CheckResult("llm-config", True, detail)
-    detail = (f"max concurrency: unlimited; request timeout: {timeout:.0f}s — "
-              "if a parallel fan-out times out, set ROBODOG_LLM_MAX_CONCURRENCY=1")
+    detail = (f"max concurrency: unlimited; request timeout: {timeout:.0f}s ({to_src}) "
+              "— if a parallel fan-out times out, set ROBODOG_LLM_MAX_CONCURRENCY=1")
     return CheckResult("llm-config", None, detail)
 
 

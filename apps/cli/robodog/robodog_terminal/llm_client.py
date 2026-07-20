@@ -40,6 +40,15 @@ _FAST_HOSTS = ("openrouter.ai", "api.openai.com", "api.groq.com",
 _DEFAULT_CUSTOM_CONCURRENCY = 2
 
 
+_DEFAULT_TIMEOUT = 120.0
+_DEFAULT_CUSTOM_TIMEOUT = 300.0   # custom gateways are slower; give big prompts room
+
+
+def _is_custom_gateway(url: str) -> bool:
+    url = (url or "").lower()
+    return bool(url) and not any(h in url for h in _FAST_HOSTS)
+
+
 def _effective_max_concurrency() -> int:
     """Resolve the concurrency cap: explicit env var, else a conservative
     default for a custom gateway (ROBODOG_LLM_URL not a known fast host), else
@@ -50,10 +59,23 @@ def _effective_max_concurrency() -> int:
             return max(0, int(raw))
         except ValueError:
             return 0
-    url = (os.environ.get("ROBODOG_LLM_URL") or "").lower()
-    if url and not any(h in url for h in _FAST_HOSTS):
+    if _is_custom_gateway(os.environ.get("ROBODOG_LLM_URL")):
         return _DEFAULT_CUSTOM_CONCURRENCY
     return 0
+
+
+def _effective_timeout(url: Optional[str] = None) -> float:
+    """Resolve the per-request timeout: explicit ROBODOG_LLM_TIMEOUT wins, else
+    a longer default for a custom gateway (which tends to be slower on big
+    prompts), else 120s."""
+    raw = os.environ.get("ROBODOG_LLM_TIMEOUT")
+    if raw:
+        try:
+            return float(raw)
+        except ValueError:
+            pass
+    probe = url if url is not None else os.environ.get("ROBODOG_LLM_URL")
+    return _DEFAULT_CUSTOM_TIMEOUT if _is_custom_gateway(probe) else _DEFAULT_TIMEOUT
 
 
 def _openai_semaphore():
@@ -342,13 +364,9 @@ class OpenAICompatClient(LLMClient):
                  session=None):
         if not base_url or not api_key or not model:
             raise ValueError("OpenAICompatClient requires base_url, api_key, model")
-        # Per-request timeout: explicit arg, else ROBODOG_LLM_TIMEOUT, else 120s.
-        # A slow gateway that ReadTimeouts under load may want a longer value.
-        if timeout is None:
-            try:
-                timeout = float(os.environ.get("ROBODOG_LLM_TIMEOUT", "120") or 120)
-            except ValueError:
-                timeout = 120.0
+        # Per-request timeout: explicit arg, else ROBODOG_LLM_TIMEOUT, else a
+        # URL-aware default (custom gateway gets a longer budget). Resolved
+        # against the normalized URL below, so compute it after self.url is set.
         base = base_url.rstrip("/")
         # Normalize: config URLs often omit /v1 (e.g. "https://api.openai.com",
         # "https://openrouter.ai/api") — the wire path is <base>/v1/chat/completions.
@@ -360,7 +378,7 @@ class OpenAICompatClient(LLMClient):
         self.api_key = api_key
         self.model = model
         self.referer = referer
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else _effective_timeout(self.url)
         self.max_attempts = max_attempts
         self.on_retry = on_retry or (
             lambda a, m, d, r: logger.warning("LLM retry %d/%d in %.0fs: %s", a, m, d, r))
