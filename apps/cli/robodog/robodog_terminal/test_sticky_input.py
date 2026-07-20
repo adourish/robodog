@@ -111,6 +111,29 @@ def main() -> int:
         check(o is not None and o.status == "backgrounded", "sticky: Ctrl+B backgrounds the turn")
         check(runner.running(), "sticky: backgrounded turn keeps running")
 
+    # ---- a mid-turn command runs in-place and is NOT queued --------------
+    box = {}
+    ran = []
+    def _on_cmd(line):
+        if line.startswith("/doctor"):
+            ran.append(line)
+            return True          # handled -> not queued
+        return False
+    with create_pipe_input() as pi, create_app_session(input=pi, output=DummyOutput()):
+        ui = make_ui(pi)
+        runner = FakeRunner(run_seconds=0.5)
+        th = run_in_ctx(lambda: box.__setitem__(
+            "o", ui.watch_turn_sticky(runner, on_command=_on_cmd)))
+        time.sleep(0.1)
+        pi.send_text("/doctor\r")          # a command -> runs in place
+        time.sleep(0.1)
+        pi.send_text("real follow-up\r")   # a normal line -> queued
+        th.join(timeout=6)
+        o = box.get("o")
+        check(ran == ["/doctor"], "sticky: /doctor ran in-place mid-turn")
+        check(o is not None and o.queued == ["real follow-up"],
+              "sticky: command NOT queued; the plain line IS queued")
+
     # ---- non-interactive (no session): just waits, returns done ----------
     ui = UI(model_name="m", cwd=str(Path.cwd()))
     ui._session = None

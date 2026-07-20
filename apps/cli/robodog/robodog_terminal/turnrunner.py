@@ -118,7 +118,7 @@ class TurnRunner:
         return self._error
 
 
-def make_key_source(ui=None) -> KeySource:
+def make_key_source(ui=None, on_command=None) -> KeySource:
     """
     Raw single-key reader for use during a turn (no prompt_toolkit active here).
     Windows: msvcrt; POSIX: select + cbreak. Ctrl+B -> background, Ctrl+C ->
@@ -129,6 +129,10 @@ def make_key_source(ui=None) -> KeySource:
     mid_input_* methods, which stop the Live spinner first so typed text isn't
     fragmented onto one-char-per-line by the spinner's repaint. Without a ui,
     falls back to raw stdout echo (old behavior).
+
+    `on_command` (optional): callable(line)->bool. On Enter, a submitted line
+    is offered to it first; if it returns True (a read-only command run
+    in-place, e.g. /doctor), the line is NOT queued for the agent.
     """
     import os
     import sys
@@ -169,6 +173,13 @@ def make_key_source(ui=None) -> KeySource:
             else:
                 sys.stdout.write("\n")
                 sys.stdout.flush()
+        # A read-only slash command runs in-place and is NOT queued.
+        if line and on_command is not None:
+            try:
+                if on_command(line):
+                    return None
+            except Exception:
+                pass
         return ("input", line)
 
     if os.name == "nt":

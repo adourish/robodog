@@ -766,7 +766,65 @@ def main(argv=None) -> int:
         from robodog_terminal.turnrunner import TurnRunner, make_key_source
     pending_prompts = []      # follow-ups queued while a turn ran
     detached = [None]         # a TurnRunner still running in the background
-    key_source = make_key_source(ui)
+
+    # Read-only slash commands that are safe to run WHILE an agent turn is in
+    # flight (they don't touch loop.history, the client, or checkpoints).
+    SAFE_MIDTURN = {"doctor", "status", "context", "tools", "tasks", "tail",
+                    "help", "verbose", "todos", "skills"}
+
+    def midturn_command(line: str) -> bool:
+        """If `line` is a safe read-only slash command, run it NOW (while the
+        agent works) and return True so it isn't queued for the agent. Anything
+        else returns False -> queued as a follow-up. Never raises: a race on
+        shared state degrades to a dim note, not a crash."""
+        if not line or not line.startswith("/"):
+            return False
+        cmd, _, rest = line[1:].partition(" ")
+        cmd, rest = cmd.lower().strip(), rest.strip()
+        if cmd not in SAFE_MIDTURN:
+            return False
+        try:
+            if cmd == "help":
+                ui.info(HELP)
+            elif cmd == "status":
+                ui.print_status()
+            elif cmd == "context":
+                chars = loop.transcript_chars()
+                ui.info(f"transcript: {len(loop.history)} turns · ~{chars // 4} tokens "
+                        f"({chars} chars)")
+            elif cmd == "doctor":
+                try:
+                    from .doctor import run_doctor, format_report
+                except ImportError:
+                    from robodog_terminal.doctor import run_doctor, format_report
+                _dm = _normalize_model_id(getattr(args, "model", None)
+                                          or os.environ.get("ROBODOG_MODEL", DEFAULT_MODEL))
+                ui.info(format_report(run_doctor(
+                    ui.cwd, backend=getattr(args, "backend", "") or "", model=_dm)))
+            elif cmd == "tools":
+                for name in list(registry._tools):  # noqa: SLF001
+                    ui.info(f"  {name}")
+            elif cmd == "verbose":
+                verbose[0] = not verbose[0]
+                ui.info(f"verbose output {'ON' if verbose[0] else 'OFF'}")
+            elif cmd == "todos":
+                lines = checklist.render_lines()
+                ui.info("\n".join(lines) if lines else "(no tasks)")
+            elif cmd == "skills":
+                ui.info(f"extensions: {skills.summary()}")
+            elif cmd == "tasks":
+                tasks = manager.list()
+                if not tasks:
+                    ui.info("no background tasks.")
+                for t in tasks:
+                    ui.info(f"  {t.id}  [{t.status}]  {t.kind}  {t.title}")
+            elif cmd == "tail":
+                ui.info(manager.output(rest or "bg1"))
+        except Exception as exc:   # a race with the worker must never crash the REPL
+            ui.dim(f"  (/{cmd} unavailable mid-turn: {type(exc).__name__})")
+        return True
+
+    key_source = make_key_source(ui, on_command=midturn_command)
     # startup --resume may have preloaded history; don't re-persist those turns.
     persisted = [len(loop.history)]   # count of loop.history turns already saved
 
@@ -1130,7 +1188,8 @@ def main(argv=None) -> int:
         runner = TurnRunner(loop)
         runner.start(expanded, _threading.Event())
         if not headless and sys.stdin.isatty():
-            ui.dim("  (Ctrl+C cancel · Ctrl+B background · type + Enter to queue)")
+            ui.dim("  (Ctrl+C cancel · Ctrl+B background · /doctor,/status,… run now "
+                   "· other text queues)")
         # Opt-in sticky mid-turn input (ROBODOG_STICKY_INPUT=1): a fixed bottom
         # prompt while the agent works, output scrolling above. Falls back to
         # the raw key reader by default.
@@ -1139,7 +1198,7 @@ def main(argv=None) -> int:
                    and getattr(ui, "_session", None) is not None)
         try:
             if _sticky:
-                outcome = ui.watch_turn_sticky(runner)
+                outcome = ui.watch_turn_sticky(runner, on_command=midturn_command)
             else:
                 outcome = runner.watch(key_source)
         except KeyboardInterrupt:

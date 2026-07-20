@@ -383,7 +383,7 @@ class UI:
         return input("› ").strip()
 
     # ---- sticky mid-turn input (opt-in: ROBODOG_STICKY_INPUT=1) ----------
-    def watch_turn_sticky(self, runner):
+    def watch_turn_sticky(self, runner, on_command=None):
         """
         Claude Code-style mid-turn input: a real PromptSession anchored at the
         bottom while the agent works, with tool output scrolling ABOVE it via
@@ -459,7 +459,16 @@ class UI:
                                              list(runner.queued))
                         break
                     if isinstance(line, str) and line.strip():
-                        runner.queued.append(line.strip())
+                        # A read-only slash command runs in-place (output scrolls
+                        # above via patch_stdout); anything else is queued.
+                        handled = False
+                        if on_command is not None:
+                            try:
+                                handled = bool(on_command(line.strip()))
+                            except Exception:
+                                handled = False
+                        if not handled:
+                            runner.queued.append(line.strip())
                     if not runner.running():
                         break
         finally:
