@@ -479,6 +479,40 @@ To rotate a token, overwrite the entry's password field (KeePassXC or a
 short `pykeepass` script) — Robodog picks up the new value on next start,
 with no config change.
 
+### Hooks & permissions
+
+Drop a `settings.json` in `.robodog/` or `.claude/` (project or `~`; project
+wins, `.robodog` over `.claude` — Claude Code settings work unchanged):
+
+```json
+{
+  "permissions": {
+    "allow": ["bash(git *)"],
+    "deny":  ["bash(rm -rf *)", "write_file(*.env)"]
+  },
+  "hooks": {
+    "PreToolUse":  [{ "matcher": "write_file|edit_file",
+                      "command": "python lint_gate.py" }],
+    "PostToolUse": [{ "matcher": "bash", "command": "python audit_log.py" }],
+    "Stop":        [{ "command": "powershell -c '[console]::beep(880,120)'" }]
+  }
+}
+```
+
+**Permissions** — rules are `tool` or `tool(glob)`, matched against the
+call's main argument (the command for `bash`/`run_script`, the path for file
+tools). `deny` always blocks (the agent is told not to retry); `allow`
+pre-approves the call past the `--guard confirm` prompt; anything unmatched
+keeps the default behavior.
+
+**Hooks** — shell commands run on agent events, with a JSON payload
+(`event`, `tool_name`, `tool_input`, `tool_result`, `cwd`) on stdin.
+`matcher` is a regex against the tool name (omit it to match every tool).
+A `PreToolUse` hook that exits **2** blocks the tool call and its stderr is
+returned to the model; other exit codes proceed. `PostToolUse` and `Stop`
+(end of each agent turn) never block. Hung hooks are tree-killed at
+`timeout` seconds (default 30) — a bad hook can never wedge the loop.
+
 ### Adding a new model
 
 A model is just an ID string forwarded to the provider — there is no list to

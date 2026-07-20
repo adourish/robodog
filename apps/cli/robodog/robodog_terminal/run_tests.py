@@ -30,6 +30,7 @@ SUITES = [
     "test_command_reaction.py",  # exit-code salience, run_tests, danger guard
     "test_input.py",          # multiline paste, backslash-continuation
     "test_skills.py",         # custom commands / agents / skills discovery
+    "test_hooks.py",          # settings.json permissions + Pre/Post/Stop hooks
     "test_concurrency.py",    # bg concurrency + /btw side questions
     "test_subagent_stress.py",  # fan-out concurrency, failure isolation, bg storm, cancel-under-load
     "test_turnrunner.py",     # threaded turns: cancel/background/queue

@@ -191,6 +191,8 @@ class ToolRegistry:
         self.on_confirm: Optional[Callable[[str, str], bool]] = None
         # Override/auto-detect the project's test command (run_tests tool).
         self.test_command: Optional[str] = None
+        # Hooks + permission rules (hooks.HookEngine; wired by app.py).
+        self.hooks = None
 
     # ---- registration ---------------------------------------------------
     def register(self, tool: Tool) -> None:
@@ -207,7 +209,18 @@ class ToolRegistry:
             return (f"ERROR: plan mode — {name} is not allowed (read-only). "
                     f"Investigate with read tools and present a plan; the user "
                     f"will approve before implementation.")
-        return tool.run(args)
+        if self.hooks is not None:
+            verdict, rule = self.hooks.check_permission(name, args)
+            if verdict == "deny":
+                return (f"BLOCKED: permission rule '{rule}' denies this call. "
+                        f"Do not retry it; choose a different approach.")
+            block = self.hooks.run_pre(name, args)
+            if block is not None:
+                return f"BLOCKED: {block}"
+        result = tool.run(args)
+        if self.hooks is not None:
+            self.hooks.run_post(name, args, result)
+        return result
 
     # ---- path helper ----------------------------------------------------
     def _project_root(self) -> Optional[Path]:
@@ -580,9 +593,13 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                 return reg.background_spawn(command, str(cwd_path))
             return ("ERROR: background execution is not available yet — "
                     "run in foreground or split the work.")
-        # Dangerous-command guard.
+        # Dangerous-command guard. An `allow` permission rule pre-approves the
+        # exact call, skipping the confirm prompt (deny rules were already
+        # enforced in execute() before the handler ran).
         danger = classify_danger(command)
-        if danger:
+        preapproved = (reg.hooks is not None and
+                       reg.hooks.check_permission("bash", {"command": command})[0] == "allow")
+        if danger and not preapproved:
             if reg.guard == "confirm" and reg.on_confirm is not None:
                 if not reg.on_confirm(command, danger):
                     return f"BLOCKED: user declined the potentially destructive command: {command}"

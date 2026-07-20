@@ -526,6 +526,18 @@ def main(argv=None) -> int:
     registry.verify_edits = not args.no_verify_edits
     registry.test_command = args.test_command
 
+    # Hooks + permission rules from .robodog/.claude settings.json.
+    try:
+        from .hooks import HookEngine
+    except ImportError:
+        from robodog_terminal.hooks import HookEngine
+    try:
+        registry.hooks = HookEngine.load(cwd)
+        if registry.hooks.summary():
+            ui.dim(f"(settings: {registry.hooks.summary()})")
+    except Exception as exc:   # a bad settings file must never break startup
+        ui.dim(f"(hooks/permissions skipped: {exc})")
+
     def _confirm_danger(command, reason):
         if headless:
             return False  # never run destructive commands unattended
@@ -667,6 +679,8 @@ def main(argv=None) -> int:
             else:
                 print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 1
+        if registry.hooks is not None:
+            registry.hooks.run_stop()
         if args.output_format == "json":
             print(json.dumps({
                 "result": result.final_text,
@@ -753,6 +767,8 @@ def main(argv=None) -> int:
         ui.assistant(result.final_text)
         dur = getattr(result, "duration", 0.0)
         ui.dim(f"[{result.iterations} steps · {result.total_tokens} tok · {dur:.1f}s]")
+        if registry.hooks is not None:
+            registry.hooks.run_stop()   # Stop hooks: the agent turn finished
 
     while True:
         # Drain any queued follow-up prompts before reading new input.
