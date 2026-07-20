@@ -123,6 +123,20 @@ def main() -> int:
                          '</parameter></invoke>'),
           'has_tool_calls recognizes the <invoke> form')
 
+    # Truncation / attempted-tool detectors (Phase 1 loop recovery).
+    from robodog_terminal.toolcall import (has_unclosed_tool_call,
+                                           looks_like_attempted_tool)
+    check(has_unclosed_tool_call('<tool name="bash"><param name="command">ls C:/'),
+          'unclosed <tool>/<param> detected (truncation)')
+    check(not has_unclosed_tool_call('<tool name="read_file"><param name="path">a</param></tool>'),
+          'a complete tool call is NOT flagged as unclosed')
+    check(not has_unclosed_tool_call('just prose, nothing tool-like'),
+          'plain prose is not flagged as unclosed')
+    check(looks_like_attempted_tool('<function_calls> oops broke it'),
+          'tool-shaped-but-unparsed text is detected as an attempt')
+    check(not looks_like_attempted_tool('here is a normal final answer'),
+          'a normal answer is not a tool attempt')
+
     print('PARSER:', 'ALL PASS' if ok else 'FAILURES')
     return 0 if ok else 1
 

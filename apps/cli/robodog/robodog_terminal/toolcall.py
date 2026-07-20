@@ -134,3 +134,25 @@ def parse_tool_calls(text: str) -> Tuple[List[ToolCall], str]:
 
 def has_tool_calls(text: str) -> bool:
     return bool(_TOOL_RE.search(text))
+
+
+_OPEN_TOOL_RE = re.compile(r"<(?:tool|invoke)\s+name\s*=", re.IGNORECASE)
+_OPEN_PARAM_RE = re.compile(r"<param(?:eter)?\s+name\s*=", re.IGNORECASE)
+
+
+def has_unclosed_tool_call(text: str) -> bool:
+    """True if `text` opens a tool/param tag that never closes — the signature of
+    a response TRUNCATED mid-tool-call (the gateway hit max_tokens). Used as a
+    fallback truncation signal when finish_reason isn't reported: after removing
+    every COMPLETE <tool>…</tool> block, a leftover `<tool name=` / `<param name=`
+    open tag means the model was cut off before finishing the call."""
+    remainder = _TOOL_RE.sub("", text)
+    return bool(_OPEN_TOOL_RE.search(remainder) or _OPEN_PARAM_RE.search(remainder))
+
+
+def looks_like_attempted_tool(text: str) -> bool:
+    """True if the text looks like the model TRIED to call a tool but it didn't
+    parse (wrong/garbled format, or emitted as plain prose) — so we should send a
+    format reminder rather than treating it as a final answer."""
+    return bool(_OPEN_TOOL_RE.search(text) or _OPEN_PARAM_RE.search(text)
+                or re.search(r"</?(?:function_calls|invoke|tool)\b", text, re.IGNORECASE))

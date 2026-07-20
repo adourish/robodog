@@ -26,7 +26,7 @@ Legend: ✅ done · 🟡 partial · ⬜ not started. Effort: S/M/L.
 Every client converged here. This is what turns "mis-formatted → dead turn / infinite
 loop / burned tokens" into "mis-formatted → auto-recovered."
 
-### 1.1 ⬜ Reflection / consecutive-mistake loop  · M · **do first**
+### 1.1 ✅ Reflection / consecutive-mistake loop  · M · *shipped 0.3.26*
 The single most-cited win (Aider `base_coder.run_one`, Cline/Roo `consecutiveMistakeCount`).
 A uniform channel: parse failure, missing required param, edit-apply failure, (later) lint/test
 failure all collapse into "one more turn, with this exact text as the next user message,"
@@ -37,20 +37,20 @@ capped at ~3 per user request, counter reset per user message, then **stop and a
   (models forget it 100k tokens back — Cline re-injects at point of failure), (c) end with
   "this is an automated message, do not respond conversationally" (prevents apology loops).
 
-### 1.2 ⬜ Truncation-aware parsing  · S · **do first**
+### 1.2 ✅ Truncation-aware parsing  · S · *shipped 0.3.26*
 The most robodog-relevant issue found (Cline #9920): at high context ELSA truncates
 *mid-tool-tag*, robodog would see "no tool" and retry → permanent stall.
 - Detect `finish_reason == "length"` **or** an unclosed `<tool>`/`<param>` at end of text.
 - Treat as a distinct state: re-prompt for *just* the tool call, or raise `max_tokens` /
   compact — **never** classify as "no tool used." (`llm_client.py` + `toolcall.py`.)
 
-### 1.3 🟡 Diagnostic, schema-carrying tool errors + fuzzy tool-name match  · S
+### 1.3 ✅ Diagnostic, schema-carrying tool errors + fuzzy tool-name match  · S · *shipped 0.3.26*
 Robodog already does this for shell/import/edit hints. Extend to the parser layer:
 on unknown/misspelled tool name (`write_file` vs `write_files` — Roo #4530, opencode #13317)
 return the valid tool list + a `difflib` "did you mean"; on missing required param, name it and
 re-embed the format. Never crash the session on an unknown tool.
 
-### 1.4 ⬜ Tool-result framing  · S
+### 1.4 🟡 Tool-result framing  · S · *empty-result naming shipped 0.3.26; echo-back already present*
 Cline/Roo §5. Cheap, high-leverage for a no-native-tool-API loop:
 - Echo the call back: `[read_file for 'src/main.py'] Result:\n…` (substitutes for a
   `tool_use_id`, re-anchors which call the result belongs to).

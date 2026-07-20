@@ -614,7 +614,13 @@ class ToolRegistry:
     def execute(self, name: str, args: Dict[str, str]) -> str:
         tool = self._tools.get(name)
         if not tool:
-            return f"ERROR: unknown tool '{name}'. Available: {', '.join(self._tools)}"
+            # (1.3) Hallucinated / misspelled tool name -> suggest the closest
+            # real one (write_file vs write_files) so the model self-corrects.
+            import difflib
+            near = difflib.get_close_matches(name, list(self._tools), n=1, cutoff=0.6)
+            hint = f" Did you mean '{near[0]}'?" if near else ""
+            return (f"ERROR: unknown tool '{name}'.{hint} "
+                    f"Available tools: {', '.join(sorted(self._tools))}")
         if self.mode == "plan" and tool.mutating:
             return (f"ERROR: plan mode — {name} is not allowed (read-only). "
                     f"Investigate with read tools and present a plan; the user "

@@ -149,10 +149,18 @@ class Completion:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     raw: Optional[dict] = None
+    # OpenAI-style stop reason: "stop" | "length" | "tool_calls" | "" (unknown).
+    # "length" means the model was CUT OFF at max_tokens — the text may end
+    # mid-tool-call and must not be treated as a finished answer.
+    finish_reason: str = ""
 
     @property
     def total_tokens(self) -> int:
         return self.prompt_tokens + self.completion_tokens
+
+    @property
+    def truncated(self) -> bool:
+        return self.finish_reason == "length"
 
 
 class LLMClient:
@@ -422,7 +430,8 @@ class OpenAICompatClient(LLMClient):
                                 text=text,
                                 prompt_tokens=usage.get("prompt_tokens", 0),
                                 completion_tokens=usage.get("completion_tokens", 0),
-                                raw=data)
+                                raw=data,
+                                finish_reason=(choice.get("finish_reason") or ""))
                         last_err = "empty response"
                     elif resp.status_code in (429,) or resp.status_code >= 500:
                         last_err = f"HTTP {resp.status_code}"

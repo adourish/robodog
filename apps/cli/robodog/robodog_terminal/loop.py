@@ -17,9 +17,22 @@ from typing import Callable, List, Optional
 
 from .llm_client import LLMClient, Completion
 from .tools import ToolRegistry
-from .toolcall import parse_tool_calls
+from .toolcall import (parse_tool_calls, has_unclosed_tool_call,
+                       looks_like_attempted_tool)
 
 logger = logging.getLogger(__name__)
+
+# Re-embedded at the point of failure (models forget the format 100k tokens back).
+_TOOL_FORMAT_REMINDER = (
+    "Emit tool calls in EXACTLY this format — nothing else is parsed:\n"
+    '<tool name="TOOL_NAME">\n'
+    '<param name="PARAM_NAME">VALUE</param>\n'
+    "</tool>\n"
+    'Example: <tool name="read_file"><param name="path">src/app.py</param></tool>\n'
+    "Do NOT wrap tool calls in markdown fences and do NOT describe them in prose.")
+
+# Max self-correction turns per user message before stopping and handing back.
+_MAX_MISTAKES = 3
 
 
 @dataclass
@@ -153,6 +166,7 @@ class AgentLoop:
         iterations = 0
         final_text = ""
         nudged = False
+        mistakes = 0             # consecutive malformed/truncated turns (reflection cap)
         repeats: dict = {}       # (call+args+result sig) -> count; breaks stuck loops
         tool_errors: dict = {}   # tool name -> consecutive ERROR/BLOCKED count
         aborted = False
@@ -189,11 +203,44 @@ class AgentLoop:
             self.history.append(Turn("assistant", text))
 
             if not calls:
+                more_turns_left = iterations < self.max_iterations
+                # (1.2) TRUNCATION: cut off at max_tokens (finish_reason=length) or
+                # an unclosed <tool>/<param> tag. The call never finished, so it
+                # didn't run — must NOT be read as "no tool / final answer" (this
+                # is the classic permanent-stall bug). Ask to re-emit, don't finalize.
+                truncated = completion.truncated or has_unclosed_tool_call(text)
+                if truncated and mistakes < _MAX_MISTAKES and more_turns_left:
+                    mistakes += 1
+                    self.on_event("truncated", {"iteration": iterations})
+                    self.history.append(Turn(
+                        "tool",
+                        "[ERROR] Your previous response was CUT OFF (truncated) before "
+                        "it finished — the tool call is incomplete, so nothing ran. "
+                        "Re-send ONLY that tool call, complete this time. If the "
+                        "content was large, make a smaller edit or split it.\n\n"
+                        + _TOOL_FORMAT_REMINDER,
+                        tool_name="system"))
+                    continue
+                # (1.1) MALFORMED: tool-shaped text that didn't parse (wrong tags,
+                # emitted as prose). Re-teach the format at the point of failure.
+                if (looks_like_attempted_tool(text) and mistakes < _MAX_MISTAKES
+                        and more_turns_left):
+                    mistakes += 1
+                    self.on_event("malformed_toolcall", {"iteration": iterations})
+                    self.history.append(Turn(
+                        "tool",
+                        "[ERROR] No valid tool call was parsed from your last response "
+                        "— it wasn't in the required format, so nothing happened.\n\n"
+                        + _TOOL_FORMAT_REMINDER
+                        + "\n(This is an automated message; do not reply to it "
+                        "conversationally — just emit the corrected tool call.)",
+                        tool_name="system"))
+                    continue
                 # Nudge once if the model narrated intent without acting
                 # ("I'll create the file...") — words without tool blocks do nothing.
                 intent = any(p in text for p in
                              ("I'll ", "I will ", "Let me ", "First, I", "Now I"))
-                if intent and not nudged and iterations < self.max_iterations:
+                if intent and not nudged and more_turns_left:
                     nudged = True
                     self.history.append(Turn(
                         "tool",
@@ -203,6 +250,9 @@ class AgentLoop:
                     continue
                 final_text = prose or text
                 break
+
+            # A turn that produced real tool calls clears the malformed counter.
+            mistakes = 0
 
             # Execute the batch of tool calls. When the whole batch is
             # parallel-safe (multiple subagents, or read-only tools), run them
@@ -225,6 +275,10 @@ class AgentLoop:
                     results.append(self.registry.execute(call.name, call.args))
 
             for call, result in zip(calls, results):
+                # (1.4) Never feed back an empty result — a blank tool result can
+                # loop the model (it can't tell the call ran). Name the emptiness.
+                if not (result or "").strip():
+                    result = "(tool did not return anything)"
                 self.on_event("tool_done", {"name": call.name, "result": result})
                 self.history.append(Turn("tool", result, tool_name=call.name))
                 # Polling a background task legitimately repeats — never treat

@@ -805,6 +805,23 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.26
+
+- **Reliability core (Phase 1 of the roadmap).** Turns the ELSA model's frequent
+  mis-formatting from "dead turn / infinite loop" into automatic recovery:
+  - **Truncation-aware:** a response cut off at `max_tokens` (`finish_reason=length`)
+    or ending on an unclosed `<tool>`/`<param>` tag is no longer misread as "no
+    tool / final answer" (the classic permanent-stall bug). The loop asks the
+    model to re-emit the call, complete this time.
+  - **Format-reminder reflection:** tool-shaped output that didn't parse gets an
+    `[ERROR]` correction with the exact tool format re-embedded — capped at 3
+    self-corrections per message, then it hands back to you (never loops forever).
+  - **Empty tool results** are named (`(tool did not return anything)`) instead of
+    fed back blank (a known infinite-loop trigger).
+  - **Unknown tool names** suggest the closest real one (`write_files` →
+    "Did you mean 'write_file'?").
+  - Adds `Completion.finish_reason` (OpenAI-compatible backends).
+
 ### 0.3.25
 
 - **🛡 Safety hardening (structural):** the danger + network-write guard now runs

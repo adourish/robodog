@@ -119,6 +119,53 @@ def main() -> int:
     check("ok" in rep.lower() and not any(
         "sk-" in r.detail for r in results), "doctor report clean, no secrets")
 
+    # ---------------- Phase 1: reflection / truncation recovery ----------
+    # (1.2) A response CUT OFF mid-tool-call must not be read as a final answer
+    # (the permanent-stall bug) — the loop re-prompts, then recovers.
+    trunc = iter(['<tool name="read_file"><param name="path">a.py</param',  # truncated
+                  'Recovered final answer.'])
+    lp = AgentLoop(EchoClient(script=lambda p, c: next(trunc, "fb")),
+                   default_registry(cwd=str(wd)), max_iterations=6)
+    res = lp.run("read it")
+    sysmsgs = [t.content for t in lp.history if t.role == "tool" and t.tool_name == "system"]
+    check(any("CUT OFF" in m for m in sysmsgs), "truncated turn triggers a re-emit reflection")
+    check(res.final_text.strip() == "Recovered final answer.",
+          "loop recovers to the clean answer after truncation")
+
+    # (1.1) Tool-shaped but unparseable output -> a format reminder, then recovery.
+    mal = iter(['<function_calls> broke the syntax entirely, no valid call',
+                'Fixed it, final answer.'])
+    lp2 = AgentLoop(EchoClient(script=lambda p, c: next(mal, "fb")),
+                    default_registry(cwd=str(wd)), max_iterations=6)
+    res2 = lp2.run("do")
+    sys2 = [t.content for t in lp2.history if t.role == "tool" and t.tool_name == "system"]
+    check(any("No valid tool call was parsed" in m for m in sys2),
+          "malformed tool call triggers a format-reminder reflection")
+    check(res2.final_text.strip() == "Fixed it, final answer.", "recovers after malformed call")
+
+    # Reflection is CAPPED — never-valid output stops instead of looping forever.
+    lp3 = AgentLoop(EchoClient(script=lambda p, c: '<tool name="bash"><param name="command">x'),
+                    default_registry(cwd=str(wd)), max_iterations=25)
+    lp3.run("go")
+    caps = [t for t in lp3.history if t.role == "tool" and "CUT OFF" in t.content]
+    check(len(caps) <= 3, f"reflection capped at <=3 (got {len(caps)}), no infinite loop")
+
+    # (1.4) An empty tool result is named, never fed back blank.
+    from robodog_terminal.tools import Tool
+    regE = default_registry(cwd=str(wd))
+    regE.register(Tool(name="silent", description="x", params=[],
+                       handler=lambda a: "", executes=False))
+    se = iter(['<tool name="silent"></tool>', 'ok'])
+    lp4 = AgentLoop(EchoClient(script=lambda p, c: next(se, "ok")), regE, max_iterations=5)
+    lp4.run("go")
+    st = [t.content for t in lp4.history if t.role == "tool" and t.tool_name == "silent"]
+    check(st and "did not return anything" in st[0], "empty tool result is named, not blank")
+
+    # (1.3) Unknown tool name suggests the closest real one.
+    r = default_registry(cwd=str(wd)).execute("write_files", {"path": "x", "content": "y"})
+    check("unknown tool" in r and "Did you mean 'write_file'" in r,
+          "unknown tool name -> closest-match suggestion")
+
     print("\nINTEGRATION:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 
