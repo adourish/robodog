@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robodog-terminal"
-version = "0.2.3"
+version = "0.2.4"
 description = "Agentic coding terminal for the shell (runPixel gateway / OpenAI-compatible / offline backends)"
 readme = "TERMINAL_README.md"
 requires-python = ">=3.8"
@@ -21,7 +21,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-yaml = ["PyYAML>=6"]     # nicer .yaml verification in edits
+yaml = ["PyYAML>=6"]        # nicer .yaml verification in edits
+keepass = ["pykeepass>=4"]  # /keepass vault + encrypted key storage
 
 [project.scripts]
 robodog-terminal = "robodog_terminal.app:main"

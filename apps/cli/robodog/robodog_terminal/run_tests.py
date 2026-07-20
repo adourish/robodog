@@ -24,6 +24,7 @@ SUITES = [
     "test_background.py",     # BackgroundManager
     "test_sessions.py",       # session persistence
     "test_doctor.py",         # /doctor diagnostics
+    "test_keepass_setup.py",  # /keepass vault bootstrap (temp dirs, never ~/.robodog)
     "test_tasklist.py",       # checklist + ask_user tools
     "test_edit_quality.py",   # post-edit verify, fuzzy match, multi_edit
     "test_command_reaction.py",  # exit-code salience, run_tests, danger guard

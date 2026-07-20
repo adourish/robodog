@@ -161,28 +161,27 @@ database, a loader module, and two config lines pointing at them.
 pip install pykeepass
 ```
 
-**6B.2 — Create the vault and add your key.** Save as `make_vault.py` and
-run it (`python make_vault.py`):
+**6B.2 — Create the vault.** Robodog builds it for you — start it and run:
 
-```python
-import os
-from pathlib import Path
-from pykeepass import create_database
-
-d = Path.home() / ".robodog"
-d.mkdir(parents=True, exist_ok=True)
-
-keyfile = d / "automation-keys.keyfile"
-keyfile.write_bytes(os.urandom(32))          # random keyfile = no master password
-
-kp = create_database(str(d / "automation-keys.kdbx"), password=None,
-                     keyfile=str(keyfile))
-kp.add_entry(kp.root_group, "OpenRouter", "robodog",
-             "sk-or-v1-your-key-here",        # <-- paste your key here
-             url="https://openrouter.ai/api/v1")
-kp.save()
-print("created", d / "automation-keys.kdbx")
 ```
+/keepass init sk-or-v1-your-key-here
+```
+
+That creates the database, a random keyfile (so there's no master-password
+prompt), the loader module, and an `OpenRouter` entry holding your key — all
+in `~/.robodog/`, which is where Robodog looks by default.
+
+⚠️ **Back up `~/.robodog/automation-keys.keyfile`.** Without it the vault
+cannot be opened — there is no master password to fall back on. `/keepass
+init` will never overwrite an existing vault for exactly this reason.
+
+Other `/keepass` subcommands:
+
+| Command | Does |
+|---|---|
+| `/keepass` | show vault status + which provider entries were found |
+| `/keepass init [key]` | create the vault, keyfile, and loader |
+| `/keepass set <Title> <key>` | add or rotate one provider's key |
 
 The entry **title must be exactly `OpenRouter`** — that's what Robodog looks
 up — and the key goes in the *password* field. Titles for other providers:
@@ -196,8 +195,10 @@ up — and the key goes in the *password* field. Titles for other providers:
 ⚠️ Back up `automation-keys.keyfile` somewhere safe. Without it the vault
 **cannot** be opened — there's no master password to fall back on.
 
-**6B.3 — Add the loader module.** Robodog imports this file by name and
-calls exactly this interface. Save it as `~/.robodog/keepass_loader.py`:
+**6B.3 — The loader module.** `/keepass init` already wrote this for you —
+skip ahead unless you're wiring up an existing vault by hand. Robodog
+imports the file by name and calls exactly this interface
+(`~/.robodog/keepass_loader.py`):
 
 ```python
 # ~/.robodog/keepass_loader.py
@@ -346,6 +347,7 @@ Inside the terminal, just type a task (`create hello.py and run it`). Useful com
 | `/bg <task>` · `/tasks` · `/tail` · `/kill` | background subagents |
 | `/rewind` | undo file changes from a previous prompt |
 | `/model <name>` · `/doctor` · `/context` · `/compact` | switch model · diagnostics · context |
+| `/keepass [init\|set]` | create or inspect the encrypted key vault |
 | `! <cmd>` | run a shell command directly (shared with the agent) |
 | `@path/to/file` | inline a file into your message |
 
@@ -466,6 +468,24 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
+
+### 0.2.4
+
+- **Add:** `/keepass` — create and inspect the encrypted key vault from
+  inside the terminal. `/keepass init [key]` writes the database, a random
+  keyfile, and the loader module in one step (replacing the hand-run script
+  the README used to ask for); `/keepass set <Title> <key>` adds or rotates
+  a provider key; bare `/keepass` reports status. It refuses to overwrite an
+  existing vault — the keyfile is the only way in, so clobbering it would
+  destroy every credential stored there.
+- **Fix:** tool results are summarized instead of dumped. `read_file` now
+  reports `read 46 lines` rather than echoing the file's first line into the
+  trace, `bash` reports `(exit 0) · N lines`, and `grep`/`list_dir`/`glob`
+  report counts. Multi-line output can no longer flow into the transcript as
+  a blob.
+- **Fix:** failed tool calls render in red. They previously inherited the
+  trace's `dim` style — including `ERROR:`/`BLOCKED:` results and failed
+  commands — so failures were the *least* visible lines on screen.
 
 ### 0.2.3
 

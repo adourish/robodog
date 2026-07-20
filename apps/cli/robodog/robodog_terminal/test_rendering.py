@@ -88,6 +88,63 @@ def main() -> int:
     ui.tool_result("bash", "$ echo hi\n(exit 0)")
     check("echo hi" in buf.getvalue(), "tool_result without a path renders fine")
 
+    # ---------------- tool-aware result summaries ------------------------
+    # read_file returns the WHOLE file line-numbered; the trace must report a
+    # count, never echo the content (that was the old behaviour, and it made
+    # the transcript unreadable).
+    ui, buf = capture()
+    body = "\n".join(f"{i}\t# secret line {i}" for i in range(1, 47))
+    ui.tool_result("read_file", body)
+    p = plain(buf.getvalue())
+    check("read 46 lines" in p, "read_file summarizes as a line count")
+    check("secret line" not in p, "read_file does NOT echo file content")
+
+    ui, buf = capture()
+    ui.tool_result("read_file", "(empty file)")
+    check("empty file" in plain(buf.getvalue()), "read_file handles an empty file")
+
+    # failures render red and stay visible
+    ui, buf = capture()
+    ui.tool_result("read_file", "ERROR: file not found: /nope.txt")
+    out = buf.getvalue()
+    check("\x1b[31m" in out, "ERROR result renders red, not dim")
+    check("file not found" in plain(out), "ERROR text is preserved")
+
+    ui, buf = capture()
+    ui.tool_result("bash", "$ pytest\n⚠ COMMAND FAILED (exit 1) — read the error and fix it.\n"
+                           "--- stdout ---\nboom\nboom2")
+    out = buf.getvalue()
+    check("\x1b[31m" in out, "failed command renders red")
+    check("failed" in plain(out) and "pytest" in plain(out),
+          "failed command keeps the command + failure marker")
+
+    # successful bash reports exit + output size, not the output itself
+    ui, buf = capture()
+    ui.tool_result("bash", "$ ls\n(exit 0)\n--- stdout ---\na.py\nb.py\nc.py")
+    p = plain(buf.getvalue())
+    check("exit 0" in p and "3 lines" in p, "bash reports exit status + line count")
+
+    # multi-line content never flows into the trace as a blob
+    ui, buf = capture()
+    ui.tool_result("list_dir", "a.py\nb.py\nc.py\nd.py")
+    p = plain(buf.getvalue())
+    check("4 entries" in p, "list_dir summarizes as an entry count")
+
+    ui, buf = capture()
+    ui.tool_result("glob", "No files matching '*.zzz' under /tmp.")
+    check("No files matching" in plain(buf.getvalue()), "glob keeps its empty message")
+
+    # grep keeps the first hit (clickable) and counts the rest
+    ui, buf = capture()
+    ui.tool_result("grep", "src/mod.py:42: def handler():\nsrc/x.py:7: y\nsrc/z.py:9: q")
+    p = plain(buf.getvalue())
+    check("mod.py:42" in p and "+2 more" in p, "grep shows first hit + remaining count")
+
+    # _flatten kills tabs/newlines so nothing can break the single-line trace
+    ui, _ = capture()
+    check("\n" not in ui._flatten("a\nb\tc") and "a b c" == ui._flatten("a\nb\tc"),
+          "_flatten collapses newlines and tabs")
+
     # ---------------- diff header link + colored body --------------------
     ui, buf = capture()
     ui.diff(str(here), "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n")

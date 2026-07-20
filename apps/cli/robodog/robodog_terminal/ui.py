@@ -398,35 +398,94 @@ class UI:
         else:
             print(f"  * {name} {preview}")
 
+    @staticmethod
+    def _flatten(s: str, limit: int = 120) -> str:
+        """One clean line: tabs/newlines/control chars collapsed to spaces."""
+        import re as _re
+        s = _re.sub(r"[\t\r\n\x00-\x1f]+", " ", s)
+        s = _re.sub(r"  +", " ", s).strip()
+        return s[:limit] + "…" if len(s) > limit else s
+
+    def _result_summary(self, name: str, result: str):
+        """
+        (text, style) — a compact, tool-aware summary of a tool result.
+
+        The rule: report WHAT HAPPENED, never dump the payload. `read_file`
+        returns the whole file line-numbered; echoing even its first line
+        leaks content into the trace and reads like noise. Failures get a
+        loud style so the eye lands on them instead of scrolling past.
+        """
+        text = (result or "").strip()
+        if not text:
+            return "(no output)", "dim"
+        lines = text.splitlines()
+        first = lines[0]
+        n = len(lines)
+
+        # Failures first — these must never render dim.
+        if text.startswith(("ERROR:", "BLOCKED:")):
+            return self._flatten(first, 160), "red"
+        if "⚠ VERIFY FAILED" in text:
+            return self._flatten(
+                next(l for l in lines if "VERIFY FAILED" in l), 160), "red"
+
+        if name == "read_file":
+            if text == "(empty file)":
+                return "empty file", "dim"
+            return f"read {n} line{'' if n == 1 else 's'}", "dim"
+
+        if name in ("bash", "run_script"):
+            failed = any(l.startswith("⚠ COMMAND FAILED") for l in lines)
+            body = [l for l in lines[1:]
+                    if not l.startswith(("(exit", "⚠ COMMAND FAILED", "--- std"))]
+            extra = f" · {len(body)} lines" if body else ""
+            status = "failed" if failed else "exit 0"
+            return (f"{self._flatten(first, 90)}  ({status}){extra}",
+                    "red" if failed else "dim")
+
+        if name == "grep":
+            more = f"  (+{n - 1} more)" if n > 1 else ""
+            return self._flatten(first, 100) + more, "dim"
+
+        if name in ("glob", "list_dir"):
+            if first.lower().startswith("no files"):
+                return self._flatten(first, 120), "dim"
+            return f"{n} entr{'y' if n == 1 else 'ies'}", "dim"
+
+        # write_file / edit_file / run_tests / agent: the tool already returns a
+        # one-line summary — keep it, just flatten and note any overflow.
+        more = f"  (+{n - 1} lines)" if n > 1 else ""
+        return self._flatten(first, 100) + more, "dim"
+
     def tool_result(self, name: str, result: str):
-        first = result.strip().splitlines()[0] if result.strip() else ""
-        more = result.count("\n")
-        suffix = f"  (+{more} lines)" if more else ""
+        summary, style = self._result_summary(name, result)
         if self.console:
             from rich.text import Text as _T
             import re as _re
-            line = _T("    ↳ ", style="dim")
+            # No base style on the Text: a global "dim" here would blend into
+            # every append, rendering failures as *dim red* and burying them.
+            line = _T()
+            line.append("    ↳ ", style="dim")
             # Linkify an absolute path OR a file:line reference (grep results,
             # tracebacks) in the summary line so it opens the file on click.
-            snippet = first[:100]
             m = _re.search(
-                r"([A-Za-z]:\\[^\s():]+|[\w./\\-]+\.[A-Za-z]\w*)(:\d+)?", snippet)
+                r"([A-Za-z]:\\[^\s():]+|[\w./\\-]+\.[A-Za-z]\w*)(:\d+)?", summary)
             if m and (m.group(2) or "\\" in m.group(1) or "/" in m.group(1)):
                 path, lineno = m.group(1), (m.group(2) or "")
-                pre, post = snippet[:m.start()], snippet[m.end():]
-                line.append(pre, style="dim")
+                pre, post = summary[:m.start()], summary[m.end():]
+                line.append(pre, style=style)
                 # editor-aware: link jumps to the exact line when known
                 ln_int = int(lineno[1:]) if lineno else None
-                lp = self._linked_path(path, "dim", line=ln_int)
+                lp = self._linked_path(path, style, line=ln_int)
                 if lineno:
-                    lp.append(lineno, style="dim")
+                    lp.append(lineno, style=style)
                 line.append_text(lp)
-                line.append(post + suffix, style="dim")
+                line.append(post, style=style)
             else:
-                line.append(snippet + suffix, style="dim")
+                line.append(summary, style=style)
             self.console.print(line)
         else:
-            print(f"    -> {first[:100]}{suffix}")
+            print(f"    -> {summary}")
 
     def diff(self, path: str, diff_text: str, max_lines: int = 40):
         """Colored unified diff preview of a file change."""

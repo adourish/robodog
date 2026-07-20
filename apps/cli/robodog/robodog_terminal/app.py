@@ -240,6 +240,7 @@ Commands:
   /resume [id]       list saved sessions, or resume one (id or 'latest')
   /init              generate a ROBODOG.md project guide via the agent
   /doctor            run environment diagnostics
+  /keepass [init|set] create or inspect the encrypted key vault
   /skills            list custom commands, skills, and agents (.robodog/…)
   /todos             show the agent's task checklist
   /cwd [path]        show or change working directory
@@ -262,6 +263,7 @@ and delegate to subagents.
 
 SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
+                  "/keepass",
                   "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/bg", "/tasks", "/tail",
                   "/kill", "/exit", "/quit"]
 
@@ -882,6 +884,13 @@ def main(argv=None) -> int:
                 ui.info(format_report(run_doctor(
                     ui.cwd, backend=getattr(args, "backend", "") or "",
                     model=_doc_model)))
+            elif cmd == "keepass":
+                try:
+                    from .keepass_setup import handle as _kp_handle
+                except ImportError:
+                    from robodog_terminal.keepass_setup import handle as _kp_handle
+                _kp_ok, _kp_msg = _kp_handle(rest)
+                (ui.info if _kp_ok else ui.error)(_kp_msg)
             elif cmd == "todos":
                 lines = checklist.render_lines()
                 ui.info("\n".join(lines) if lines else "(no tasks)")
