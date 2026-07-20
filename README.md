@@ -610,7 +610,7 @@ What each line does, and the order things fail in if one is wrong:
 | `ROBODOG_LLM_KEY_FORMAT=user:pass` | join access + secret into one key | HTTP 401 (only the secret sent) |
 | `ROBODOG_MODEL` | the engine/model id to request | HTTP 400 invalid model ID |
 | `REQUESTS_CA_BUNDLE` | trust the gateway's private CA | `OSError: Could not find a suitable TLS CA certificate bundle` (path missing) or `CERTIFICATE_VERIFY_FAILED` (wrong cert) |
-| `ROBODOG_LLM_MAX_CONCURRENCY` (optional) | cap simultaneous requests — set `1` or `2` for a slow gateway | parallel subagents cause `ReadTimeout`s under load |
+| `ROBODOG_LLM_MAX_CONCURRENCY` (optional) | cap simultaneous requests. A custom gateway (non-mainstream URL) is **auto-capped to 2**; set `1` for a very slow one, or a higher number to lift it | parallel subagents cause `ReadTimeout`s under load |
 | `ROBODOG_LLM_TIMEOUT` (optional) | per-request timeout in seconds (default 120) | raise it if single requests are slow but not stuck |
 
 `/doctor`'s `llm-config` line shows both values so you can confirm they took

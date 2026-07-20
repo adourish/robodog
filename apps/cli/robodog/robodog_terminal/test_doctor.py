@@ -246,27 +246,34 @@ def main() -> int:
         else:
             os.environ["ROBODOG_NO_VERSION_CHECK"] = _saved_vc
 
-    # llm-config surfaces the concurrency cap + timeout
+    # llm-config surfaces the EFFECTIVE concurrency cap + timeout
     _sc = os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
     _st = os.environ.pop("ROBODOG_LLM_TIMEOUT", None)
+    _su = os.environ.pop("ROBODOG_LLM_URL", None)
     try:
         lc0 = doctor._check_llm_config()
         check(lc0.ok is None and "unlimited" in lc0.detail
               and "ROBODOG_LLM_MAX_CONCURRENCY" in lc0.detail,
-              "llm-config: uncapped -> warn recommending the cap")
+              "llm-config: uncapped (no url) -> warn recommending the cap")
+        # a custom gateway auto-caps -> reported as 'auto'
+        os.environ["ROBODOG_LLM_URL"] = "https://elsa.example/Monolith/api/model/openai"
+        lcA = doctor._check_llm_config()
+        check(lcA.ok is True and "auto" in lcA.detail,
+              "llm-config: custom gateway shows the auto concurrency cap")
+        os.environ.pop("ROBODOG_LLM_URL", None)
+        # explicit cap reported as 'set'
         os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = "2"
         os.environ["ROBODOG_LLM_TIMEOUT"] = "180"
         lc1 = doctor._check_llm_config()
-        check(lc1.ok is True and "max concurrency: 2" in lc1.detail
+        check(lc1.ok is True and "max concurrency: 2 (set)" in lc1.detail
               and "timeout: 180s" in lc1.detail,
-              "llm-config: cap + timeout reported when set")
+              "llm-config: explicit cap + timeout reported when set")
     finally:
-        os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
-        os.environ.pop("ROBODOG_LLM_TIMEOUT", None)
-        if _sc is not None:
-            os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = _sc
-        if _st is not None:
-            os.environ["ROBODOG_LLM_TIMEOUT"] = _st
+        for _k, _v in (("ROBODOG_LLM_MAX_CONCURRENCY", _sc),
+                       ("ROBODOG_LLM_TIMEOUT", _st), ("ROBODOG_LLM_URL", _su)):
+            os.environ.pop(_k, None)
+            if _v is not None:
+                os.environ[_k] = _v
 
     tty = doctor._check_tty()
     check(tty.name == "tty" and tty.ok in (True, None), "tty check returns pass/warn")

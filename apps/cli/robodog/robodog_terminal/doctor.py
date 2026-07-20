@@ -309,24 +309,29 @@ def _check_model_backend(backend: str, model: str) -> CheckResult:
 
 
 def _check_llm_config() -> CheckResult:
-    """Surface the request-shaping env so a slow-gateway user can SEE whether
-    the concurrency cap and timeout they set are actually in effect."""
-    cap = os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY")
+    """Surface the EFFECTIVE request-shaping config so a slow-gateway user can
+    SEE the concurrency cap actually in effect — including the auto-default a
+    custom gateway gets."""
     try:
-        cap_n = int(cap) if cap else 0
-    except ValueError:
-        cap_n = 0
+        from .llm_client import _effective_max_concurrency
+    except Exception:
+        try:
+            from robodog_terminal.llm_client import _effective_max_concurrency
+        except Exception:
+            _effective_max_concurrency = lambda: 0  # noqa: E731
+    cap_n = _effective_max_concurrency()
+    explicit = bool(os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY"))
     try:
         timeout = float(os.environ.get("ROBODOG_LLM_TIMEOUT", "120") or 120)
     except ValueError:
         timeout = 120.0
-    cap_txt = f"{cap_n}" if cap_n > 0 else "unlimited"
-    detail = f"max concurrency: {cap_txt}; request timeout: {timeout:.0f}s"
-    if cap_n <= 0:
-        detail += (" — a slow gateway that times out under a parallel subagent "
-                   "fan-out wants ROBODOG_LLM_MAX_CONCURRENCY=1 or 2")
-        return CheckResult("llm-config", None, detail)
-    return CheckResult("llm-config", True, detail)
+    if cap_n > 0:
+        src = "set" if explicit else "auto: custom gateway"
+        detail = (f"max concurrency: {cap_n} ({src}); request timeout: {timeout:.0f}s")
+        return CheckResult("llm-config", True, detail)
+    detail = (f"max concurrency: unlimited; request timeout: {timeout:.0f}s — "
+              "if a parallel fan-out times out, set ROBODOG_LLM_MAX_CONCURRENCY=1")
+    return CheckResult("llm-config", None, detail)
 
 
 def _check_terminal_modules() -> CheckResult:

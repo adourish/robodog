@@ -24,23 +24,42 @@ from urllib.parse import quote_plus
 logger = logging.getLogger(__name__)
 
 # Cap concurrent OpenAI-compat calls across ALL loops — parallel subagents share
-# one client, so without a cap a fan-out fires N simultaneous requests. Off by
-# default (fast providers like OpenRouter/OpenAI shrug it off); set it for a
-# slow self-hosted gateway (SEMOSS/ELSA) that ReadTimeouts under concurrent load:
-#   ROBODOG_LLM_MAX_CONCURRENCY=2
+# one client, so without a cap a fan-out fires N simultaneous requests. Fast,
+# high-limit providers shrug that off; a custom self-hosted gateway (SEMOSS/ELSA)
+# ReadTimeouts under it. So: explicit ROBODOG_LLM_MAX_CONCURRENCY wins; else a
+# CUSTOM gateway (a ROBODOG_LLM_URL that isn't a known fast host) gets a
+# conservative default so it works out of the box; known providers stay uncapped.
 _OPENAI_SEM = None
 _OPENAI_SEM_N = None
 _OPENAI_SEM_LOCK = threading.Lock()
 
+# Hosts known to handle heavy concurrency — everything else is a "custom gateway".
+_FAST_HOSTS = ("openrouter.ai", "api.openai.com", "api.groq.com",
+               "api.together.xyz", "api.mistral.ai", "api.anthropic.com",
+               "api.deepseek.com", "api.fireworks.ai", "localhost", "127.0.0.1")
+_DEFAULT_CUSTOM_CONCURRENCY = 2
+
+
+def _effective_max_concurrency() -> int:
+    """Resolve the concurrency cap: explicit env var, else a conservative
+    default for a custom gateway (ROBODOG_LLM_URL not a known fast host), else
+    0 (unlimited)."""
+    raw = os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY")
+    if raw:
+        try:
+            return max(0, int(raw))
+        except ValueError:
+            return 0
+    url = (os.environ.get("ROBODOG_LLM_URL") or "").lower()
+    if url and not any(h in url for h in _FAST_HOSTS):
+        return _DEFAULT_CUSTOM_CONCURRENCY
+    return 0
+
 
 def _openai_semaphore():
-    """Shared BoundedSemaphore sized by ROBODOG_LLM_MAX_CONCURRENCY, or None
-    (no cap) when unset/<=0. Rebuilt if the env value changes between calls."""
+    """Shared BoundedSemaphore sized by the effective cap, or None (no cap)."""
     global _OPENAI_SEM, _OPENAI_SEM_N
-    try:
-        n = int(os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY", "0") or 0)
-    except ValueError:
-        n = 0
+    n = _effective_max_concurrency()
     if n <= 0:
         return None
     with _OPENAI_SEM_LOCK:

@@ -349,10 +349,24 @@ def main() -> int:
     import os as _os
     import threading as _th
     _saved = _os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY")
+    _saved_url = _os.environ.get("ROBODOG_LLM_URL")
     try:
         _os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
+        _os.environ.pop("ROBODOG_LLM_URL", None)
         lc._OPENAI_SEM = None
-        check(lc._openai_semaphore() is None, "no cap set -> no semaphore (unbounded)")
+        check(lc._openai_semaphore() is None, "no cap, no url -> no semaphore (unbounded)")
+
+        # a known fast provider stays uncapped by default
+        _os.environ["ROBODOG_LLM_URL"] = "https://openrouter.ai/api/v1"
+        check(lc._effective_max_concurrency() == 0, "openrouter url -> uncapped default")
+        # a CUSTOM gateway auto-caps out of the box (no env var needed)
+        _os.environ["ROBODOG_LLM_URL"] = "https://elsa.example/Monolith/api/model/openai"
+        check(lc._effective_max_concurrency() == lc._DEFAULT_CUSTOM_CONCURRENCY,
+              "custom gateway url -> auto concurrency cap")
+        # explicit env always wins over the auto-default
+        _os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = "1"
+        check(lc._effective_max_concurrency() == 1, "explicit cap wins over auto-default")
+        _os.environ.pop("ROBODOG_LLM_URL", None)
 
         _os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = "2"
         lc._OPENAI_SEM = None
@@ -388,10 +402,12 @@ def main() -> int:
         check(active["max"] <= 2,
               f"6 concurrent calls throttled to the cap of 2 (peak {active['max']})")
     finally:
-        if _saved is None:
-            _os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
-        else:
-            _os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = _saved
+        for _k, _v in (("ROBODOG_LLM_MAX_CONCURRENCY", _saved),
+                       ("ROBODOG_LLM_URL", _saved_url)):
+            if _v is None:
+                _os.environ.pop(_k, None)
+            else:
+                _os.environ[_k] = _v
         lc._OPENAI_SEM = None
 
     print("\nLLM CLIENT:", "ALL PASS" if ok else "FAILURES")
