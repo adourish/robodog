@@ -621,6 +621,14 @@ def main(argv=None) -> int:
                 child_stats["children"].clear()
                 child_stats["calls"] = 0
             ui.spinner_start(f"✳ Thinking… (step {data['iteration']}, ctrl-c to cancel)")
+        elif kind == "llm_error":
+            ui.spinner_stop()
+            if data.get("will_retry"):
+                ui.dim(f"  ⚠ backend error ({data.get('error', '')}) — "
+                       "retrying the step once…")
+            else:
+                ui.dim("  ⚠ backend still unreachable — ending the turn "
+                       "(your context is kept; try again)")
         elif kind == "llm_done":
             ui.spinner_stop()
             if data.get("prose") and data.get("n_calls"):

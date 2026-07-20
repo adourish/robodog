@@ -57,14 +57,67 @@ def main() -> int:
     check(any(t.tool_name == "system" and "NO <tool> blocks" in t.content
               for t in r.turns), "nudge turn injected")
 
-    # ---------------- loop: circuit breaker -------------------------------
+    # ---------------- loop: circuit breaker (exact repeat) ----------------
     bad = '<tool name="read_file"><param name="path">missing.txt</param></tool>'
     loop3 = AgentLoop(EchoClient(script=[bad] * 6), default_registry(cwd=str(wd)))
     r = loop3.run("read it")
-    check("aborted" in r.final_text and r.iterations <= 4,
-          f"circuit breaker aborted at iter {r.iterations}")
+    check("stopped" in r.final_text and r.iterations <= 4,
+          f"circuit breaker stopped at iter {r.iterations}")
     warns = [t for t in r.turns if t.tool_name == "system" and "WARNING" in t.content]
-    check(len(warns) == 1, "single warning before abort")
+    check(len(warns) == 1, "single warning before the exact-repeat stop")
+
+    # ---------------- loop: same tool failing with DIFFERENT args ---------
+    # read_file on a different missing path each time never trips the exact-
+    # repeat breaker, but the consecutive-error breaker catches it: a NOTE
+    # nudge at 3, a graceful stop by 5 (no infinite loop to max_iterations).
+    diff = [f'<tool name="read_file"><param name="path">nope{i}.txt</param></tool>'
+            for i in range(8)]
+    loop3b = AgentLoop(EchoClient(script=diff), default_registry(cwd=str(wd)),
+                       max_iterations=20)
+    r = loop3b.run("keep trying different paths")
+    notes = [t for t in r.turns if t.tool_name == "system"
+             and "failed 3 times" in t.content]
+    check(len(notes) == 1, "consecutive-error NOTE injected after 3 same-tool failures")
+    check("stopped" in r.final_text and r.iterations < 20,
+          f"consecutive-error breaker stops before max_iterations (iter {r.iterations})")
+
+    # ---------------- loop: API error is recoverable, not fatal -----------
+    from robodog_terminal.llm_client import LLMClient, Completion
+
+    class FlakyClient(LLMClient):
+        name = "flaky"
+        def __init__(self, fail_times):
+            self.calls = 0
+            self.fail_times = fail_times
+        def complete(self, prompt, context="", max_tokens=8192, temperature=0.3):
+            self.calls += 1
+            if self.calls <= self.fail_times:
+                raise RuntimeError("network: ReadTimeout")
+            return Completion(text="recovered and done", prompt_tokens=1,
+                              completion_tokens=2)
+
+    # one transient failure -> the loop-level retry recovers, turn completes
+    loopA = AgentLoop(FlakyClient(fail_times=1), default_registry(cwd=str(wd)))
+    loopA.api_retry_pause = 0
+    r = loopA.run("do it")
+    check("recovered and done" in r.final_text,
+          "transient API failure self-heals via the loop-level retry")
+
+    # persistent failure -> graceful end, NO exception, context preserved
+    loopB = AgentLoop(FlakyClient(fail_times=99), default_registry(cwd=str(wd)))
+    loopB.api_retry_pause = 0
+    errs = []
+    loopB.on_event = lambda k, d: errs.append(k) if k == "llm_error" else None
+    raised = False
+    try:
+        r = loopB.run("do it")
+    except Exception:
+        raised = True
+    check(not raised, "persistent API failure does NOT raise out of the turn")
+    check("unreachable" in r.final_text, "graceful message on API exhaustion")
+    check(loopB.history and loopB.history[0].content == "do it",
+          "user message preserved in history after an API failure")
+    check(errs.count("llm_error") >= 2, "llm_error event emitted per failed attempt")
 
     # ---------------- loop: cancel_event ----------------------------------
     ev = threading.Event()
