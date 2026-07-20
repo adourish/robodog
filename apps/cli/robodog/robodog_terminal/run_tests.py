@@ -40,11 +40,14 @@ SUITES = [
     "test_integration.py",    # plan mode, @-mentions, bg-bash hook, wiring
 ]
 
-# Opt-in LIVE performance test (real LLM calls, needs keys + network). Off by
-# default so the standard suite stays fast, deterministic, and keyless.
-#   ROBODOG_PERF=1 python robodog_terminal/run_tests.py
+# Opt-in LIVE suites (network / real browser / real LLM). Off by default so
+# the standard suite stays fast, deterministic, and keyless.
+#   ROBODOG_PERF=1 python robodog_terminal/run_tests.py   (live LLM benchmark)
+#   ROBODOG_LIVE=1 python robodog_terminal/run_tests.py   (live web/API/playwright E2E)
 if os.environ.get("ROBODOG_PERF") == "1":
     SUITES.append("perf_fanout.py")   # live subagent fan-out concurrency benchmark
+if os.environ.get("ROBODOG_LIVE") == "1":
+    SUITES.append("test_live_web.py")  # parallel live-site fetch, polyglot squad, playwright
 
 
 def main() -> int:
