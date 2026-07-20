@@ -553,17 +553,17 @@ with no config change.
 entry instead of the default `OpenAI` / `OpenRouter`:
 
 ```
-ROBODOG_KEEPASS_LLM_ENTRY=SEMOSS-Elsa-Dev
+ROBODOG_KEEPASS_LLM_ENTRY=My-Gateway-Entry
 ```
 
-**Gateways that want an `access:secret` key** (SEMOSS/ELSA-style
+**Gateways that want an `access:secret` key** (SEMOSS-style
 OpenAI-compatible endpoints). When the entry stores the two halves in its
 **username** (access key) and **password** (secret) fields,
 `ROBODOG_LLM_KEY_FORMAT=user:pass` joins them into `access:secret` for the
 `Authorization` header; the base URL comes from the entry's URL field:
 
 ```
-ROBODOG_KEEPASS_LLM_ENTRY=SEMOSS-Elsa-Dev
+ROBODOG_KEEPASS_LLM_ENTRY=My-Gateway-Entry
 ROBODOG_LLM_KEY_FORMAT=user:pass
 REQUESTS_CA_BUNDLE=C:\path\to\private-ca.pem   # if the endpoint uses a private cert
 ```
@@ -572,6 +572,45 @@ Then `--backend openai --model <engine-id>` reads the key and URL straight
 from the vault — the secret never touches a file. (`REQUESTS_CA_BUNDLE` is a
 standard `requests` env var; robodog honors it for endpoints behind a
 private/internal CA.)
+
+#### Worked example — a self-hosted OpenAI-compatible gateway
+
+A complete `~/.robodog/config.env` for a SEMOSS-style enterprise gateway
+that speaks the OpenAI protocol, keeps its key in a vault as
+`access:secret`, and sits behind a private CA. Substitute your own host,
+entry, engine id, and cert path:
+
+```
+ROBODOG_KEEPASS_DB=C:\keys\automation-keys.kdbx
+ROBODOG_KEEPASS_DIR=C:\keys
+ROBODOG_LLM_URL=https://your-gateway.internal.example/Monolith/api/model/openai
+ROBODOG_KEEPASS_LLM_ENTRY=My-Gateway-Entry
+ROBODOG_LLM_KEY_FORMAT=user:pass
+ROBODOG_MODEL=<engine-id-from-the-gateway>
+REQUESTS_CA_BUNDLE=C:\Users\<you>\gateway-ca.pem
+```
+
+```
+robodog-terminal --backend openai
+```
+
+What each line does, and the order things fail in if one is wrong:
+
+| Line | Purpose | If wrong |
+|---|---|---|
+| `ROBODOG_KEEPASS_DB` / `DIR` | locate the vault + `keepass_loader.py` | `/doctor` keepass: loader/db MISSING |
+| `ROBODOG_LLM_URL` | the gateway's OpenAI base URL | HTTP 404 (try `.../openai/chat/completions`) |
+| `ROBODOG_KEEPASS_LLM_ENTRY` | which vault entry holds the key | falls back to echo (no key found) |
+| `ROBODOG_LLM_KEY_FORMAT=user:pass` | join access + secret into one key | HTTP 401 (only the secret sent) |
+| `ROBODOG_MODEL` | the engine/model id to request | HTTP 400 invalid model ID |
+| `REQUESTS_CA_BUNDLE` | trust the gateway's private CA | `OSError: Could not find a suitable TLS CA certificate bundle` (path missing) or `CERTIFICATE_VERIFY_FAILED` (wrong cert) |
+
+Run `/doctor` after editing — it reports the vault entry the backend will
+actually read (`LLM entry '<title>': present|MISSING`) and the
+model/backend pairing, so most of the table above is caught before you send
+a prompt. (`config.env` must live at `~/.robodog/config.env` —
+`%USERPROFILE%\.robodog\config.env` on Windows — not the directory you
+launch from.)
 
 ### Hooks & permissions
 
