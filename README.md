@@ -805,6 +805,14 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.19
+
+- **Better errors:** a failed Python run that dies with
+  `TypeError: the JSON object must be str, bytes or bytearray, not dict/list`
+  now hints that the value is **already parsed** — drop the `json.loads()` and
+  use it directly. (Observed looping when a skill's `run()` returns `body` as a
+  parsed dict.)
+
 ### 0.3.18
 
 - **Better errors:** a failed `run_script`/`bash` Python run that dies with

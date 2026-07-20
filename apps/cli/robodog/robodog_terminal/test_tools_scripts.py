@@ -163,6 +163,22 @@ def main() -> int:
           and "HINT" in res and "jira-call" in res,
           "run_script surfaces the importlib hint on the real failure")
 
+    # --- 3f. python_error_hint: json.loads() on an already-parsed value ---
+    # From a real ELSA session: the jira skill's run() returns body as a parsed
+    # dict, but the model looped 3x on `json.loads(result["body"])` ->
+    #   TypeError: the JSON object must be str, bytes or bytearray, not dict
+    print("=== 3f. python_error_hint (json.loads on a dict) ===")
+    from robodog_terminal.tools import python_error_hint as _peh
+    for _t in ("dict", "list"):
+        _h = _peh(f"TypeError: the JSON object must be str, bytes or bytearray, not {_t}")
+        check("ALREADY a parsed" in _h and _t in _h and "json.loads" in _h,
+              f"json.loads-on-{_t} hint says the value is already parsed")
+    check(_peh("ValueError: something else") == "", "no hint on an unrelated error")
+    reg = fresh_registry()
+    res = reg.execute("run_script", {"content": "import json\njson.loads({'a': 1})\n"})
+    check("HINT" in res and "ALREADY a parsed dict" in res,
+          "run_script surfaces the drop-json.loads hint")
+
     # --- 4. bash background param stub -----------------------------------
     print("=== 4. bash background stub ===")
     reg = fresh_registry()

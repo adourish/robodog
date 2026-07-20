@@ -330,6 +330,25 @@ def python_import_hint(stderr: str, cwd: str) -> str:
     return ""
 
 
+def python_error_hint(stderr: str) -> str:
+    """A one-line fix for recurring Python runtime mistakes the model loops on
+    (keyed on the traceback text only — no filesystem needed). Returns a hint
+    with a leading '\\n', or "" when nothing matches."""
+    err = stderr or ""
+    # json.loads() on an ALREADY-parsed value. Skill run()s that return
+    # body=<parsed dict> made the model loop on `json.loads(result["body"])`.
+    import re as _re
+    m = _re.search(
+        r"the JSON object must be str, bytes or bytearray, not (\w+)", err)
+    if m:
+        typ = m.group(1)
+        return (f"\nHINT: that value is ALREADY a parsed {typ} — drop the "
+                f"json.loads() call and use it directly (index/iterate it). "
+                f"json.loads() only takes a JSON *string*; call it just once on "
+                f"raw text, never on a dict/list you already have.")
+    return ""
+
+
 @dataclass
 class ToolParam:
     name: str
@@ -778,11 +797,14 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         hint = shell_syntax_hint(command or shown_cmd, out + "\n" + err)
         if hint:
             parts.append(hint.lstrip("\n"))
-        # Hyphenated-skill-dir import loop (fdaskills.jira.jira_call -> jira-call).
+        # Python self-heal hints (failed runs only): hyphenated-skill-dir import
+        # loop (fdaskills.jira.jira_call -> jira-call) and json.loads on an
+        # already-parsed value — both observed looping 3x on ELSA.
         if returncode not in (0, None):
-            imp = python_import_hint(err, str(reg.cwd))
-            if imp:
-                parts.append(imp.lstrip("\n"))
+            for h in (python_import_hint(err, str(reg.cwd)),
+                      python_error_hint(err)):
+                if h:
+                    parts.append(h.lstrip("\n"))
         return "\n".join(parts)
 
     def _tail_clamp(text: str, limit: int = 12_000) -> str:
