@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.20
+
+- **Shell hints (Windows):** two more Unix-isms models trip on now self-correct —
+  `2>/dev/null` (PowerShell writes stderr to a literal `C:\dev\null` and dies)
+  points at `2>$null` / `| Out-Null`; and Unix `find PATH -type f -name …`
+  (not available on Windows) points at `Get-ChildItem -Recurse -Filter` +
+  `Where-Object`. Both guarded against false positives on commands that merely
+  mention the syntax.
+
 ### 0.3.19
 
 - **Better errors:** a failed Python run that dies with

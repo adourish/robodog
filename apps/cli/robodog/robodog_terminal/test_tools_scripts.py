@@ -126,6 +126,20 @@ def main() -> int:
         check("HINT" in h and "`;`" in h, "&& -> ; hint")
         check(_hint("git log --oneline -20", "") == "",
               "a clean command gets no hint")
+        # 2>/dev/null -> C:\dev\null (real session: find ... 2>/dev/null | grep)
+        h = _hint('find C:\\p -type f -name "*.py" 2>/dev/null | grep idp',
+                  "Could not find a part of the path 'C:\\dev\\null'")
+        check("HINT" in h and "2>$null" in h, "2>/dev/null -> 2>$null hint")
+        # Unix find with -type/-name -> Get-ChildItem
+        h = _hint('find C:\\projects\\SERIO -type f -name "*.py"',
+                  "find: command not found")
+        check("HINT" in h and "Get-ChildItem" in h and "-Filter" in h,
+              "unix find -type/-name -> Get-ChildItem hint")
+        # no false positives: a mere mention without redirect/failure stays silent
+        check(_hint('echo "logs go to /dev/null"', "") == "",
+              "bare /dev/null mention (no redirect) gets no hint")
+        check(_hint('git log --grep "find -name x"', "") == "",
+              "successful command mentioning find gets no hint")
 
     # --- 3e. python_import_hint: hyphenated skill dir -> importlib ---------
     # From a real ELSA session: the model looped 3× on

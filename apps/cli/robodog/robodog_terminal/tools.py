@@ -264,6 +264,28 @@ def shell_syntax_hint(command: str, combined: str) -> str:
     if os.name != "nt":
         return ""
     low = (combined or "").lower()
+    cmd_low = command.lower()
+    import re as _re
+    _failed = any(s in low for s in (
+        "error", "not found", "not recognized", "could not find",
+        "exception", "cannot find", "is not a valid"))
+    # `2>/dev/null` — PowerShell has no /dev/null; it writes stderr to a file
+    # literally named C:\dev\null and dies before the pipe even runs. Key on the
+    # REDIRECTION (not a bare mention) so an echo of "/dev/null" isn't flagged.
+    if _re.search(r"\d?\s*>\s*/dev/null", command):
+        return ("\nHINT: `/dev/null` doesn't exist on Windows — PowerShell tried "
+                "to write to C:\\dev\\null and failed. Discard stderr with "
+                "`2>$null`, or all output with `| Out-Null`.")
+    # Unix `find PATH -name/-type ...` — not available (cmd's find.exe is a
+    # different, text-search tool). This trips models constantly on Windows.
+    if _failed and _re.search(
+            r"(?:^|[|&;]|\s)find\s+\S.*\s-(?:name|type|iname|path|regex)\b",
+            command, _re.IGNORECASE):
+        return ("\nHINT: Unix `find` isn't available here. List files with "
+                "`Get-ChildItem -Recurse -Filter *.py -ErrorAction "
+                "SilentlyContinue` and filter with "
+                "`Where-Object { $_.FullName -match 'idp' }` "
+                "(use -match/-ilike, not `grep`).")
     if "&&" in command and ("not a valid statement separator" in low
                             or "token '&&'" in low):
         return ("\nHINT: this shell is PowerShell — `&&` and `||` are not "
@@ -280,7 +302,6 @@ def shell_syntax_hint(command: str, combined: str) -> str:
                     "`Sort-Object -Unique` (sort/uniq). Or run the same query "
                     "without the pipe — many git/tools have built-in limits "
                     "(e.g. `git log -n 20`).")
-    cmd_low = command.lower()
     if "if not exist" in cmd_low or "if exist" in cmd_low or "%errorlevel%" in cmd_low:
         return ("\nHINT: that's cmd.exe syntax in PowerShell. Use "
                 "`if (-not (Test-Path X)) { ... }` instead of `if not exist X`, "
