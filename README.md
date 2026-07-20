@@ -800,6 +800,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.5
+
+- **Add (experimental):** `ROBODOG_STICKY_INPUT=1` — a fixed input box
+  anchored at the bottom while the agent works, with output scrolling above,
+  so a follow-up typed mid-turn isn't scrambled by streamed output. Off by
+  default.
+
 ### 0.3.4
 
 - **Fix:** a second Ctrl+C now force-exits a stuck turn (e.g. one blocked in
