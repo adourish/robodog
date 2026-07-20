@@ -800,6 +800,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.7
+
+- **Add:** run read-only slash commands **while an agent is working** —
+  `/doctor`, `/status`, `/context`, `/tools`, `/tasks`, `/tail`, `/help`,
+  `/verbose`, `/todos`, `/skills` execute in-place immediately; anything else
+  you type still queues as a follow-up for the agent.
+
 ### 0.3.6
 
 - **Add:** `/doctor` flags a stale install — it checks the installed version
