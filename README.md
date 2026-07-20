@@ -805,6 +805,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.10
+
+- **Fix/Add:** a custom gateway (a `ROBODOG_LLM_URL` that isn't a known fast
+  host) is now **auto-capped to 2 concurrent requests**, so a parallel
+  subagent fan-out on a slow self-hosted gateway no longer causes a
+  `ReadTimeout` storm out of the box. Explicit `ROBODOG_LLM_MAX_CONCURRENCY`
+  still wins; `/doctor` shows the effective cap.
+- **Add:** gateway timeouts now say *which phase* failed — a fast connect
+  timeout (can't reach the host: VPN/URL) vs a read timeout (reached it, but
+  it never answered: slow/overloaded — raise `ROBODOG_LLM_TIMEOUT`). `/test`
+  is a one-shot timed probe reporting the exact phase + latency, so you can
+  tell a robodog problem from a gateway problem.
+
 ### 0.3.8
 
 - **Fix:** a double Ctrl+C now actually exits when a parallel subagent
