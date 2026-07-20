@@ -106,6 +106,55 @@ def _fuzzy_find(original: str, old: str) -> Optional[Tuple[int, int]]:
             matches.append((start, end))
     return matches[0] if len(matches) == 1 else None
 
+
+def edit_not_found_hint(original: str, old: str) -> str:
+    """
+    Explain WHY an edit_file old_string didn't match, so the model can self-
+    correct instead of re-submitting the same broken edit. Returns a short hint
+    string (leading space, no trailing newline), or "" if nothing useful found.
+
+    Detects, in priority order: the text is present but with different line
+    endings; present but with different leading/trailing whitespace; a non-unique
+    whitespace-normalized match; or shows the closest actual line in the file
+    with its line number so the model can copy the real content.
+    """
+    if not old.strip():
+        return " old_string is empty — nothing to find."
+    # 1. Line-ending mismatch: model sent CRLF the file doesn't have, or vice-versa.
+    if old not in original:
+        if old.replace("\r\n", "\n") in original.replace("\r\n", "\n") and (
+                "\r\n" in old) != ("\r\n" in original):
+            return (" the text IS present but line endings differ (CRLF vs LF). "
+                    "Copy old_string exactly from read_file output.")
+        # 2. Present ignoring surrounding whitespace on the whole block?
+        if old.strip() and old.strip() in original:
+            return (" the text is present but your old_string has extra leading/"
+                    "trailing whitespace — trim it to match the file exactly.")
+    # 3. Whitespace-normalized block appears but wasn't a UNIQUE fuzzy match.
+    norm_src = "\n".join(l.rstrip() for l in original.split("\n"))
+    norm_old = "\n".join(l.rstrip() for l in old.strip("\n").split("\n"))
+    occ = norm_src.count(norm_old) if norm_old else 0
+    if occ > 1:
+        return (f" the text appears {occ}× (ignoring trailing whitespace); add "
+                "more surrounding context so old_string is unique.")
+    # 4. Point at the closest actual line so the model sees the real content.
+    import difflib
+    anchor = next((l for l in old.strip("\n").split("\n") if l.strip()), "")
+    if anchor:
+        src_lines = original.split("\n")
+        best_i, best_r = -1, 0.0
+        a = anchor.strip()
+        for i, l in enumerate(src_lines):
+            r = difflib.SequenceMatcher(None, a, l.strip()).ratio()
+            if r > best_r:
+                best_i, best_r = i, r
+        if best_i >= 0 and best_r >= 0.5:
+            actual = src_lines[best_i].strip()
+            return (f" closest line in the file is line {best_i + 1}: "
+                    f"{actual!r} — your old_string began {a!r}. "
+                    "Re-read the file and copy the exact current text.")
+    return " re-read the file with read_file and copy the exact current text."
+
 # Directories glob/grep never descend into (mirrors .gitignore-aware search).
 EXCLUDE_DIRS = {
     ".git", "node_modules", "__pycache__", "dist", "build", ".venv", "venv",
@@ -406,8 +455,19 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                 reg.checkpointer.snapshot(path)
         if reg.on_diff is not None:
             import difflib
-            old_lines = (old_text or "").splitlines(keepends=True)
-            new_lines = new_text.splitlines(keepends=True)
+
+            def _nl_terminated(text):
+                # A file whose last line has no trailing newline yields a diff
+                # line with no '\n'; "".join then GLUES it to the next +/- line
+                # (`examples.+**See**`). difflib emits no `\ No newline` marker,
+                # so terminate the last line ourselves — this is display-only.
+                lines = text.splitlines(keepends=True)
+                if lines and not lines[-1].endswith(("\n", "\r")):
+                    lines[-1] += "\n"
+                return lines
+
+            old_lines = _nl_terminated(old_text or "")
+            new_lines = _nl_terminated(new_text)
             diff = "".join(difflib.unified_diff(
                 old_lines, new_lines,
                 fromfile=f"a/{path.name}", tofile=f"b/{path.name}", n=2))
@@ -500,7 +560,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             # Whitespace-tolerant fallback (indentation preserved).
             span = _fuzzy_find(original, old)
             if span is None:
-                return f"ERROR: old_string not found in {path}."
+                return (f"ERROR: old_string not found in {path}."
+                        + edit_not_found_hint(original, old))
             s, e = span
             updated = original[:s] + new + original[e:]
             note = " (matched with whitespace-normalization)"
@@ -564,8 +625,10 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                     applied += 1
                 else:
                     reason = "not found" if c == 0 else f"not unique ({c} matches)"
+                    hint = edit_not_found_hint(updated, old) if c == 0 else (
+                        " add more surrounding context so it's unique.")
                     return (f"ERROR: edit #{i} {reason} — NO changes applied "
-                            f"(atomic). old text starts: {old[:50]!r}")
+                            f"(atomic). old text starts: {old[:50]!r}.{hint}")
         return _finalize_write(path, original, updated,
                                f"Applied {applied} edits to {path} atomically.")
 

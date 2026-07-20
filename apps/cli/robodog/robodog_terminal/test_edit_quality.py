@@ -12,7 +12,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from robodog_terminal.tools import default_registry, verify_syntax, _fuzzy_find  # noqa: E402
+from robodog_terminal.tools import (  # noqa: E402
+    default_registry, verify_syntax, _fuzzy_find, edit_not_found_hint)
 
 ok = True
 
@@ -143,6 +144,58 @@ def main() -> int:
     # tool registered + in catalog
     check(reg.get("multi_edit") is not None and "multi_edit" in reg.catalog(),
           "multi_edit registered and catalogued")
+
+    # ---- diff preview: no-trailing-newline file must not mash two lines ----
+    # From a real session: editing the LAST line of a file with no final newline
+    # rendered `-old` glued to `+new` on one line (`examples.+**See**`) because
+    # difflib emits no `\ No newline` marker and "".join() concatenated them.
+    captured = []
+    reg.on_diff = lambda p, d: captured.append(d)
+    nonl = wd / "nonl.md"
+    nonl.write_text("# Title\n**See**: `a/skill.md` for docs.", encoding="utf-8")  # no \n
+    reg.execute("read_file", {"path": "nonl.md"})
+    reg.execute("edit_file", {"path": "nonl.md",
+                              "old_string": "**See**: `a/skill.md` for docs.",
+                              "new_string": "**See**: `b/skill.md` for docs."})
+    reg.on_diff = None
+    check(bool(captured), "edit surfaced a diff")
+    d = captured[-1] if captured else ""
+    check("for docs.+" not in d and "docs.-" not in d,
+          "removed line is not glued to the next added line")
+    check(all(ln.startswith(("+", "-", " ", "@", "\\")) or ln == ""
+              for ln in d.split("\n")),
+          "every diff line is a clean +/-/context/hunk line")
+    check("-**See**: `a/skill.md`" in d and "+**See**: `b/skill.md`" in d,
+          "both the old and new last lines appear, on their own lines")
+
+    # ---- edit_not_found_hint: turn "not found" into something actionable ----
+    # From a real ELSA session: two edit_file calls looped on a bare
+    # "old_string not found" with no way for the model to self-correct.
+    src = ("# Skills Index\n"
+           "- db-query: run Oracle queries\n"
+           "- serio-dev-environment: set up the box\n")
+    # (a) line-ending mismatch is named explicitly
+    h = edit_not_found_hint(src, "# Skills Index\r\n- db-query: run Oracle queries")
+    check("line endings" in h.lower(), "hint: names a CRLF/LF mismatch")
+    # (b) present but with stray surrounding whitespace
+    h = edit_not_found_hint(src, "   - db-query: run Oracle queries   ")
+    check("whitespace" in h.lower(), "hint: flags extra leading/trailing whitespace")
+    # (c) otherwise point at the closest actual line + its number
+    h = edit_not_found_hint(src, "- db-query: run oracle QUERIES now")
+    check("line 2" in h and "db-query" in h,
+          "hint: points at the closest actual line with its number")
+    # (d) surfaced through edit_file's real error
+    idx = wd / "SKILLS_INDEX.md"
+    idx.write_text(src, encoding="utf-8")
+    reg.execute("read_file", {"path": "SKILLS_INDEX.md"})
+    r = reg.execute("edit_file", {"path": "SKILLS_INDEX.md",
+                                  "old_string": "- db-query: totally wrong text here",
+                                  "new_string": "x"})
+    check("old_string not found" in r and "closest line" in r,
+          "edit_file error now carries the closest-line hint")
+    # (e) empty old_string is called out, not a silent no-op
+    check("empty" in edit_not_found_hint(src, "   ").lower(),
+          "hint: empty old_string is named")
 
     print("\nEDIT QUALITY:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1

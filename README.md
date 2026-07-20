@@ -805,6 +805,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.17
+
+- **Fix:** the diff preview no longer mashes two lines together when you edit
+  the **last line of a file that has no trailing newline** — difflib emits no
+  `\ No newline` marker, so `-old` was glued to `+new` (`examples.+**See**`).
+  Each `+`/`-` line now renders on its own line.
+- **Better errors:** when `edit_file`/`multi_edit` can't find `old_string`, the
+  error now says *why* — a CRLF/LF line-ending mismatch, stray leading/trailing
+  whitespace, a non-unique whitespace-normalized match, or the closest actual
+  line in the file (with its line number) — so the model can self-correct
+  instead of re-submitting the same broken edit.
+
 ### 0.3.16
 
 - **Fix:** the status line no longer disappears while an agent is working — the
