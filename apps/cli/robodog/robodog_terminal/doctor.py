@@ -308,6 +308,27 @@ def _check_model_backend(backend: str, model: str) -> CheckResult:
     return CheckResult("model-backend", True, f"{model} @ {backend}")
 
 
+def _check_llm_config() -> CheckResult:
+    """Surface the request-shaping env so a slow-gateway user can SEE whether
+    the concurrency cap and timeout they set are actually in effect."""
+    cap = os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY")
+    try:
+        cap_n = int(cap) if cap else 0
+    except ValueError:
+        cap_n = 0
+    try:
+        timeout = float(os.environ.get("ROBODOG_LLM_TIMEOUT", "120") or 120)
+    except ValueError:
+        timeout = 120.0
+    cap_txt = f"{cap_n}" if cap_n > 0 else "unlimited"
+    detail = f"max concurrency: {cap_txt}; request timeout: {timeout:.0f}s"
+    if cap_n <= 0:
+        detail += (" — a slow gateway that times out under a parallel subagent "
+                   "fan-out wants ROBODOG_LLM_MAX_CONCURRENCY=1 or 2")
+        return CheckResult("llm-config", None, detail)
+    return CheckResult("llm-config", True, detail)
+
+
 def _check_terminal_modules() -> CheckResult:
     """All terminal package modules must import; report the FIRST failure."""
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -346,6 +367,7 @@ def run_doctor(cwd: str, backend: str = "", model: str = "") -> List[CheckResult
         ("git", lambda: _check_which("git", "git")),
         ("powershell", lambda: _check_which("powershell", "powershell")),
         ("model-backend", lambda: _check_model_backend(backend, model)),
+        ("llm-config", lambda: _check_llm_config()),
         ("terminal-modules", lambda: _check_terminal_modules()),
     ]
     results: List[CheckResult] = []

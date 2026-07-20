@@ -336,6 +336,43 @@ def _open_target(target: str, cwd: str) -> str:
         return f"could not open {t}: {exc}"
 
 
+def _blocking_threads() -> list:
+    """Non-daemon, non-main threads still alive — these BLOCK a clean exit.
+    Parallel subagents run in a ThreadPoolExecutor whose workers are non-daemon
+    and get joined at interpreter shutdown; if one is wedged in a network retry,
+    a normal exit hangs on that join. (TurnRunner workers, the rich spinner, and
+    patch_stdout's flush thread are all daemon, so they don't count.)"""
+    import threading
+    main = threading.main_thread()
+    return [t for t in threading.enumerate()
+            if t is not main and t.is_alive() and not t.daemon]
+
+
+def _hard_quit(ui=None, code: int = 0) -> int:
+    """Print 'bye', then exit. If worker threads would block a clean shutdown
+    (a stuck subagent fan-out), terminate immediately via os._exit so the user
+    actually gets out — "bye" printed but hung otherwise. Sessions persist
+    per-turn, so nothing committed is lost. If nothing is blocking, returns the
+    code so the caller can `return` cleanly (keeps in-process/test use sane)."""
+    try:
+        if ui is not None:
+            try:
+                ui.reset_typing()
+                ui.spinner_stop()
+            except Exception:
+                pass
+            ui.info("\nbye")
+        else:
+            print("\nbye")
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except Exception:
+        pass
+    if _blocking_threads():
+        os._exit(code)
+    return code
+
+
 def _normalize_model_id(raw: str) -> str:
     """
     Clean up a model id typed at /model or --model:
@@ -859,8 +896,9 @@ def main(argv=None) -> int:
             try:
                 line = ui.prompt()
             except (EOFError, KeyboardInterrupt):
-                ui.info("\nbye")
-                return 0
+                # Idle quit — hard-exit if a backgrounded turn's subagents are
+                # stuck and would block a clean shutdown.
+                return _hard_quit(ui)
         # Strip lone UTF-16 surrogates from clipboard pastes at the boundary, so
         # they can't crash any downstream utf-8 encode (HTTP body, session JSONL).
         line = clean_text(line)
@@ -886,8 +924,7 @@ def main(argv=None) -> int:
             cmd = cmd.lower().strip()
             rest = rest.strip()
             if cmd in ("exit", "quit", "q"):
-                ui.info("bye")
-                return 0
+                return _hard_quit(ui)
             elif cmd == "help":
                 ui.info(HELP)
             elif cmd == "status":
@@ -1202,13 +1239,9 @@ def main(argv=None) -> int:
             else:
                 outcome = runner.watch(key_source)
         except KeyboardInterrupt:
-            # A SECOND Ctrl+C escaped the cancel wait — the user wants OUT even
-            # though the turn is stuck (e.g. blocked in a network retry). The
-            # worker is a daemon thread, so exiting abandons it cleanly.
-            ui.reset_typing()
-            ui.spinner_stop()
-            ui.info("\nbye")
-            return 0
+            # A SECOND Ctrl+C escaped the cancel wait — force-quit NOW, even if
+            # subagent worker threads are wedged in a network retry.
+            return _hard_quit(ui)
         except Exception as exc:
             ui.reset_typing()
             ui.spinner_stop()

@@ -318,11 +318,18 @@ class OpenAICompatClient(LLMClient):
 
     def __init__(self, base_url: str, api_key: str, model: str,
                  referer: str = "https://adourish.github.io",
-                 timeout: float = 120.0, max_attempts: int = 4,
+                 timeout: Optional[float] = None, max_attempts: int = 4,
                  on_retry: Optional[Callable[[int, int, float, str], None]] = None,
                  session=None):
         if not base_url or not api_key or not model:
             raise ValueError("OpenAICompatClient requires base_url, api_key, model")
+        # Per-request timeout: explicit arg, else ROBODOG_LLM_TIMEOUT, else 120s.
+        # A slow gateway that ReadTimeouts under load may want a longer value.
+        if timeout is None:
+            try:
+                timeout = float(os.environ.get("ROBODOG_LLM_TIMEOUT", "120") or 120)
+            except ValueError:
+                timeout = 120.0
         base = base_url.rstrip("/")
         # Normalize: config URLs often omit /v1 (e.g. "https://api.openai.com",
         # "https://openrouter.ai/api") — the wire path is <base>/v1/chat/completions.

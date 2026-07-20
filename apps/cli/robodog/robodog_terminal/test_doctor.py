@@ -32,7 +32,7 @@ EXPECTED_NAMES = [
     "python", "rich", "prompt_toolkit", "requests", "tty", "encoding",
     "cwd-writable", "robodog-home", "keepass", "gateway-env", "gateway-endpoint",
     "openai-endpoint", "ca-bundle", "git", "powershell", "model-backend",
-    "terminal-modules",
+    "llm-config", "terminal-modules",
 ]
 
 # A secret-looking string: a long unbroken alnum run (real keys are 25+ chars
@@ -245,6 +245,28 @@ def main() -> int:
             os.environ.pop("ROBODOG_NO_VERSION_CHECK", None)
         else:
             os.environ["ROBODOG_NO_VERSION_CHECK"] = _saved_vc
+
+    # llm-config surfaces the concurrency cap + timeout
+    _sc = os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
+    _st = os.environ.pop("ROBODOG_LLM_TIMEOUT", None)
+    try:
+        lc0 = doctor._check_llm_config()
+        check(lc0.ok is None and "unlimited" in lc0.detail
+              and "ROBODOG_LLM_MAX_CONCURRENCY" in lc0.detail,
+              "llm-config: uncapped -> warn recommending the cap")
+        os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = "2"
+        os.environ["ROBODOG_LLM_TIMEOUT"] = "180"
+        lc1 = doctor._check_llm_config()
+        check(lc1.ok is True and "max concurrency: 2" in lc1.detail
+              and "timeout: 180s" in lc1.detail,
+              "llm-config: cap + timeout reported when set")
+    finally:
+        os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
+        os.environ.pop("ROBODOG_LLM_TIMEOUT", None)
+        if _sc is not None:
+            os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = _sc
+        if _st is not None:
+            os.environ["ROBODOG_LLM_TIMEOUT"] = _st
 
     tty = doctor._check_tty()
     check(tty.name == "tty" and tty.ok in (True, None), "tty check returns pass/warn")

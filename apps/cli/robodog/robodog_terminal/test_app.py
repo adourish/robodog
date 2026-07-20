@@ -303,6 +303,33 @@ def main() -> int:
         app_mod._load_keepass_entry = _kp_saved
         _restore_env()
 
+    # ---- _hard_quit: clean return normally, os._exit when threads block --
+    import threading as _threading
+    # (a) nothing blocking -> returns the code, does NOT call os._exit
+    _saved_exit = _os._exit
+    called = {"code": None}
+    _os._exit = lambda c: called.__setitem__("code", c)
+    try:
+        rc = app_mod._hard_quit(ui=None, code=0)
+        check(rc == 0 and called["code"] is None,
+              "_hard_quit returns cleanly when no non-daemon threads block exit")
+
+        # (b) a live non-daemon thread present -> os._exit IS invoked
+        gate = _threading.Event()
+        blocker = _threading.Thread(target=lambda: gate.wait(5), daemon=False)
+        blocker.start()
+        try:
+            # give it a moment to be enumerable
+            time.sleep(0.05)
+            app_mod._hard_quit(ui=None, code=0)
+            check(called["code"] == 0,
+                  "_hard_quit calls os._exit when a non-daemon thread would block")
+        finally:
+            gate.set()
+            blocker.join(timeout=5)
+    finally:
+        _os._exit = _saved_exit
+
     print("\nAPP:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 
