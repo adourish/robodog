@@ -604,6 +604,7 @@ What each line does, and the order things fail in if one is wrong:
 | `ROBODOG_LLM_KEY_FORMAT=user:pass` | join access + secret into one key | HTTP 401 (only the secret sent) |
 | `ROBODOG_MODEL` | the engine/model id to request | HTTP 400 invalid model ID |
 | `REQUESTS_CA_BUNDLE` | trust the gateway's private CA | `OSError: Could not find a suitable TLS CA certificate bundle` (path missing) or `CERTIFICATE_VERIFY_FAILED` (wrong cert) |
+| `ROBODOG_LLM_MAX_CONCURRENCY` (optional) | cap simultaneous requests — set `2` for a slow gateway | parallel subagents cause `ReadTimeout`s under load |
 
 Run `/doctor` after editing — it reports the vault entry the backend will
 actually read (`LLM entry '<title>': present|MISSING`) and the
@@ -792,6 +793,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
+
+### 0.3.4
+
+- **Fix:** a second Ctrl+C now force-exits a stuck turn (e.g. one blocked in
+  a network retry) with a clean `bye`, instead of crashing to a traceback.
+  The first Ctrl+C still cancels gracefully.
+- **Add:** `ROBODOG_LLM_MAX_CONCURRENCY` caps concurrent requests to an
+  OpenAI-compatible backend — set it (e.g. `2`) so a parallel subagent
+  fan-out doesn't overwhelm a slow self-hosted gateway. Off by default.
 
 ### 0.3.3
 
