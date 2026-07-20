@@ -3,11 +3,14 @@
 Discovery + loading of user-extensible features, mirroring a modern agentic terminal's custom
 commands, subagents, and skills.
 
-Two roots are scanned in order — PROJECT first, then USER — and PROJECT wins on
-any name clash (a later-found entry never overrides one already registered):
+Roots are scanned in order — PROJECT first, then USER — and the first entry
+found wins on any name clash (a later-found entry never overrides one already
+registered). Within each scope, `.robodog` wins over `.claude`, so an existing
+Claude Code project's extensions work unchanged and robodog-specific overrides
+are possible:
 
-    PROJECT = <cwd>/.robodog
-    USER    = ~/.robodog
+    PROJECT = <cwd>/.robodog, then <cwd>/.claude
+    USER    = ~/.robodog,     then ~/.claude
 
 Three feature types live under each root:
 
@@ -148,14 +151,16 @@ class SkillsRegistry:
     """Discovers and holds custom commands, agents, and skills.
 
     Args:
-        cwd: the project working directory; the project root defaults to
-            ``<cwd>/.robodog``.
-        project_root: optional override for the project root directory (defaults
+        cwd: the project working directory; project roots default to
+            ``<cwd>/.robodog`` then ``<cwd>/.claude``.
+        project_root: optional override for the primary project root (defaults
             to ``<cwd>/.robodog``). Injectable so tests can point it at a temp
-            dir.
-        user_root: optional override for the user root directory (defaults to
-            ``~/.robodog``). Injectable so tests can exercise project-wins-over-
-            user behavior without touching the real home directory.
+            dir. When set, the ``.claude`` sibling of the SAME directory is
+            scanned second (so tests exercise both layouts).
+        user_root: optional override for the primary user root (defaults to
+            ``~/.robodog``; ``~/.claude`` is scanned after it). Injectable so
+            tests can exercise project-wins-over-user behavior without touching
+            the real home directory.
     """
 
     def __init__(
@@ -174,19 +179,30 @@ class SkillsRegistry:
         self.agents: Dict[str, CustomAgentDef] = {}
         self.skills: Dict[str, SkillDef] = {}
 
+    def _roots(self) -> List[Path]:
+        """Scan order: project .robodog, project .claude, user .robodog,
+        user .claude — first found wins, so .robodog can override .claude and
+        project can override user. The .claude sibling is derived from each
+        primary root's parent, so injected test roots exercise both layouts."""
+        return [
+            self.project_root,
+            self.project_root.parent / ".claude",
+            self.user_root,
+            self.user_root.parent / ".claude",
+        ]
+
     # ---- discovery ------------------------------------------------------
     def discover(self) -> None:
-        """Scan project root then user root and populate the three dicts.
+        """Scan all roots and populate the three dicts.
 
-        Project entries win on name clash (already-registered names are not
-        overwritten). Missing directories and unreadable/garbled files are
+        First-found entries win on name clash (already-registered names are
+        not overwritten). Missing directories and unreadable/garbled files are
         tolerated: they are skipped and logged.
         """
         self.commands.clear()
         self.agents.clear()
         self.skills.clear()
-        # Project first (wins), then user.
-        for root in (self.project_root, self.user_root):
+        for root in self._roots():
             self._scan_root(root)
 
     def _scan_root(self, root: Path) -> None:

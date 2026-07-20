@@ -263,6 +263,40 @@ def main() -> int:
               "project skill wins over user")
         check("useronly" in clash.commands, "user-only entry still discovered")
 
+        # ---- .claude layout: Claude Code projects work unchanged --------
+        print("=== .claude root discovery ===")
+        ccwd = tmp / "ccproj"
+        _write(ccwd / ".claude" / "commands" / "ship.md",
+               "---\ndescription: ship it\n---\nShip the release: $ARGUMENTS\n")
+        _write(ccwd / ".claude" / "agents" / "tester.md",
+               "---\nname: tester\ntools: bash\n---\nYou run tests.\n")
+        _write(ccwd / ".claude" / "skills" / "release" / "SKILL.md",
+               "---\ndescription: release process\n---\nTag, build, upload.\n")
+        creg = SkillsRegistry(cwd=str(ccwd),
+                              user_root=str(tmp / "no-user-root-here"))
+        creg.discover()
+        check("ship" in creg.commands, ".claude/commands discovered")
+        check("tester" in creg.agents and creg.agents["tester"].tools == ["bash"],
+              ".claude/agents discovered with tool restriction")
+        check("release" in creg.skills, ".claude/skills discovered")
+
+        # .robodog wins over .claude within the same scope
+        _write(ccwd / ".robodog" / "commands" / "ship.md",
+               "ROBODOG override: $ARGUMENTS\n")
+        creg.discover()
+        check("ROBODOG override" in creg.commands["ship"].template,
+              ".robodog wins over .claude on a name clash")
+        check("tester" in creg.agents, ".claude-only entries survive the override")
+
+        # injected project_root still scans its .claude sibling
+        sib = tmp / "sibproj"
+        _write(sib / ".claude" / "commands" / "sibcmd.md", "sib body\n")
+        sreg = SkillsRegistry(cwd=str(sib), project_root=str(sib / ".robodog"),
+                              user_root=str(tmp / "no-user-root-here"))
+        sreg.discover()
+        check("sibcmd" in sreg.commands,
+              "injected project_root scans its .claude sibling")
+
         # ---- tolerance: nonexistent + unreadable ------------------------
         print("=== tolerance ===")
         gone = SkillsRegistry(cwd=str(tmp / "does-not-exist-at-all"))
