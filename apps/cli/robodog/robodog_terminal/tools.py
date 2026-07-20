@@ -288,6 +288,48 @@ def shell_syntax_hint(command: str, combined: str) -> str:
     return ""
 
 
+def python_import_hint(stderr: str, cwd: str) -> str:
+    """A one-line fix for the #1 Python import loop we see with skill repos:
+    `from pkg.sub.jira_call.main import run` fails with ModuleNotFoundError
+    because the real directory is `jira-call` (a HYPHEN) — not importable by a
+    dotted name. When the missing module maps to a hyphenated directory on disk,
+    point the model straight at importlib. Returns a hint (leading '\\n') or "".
+    """
+    import re as _re
+    m = _re.search(r"ModuleNotFoundError: No module named ['\"]([\w.]+)['\"]", stderr or "")
+    if not m:
+        return ""
+    dotted = m.group(1)
+    parts = dotted.split(".")
+    try:
+        base = Path(cwd)
+    except Exception:
+        return ""
+    # Walk the existing prefix; at the first segment that ISN'T a real dir, check
+    # whether its underscores-as-hyphens variant IS a directory (the skill dir).
+    cur = base
+    for seg in parts:
+        nxt = cur / seg
+        if nxt.is_dir():
+            cur = nxt
+            continue
+        hy = seg.replace("_", "-")
+        if hy != seg and (cur / hy).is_dir():
+            target = cur / hy
+            main_py = target / "main.py"
+            loc = main_py if main_py.is_file() else target
+            return (f"\nHINT: '{seg}' isn't importable because the directory is "
+                    f"'{hy}' (a hyphen) — Python module names can't contain '-'. "
+                    f"Load it with importlib instead:\n"
+                    f"    import importlib.util\n"
+                    f"    spec = importlib.util.spec_from_file_location("
+                    f"'mod', r'{loc}')\n"
+                    f"    mod = importlib.util.module_from_spec(spec); "
+                    f"spec.loader.exec_module(mod)")
+        break
+    return ""
+
+
 @dataclass
 class ToolParam:
     name: str
@@ -736,6 +778,11 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         hint = shell_syntax_hint(command or shown_cmd, out + "\n" + err)
         if hint:
             parts.append(hint.lstrip("\n"))
+        # Hyphenated-skill-dir import loop (fdaskills.jira.jira_call -> jira-call).
+        if returncode not in (0, None):
+            imp = python_import_hint(err, str(reg.cwd))
+            if imp:
+                parts.append(imp.lstrip("\n"))
         return "\n".join(parts)
 
     def _tail_clamp(text: str, limit: int = 12_000) -> str:

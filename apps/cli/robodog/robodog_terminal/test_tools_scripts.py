@@ -127,6 +127,42 @@ def main() -> int:
         check(_hint("git log --oneline -20", "") == "",
               "a clean command gets no hint")
 
+    # --- 3e. python_import_hint: hyphenated skill dir -> importlib ---------
+    # From a real ELSA session: the model looped 3× on
+    #   from fdaskills.jira.jira_call.main import run
+    #   ModuleNotFoundError: No module named 'fdaskills.jira.jira_call'
+    # because the directory is `jira-call` (hyphen), not importable by name.
+    print("=== 3e. python_import_hint (hyphen skill dir) ===")
+    from robodog_terminal.tools import python_import_hint as _pih
+    skill_reg = fresh_registry()
+    root = Path(skill_reg.cwd)
+    (root / "fdaskills" / "jira" / "jira-call").mkdir(parents=True)
+    (root / "fdaskills" / "jira" / "jira-call" / "main.py").write_text(
+        "def run():\n    return 1\n", encoding="utf-8")
+    (root / "fdaskills" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "fdaskills" / "jira" / "__init__.py").write_text("", encoding="utf-8")
+    stderr = ("Traceback (most recent call last):\n"
+              "  File \"x.py\", line 3, in <module>\n"
+              "    from fdaskills.jira.jira_call.main import run\n"
+              "ModuleNotFoundError: No module named 'fdaskills.jira.jira_call'")
+    h = _pih(stderr, str(root))
+    check("jira-call" in h and "importlib" in h and "spec_from_file_location" in h,
+          "hint names the hyphen dir and points at importlib")
+    check("main.py" in h, "hint targets the skill's main.py")
+    # no false positives
+    check(_pih("ModuleNotFoundError: No module named 'totally_absent'", str(root)) == "",
+          "no hint when the module maps to no directory")
+    check(_pih("ZeroDivisionError: division by zero", str(root)) == "",
+          "no hint on an unrelated traceback")
+    # end-to-end: the hint rides along on the failed run_script result
+    content = ("import sys\n"
+               f"sys.path.insert(0, r'{root}')\n"
+               "from fdaskills.jira.jira_call.main import run\n")
+    res = skill_reg.execute("run_script", {"content": content})
+    check("No module named 'fdaskills.jira.jira_call'" in res
+          and "HINT" in res and "jira-call" in res,
+          "run_script surfaces the importlib hint on the real failure")
+
     # --- 4. bash background param stub -----------------------------------
     print("=== 4. bash background stub ===")
     reg = fresh_registry()

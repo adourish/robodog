@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.18
+
+- **Better errors:** a failed `run_script`/`bash` Python run that dies with
+  `ModuleNotFoundError` where the missing module maps to a **hyphenated
+  directory** (e.g. `fdaskills.jira.jira_call` → the `jira-call/` skill dir)
+  now appends a hint pointing straight at `importlib.util.spec_from_file_location`
+  with the real `main.py` path — so the model stops looping on
+  `import jira_call` (a name Python can't use for a `jira-call` folder).
+
 ### 0.3.17
 
 - **Fix:** the diff preview no longer mashes two lines together when you edit
