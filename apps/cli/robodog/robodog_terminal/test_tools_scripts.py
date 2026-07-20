@@ -10,6 +10,7 @@ Run:  python robodog_terminal/test_tools_scripts.py    (from robodogcli/robodog/
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -69,6 +70,18 @@ def main() -> int:
     check("ERROR: command timed out after 3s (process tree killed)" in result,
           "timeout returns tree-kill ERROR message")
     check(elapsed < 8, f"timeout returned quickly ({elapsed:.1f}s < 8s)")
+
+    # --- 3b. PowerShell shell-syntax hint (&& not valid) -----------------
+    # A model that chains with && on Windows gets a targeted fix appended, so
+    # it self-corrects instead of looping (the real ELSA failure scenario).
+    if os.name == "nt":
+        print("=== 3b. shell-syntax hint ===")
+        reg = fresh_registry()
+        result = reg.execute("bash", {"command": "echo a && echo b"})
+        check("HINT" in result and "PowerShell" in result and "`;`" in result,
+              "&& on PowerShell -> hint to use ; or separate commands")
+        ok_result = reg.execute("bash", {"command": "echo fine"})
+        check("HINT" not in ok_result, "no hint on a clean command")
 
     # --- 4. bash background param stub -----------------------------------
     print("=== 4. bash background stub ===")

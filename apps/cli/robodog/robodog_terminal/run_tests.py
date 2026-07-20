@@ -71,8 +71,8 @@ def main() -> int:
         results.append((suite, proc.returncode == 0, time.time() - t))
         if proc.returncode != 0:
             print(f"--- {suite} FAILED ---")
-            print(proc.stdout[-2000:])
-            print(proc.stderr[-1000:])
+            print((proc.stdout or "")[-2000:])
+            print((proc.stderr or "")[-1000:])
 
     print("\n===== SUMMARY =====")
     failed = 0

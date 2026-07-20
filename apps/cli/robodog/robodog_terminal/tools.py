@@ -554,9 +554,31 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         t_err.join(timeout=5)
         return proc.returncode, out_lines, err_lines, timed_out
 
+    def _shell_syntax_hint(command: str, combined: str) -> str:
+        """A one-line fix for the shell-syntax mistakes models repeat on
+        Windows PowerShell — appended to a FAILED result so the model self-
+        corrects instead of retrying the same broken command."""
+        if os.name != "nt":
+            return ""
+        low = combined.lower()
+        if "&&" in command and ("not a valid statement separator" in low
+                                or "token '&&'" in low):
+            return ("\nHINT: this shell is PowerShell — `&&` and `||` are not "
+                    "valid. Chain with `;` (run both) or send separate commands. "
+                    "For 'run B only if A succeeded': `A; if ($?) { B }`.")
+        if "not recognized as the name of a cmdlet" in low:
+            if any(f" {u}" in f" {command}" or command.startswith(u)
+                   for u in ("head", "tail", "grep", "cat", "which", "ls ")):
+                return ("\nHINT: that's a Unix command; this is PowerShell. Use "
+                        "`Select-Object -First N` (head), `-Last N` (tail), "
+                        "`Select-String` (grep), `Get-Content` (cat), "
+                        "`Get-ChildItem` (ls).")
+        return ""
+
     def _format_run_result(shown_cmd: str, returncode: Optional[int],
                            out_lines: List[str], err_lines: List[str],
-                           timed_out: bool, timeout: int) -> str:
+                           timed_out: bool, timeout: int,
+                           command: str = "") -> str:
         out = "\n".join(out_lines)
         err = "\n".join(err_lines)
         if timed_out:
@@ -573,6 +595,11 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             parts.append("--- stdout ---\n" + _tail_clamp(out.rstrip()))
         if err.strip():
             parts.append("--- stderr ---\n" + _tail_clamp(err.rstrip()))
+        # Shell-syntax hint keys on the ERROR TEXT, not the return code —
+        # PowerShell often exits 0 even when a cmdlet in a pipe wasn't found.
+        hint = _shell_syntax_hint(command or shown_cmd, out + "\n" + err)
+        if hint:
+            parts.append(hint.lstrip("\n"))
         return "\n".join(parts)
 
     def _tail_clamp(text: str, limit: int = 12_000) -> str:
@@ -612,7 +639,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         else:
             shell_cmd = ["/bin/sh", "-c", command]
         rc, out_lines, err_lines, timed_out = _run_streaming(shell_cmd, cwd_path, timeout)
-        return _format_run_result(command, rc, out_lines, err_lines, timed_out, timeout)
+        return _format_run_result(command, rc, out_lines, err_lines, timed_out,
+                                  timeout, command=command)
 
     reg.register(Tool(
         name="bash",

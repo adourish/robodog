@@ -184,7 +184,19 @@ def main() -> int:
           f"streamed output capped at STREAM_LIMIT ({shown} shown)")
     check("output continues" in p, "capped stream says output continues")
     check("more lines not shown" in p, "footer reports the held-back count")
-    check("185 more lines" in p, "held-back count is accurate (200-15)")
+    check(f"{200 - ui.STREAM_LIMIT} more lines" in p,
+          f"held-back count is accurate (200 - {ui.STREAM_LIMIT})")
+
+    # ROBODOG_STREAM_LINES=0 -> summary-only (no live │ lines at all)
+    ui, buf = capture()
+    ui.STREAM_LIMIT = 0
+    ui._reset_stream()
+    for i in range(50):
+        ui.bash_line(f"quiet {i}")
+    ui.stream_footer()
+    p = plain(buf.getvalue())
+    check("quiet" not in p and "output continues" not in p,
+          "STREAM_LIMIT=0 shows no live stream (summary-only)")
 
     # short output is shown in full, with no cap noise
     ui, buf = capture()

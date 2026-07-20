@@ -497,9 +497,11 @@ class UI:
     # ---- streamed command output ----------------------------------------
     # Long-running commands stream line by line. Printing every line verbatim
     # buries the conversation in build logs and directory listings, so the
-    # trace shows a bounded head and then reports what it held back. The MODEL
-    # still receives the complete output — this caps the display only.
-    STREAM_LIMIT = int(os.environ.get("ROBODOG_STREAM_LINES", "15") or 15)
+    # trace shows a small bounded head and then reports what it held back — the
+    # `↳` summary line (exit status + line count) carries the result. The MODEL
+    # still receives the complete output; this caps the DISPLAY only.
+    # ROBODOG_STREAM_LINES=0 -> no live stream at all (summary only).
+    STREAM_LIMIT = int(os.environ.get("ROBODOG_STREAM_LINES", "8") or 8)
 
     def _reset_stream(self):
         self._stream_shown = 0      # lines actually printed
@@ -512,6 +514,9 @@ class UI:
         if not hasattr(self, "_stream_total"):
             self._reset_stream()
         self._stream_total += 1
+
+        if self.STREAM_LIMIT <= 0:
+            return   # summary-only mode: the `↳` line reports the result
 
         # Collapse runs of blank lines — PowerShell in particular emits many,
         # and a column of empty │ bars is pure noise.
