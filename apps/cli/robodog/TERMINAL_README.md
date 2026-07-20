@@ -48,8 +48,13 @@ robodog-terminal
 ```
 
 `command not found` right after install? Your pip scripts dir isn't on
-`PATH` — use `python -m robodog_terminal`, or see the
-[step-by-step setup guide](https://github.com/adourish/robodog#get-started).
+`PATH` — the exes live in `..\Scripts` **relative to the `Location:` shown by
+`pip show -f robodog-terminal`** (e.g. `...\AppData\Roaming\Python\Python312\Scripts`
+for a Windows user-level install). Use `python -m robodog_terminal` as a
+zero-setup fallback, and see the
+[troubleshooting guide](https://github.com/adourish/robodog#troubleshooting)
+for PATH repair (do **not** use `setx` — it truncates long PATHs to 1024
+chars), locked-exe upgrade failures, and more.
 
 Other providers (`ROBODOG_LLM_URL`) and the enterprise gateway (`GATEWAY_*`)
 are covered in the [repo README](https://github.com/adourish/robodog#configuration).

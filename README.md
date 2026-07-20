@@ -64,16 +64,31 @@ python -m robodog_terminal --version
 Use `python -m robodog_terminal` in place of `robodog-terminal` for the rest
 of this guide.
 
-**Or fix PATH permanently — Windows:**
+**Or fix PATH permanently — Windows.** First find the Scripts directory:
+`pip show -f` lists the exes as `..\Scripts\robodog-terminal.exe` — that's
+**relative to the `Location:` line**, so a user-level install at
+`...\AppData\Roaming\Python\Python312\site-packages` puts them in
+`...\AppData\Roaming\Python\Python312\Scripts`:
 
 ```powershell
-python -m pip show -f robodog-terminal    # note the Location: line + Scripts entries
-setx PATH "$($env:PATH);<the-scripts-dir-from-above>"
+python -m pip show -f robodog-terminal    # Location: + "..\Scripts\..." entries
+[Environment]::SetEnvironmentVariable("Path",
+    [Environment]::GetEnvironmentVariable("Path", "User") + ";<the-Scripts-dir>",
+    "User")
 ```
 
-⚠️ **Then close your terminal and open a brand-new one.** `setx` only writes
-the registry — already-open terminals keep their old `PATH` forever. This is
-the single most common reason people think the fix "didn't work".
+⚠️ **Do NOT use `setx PATH ...` for this.** `setx` silently truncates the
+value to 1024 characters — on a machine with a long PATH it will *corrupt*
+your user PATH while printing `SUCCESS` (see
+[Troubleshooting](#troubleshooting) if that already happened). The
+`[Environment]` method above has no such limit and touches only the
+user-level PATH.
+
+⚠️ **Then close your terminal and open a brand-new one.** PATH edits only
+write the registry — already-open terminals (including new tabs of an open
+Windows Terminal, and anything launched from VS Code) keep their old `PATH`
+forever. This is the single most common reason people think the fix "didn't
+work".
 
 **Or fix PATH permanently — macOS/Linux** (usually `~/.local/bin`):
 
@@ -552,6 +567,74 @@ For a first-class flag (`--backend groq`), add the name to the `--backend`
 Read from `CLAUDE.md` / `ROBODOG.md` / `.robodog.md` walking from the repo
 root to your working directory, plus `~/.robodog/CLAUDE.md` or
 `~/.robodog/ROBODOG.md` for global instructions.
+
+## Troubleshooting
+
+Every entry here is a failure someone actually hit.
+
+### `robodog-terminal` is not recognized (Windows)
+
+pip installed fine but the command isn't found. Diagnose in one paste:
+
+```powershell
+# 1. does the exe exist? (pip show -f lists "..\Scripts\..." RELATIVE to Location:)
+Test-Path "$env:APPDATA\Python\Python312\Scripts\robodog-terminal.exe"
+# 2. is that dir in your stored user PATH?
+[Environment]::GetEnvironmentVariable("Path", "User")
+# 3. does it run by full path?
+& "$env:APPDATA\Python\Python312\Scripts\robodog-terminal.exe" --version
+```
+
+If #1 is `False`, your install location differs — run
+`python -m pip show -f robodog-terminal`, take the `Location:` line, and
+replace `site-packages` with `Scripts`. If #2 is missing the dir, add it
+with the `[Environment]::SetEnvironmentVariable` command from
+[Step 3](#step-3--make-the-robodog-terminal-command-work) — **never
+`setx`** — then open a brand-new terminal window. And at any point,
+`python -m robodog_terminal` works with no PATH changes at all.
+
+### `setx` printed "truncated to 1024 characters" and now PATH is broken
+
+`setx` clobbered your user PATH with a truncated copy of the combined
+system+user PATH. Repair it: list what survived with
+`[Environment]::GetEnvironmentVariable("Path", "User")`, then write back the
+entries that belong there (typically `...\AppData\Local\Microsoft\WindowsApps`,
+your app dirs, plus the Python `Scripts` dir) using
+`[Environment]::SetEnvironmentVariable("Path", "<entries>", "User")` — it has
+no length limit. Your *system* PATH was not touched; a still-open terminal
+from before the damage shows the original combined PATH if you need to
+reconstruct the list.
+
+### `pip install -U` fails with `WinError 32` (file in use)
+
+A running robodog instance holds a lock on `robodog-terminal.exe`, and pip
+aborts mid-uninstall. Close every robodog window (check Task Manager for
+`robodog-terminal.exe` / stray `python.exe`), then:
+
+```powershell
+pip install --force-reinstall robodog-terminal
+```
+
+### `ModuleNotFoundError: No module named 'robodog_terminal'`
+
+The aborted upgrade above leaves a half-uninstalled state: the exe exists
+but the package behind it is gone (pip may also warn about an "invalid
+distribution ~obodog-terminal" — that's its rename-remnant folder in
+site-packages; safe to delete). The same `--force-reinstall` fixes both.
+
+### `LLM HTTP 400: invalid model ID` (or 401/402/404)
+
+Backend/model mismatch — e.g. an OpenRouter-style `anthropic/claude-...` id
+sent to `--backend openai`, or a bare `gpt-4o` sent to OpenRouter. The error
+message includes the fix, and `/doctor` flags the pairing *before* any
+request is sent. 401 = key rejected (check `ROBODOG_LLM_KEY` / your KeePass
+entry), 402 = out of credits, 404 = wrong `ROBODOG_LLM_URL`.
+
+### Banner shows an old version after upgrading
+
+The window predates the upgrade, or the upgrade silently failed (see
+`WinError 32` above). `pip show robodog-terminal` tells you what's actually
+installed; a fresh terminal tells you what runs.
 
 ## Repository layout
 
