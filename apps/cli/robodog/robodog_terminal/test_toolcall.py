@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from robodog_terminal.toolcall import parse_tool_calls  # noqa: E402
+from robodog_terminal.toolcall import parse_tool_calls, has_tool_calls  # noqa: E402
 
 ok = True
 
@@ -96,6 +96,32 @@ def main() -> int:
         '<param name="content">a = "x\\ny"\nprint(a)</param></tool>')
     check(calls[0].args['content'] == 'a = "x\\ny"\nprint(a)',
           'real-newline content keeps literal \\n escapes untouched')
+
+    # Anthropic-style close tag: <param> opened but </parameter> closed. From a
+    # real session this DROPPED the command (bash ran empty) or contaminated it
+    # with `</parameter> <param name="interpreter">…`.
+    calls, _ = parse_tool_calls(
+        '<tool name="bash"><param name="command">Get-ChildItem C:/x | '
+        'Select-Object Name</parameter>'
+        '<param name="interpreter">powershell</parameter></tool>')
+    check(len(calls) == 1 and calls[0].args.get('command', '').startswith('Get-ChildItem')
+          and '</param' not in calls[0].args.get('command', ''),
+          '</parameter> close tag does not drop/contaminate the command')
+    check(calls[0].args.get('interpreter') == 'powershell',
+          'the following param is still parsed after a </parameter> close')
+
+    # Full Anthropic format: <function_calls><invoke><parameter>…
+    calls, prose = parse_tool_calls(
+        'Let me look.\n<function_calls><invoke name="list_dir">'
+        '<parameter name="path">C:/projects</parameter></invoke></function_calls>')
+    check(len(calls) == 1 and calls[0].name == 'list_dir'
+          and calls[0].args.get('path') == 'C:/projects',
+          '<invoke>/<parameter> Anthropic format parses as a tool call')
+    check('function_calls' not in prose and 'Let me look.' in prose,
+          'the <function_calls> wrapper is stripped from prose (no leak)')
+    check(has_tool_calls('<invoke name="bash"><parameter name="command">ls'
+                         '</parameter></invoke>'),
+          'has_tool_calls recognizes the <invoke> form')
 
     print('PARSER:', 'ALL PASS' if ok else 'FAILURES')
     return 0 if ok else 1

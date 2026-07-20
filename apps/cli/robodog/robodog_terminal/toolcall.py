@@ -20,18 +20,25 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-# Tolerate extra attributes on the <tool> tag (e.g. models that emit
-# <tool name="run_script" interpreter="python">) — capture them in `attrs`.
+# Accept <tool …>…</tool> AND Anthropic-style <invoke …>…</invoke> (some models
+# emit the format they were trained on). Either close tag is tolerated. Extra
+# attributes on the tag (e.g. <tool name="run_script" interpreter="python">) are
+# captured in `attrs`.
 _TOOL_RE = re.compile(
-    r"<tool\s+name\s*=\s*[\"']?(?P<name>[\w.\-]+)[\"']?(?P<attrs>[^>]*)>(?P<body>.*?)</tool>",
+    r"<(?:tool|invoke)\s+name\s*=\s*[\"']?(?P<name>[\w.\-]+)[\"']?(?P<attrs>[^>]*)>"
+    r"(?P<body>.*?)</(?:tool|invoke)>",
     re.DOTALL | re.IGNORECASE,
 )
+# Anthropic wraps calls in <function_calls>…</function_calls>; strip those (and
+# the matching results wrapper) so they never leak into the model's prose.
+_WRAPPER_RE = re.compile(r"</?function_(?:calls|results)>", re.IGNORECASE)
 _PARAM_RE = re.compile(
-    # Close tag may be the correct </param> OR the param NAME the model echoed
-    # by mistake (`<param name="path">…</path>`) — otherwise the value would
-    # swallow every following param up to the next real </param>.
-    r"<param\s+name\s*=\s*[\"']?(?P<pname>[\w.\-]+)[\"']?\s*>"
-    r"(?P<pval>.*?)</(?:param|(?P=pname))>",
+    # Open tag is <param> OR <parameter> (models trained on Anthropic tool syntax
+    # reach for <parameter>). Close tag may be the matching </param>/</parameter>,
+    # OR the param NAME the model echoed by mistake (`<param name="path">…</path>`)
+    # — otherwise the value swallows every following param up to the next close.
+    r"<param(?:eter)?\s+name\s*=\s*[\"']?(?P<pname>[\w.\-]+)[\"']?\s*>"
+    r"(?P<pval>.*?)</(?:param(?:eter)?|(?P=pname))>",
     re.DOTALL | re.IGNORECASE,
 )
 # key="value" / key='value' attributes on a tag.
@@ -119,7 +126,9 @@ def parse_tool_calls(text: str) -> Tuple[List[ToolCall], str]:
         out.append(normalized[last:s])
         last = e
     out.append(normalized[last:])
-    prose = "".join(out).strip()
+    # Drop any leftover <function_calls>/<function_results> wrapper tags so the
+    # Anthropic wrapper never shows up as prose.
+    prose = _WRAPPER_RE.sub("", "".join(out)).strip()
     return calls, prose
 
 

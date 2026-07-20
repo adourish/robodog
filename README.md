@@ -805,6 +805,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.24
+
+- **Fix (tool-call parsing):** the model closing a `<param>` with `</parameter>`
+  (Anthropic's tag) no longer drops or contaminates the value — a real session
+  ran `bash` with an empty command / a command polluted by
+  `</parameter> <param name="interpreter">…`. `<param>` and `<parameter>` are now
+  accepted on both open and close.
+- **New (tool-call parsing):** full Anthropic-style calls
+  (`<function_calls><invoke name="…"><parameter …></invoke></function_calls>`)
+  are parsed as tool calls, and the `<function_calls>` wrapper is stripped so it
+  never leaks into the model's prose.
+
 ### 0.3.23
 
 - **🛡 Outward-facing network-write guard (safety fix).** An agent could close
