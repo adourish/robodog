@@ -106,6 +106,8 @@ def main() -> int:
         "/resume",               # list (session exists from plan turn)
         "/cwd",
         "/cwd Z:\\definitely_missing_dir",
+        "/verbose",              # ON
+        "/verbose",              # OFF
         "! echo bang-works",
         "/model fresh-echo",     # rebuild client -> fresh demo script
         "run demo",              # real agent turn: write demo.py + bash + final
@@ -133,6 +135,8 @@ def main() -> int:
     check("resumed" in out, "/resume latest works")
     check("unknown command" in out, "unknown command error")
     check("transcript:" in out, "/context reports")
+    check("verbose output ON" in out and "verbose output OFF" in out,
+          "/verbose toggles on and off")
 
     # session actually persisted turns
     from robodog_terminal.sessions import SessionStore

@@ -576,6 +576,22 @@ class UI:
                 return self._flatten(first, 120), "dim"
             return f"{n} entr{'y' if n == 1 else 'ies'}", "dim"
 
+        if name == "agent":
+            # "[subagent#3:general finished — 2 steps, 310 tokens]\n<answer>"
+            # The header is metadata; the ANSWER is what the user needs to see.
+            import re as _re
+            m = _re.match(
+                r"\[subagent#(\d+):(\w+) finished — (\d+) steps?, (\d+) tokens?\]",
+                first)
+            if m:
+                cid, ctype, steps, toks = m.groups()
+                answer = next((l for l in lines[1:] if l.strip()), "")
+                label = f"#{cid} {ctype} · {steps} step{'' if steps == '1' else 's'} · {toks} tok"
+                if answer:
+                    return f"{label} — {self._flatten(answer, 90)}", "dim"
+                return label, "dim"
+            # background-start message or unexpected shape: generic fallthrough
+
         # write_file / edit_file / run_tests / agent: the tool already returns a
         # one-line summary — keep it, just flatten and note any overflow.
         more = f"  (+{n - 1} lines)" if n > 1 else ""

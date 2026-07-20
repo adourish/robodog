@@ -134,6 +134,32 @@ def main() -> int:
     ui.tool_result("glob", "No files matching '*.zzz' under /tmp.")
     check("No files matching" in plain(buf.getvalue()), "glob keeps its empty message")
 
+    # subagent results: labeled with the child id, ANSWER surfaced (like a
+    # modern agentic terminal), boilerplate header NOT echoed
+    ui, buf = capture()
+    ui.tool_result("agent", "[subagent#3:general finished — 2 steps, 314 tokens]\n"
+                            "Findings: module 3 has two dead functions.")
+    # collapse rich's soft line-wrapping so the substring check is width-proof
+    p = " ".join(plain(buf.getvalue()).split())
+    check("#3 general" in p and "2 steps" in p and "314 tok" in p,
+          "agent result labeled with child id + steps + tokens")
+    check("Findings: module 3 has two dead functions." in p,
+          "agent result surfaces the child's ANSWER")
+    check("[subagent#" not in p, "agent boilerplate header not echoed")
+
+    # singular step; answer missing -> label only, no crash
+    ui, buf = capture()
+    ui.tool_result("agent", "[subagent#1:explore finished — 1 step, 40 tokens]")
+    p = plain(buf.getvalue())
+    check("#1 explore · 1 step · 40 tok" in p, "agent one-step label, no answer line")
+
+    # background-start message falls through to the generic summary
+    ui, buf = capture()
+    ui.tool_result("agent", "Started background subagent bg1 (general). Continue other work;"
+                            " fetch its result later with task_output.")
+    check("Started background subagent bg1" in plain(buf.getvalue()),
+          "agent background-start message kept verbatim")
+
     # grep keeps the first hit (clickable) and counts the rest
     ui, buf = capture()
     ui.tool_result("grep", "src/mod.py:42: def handler():\nsrc/x.py:7: y\nsrc/z.py:9: q")

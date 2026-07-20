@@ -116,10 +116,14 @@ def main() -> int:
 
     check("XYZZY" in r2.final_text, "parent's final answer contains child's finding")
     tool_results = [t for t in r2.turns if t.role == "tool" and t.tool_name == "agent"]
-    check(bool(tool_results) and "subagent:explore finished" in tool_results[0].content,
-          "agent tool result carries subagent summary header")
+    import re as _re
+    check(bool(tool_results) and _re.search(r"subagent#\d+:explore finished",
+                                            tool_results[0].content),
+          "agent tool result carries subagent summary header (with child id)")
     check(any(k == "tool_start" and d["name"] == "read_file" for k, d in child_events),
           "child subagent actually used read_file")
+    check(any(d.get("child_id") for k, d in child_events),
+          "child events are tagged with a child_id")
     # depth cap: child registry must not contain the agent tool
     from robodog_terminal.agents import _child_registry
     check("agent" not in _child_registry(reg2, "explore")._tools,

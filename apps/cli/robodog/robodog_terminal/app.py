@@ -247,6 +247,7 @@ Commands:
   /open <file|url>   open a file or URL with the OS default app
   /paste             multi-line paste (end with a lone . ) — works in any terminal
   /tools             list available tools
+  /verbose           toggle full tool/subagent output (default: compact summaries)
   /exit, /quit       leave
 
   /bg <prompt>       run a task on a background subagent
@@ -264,7 +265,8 @@ and delegate to subagents.
 SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
                   "/keepass",
-                  "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/bg", "/tasks", "/tail",
+                  "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/verbose",
+                  "/bg", "/tasks", "/tail",
                   "/kill", "/exit", "/quit"]
 
 INIT_PROMPT = (
@@ -557,16 +559,43 @@ def main(argv=None) -> int:
     except Exception as exc:  # never let a bad skill file break startup
         ui.dim(f"(skills discovery skipped: {exc})")
 
-    # Subagents: let the model delegate scoped work to child loops.
+    # Live-toggleable verbosity (/verbose flips it; --verbose sets the start).
+    verbose = [bool(args.verbose)]
+
+    # Subagents: a summary line of what's happening (like a modern agentic
+    # terminal), not one line per child tool call. Children run concurrently in
+    # worker threads, so the counters are lock-guarded; /verbose restores the
+    # full per-event feed.
+    import threading as _cthreading
+    child_stats = {"children": set(), "calls": 0}
+    child_lock = _cthreading.Lock()
+
     def on_child_event(kind, data):
-        if kind == "tool_start":
-            ui.dim(f"      ⚙ {data['name']} {str(data.get('args', {}).get('command') or data.get('args', {}).get('path') or '')[:60]}")
+        if kind != "tool_start":
+            return
+        if verbose[0]:
+            cid = data.get("child_id")
+            tag = f"#{cid} " if cid else ""
+            arg = str(data.get('args', {}).get('command')
+                      or data.get('args', {}).get('path') or '')[:60]
+            ui.dim(f"      ⚙ {tag}{data['name']} {arg}")
+            return
+        with child_lock:
+            child_stats["children"].add(data.get("child_id"))
+            child_stats["calls"] += 1
+            n, c = len(child_stats["children"]), child_stats["calls"]
+        ui.spinner_start(f"✳ {n} subagent{'' if n == 1 else 's'} working…")
+        ui.spinner_update(
+            f"✳ {n} subagent{'' if n == 1 else 's'} working · {c} tool call{'' if c == 1 else 's'}")
     if "agent" not in (args.disallowed_tools or ""):
         register_agent_tool(registry, client, on_child_event=on_child_event,
                             manager=manager)
 
     def on_event(kind, data):
         if kind == "llm_start":
+            with child_lock:      # new parent step: reset the fan-out counters
+                child_stats["children"].clear()
+                child_stats["calls"] = 0
             ui.spinner_start(f"✳ Thinking… (step {data['iteration']}, ctrl-c to cancel)")
         elif kind == "llm_done":
             ui.spinner_stop()
@@ -577,8 +606,9 @@ def main(argv=None) -> int:
             ui.spinner_stop()
             ui.tool_call(data["name"], data["args"])
         elif kind == "tool_done":
+            ui.spinner_stop()       # the fan-out summary spinner, if running
             ui.stream_footer()      # report any streamed lines the display capped
-            if args.verbose:
+            if verbose[0]:
                 ui.dim(data["result"])
             else:
                 ui.tool_result(data["name"], data["result"])
@@ -932,6 +962,9 @@ def main(argv=None) -> int:
             elif cmd == "tools":
                 for name in registry._tools:  # noqa: SLF001 (intentional)
                     ui.info(f"  {name}")
+            elif cmd == "verbose":
+                verbose[0] = not verbose[0]
+                ui.info(f"verbose output {'ON — full tool results and per-call subagent trace' if verbose[0] else 'OFF — compact summaries'}")
             elif cmd == "open":
                 if not rest:
                     ui.error("usage: /open <file-or-url>")

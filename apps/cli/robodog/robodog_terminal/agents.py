@@ -71,13 +71,26 @@ def register_agent_tool(
     task_output tool.
     """
 
-    def _make_child(agent_type: str, cancel_event=None, events=None):
+    import itertools
+    import threading as _threading
+    _child_seq = itertools.count(1)
+    _seq_lock = _threading.Lock()
+
+    def _make_child(agent_type: str, cancel_event=None, events=None,
+                    child_id: int = 0):
         cfg = AGENT_TYPES[agent_type]
+        base = events or on_child_event or (lambda k, d: None)
+
+        # Enrich every child event with which child it came from, so the UI
+        # can attribute (or aggregate) lines instead of printing them blind.
+        def tagged(kind, data):
+            base(kind, dict(data, child_id=child_id, agent_type=agent_type))
+
         return AgentLoop(
             client,
             _child_registry(registry, agent_type),
             max_iterations=cfg["max_iterations"],
-            on_event=events or on_child_event or (lambda k, d: None),
+            on_event=tagged,
             system_suffix=cfg["note"],
             cancel_event=cancel_event,
         )
@@ -89,6 +102,8 @@ def register_agent_tool(
         if agent_type not in AGENT_TYPES:
             return (f"ERROR: unknown agent type '{agent_type}'. "
                     f"Available: {', '.join(AGENT_TYPES)}")
+        with _seq_lock:
+            child_id = next(_child_seq)
 
         if background:
             if manager is None:
@@ -100,7 +115,8 @@ def register_agent_tool(
                     agent_type, cancel_event=task.cancel_event,
                     events=lambda k, d: task.emit(
                         f"⚙ {d.get('name', '')} " if k == "tool_start" else "")
-                    if k == "tool_start" else None)
+                    if k == "tool_start" else None,
+                    child_id=child_id)
                 res = child.run(prompt)
                 return res.final_text
 
@@ -109,10 +125,10 @@ def register_agent_tool(
                     f"Continue other work; fetch its result later with "
                     f'<tool name="task_output"><param name="id">{bg.id}</param></tool>.')
 
-        child = _make_child(agent_type)
+        child = _make_child(agent_type, child_id=child_id)
         result = child.run(prompt)
         return (
-            f"[subagent:{agent_type} finished — {result.iterations} steps, "
+            f"[subagent#{child_id}:{agent_type} finished — {result.iterations} steps, "
             f"{result.total_tokens} tokens]\n{result.final_text}"
         )
 
