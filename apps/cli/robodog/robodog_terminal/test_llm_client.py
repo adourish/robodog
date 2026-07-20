@@ -343,6 +343,57 @@ def main() -> int:
     except ValueError:
         check(True, "factory: unknown protocol raises")
 
+    # ---- concurrency cap (ROBODOG_LLM_MAX_CONCURRENCY) -------------------
+    # Parallel subagents share one client; a cap serializes requests so a slow
+    # gateway isn't overwhelmed. Verify the semaphore selection + throttling.
+    import os as _os
+    import threading as _th
+    _saved = _os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY")
+    try:
+        _os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
+        lc._OPENAI_SEM = None
+        check(lc._openai_semaphore() is None, "no cap set -> no semaphore (unbounded)")
+
+        _os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = "2"
+        lc._OPENAI_SEM = None
+        check(lc._openai_semaphore() is not None, "cap set -> semaphore created")
+
+        active = {"now": 0, "max": 0}
+        lk = _th.Lock()
+
+        class _SlowResp:
+            status_code = 200
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+        class _SlowSession:
+            def post(self, *a, **k):
+                with lk:
+                    active["now"] += 1
+                    active["max"] = max(active["max"], active["now"])
+                _th.Event().wait(0.1)   # real delay (time.sleep is no-op'd here)
+                with lk:
+                    active["now"] -= 1
+                return _SlowResp()
+
+        def _worker():
+            OpenAICompatClient(base_url="https://x", api_key="k", model="m",
+                               session=_SlowSession()).complete("hi")
+
+        threads = [_th.Thread(target=_worker) for _ in range(6)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        check(active["max"] <= 2,
+              f"6 concurrent calls throttled to the cap of 2 (peak {active['max']})")
+    finally:
+        if _saved is None:
+            _os.environ.pop("ROBODOG_LLM_MAX_CONCURRENCY", None)
+        else:
+            _os.environ["ROBODOG_LLM_MAX_CONCURRENCY"] = _saved
+        lc._OPENAI_SEM = None
+
     print("\nLLM CLIENT:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

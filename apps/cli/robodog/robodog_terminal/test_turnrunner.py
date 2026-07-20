@@ -141,6 +141,36 @@ def main() -> int:
         raised = "kaboom" in str(exc)
     check(raised, "worker exception re-raised by watch")
 
+    # ---------------- double Ctrl+C: second interrupt force-exits ---------
+    # First Ctrl+C -> graceful cancel (set the event, wait for the worker). A
+    # SECOND Ctrl+C during that wait must PROPAGATE so the app can force-quit,
+    # rather than crashing or hanging. Construct the cancel-wait scenario
+    # directly: a runner whose turn hasn't finished (_done not set), whose
+    # done-wait raises KeyboardInterrupt (the second Ctrl+C).
+    class _FakeLoop:
+        def __init__(self):
+            self.cancel_event = threading.Event()
+    rH = TurnRunner(_FakeLoop())
+    rH._thread = threading.Thread(target=lambda: None)  # looks "started"
+    # _done is a fresh, UNSET Event -> watch reaches the cancel path
+    rH._done.wait = lambda timeout=None: (_ for _ in ()).throw(KeyboardInterrupt())
+    propagated = False
+    try:
+        rH.watch(lambda: "cancel")
+    except KeyboardInterrupt:
+        propagated = True
+    check(propagated, "second Ctrl+C during cancel-wait propagates (force-exit)")
+    check(rH.loop.cancel_event.is_set(),
+          "cancel_event still set on the force-exit path")
+
+    # single cancel path is unaffected: returns a cancelled outcome, no raise
+    loopS = mk_loop(alt, wd)
+    rS = TurnRunner(loopS)
+    rS.start("go", threading.Event())
+    out = rS.watch(lambda: "cancel", poll=0.005)
+    check(out.status == "cancelled",
+          "single cancel still returns a cancelled outcome (no raise)")
+
     # ---------------- make_key_source: safe no-op off a TTY --------------
     ks = make_key_source()
     check(ks() is None, "make_key_source is a no-op when stdin is not a TTY")

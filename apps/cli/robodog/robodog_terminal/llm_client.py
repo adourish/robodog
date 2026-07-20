@@ -14,6 +14,7 @@ Backends:
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -21,6 +22,32 @@ from typing import Callable, List, Optional, Union
 from urllib.parse import quote_plus
 
 logger = logging.getLogger(__name__)
+
+# Cap concurrent OpenAI-compat calls across ALL loops — parallel subagents share
+# one client, so without a cap a fan-out fires N simultaneous requests. Off by
+# default (fast providers like OpenRouter/OpenAI shrug it off); set it for a
+# slow self-hosted gateway (SEMOSS/ELSA) that ReadTimeouts under concurrent load:
+#   ROBODOG_LLM_MAX_CONCURRENCY=2
+_OPENAI_SEM = None
+_OPENAI_SEM_N = None
+_OPENAI_SEM_LOCK = threading.Lock()
+
+
+def _openai_semaphore():
+    """Shared BoundedSemaphore sized by ROBODOG_LLM_MAX_CONCURRENCY, or None
+    (no cap) when unset/<=0. Rebuilt if the env value changes between calls."""
+    global _OPENAI_SEM, _OPENAI_SEM_N
+    try:
+        n = int(os.environ.get("ROBODOG_LLM_MAX_CONCURRENCY", "0") or 0)
+    except ValueError:
+        n = 0
+    if n <= 0:
+        return None
+    with _OPENAI_SEM_LOCK:
+        if _OPENAI_SEM is None or _OPENAI_SEM_N != n:
+            _OPENAI_SEM = threading.BoundedSemaphore(n)
+            _OPENAI_SEM_N = n
+        return _OPENAI_SEM
 
 
 def _model_mismatch_hint(url: str, model: str) -> str:
@@ -323,37 +350,47 @@ class OpenAICompatClient(LLMClient):
         messages.append({"role": "user", "content": prompt})
         payload = {"model": self.model, "messages": messages,
                    "max_tokens": max_tokens, "temperature": temperature}
-        last_err = "unknown"
-        for attempt in range(1, self.max_attempts + 1):
-            try:
-                resp = self._session.post(
-                    self.url, json=payload, timeout=self.timeout,
-                    headers={"Authorization": f"Bearer {self.api_key}",
-                             "HTTP-Referer": self.referer})
-                if resp.status_code == 200:
-                    data = resp.json()
-                    choice = data["choices"][0]
-                    text = (choice.get("message") or {}).get("content") or ""
-                    usage = data.get("usage") or {}
-                    if text.strip():
-                        return Completion(
-                            text=text,
-                            prompt_tokens=usage.get("prompt_tokens", 0),
-                            completion_tokens=usage.get("completion_tokens", 0),
-                            raw=data)
-                    last_err = "empty response"
-                elif resp.status_code in (429,) or resp.status_code >= 500:
-                    last_err = f"HTTP {resp.status_code}"
-                else:
-                    hint = _http_error_hint(resp.status_code, self.url, self.model)
-                    raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}{hint}")
-            except (_rq.ConnectionError, _rq.Timeout) as exc:
-                last_err = f"network: {type(exc).__name__}"
-            if attempt < self.max_attempts:
-                delay = min(2 ** (attempt - 1), 30)
-                self.on_retry(attempt, self.max_attempts, delay, last_err)
-                time.sleep(delay)
-        raise RuntimeError(f"LLM failed after {self.max_attempts} attempts: {last_err}")
+        # Serialize against the shared cap (if set) so a parallel subagent
+        # fan-out doesn't overwhelm a slow gateway. Held across retries so a
+        # struggling call doesn't multiply concurrent load.
+        sem = _openai_semaphore()
+        if sem is not None:
+            sem.acquire()
+        try:
+            last_err = "unknown"
+            for attempt in range(1, self.max_attempts + 1):
+                try:
+                    resp = self._session.post(
+                        self.url, json=payload, timeout=self.timeout,
+                        headers={"Authorization": f"Bearer {self.api_key}",
+                                 "HTTP-Referer": self.referer})
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        choice = data["choices"][0]
+                        text = (choice.get("message") or {}).get("content") or ""
+                        usage = data.get("usage") or {}
+                        if text.strip():
+                            return Completion(
+                                text=text,
+                                prompt_tokens=usage.get("prompt_tokens", 0),
+                                completion_tokens=usage.get("completion_tokens", 0),
+                                raw=data)
+                        last_err = "empty response"
+                    elif resp.status_code in (429,) or resp.status_code >= 500:
+                        last_err = f"HTTP {resp.status_code}"
+                    else:
+                        hint = _http_error_hint(resp.status_code, self.url, self.model)
+                        raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}{hint}")
+                except (_rq.ConnectionError, _rq.Timeout) as exc:
+                    last_err = f"network: {type(exc).__name__}"
+                if attempt < self.max_attempts:
+                    delay = min(2 ** (attempt - 1), 30)
+                    self.on_retry(attempt, self.max_attempts, delay, last_err)
+                    time.sleep(delay)
+            raise RuntimeError(f"LLM failed after {self.max_attempts} attempts: {last_err}")
+        finally:
+            if sem is not None:
+                sem.release()
 
 
 def build_client_from_config(cfg: Optional[dict]) -> LLMClient:

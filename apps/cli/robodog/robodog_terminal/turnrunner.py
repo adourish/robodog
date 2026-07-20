@@ -64,10 +64,26 @@ class TurnRunner:
         self._thread = threading.Thread(target=_work, daemon=True)
         self._thread.start()
 
+    def _cancel_and_wait(self, cancel_event) -> "TurnOutcome":
+        """Signal cancel and wait briefly for the worker to unwind. A SECOND
+        Ctrl+C during this wait is NOT swallowed — it propagates so the caller
+        can force-exit. The worker is a daemon thread, so abandoning it never
+        blocks process exit."""
+        if cancel_event is not None:
+            cancel_event.set()
+        # Interruptible: KeyboardInterrupt here (a second Ctrl+C) escapes to the
+        # caller, which treats it as "force quit".
+        self._done.wait(timeout=10)
+        return TurnOutcome("cancelled", self._result, list(self.queued))
+
     def watch(self, key_source: KeySource, poll: float = 0.03) -> TurnOutcome:
         """
         Block until the turn finishes OR the user backgrounds it. Follow-up
         inputs are accumulated into `queued`. Re-raises a worker exception.
+
+        Ctrl+C handling is self-contained: the first Ctrl+C (raised from either
+        the key source or the poll sleep) cancels the turn gracefully; a second
+        Ctrl+C during the cancel wait propagates so the caller can force-exit.
         """
         cancel_event = self.loop.cancel_event
         while True:
@@ -77,19 +93,17 @@ class TurnRunner:
                 return TurnOutcome("done", self._result, list(self.queued))
             try:
                 act = key_source()
+                if act == "cancel":
+                    return self._cancel_and_wait(cancel_event)
+                if act == "background":
+                    return TurnOutcome("backgrounded", None, list(self.queued))
+                if isinstance(act, tuple) and len(act) == 2 and act[0] == "input":
+                    if act[1]:
+                        self.queued.append(act[1])
+                time.sleep(poll)
             except KeyboardInterrupt:
-                act = "cancel"
-            if act == "cancel":
-                if cancel_event is not None:
-                    cancel_event.set()
-                self._done.wait(timeout=15)
-                return TurnOutcome("cancelled", self._result, list(self.queued))
-            if act == "background":
-                return TurnOutcome("backgrounded", None, list(self.queued))
-            if isinstance(act, tuple) and len(act) == 2 and act[0] == "input":
-                if act[1]:
-                    self.queued.append(act[1])
-            time.sleep(poll)
+                # First Ctrl+C (from key_source or the poll sleep) -> cancel.
+                return self._cancel_and_wait(cancel_event)
 
     def join(self, timeout: Optional[float] = None) -> bool:
         """Wait for a (possibly backgrounded) turn to finish. Returns done-ness."""

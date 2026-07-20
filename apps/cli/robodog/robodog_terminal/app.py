@@ -1134,7 +1134,13 @@ def main(argv=None) -> int:
         try:
             outcome = runner.watch(key_source)
         except KeyboardInterrupt:
-            outcome = runner.watch(lambda: "cancel")
+            # A SECOND Ctrl+C escaped the cancel wait — the user wants OUT even
+            # though the turn is stuck (e.g. blocked in a network retry). The
+            # worker is a daemon thread, so exiting abandons it cleanly.
+            ui.reset_typing()
+            ui.spinner_stop()
+            ui.info("\nbye")
+            return 0
         except Exception as exc:
             ui.reset_typing()
             ui.spinner_stop()
