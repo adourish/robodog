@@ -800,6 +800,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.6
+
+- **Add:** `/doctor` flags a stale install — it checks the installed version
+  against PyPI (best-effort, network-optional) and tells you to
+  `pip install -U` when you're behind, including the "close all robodog
+  windows first" gotcha. Disable with `ROBODOG_NO_VERSION_CHECK=1`.
+
 ### 0.3.5
 
 - **Add (experimental):** `ROBODOG_STICKY_INPUT=1` — a fixed input box
