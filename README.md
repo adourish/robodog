@@ -470,14 +470,52 @@ the reference for everything beyond the basic OpenRouter-key path.
 
 ### Keys — all the options
 
-Environment variables (or `config.env` lines — same names) always win:
+Every setting below is an environment variable. Robodog reads it from two
+places, and a **real OS environment variable wins** over the file:
 
 | Env var | Purpose |
 |---|---|
 | `ROBODOG_LLM_KEY` | API key for the OpenAI-compatible backend (OpenRouter by default) |
 | `ROBODOG_LLM_URL` | override the base URL (OpenAI, Groq, LiteLLM, local Ollama, …) |
 | `ROBODOG_MODEL` | default model id |
+| `ROBODOG_KEEPASS_DB` / `ROBODOG_KEEPASS_DIR` / `ROBODOG_KEEPASS_KEYFILE` | KeePass vault, loader dir, keyfile (see [KeePass reference](#keepass-reference)) |
 | `GATEWAY_ENDPOINT` / `GATEWAY_ENGINE` / `GATEWAY_ACCESS_KEY` / `GATEWAY_SECRET_KEY` | self-hosted runPixel-style gateway |
+
+#### How to set them
+
+**Option 1 — `config.env` (simplest, robodog-only).** Robodog auto-loads
+`~/.robodog/config.env` at startup: one `KEY=VALUE` per line, **no quotes, no
+spaces around `=`, and don't escape backslashes** — Windows paths work as-is.
+No new terminal needed.
+
+```
+ROBODOG_KEEPASS_DB=C:\Keys\automation-keys.kdbx
+ROBODOG_KEEPASS_DIR=C:\Keys
+```
+
+**Option 2 — real OS environment variables (available to every program).**
+Set them once at the user level; they persist across reboots.
+
+Windows PowerShell — use `[Environment]::SetEnvironmentVariable`, **not
+`setx`** (`setx` truncates long values to 1024 chars and can corrupt PATH):
+
+```powershell
+[Environment]::SetEnvironmentVariable("ROBODOG_KEEPASS_DB", "C:\Keys\automation-keys.kdbx", "User")
+[Environment]::SetEnvironmentVariable("ROBODOG_KEEPASS_DIR", "C:\Keys", "User")
+```
+
+macOS / Linux — append to your shell profile:
+
+```bash
+echo 'export ROBODOG_KEEPASS_DB="$HOME/keys/automation-keys.kdbx"' >> ~/.bashrc
+echo 'export ROBODOG_KEEPASS_DIR="$HOME/keys"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+After setting OS variables, **open a brand-new terminal** — already-open
+windows keep the old environment. Don't set the same variable both ways: if
+it's in a real env var *and* `config.env`, the OS variable wins, so a stale
+one silently shadows the file.
 
 ### KeePass reference
 
