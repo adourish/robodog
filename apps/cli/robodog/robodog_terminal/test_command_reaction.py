@@ -122,6 +122,31 @@ def main() -> int:
     check("BLOCKED" not in r and "net allow" in r, "allow mode permits unattended")
     reg.net_guard = "confirm"; reg.on_confirm = lambda c, why: True
 
+    # ---------------- CENTRAL guard: no tool can be added ungated ---------
+    # The danger/network guard runs in ToolRegistry.execute(), so it covers
+    # EVERY code-executing tool, and any new tool is guarded by DEFAULT.
+    from robodog_terminal.tools import Tool, ToolParam
+    reg.net_guard = "confirm"; reg.on_confirm = None   # subagent/headless
+    # run_tests runs an arbitrary command — it was previously ungated.
+    r = reg.execute("run_tests", {"command": "curl -X DELETE https://api/thing"})
+    check(r.startswith("BLOCKED"), "run_tests network write blocked (central guard)")
+    # write_file is executes=False: writing code that CONTAINS a POST is fine
+    # (it isn't executed), so it must NOT be blocked.
+    r = reg.execute("write_file", {"path": "note.py",
+                                   "content": 'import requests\nrequests.post("http://x")\n'})
+    check("BLOCKED" not in r, "write_file with POST in content is NOT blocked (not executed)")
+    # read/list tools are never guarded
+    check("BLOCKED" not in reg.execute("list_dir", {"path": "."}),
+          "list_dir is never guarded")
+    # a NEW tool registered without setting executes= is guarded by default
+    reg.register(Tool(name="brand_new_exec", description="x",
+                      params=[ToolParam("command", "c")],
+                      handler=lambda a: "ran"))
+    r = reg.execute("brand_new_exec", {"command": 'requests.delete("http://x/y")'})
+    check(r.startswith("BLOCKED"),
+          "a new tool defaults to executes=True -> guarded (fail-safe)")
+    reg.net_guard = "confirm"; reg.on_confirm = lambda c, why: True
+
     # ---------------- run_tests: auto-detect + summary -------------------
     # make a tiny passing pytest-less project: use a python -c as command
     r = reg.execute("run_tests", {"command": "python -c \"print('5 passed')\""})

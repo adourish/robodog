@@ -557,6 +557,11 @@ class Tool:
     params: List[ToolParam]
     handler: Callable[[Dict[str, str]], str]
     mutating: bool = False
+    # Does this tool run arbitrary shell/code/commands (so it could make an
+    # outward-facing network write or a destructive local command)? DEFAULT
+    # True — fail-safe: a newly-added tool is guarded until explicitly marked
+    # safe. Pure read/local-file tools set executes=False to skip the guard.
+    executes: bool = True
 
     def run(self, args: Dict[str, str]) -> str:
         missing = [p.name for p in self.params if p.required and p.name not in args]
@@ -622,10 +627,65 @@ class ToolRegistry:
             block = self.hooks.run_pre(name, args)
             if block is not None:
                 return f"BLOCKED: {block}"
+        # Central safety checkpoint: EVERY code-executing tool passes through the
+        # danger/network-write guard here, so a new tool can't be added ungated.
+        if getattr(tool, "executes", True):
+            blocked = self._guard_exec(name, args)
+            if blocked is not None:
+                return blocked
         result = tool.run(args)
         if self.hooks is not None:
             self.hooks.run_post(name, args, result)
         return result
+
+    def _guard_exec(self, name: str, args: Dict[str, str]) -> Optional[str]:
+        """Central gate for code-executing tools. Returns a BLOCKED message if
+        the call must NOT run, else None. Two layers: outward-facing network
+        writes (confirm by default; fail-safe BLOCK when unconfirmable — e.g.
+        headless or subagent) and destructive local shell commands. A permission
+        `allow` rule pre-approves and skips both. Scans every string arg so the
+        code lives wherever the tool puts it (command / content / …)."""
+        # A permission allow-rule is an explicit pre-approval.
+        if self.hooks is not None and \
+                self.hooks.check_permission(name, args)[0] == "allow":
+            return None
+        content = "\n".join(str(v) for v in args.values() if isinstance(v, str))
+        if "command" in args:
+            display = str(args["command"])
+        elif "content" in args:
+            snip = str(args["content"])
+            display = (f"{name}:\n"
+                       + (snip if len(snip) <= 800 else snip[:800] + " …(truncated)"))
+        else:
+            display = f"{name} {content[:200]}"
+        # --- outward-facing network write (e.g. closing a Jira ticket) -------
+        netmut = classify_network_mutation(content)
+        if netmut:
+            mode = self.net_guard or "confirm"
+            if mode == "deny":
+                return (f"BLOCKED: outward-facing change refused — {netmut}. "
+                        f"Network writes are denied (ROBODOG_NET_WRITES=deny). "
+                        f"Re-run interactively with net-writes set to confirm/allow "
+                        f"if this is intended.")
+            if mode != "allow":   # "confirm" (default) or anything unrecognized
+                reason = f"outward-facing change to an external service — {netmut}"
+                if self.on_confirm is not None:
+                    if not self.on_confirm(display, reason):
+                        return f"BLOCKED: user declined the outward-facing change ({netmut})."
+                else:
+                    return (f"BLOCKED: outward-facing change ({netmut}) needs confirmation, "
+                            f"but nothing here can prompt for it (headless or subagent "
+                            f"context). Run it from the interactive session, or set "
+                            f"ROBODOG_NET_WRITES=allow to permit unattended writes.")
+        # --- destructive local shell command (rm -rf, git reset --hard, …) ---
+        danger = classify_danger(content)
+        if danger:
+            if self.guard == "confirm" and self.on_confirm is not None:
+                if not self.on_confirm(display, danger):
+                    return f"BLOCKED: user declined the potentially destructive command: {display}"
+            elif self.on_bash_line is not None:
+                self.on_bash_line(f"⚠ running potentially destructive command: {display}")
+        return None
 
     # ---- path helper ----------------------------------------------------
     def _project_root(self) -> Optional[Path]:
@@ -764,6 +824,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             ToolParam("limit", "Max lines to read.", required=False),
         ],
         handler=_read_file,
+        executes=False,
     ))
 
     def _finalize_write(path: Path, old_text: Optional[str], new_text: str,
@@ -802,6 +863,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             ToolParam("content", "Full file content."),
         ],
         handler=_write_file,
+        executes=False,
         mutating=True,
     ))
 
@@ -850,6 +912,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             ToolParam("replace_all", "true to replace every occurrence.", required=False),
         ],
         handler=_edit_file,
+        executes=False,
         mutating=True,
     ))
 
@@ -907,6 +970,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             ToolParam("edits", "old>>>new pairs separated by '===' lines."),
         ],
         handler=_multi_edit,
+        executes=False,
         mutating=True,
     ))
 
@@ -1018,60 +1082,19 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         return f"{head}\n... [truncated {len(text) - limit} chars] ...\n{tail}"
 
     # --- bash / run command ---------------------------------------------
-    def _guard_or_block(display: str, content: str, tool_name: str,
-                        params: dict) -> Optional[str]:
-        """Gate a shell/script call. Returns a BLOCKED message if it must NOT
-        run, else None. Two layers: outward-facing network writes (confirm by
-        default, fail-safe block when unconfirmable) and destructive shell
-        commands (existing `guard` behavior). A permission `allow` rule
-        pre-approves and skips both."""
-        preapproved = (reg.hooks is not None and
-                       reg.hooks.check_permission(tool_name, params)[0] == "allow")
-        if preapproved:
-            return None
-        # --- outward-facing network write (e.g. closing a Jira ticket) -------
-        netmut = classify_network_mutation(content)
-        if netmut:
-            mode = reg.net_guard or "confirm"
-            if mode == "deny":
-                return (f"BLOCKED: outward-facing change refused — {netmut}. "
-                        f"Network writes are denied (ROBODOG_NET_WRITES=deny). "
-                        f"Re-run interactively with the guard set to confirm/allow "
-                        f"if this is intended.")
-            if mode != "allow":   # "confirm" (default) or anything unrecognized
-                reason = f"outward-facing change to an external service — {netmut}"
-                if reg.on_confirm is not None:
-                    if not reg.on_confirm(display, reason):
-                        return f"BLOCKED: user declined the outward-facing change ({netmut})."
-                else:
-                    # No way to ask (headless / subagent) -> fail safe, DON'T run.
-                    return (f"BLOCKED: outward-facing change ({netmut}) needs confirmation, "
-                            f"but nothing here can prompt for it (headless or subagent "
-                            f"context). Run it from the interactive session, or set "
-                            f"ROBODOG_NET_WRITES=allow to permit unattended writes.")
-        # --- destructive local shell command (rm -rf, git reset --hard, …) ---
-        danger = classify_danger(content)
-        if danger:
-            if reg.guard == "confirm" and reg.on_confirm is not None:
-                if not reg.on_confirm(display, danger):
-                    return f"BLOCKED: user declined the potentially destructive command: {display}"
-            elif reg.on_bash_line is not None:
-                reg.on_bash_line(f"⚠ running potentially destructive command: {display}")
-        return None
-
     def _bash(args):
         command = args["command"]
         background = str(args.get("background", "")).strip().lower()
         cwd = args.get("cwd")
         cwd_path = reg._resolve(cwd) if cwd else reg.cwd
+        # NOTE: the danger/network-write guard runs centrally in
+        # ToolRegistry.execute() before this handler, so bash can't reach here
+        # with an unapproved destructive/outward-facing call.
         if background not in ("", "0", "false", "no", "none"):
             if reg.background_spawn is not None:
                 return reg.background_spawn(command, str(cwd_path))
             return ("ERROR: background execution is not available yet — "
                     "run in foreground or split the work.")
-        blocked = _guard_or_block(command, command, "bash", {"command": command})
-        if blocked:
-            return blocked
         timeout = int(args.get("timeout", 120) or 120)
         # Use PowerShell on Windows, sh elsewhere, matching the host shell.
         if os.name == "nt":
@@ -1111,14 +1134,9 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         if ext is None:
             return (f"ERROR: unknown interpreter '{interpreter}'. "
                     f"Use one of: python, powershell, bash.")
-        # Same guard as bash — run_script is the escape hatch a model used to
-        # POST a Jira ticket closed with no confirmation. Show a content snippet
-        # so the confirm prompt reveals WHAT would run.
-        snippet = content if len(content) <= 800 else content[:800] + " …(truncated)"
-        blocked = _guard_or_block(f"run_script({interpreter}):\n{snippet}",
-                                  content, "run_script", {"content": content})
-        if blocked:
-            return blocked
+        # NOTE: the danger/network-write guard runs centrally in
+        # ToolRegistry.execute() before this handler (run_script was the escape
+        # hatch a model used to POST a Jira ticket closed with no confirmation).
         fd, tmp_path = tempfile.mkstemp(
             suffix=ext, prefix="robodog_script_", dir=tempfile.gettempdir())
         try:
@@ -1245,6 +1263,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             ToolParam("path", "Root dir to search (default cwd).", required=False),
         ],
         handler=_glob,
+        executes=False,
     ))
 
     # --- grep ------------------------------------------------------------
@@ -1286,6 +1305,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             ToolParam("glob", "Filename filter, e.g. *.py", required=False),
         ],
         handler=_grep,
+        executes=False,
     ))
 
     # --- list_dir --------------------------------------------------------
@@ -1303,6 +1323,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         description="List entries in a directory.",
         params=[ToolParam("path", "Directory (default cwd).", required=False)],
         handler=_list_dir,
+        executes=False,
     ))
 
     return reg

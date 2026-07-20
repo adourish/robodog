@@ -805,6 +805,17 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.25
+
+- **🛡 Safety hardening (structural):** the danger + network-write guard now runs
+  in **one central checkpoint** inside `ToolRegistry.execute()`, so it covers
+  *every* code-executing tool — and **every tool is guarded by default**
+  (`executes=True`). A newly-added tool is gated automatically unless it
+  explicitly opts out (`executes=False` for pure read/local-file tools). This
+  closes the "next unguarded tool" gap that let `run_script` slip through:
+  `run_tests` (which runs arbitrary commands) is now guarded too. Writing a file
+  whose *contents* contain a POST is still fine (it isn't executed).
+
 ### 0.3.24
 
 - **Fix (tool-call parsing):** the model closing a `<param>` with `</parameter>`
