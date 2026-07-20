@@ -805,6 +805,16 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.14
+
+- **Fix:** read-only `git log --format=…` (and `dotnet format`, etc.) no
+  longer trips the "potentially destructive command" warning — the disk-
+  `format` pattern was matching the `--format` flag.
+- **Add:** the PowerShell shell-syntax hint now also catches `| wc`, cmd.exe
+  `if not exist … mkdir`, and suggests dropping the pipe (`git log -n 20`) —
+  so the model stops looping on Unix/cmd idioms. `/test agents` accepts a raw
+  token count too (`/test agents 4 30000`).
+
 ### 0.3.13
 
 - **Add:** `/test agents [N] [big|huge]` — the subagent probe now scales to
