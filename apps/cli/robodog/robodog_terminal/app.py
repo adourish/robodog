@@ -250,6 +250,8 @@ Commands:
   /resume [id]       list saved sessions, or resume one (id or 'latest')
   /init              generate a ROBODOG.md project guide via the agent
   /doctor            run environment diagnostics
+  /cert [host]       capture a gateway's TLS chain -> REQUESTS_CA_BUNDLE (private CA)
+  /test              send a tiny request to check the backend is reachable
   /keepass [init|set] create or inspect the encrypted key vault
   /skills            list custom commands, skills, and agents (.robodog/…)
   /todos             show the agent's task checklist
@@ -274,7 +276,7 @@ and delegate to subagents.
 
 SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
-                  "/keepass",
+                  "/keepass", "/cert", "/test",
                   "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/verbose",
                   "/bg", "/tasks", "/tail",
                   "/kill", "/exit", "/quit"]
@@ -949,6 +951,30 @@ def main(argv=None) -> int:
                     from robodog_terminal.keepass_setup import handle as _kp_handle
                 _kp_ok, _kp_msg = _kp_handle(rest)
                 (ui.info if _kp_ok else ui.error)(_kp_msg)
+            elif cmd == "cert":
+                try:
+                    from .certs import handle as _cert_handle
+                except ImportError:
+                    from robodog_terminal.certs import handle as _cert_handle
+                _c_ok, _c_msg = _cert_handle(rest)
+                (ui.info if _c_ok else ui.error)(_c_msg)
+            elif cmd == "test":
+                # Minimal live connectivity check against the configured backend:
+                # exercises cert + key + URL + model without touching the convo.
+                if model_label.startswith("echo"):
+                    ui.error("backend is echo/demo — no key resolved. Run /doctor "
+                             "to see which layer is missing.")
+                else:
+                    ui.spinner_start("✳ testing the connection…")
+                    try:
+                        ans = client.complete("Reply with the single word: pong.",
+                                              max_tokens=5).text
+                        ui.spinner_stop()
+                        ui.info(f"✓ connected to {model_label} — reply: "
+                                f"{ans.strip()[:60] or '(empty)'}")
+                    except Exception as exc:
+                        ui.spinner_stop()
+                        ui.error(f"connection test failed: {type(exc).__name__}: {exc}")
             elif cmd == "todos":
                 lines = checklist.render_lines()
                 ui.info("\n".join(lines) if lines else "(no tasks)")

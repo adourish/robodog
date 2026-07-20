@@ -612,6 +612,31 @@ a prompt. (`config.env` must live at `~/.robodog/config.env` —
 `%USERPROFILE%\.robodog\config.env` on Windows — not the directory you
 launch from.)
 
+**Setup workflow, start to finish** (the four commands that get a
+private-CA gateway working from inside robodog):
+
+```
+robodog-terminal --backend openai
+› /keepass loader                     # write the loader if the vault dir lacks it
+› /cert                               # capture the gateway's TLS chain -> REQUESTS_CA_BUNDLE
+› /doctor                             # confirm: LLM entry present, ca-bundle present, model-backend ok
+› /test                              # send a tiny request — ✓ connected, or the exact failing layer
+```
+
+- **`/keepass loader`** writes `keepass_loader.py` into the vault dir
+  (`ROBODOG_KEEPASS_DIR`) without creating or touching the vault — for when
+  you copied a `.kdbx` somewhere (e.g. `C:\keys`) but the loader is missing.
+- **`/cert [host]`** connects to the gateway (host taken from
+  `ROBODOG_LLM_URL` when omitted), captures its certificate **chain**, and
+  writes a PEM to `REQUESTS_CA_BUNDLE`. It prints each cert's subject/issuer
+  — **verify the root is your org's internal CA before trusting it.** Needs
+  network reach to the host (VPN if internal). Uses `openssl` (Git ships it
+  on Windows) for the full chain; without it, captures the leaf only.
+- **`/test`** sends a one-word request through the live backend — it
+  exercises cert + key + URL + model together and reports `✓ connected` or
+  the precise error (401 key, 404 URL, TLS, …) without adding to the
+  conversation.
+
 ### Hooks & permissions
 
 Drop a `settings.json` in `.robodog/` or `.claude/` (project or `~`; project
