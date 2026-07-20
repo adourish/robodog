@@ -231,14 +231,30 @@ Only if your vault lives elsewhere (e.g. you already keep API keys in an
 existing KeePass database), add these to `~/.robodog/config.env`:
 
 ```bash
-ROBODOG_KEEPASS_DB=G:\My Drive\Keys\automation-keys.kdbx
-ROBODOG_KEEPASS_DIR=G:\My Drive\Keys
+ROBODOG_KEEPASS_DB=C:\keys\automation-keys.kdbx
+ROBODOG_KEEPASS_DIR=C:\keys
 ```
 
 - `ROBODOG_KEEPASS_DB` — full path to the `.kdbx`
 - `ROBODOG_KEEPASS_DIR` — folder containing `keepass_loader.py`
 - `ROBODOG_KEEPASS_KEYFILE` — only if the keyfile *isn't* next to the
   database with the same name and a `.keyfile` extension
+
+**Safer: keep the keyfile away from the database.** The keyfile IS the key —
+anyone holding both files owns every credential inside. Storing them apart
+(database in a backed-up or synced folder, keyfile on local-only disk or a
+USB stick that's normally unplugged) means neither file alone is worth
+anything:
+
+```bash
+ROBODOG_KEEPASS_DB=C:\keys\automation-keys.kdbx
+ROBODOG_KEEPASS_DIR=C:\keys
+ROBODOG_KEEPASS_KEYFILE=D:\secure\automation-keys.keyfile
+```
+
+In particular, don't let the keyfile ride along in the same cloud-sync
+folder as the database — that recreates the both-files-in-one-place risk on
+every synced machine.
 
 Values are read literally: no quotes, and **don't escape backslashes** —
 Windows paths and spaces work as-is.
@@ -269,7 +285,7 @@ Common failures and what they mean:
 | `/doctor` says | Fix |
 |---|---|
 | no key found | `config.env` is missing, misspelled, or in the wrong folder — it must be `~/.robodog/config.env` |
-| keepass not unlocked | wrong `ROBODOG_KEEPASS_DB` path, or the keyfile isn't beside the `.kdbx` |
+| keepass not unlocked | wrong `ROBODOG_KEEPASS_DB` path, or the keyfile wasn't found — it must be beside the `.kdbx` (same name, `.keyfile` extension) or pointed at explicitly with `ROBODOG_KEEPASS_KEYFILE` (e.g. when it lives on separate media) |
 | keepass unlocked, no entry | your entry title isn't exactly `OpenRouter` |
 | 401 / key rejected at runtime | key is wrong or revoked — regenerate at [openrouter.ai/keys](https://openrouter.ai/keys) |
 
