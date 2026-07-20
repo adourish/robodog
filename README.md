@@ -805,6 +805,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.11
+
+- **Add:** a custom gateway's per-request timeout now defaults to **300s**
+  (vs 120s for mainstream providers), so big-context requests to a slow
+  self-hosted gateway don't hit the ceiling out of the box. Explicit
+  `ROBODOG_LLM_TIMEOUT` still wins; `/doctor` shows the effective value.
+
 ### 0.3.10
 
 - **Fix/Add:** a custom gateway (a `ROBODOG_LLM_URL` that isn't a known fast
