@@ -48,6 +48,19 @@ def main() -> int:
     check(classify_danger("ls -la") is None, "ls not flagged")
     check(classify_danger("rmdir /s /q build") is not None, "rmdir /s flagged")
 
+    # ---- read-only git must NOT trip the danger guard (false-positive) ----
+    # From a real session: `--format` matched the disk-`format` pattern, so
+    # every `git log --format=...` fired the destructive-command warning.
+    for safe in ('git log --format="%H %ad %an %s" --date=short --all',
+                 "git log --oneline -20", "git show 7b4a1a0 --stat",
+                 "git diff main feature/llm-timeout",
+                 "dotnet format --verify-no-changes"):
+        check(classify_danger(safe) is None,
+              f"read-only command not flagged: {safe[:35]}")
+    # but a real disk format still is
+    check(classify_danger("format C:") is not None, "disk 'format C:' still flagged")
+    check(classify_danger("format /q d:") is not None, "'format /q' still flagged")
+
     # ---------------- guard: warn (default) proceeds ---------------------
     warns = []
     reg.on_bash_line = lambda ln: warns.append(ln)

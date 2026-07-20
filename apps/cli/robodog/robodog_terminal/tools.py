@@ -131,7 +131,9 @@ _DANGER_PATTERNS = [
     r"\brm\s+-[a-z]*[rf]", r"\brmdir\s+/s", r"\bdel\s+/[a-z]*[fs]",
     r"\bRemove-Item\b.*-Recurse", r"\bgit\s+push\b.*(--force|-f)\b",
     r"\bgit\s+reset\s+--hard", r"\bgit\s+clean\s+-[a-z]*f",
-    r"\bformat\b", r"\bmkfs\b", r"\bdd\s+if=", r":\(\)\s*\{",  # fork bomb
+    # disk format only — NOT the `--format`/`-format` flag common in git/log/etc.
+    r"(?<!-)\bformat\s+([a-zA-Z]:|/[a-z])", r"\bmkfs\b", r"\bdd\s+if=",
+    r":\(\)\s*\{",  # fork bomb
     r"\b(shutdown|reboot)\b", r">\s*/dev/sd", r"\bchmod\s+-R\s+777",
     r"\bDrop-Item\b", r"\bTruncate\b.*Table", r"\bDROP\s+(TABLE|DATABASE)\b",
 ]
@@ -144,6 +146,39 @@ def classify_danger(command: str) -> Optional[str]:
         if re.search(pat, command, re.IGNORECASE):
             return pat
     return None
+
+
+def shell_syntax_hint(command: str, combined: str) -> str:
+    """A one-line fix for the shell-syntax mistakes models repeat on Windows
+    PowerShell — appended to a FAILED command result so the model self-corrects
+    instead of looping. `combined` is the command's stdout+stderr. Module-level
+    (not a bash closure) so it's directly testable regardless of what Unix
+    tools happen to be on the host PATH."""
+    if os.name != "nt":
+        return ""
+    low = (combined or "").lower()
+    if "&&" in command and ("not a valid statement separator" in low
+                            or "token '&&'" in low):
+        return ("\nHINT: this shell is PowerShell — `&&` and `||` are not "
+                "valid. Chain with `;` (run both) or send separate commands. "
+                "For 'run B only if A succeeded': `A; if ($?) { B }`.")
+    if "not recognized as the name of a cmdlet" in low:
+        unix = ("head", "tail", "grep", "cat", "which", "ls ", "wc",
+                "uniq", "awk", "sed", "less", "touch", "sort ")
+        if any(f" {u}" in f" {command}" or command.startswith(u) for u in unix):
+            return ("\nHINT: that's a Unix command in PowerShell. Use "
+                    "`Select-Object -First N` (head), `-Last N` (tail), "
+                    "`Measure-Object -Line` (wc -l), `Select-String` (grep), "
+                    "`Get-Content` (cat), `Get-ChildItem` (ls), "
+                    "`Sort-Object -Unique` (sort/uniq). Or run the same query "
+                    "without the pipe — many git/tools have built-in limits "
+                    "(e.g. `git log -n 20`).")
+    cmd_low = command.lower()
+    if "if not exist" in cmd_low or "if exist" in cmd_low or "%errorlevel%" in cmd_low:
+        return ("\nHINT: that's cmd.exe syntax in PowerShell. Use "
+                "`if (-not (Test-Path X)) { ... }` instead of `if not exist X`, "
+                "and `New-Item -ItemType Directory -Force X` to mkdir.")
+    return ""
 
 
 @dataclass
@@ -554,27 +589,6 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         t_err.join(timeout=5)
         return proc.returncode, out_lines, err_lines, timed_out
 
-    def _shell_syntax_hint(command: str, combined: str) -> str:
-        """A one-line fix for the shell-syntax mistakes models repeat on
-        Windows PowerShell — appended to a FAILED result so the model self-
-        corrects instead of retrying the same broken command."""
-        if os.name != "nt":
-            return ""
-        low = combined.lower()
-        if "&&" in command and ("not a valid statement separator" in low
-                                or "token '&&'" in low):
-            return ("\nHINT: this shell is PowerShell — `&&` and `||` are not "
-                    "valid. Chain with `;` (run both) or send separate commands. "
-                    "For 'run B only if A succeeded': `A; if ($?) { B }`.")
-        if "not recognized as the name of a cmdlet" in low:
-            if any(f" {u}" in f" {command}" or command.startswith(u)
-                   for u in ("head", "tail", "grep", "cat", "which", "ls ")):
-                return ("\nHINT: that's a Unix command; this is PowerShell. Use "
-                        "`Select-Object -First N` (head), `-Last N` (tail), "
-                        "`Select-String` (grep), `Get-Content` (cat), "
-                        "`Get-ChildItem` (ls).")
-        return ""
-
     def _format_run_result(shown_cmd: str, returncode: Optional[int],
                            out_lines: List[str], err_lines: List[str],
                            timed_out: bool, timeout: int,
@@ -597,7 +611,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             parts.append("--- stderr ---\n" + _tail_clamp(err.rstrip()))
         # Shell-syntax hint keys on the ERROR TEXT, not the return code —
         # PowerShell often exits 0 even when a cmdlet in a pipe wasn't found.
-        hint = _shell_syntax_hint(command or shown_cmd, out + "\n" + err)
+        hint = shell_syntax_hint(command or shown_cmd, out + "\n" + err)
         if hint:
             parts.append(hint.lstrip("\n"))
         return "\n".join(parts)

@@ -1075,7 +1075,12 @@ def main(argv=None) -> int:
                     n = 2
                 size = (parts[2].lower() if len(parts) > 2 else "small")
                 # ~4 chars/token; pad to approximate a big explore context.
-                pad_tokens = {"small": 0, "big": 4000, "huge": 12000}.get(size, 0)
+                # size is a named tier OR a raw token count ('/test agents 4 30000').
+                if size.isdigit():
+                    pad_tokens = min(200_000, int(size))
+                    size = f"{pad_tokens}tok"
+                else:
+                    pad_tokens = {"small": 0, "big": 4000, "huge": 12000}.get(size, 0)
                 filler = ("The quick brown fox jumps over the lazy dog. "
                           * ((pad_tokens * 4 // 44) + 1))[:pad_tokens * 4] if pad_tokens else ""
                 prompt = ((f"[reference text, ignore it]\n{filler}\n\n" if filler else "")

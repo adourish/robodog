@@ -75,13 +75,36 @@ def main() -> int:
     # A model that chains with && on Windows gets a targeted fix appended, so
     # it self-corrects instead of looping (the real ELSA failure scenario).
     if os.name == "nt":
-        print("=== 3b. shell-syntax hint ===")
+        print("=== 3b. shell-syntax hint (live) ===")
         reg = fresh_registry()
         result = reg.execute("bash", {"command": "echo a && echo b"})
         check("HINT" in result and "PowerShell" in result and "`;`" in result,
               "&& on PowerShell -> hint to use ; or separate commands")
         ok_result = reg.execute("bash", {"command": "echo fine"})
         check("HINT" not in ok_result, "no hint on a clean command")
+
+    # --- 3c. shell_syntax_hint() directly (host-PATH-independent) ---------
+    # The real ELSA session looped on Unix pipes (`| head`, `| wc -l`) and
+    # cmd.exe (`if not exist ... mkdir`). Test the classifier against the
+    # ACTUAL error text those produce, without depending on whether Git's
+    # head/wc happen to be on this machine's PATH.
+    print("=== 3c. shell_syntax_hint classifier ===")
+    from robodog_terminal.tools import shell_syntax_hint as _hint
+    if os.name == "nt":
+        NR = "The term '{}' is not recognized as the name of a cmdlet"
+        h = _hint("git log --oneline | head -20", NR.format("head"))
+        check("HINT" in h and "Select-Object -First" in h, "head pipe -> hint")
+        h = _hint("git log --oneline --graph --all | wc -l", NR.format("wc"))
+        check("HINT" in h and "Measure-Object" in h, "wc pipe -> Measure-Object hint")
+        h = _hint("cat x | tail -5", NR.format("tail"))
+        check("HINT" in h and "-Last N" in h, "tail pipe -> -Last hint")
+        h = _hint('if not exist "docs" mkdir "docs"', "")
+        check("HINT" in h and "Test-Path" in h and "New-Item" in h,
+              "cmd.exe 'if not exist' -> Test-Path/New-Item hint")
+        h = _hint("echo a && echo b", "The token '&&' is not a valid statement separator")
+        check("HINT" in h and "`;`" in h, "&& -> ; hint")
+        check(_hint("git log --oneline -20", "") == "",
+              "a clean command gets no hint")
 
     # --- 4. bash background param stub -----------------------------------
     print("=== 4. bash background stub ===")
