@@ -515,8 +515,9 @@ def main(argv=None) -> int:
     checkpointer = _make_checkpointer()
     registry.checkpointer = checkpointer
     registry.on_diff = lambda path, diff: (ui.spinner_stop(), ui.diff(path, diff))
-    # Live-stream long-running command output (streaming bash).
-    registry.on_bash_line = lambda ln: ui.dim(f"  │ {ln}")
+    # Live-stream long-running command output (streaming bash). Bounded +
+    # blank-collapsed by the UI; the model still gets the full text.
+    registry.on_bash_line = ui.bash_line
     if args.permission_mode == "plan":
         registry.mode = "plan"
     registry.guard = args.guard
@@ -576,6 +577,7 @@ def main(argv=None) -> int:
             ui.spinner_stop()
             ui.tool_call(data["name"], data["args"])
         elif kind == "tool_done":
+            ui.stream_footer()      # report any streamed lines the display capped
             if args.verbose:
                 ui.dim(data["result"])
             else:

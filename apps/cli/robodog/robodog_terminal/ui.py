@@ -173,6 +173,82 @@ class UI:
                 return e
         return "✨"
 
+    # ---- git branch ------------------------------------------------------
+    # The toolbar redraws on EVERY keystroke, so this must never spawn `git`.
+    # Reading .git/HEAD is one open(); the result is cached and invalidated by
+    # HEAD's mtime, leaving a single stat() on the hot path.
+    _git_cache: dict = {}       # HEAD path -> (mtime_ns, branch)
+    _git_head: dict = {}        # cwd -> resolved HEAD path (skips the walk-up)
+
+    def _resolve_head(self) -> Optional[Path]:
+        """Locate .git/HEAD for self.cwd. Only positive results are cached, so
+        a `git init` mid-session is picked up instead of being stuck at None."""
+        cached = self._git_head.get(self.cwd)
+        if cached is not None:
+            return cached
+        try:
+            start = Path(self.cwd).resolve()
+        except Exception:
+            return None
+
+        # Find the repo root (walk up until a .git dir/file appears).
+        git_path = None
+        for parent in (start, *start.parents):
+            cand = parent / ".git"
+            if cand.exists():
+                git_path = cand
+                break
+        if git_path is None:
+            return None
+
+        # Worktrees and submodules use a .git FILE: "gitdir: <path>".
+        try:
+            if git_path.is_file():
+                txt = git_path.read_text(encoding="utf-8", errors="replace").strip()
+                if not txt.startswith("gitdir:"):
+                    return None
+                git_dir = Path(txt.split(":", 1)[1].strip())
+                if not git_dir.is_absolute():
+                    git_dir = (git_path.parent / git_dir).resolve()
+            else:
+                git_dir = git_path
+        except OSError:
+            return None
+
+        head = git_dir / "HEAD"
+        self._git_head[self.cwd] = head
+        return head
+
+    def _git_branch(self) -> Optional[str]:
+        head = self._resolve_head()
+        if head is None:
+            return None
+        try:
+            stamp = head.stat().st_mtime_ns
+        except OSError:
+            self._git_head.pop(self.cwd, None)   # repo moved/removed
+            return None
+
+        key = str(head)
+        hit = self._git_cache.get(key)
+        if hit and hit[0] == stamp:
+            return hit[1]
+
+        try:
+            raw = head.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            return None
+
+        if raw.startswith("ref:"):
+            branch = raw.split("/", 2)[-1]        # refs/heads/foo/bar -> foo/bar
+        elif raw:
+            branch = raw[:7]                      # detached HEAD -> short sha
+        else:
+            return None
+
+        self._git_cache[key] = (stamp, branch)
+        return branch
+
     def _status_segments(self):
         """Return [(plain_text, ansi_color), ...] for the status line."""
         C = self._C
@@ -207,6 +283,10 @@ class UI:
         # background tasks
         if self.bg_running:
             segs.append((f"🧵 {self.bg_running} bg", C["yellow"]))
+        # git branch (omitted entirely outside a repo)
+        branch = self._git_branch()
+        if branch:
+            segs.append((f"🌿 {branch}", C["yellow"]))
         # folder
         segs.append((f"📁 {short_cwd}", C["gray"]))
         return segs
@@ -373,7 +453,51 @@ class UI:
             return _T(path_str, style=_S.parse(style) + _S(link=uri, underline=True))
         return _T(path_str, style=style)
 
+    # ---- streamed command output ----------------------------------------
+    # Long-running commands stream line by line. Printing every line verbatim
+    # buries the conversation in build logs and directory listings, so the
+    # trace shows a bounded head and then reports what it held back. The MODEL
+    # still receives the complete output — this caps the display only.
+    STREAM_LIMIT = int(os.environ.get("ROBODOG_STREAM_LINES", "15") or 15)
+
+    def _reset_stream(self):
+        self._stream_shown = 0      # lines actually printed
+        self._stream_total = 0      # lines seen (for the held-back count)
+        self._stream_blank = False  # last printed line was blank
+        self._stream_capped = False # "output continues" notice already shown
+
+    def bash_line(self, line: str):
+        """Print one streamed output line, bounded and blank-collapsed."""
+        if not hasattr(self, "_stream_total"):
+            self._reset_stream()
+        self._stream_total += 1
+
+        # Collapse runs of blank lines — PowerShell in particular emits many,
+        # and a column of empty │ bars is pure noise.
+        if not line.strip():
+            if self._stream_blank or self._stream_shown == 0:
+                return
+            self._stream_blank = True
+        else:
+            self._stream_blank = False
+
+        if self._stream_shown < self.STREAM_LIMIT:
+            self._stream_shown += 1
+            self.dim(f"  │ {line}")
+        elif not self._stream_capped:
+            self._stream_capped = True
+            self.dim("  │ … output continues (shown in full to the model)")
+
+    def stream_footer(self):
+        """After a command finishes, report anything the display held back."""
+        if getattr(self, "_stream_capped", False):
+            held = self._stream_total - self._stream_shown
+            if held > 0:
+                self.dim(f"  │ … {held} more lines not shown")
+        self._reset_stream()
+
     def tool_call(self, name: str, args: dict):
+        self._reset_stream()          # each tool call starts a fresh window
         path = args.get("path")
         preview = args.get("command") or path or args.get("pattern") \
             or args.get("prompt") or ""

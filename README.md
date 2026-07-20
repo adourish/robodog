@@ -21,7 +21,7 @@ models or a fully offline mock for development.
 │  /help commands   ! run shell   /rewind undo edits   /exit quit     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
-🫧 64% | 🔋 15.6k | 🦾 gpt-4o | 📁 apps/cli
+🫧 64% | 🔋 15.6k | 🦾 gpt-4o | 🌿 main | 📁 apps/cli
 › create fib.py that prints fib(10), run it, and report the result
   ⚙ write_file fib.py
   ⚙ bash python fib.py
@@ -468,6 +468,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
+
+### 0.2.5
+
+- **Fix:** streamed command output is bounded. A long `bash` run printed every
+  line it produced, so one directory listing or build log buried the whole
+  conversation. The trace now shows the first 15 lines, collapses runs of
+  blank lines (PowerShell emits columns of them), and reports how many lines
+  it held back. The model still receives the complete output — this caps the
+  display only. Tune with `ROBODOG_STREAM_LINES`.
+- **Add:** the status line shows the current git branch (`🌿 main`), including
+  from a subdirectory, in worktrees, and as a short SHA when detached. It
+  reads `.git/HEAD` directly with an mtime-keyed cache — 26µs per redraw, and
+  never spawns `git` — because the toolbar repaints on every keystroke.
 
 ### 0.2.4
 

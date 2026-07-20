@@ -145,6 +145,67 @@ def main() -> int:
     check("\n" not in ui._flatten("a\nb\tc") and "a b c" == ui._flatten("a\nb\tc"),
           "_flatten collapses newlines and tabs")
 
+    # ---------------- streamed command output is bounded -----------------
+    # A 200-line build log must not flood the transcript.
+    ui, buf = capture()
+    ui.tool_call("bash", {"command": "big"})
+    for i in range(200):
+        ui.bash_line(f"log line {i}")
+    ui.stream_footer()
+    p = plain(buf.getvalue())
+    shown = p.count("log line ")
+    check(shown == ui.STREAM_LIMIT,
+          f"streamed output capped at STREAM_LIMIT ({shown} shown)")
+    check("output continues" in p, "capped stream says output continues")
+    check("more lines not shown" in p, "footer reports the held-back count")
+    check("185 more lines" in p, "held-back count is accurate (200-15)")
+
+    # short output is shown in full, with no cap noise
+    ui, buf = capture()
+    ui.tool_call("bash", {"command": "small"})
+    for i in range(3):
+        ui.bash_line(f"only {i}")
+    ui.stream_footer()
+    p = plain(buf.getvalue())
+    check(p.count("only ") == 3, "short output shown in full")
+    check("output continues" not in p and "not shown" not in p,
+          "short output adds no truncation notice")
+
+    # runs of blank lines collapse (PowerShell emits columns of them)
+    ui, buf = capture()
+    ui.tool_call("bash", {"command": "ps"})
+    ui.bash_line("Mode   Name")
+    for _ in range(6):
+        ui.bash_line("")
+    ui.bash_line("d----  aitools")
+    ui.stream_footer()
+    body = [l for l in plain(buf.getvalue()).splitlines() if "│" in l]
+    blanks = [l for l in body if l.strip().rstrip("│").strip() == ""]
+    check(len(blanks) <= 1, f"consecutive blank lines collapsed ({len(blanks)} kept)")
+    check(any("aitools" in l for l in body), "content after blanks still shown")
+
+    # leading blank lines never open the stream
+    ui, buf = capture()
+    ui.tool_call("bash", {"command": "x"})
+    ui.bash_line("")
+    ui.bash_line("")
+    ui.bash_line("first real")
+    ui.stream_footer()
+    lines = [l for l in plain(buf.getvalue()).splitlines() if "│" in l]
+    check(lines and "first real" in lines[0], "leading blanks are dropped")
+
+    # a new tool call resets the window (cap doesn't leak between commands)
+    ui, buf = capture()
+    ui.tool_call("bash", {"command": "one"})
+    for i in range(30):
+        ui.bash_line(f"a{i}")
+    ui.stream_footer()
+    ui.tool_call("bash", {"command": "two"})
+    ui.bash_line("fresh line")
+    ui.stream_footer()
+    check("fresh line" in plain(buf.getvalue()),
+          "stream window resets on the next tool call")
+
     # ---------------- diff header link + colored body --------------------
     ui, buf = capture()
     ui.diff(str(here), "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n")
@@ -173,6 +234,43 @@ def main() -> int:
     # model emoji
     ui, buf = capture(); ui.model_name = "gateway/sonnet"; ui.print_status()
     check("🤖" in plain(buf.getvalue()), "sonnet/gateway model -> robot emoji")
+
+    # ---------------- git branch in the status line ----------------------
+    import subprocess, tempfile as _tf
+    with _tf.TemporaryDirectory() as repo:
+        def _git(*a):
+            subprocess.run(["git", *a], cwd=repo, capture_output=True, text=True)
+        _git("init", "-q", "-b", "feature/status-line")
+        ui, buf = capture(); ui.cwd = repo; ui.print_status()
+        p = plain(buf.getvalue())
+        check("🌿 feature/status-line" in p,
+              f"status line shows the git branch (got: {p.strip()[:70]})")
+
+        # a slash-containing branch name survives intact
+        _git("checkout", "-q", "-b", "release/1.2/rc")
+        ui, buf = capture(); ui.cwd = repo; ui.print_status()
+        check("release/1.2/rc" in plain(buf.getvalue()),
+              "branch names containing slashes are not truncated")
+
+        # switching branches invalidates the mtime-keyed cache
+        _git("checkout", "-q", "-b", "second")
+        ui2, buf2 = capture(); ui2.cwd = repo; ui2.print_status()
+        check("🌿 second" in plain(buf2.getvalue()),
+              "branch cache invalidates when HEAD changes")
+
+        # nested subdirectory still resolves the repo by walking up
+        sub = Path(repo) / "a" / "b"
+        sub.mkdir(parents=True, exist_ok=True)
+        ui3, buf3 = capture(); ui3.cwd = str(sub); ui3.print_status()
+        check("🌿 second" in plain(buf3.getvalue()),
+              "branch resolves from a nested subdirectory")
+
+    # outside a repo the segment is omitted entirely (no empty 🌿)
+    with _tf.TemporaryDirectory() as plain_dir:
+        ui, buf = capture(); ui.cwd = plain_dir; ui.print_status()
+        check("🌿" not in plain(buf.getvalue()),
+              "no branch segment outside a git repo")
+        check(ui._git_branch() is None, "_git_branch returns None outside a repo")
 
     # ---------------- file:line clickable (grep / traceback) -------------
     ui, buf = capture()
