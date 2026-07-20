@@ -251,7 +251,7 @@ Commands:
   /init              generate a ROBODOG.md project guide via the agent
   /doctor            run environment diagnostics
   /cert [host]       capture a gateway's TLS chain -> REQUESTS_CA_BUNDLE (private CA)
-  /test [agents [N]] tiny reachability probe; `agents` times an N-way subagent fan-out
+  /test [agents [N] [big]] reachability probe; `agents N big` stress-tests an N-way fan-out
   /keepass [init|set] create or inspect the encrypted key vault
   /skills            list custom commands, skills, and agents (.robodog/…)
   /todos             show the agent's task checklist
@@ -1062,24 +1062,33 @@ def main(argv=None) -> int:
                 _c_ok, _c_msg = _cert_handle(rest)
                 (ui.info if _c_ok else ui.error)(_c_msg)
             elif cmd == "test" and rest.split()[0:1] == ["agents"]:
-                # Subagent path probe: spawn N tiny parallel subagents and time
-                # them — this exercises the fan-out that actually times out
-                # (child loops + concurrency cap), unlike the single-request probe.
+                # Aggressive subagent-path probe: /test agents [N] [small|big|huge].
+                # N parallel subagents (default 2, up to 16); the size pads each
+                # prompt to reproduce the LARGE-context requests your explore
+                # agents actually send — that's what times out, not tiny ones.
                 import concurrent.futures as _cf
                 import time as _t
                 parts = rest.split()
                 try:
-                    n = max(1, min(8, int(parts[1]))) if len(parts) > 1 else 2
+                    n = max(1, min(16, int(parts[1]))) if len(parts) > 1 else 2
                 except ValueError:
                     n = 2
-                ui.info(f"probing the subagent path — {n} parallel agents…")
+                size = (parts[2].lower() if len(parts) > 2 else "small")
+                # ~4 chars/token; pad to approximate a big explore context.
+                pad_tokens = {"small": 0, "big": 4000, "huge": 12000}.get(size, 0)
+                filler = ("The quick brown fox jumps over the lazy dog. "
+                          * ((pad_tokens * 4 // 44) + 1))[:pad_tokens * 4] if pad_tokens else ""
+                prompt = ((f"[reference text, ignore it]\n{filler}\n\n" if filler else "")
+                          + "Reply with the single word: ready. Use no tools.")
+                approx_tok = len(prompt) // 4
+                ui.info(f"probing the subagent path — {n} parallel agents, "
+                        f"{size} prompt (~{approx_tok} tokens each)…")
 
                 def _one(i):
                     t0 = _t.time()
                     try:
-                        r = registry.execute("agent", {
-                            "prompt": "Reply with the single word: ready. "
-                                      "Use no tools.", "type": "general"})
+                        r = registry.execute("agent",
+                                              {"prompt": prompt, "type": "general"})
                         return (i, "ERROR" not in r[:6], _t.time() - t0,
                                 r.splitlines()[0][:70])
                     except Exception as exc:
@@ -1095,10 +1104,17 @@ def main(argv=None) -> int:
                     results = sorted(_ex.map(_one, range(n)))
                 total = _t.time() - t0
                 good = sum(1 for _, ok2, _, _ in results if ok2)
+                times = [dt for _, _, dt, _ in results]
+                stats = (f"per-agent {min(times):.1f}s min / "
+                         f"{sum(times)/len(times):.1f}s avg / {max(times):.1f}s max")
                 (ui.info if good == n else ui.error)(
-                    f"{good}/{n} subagents ok in {total:.1f}s wall (cap {_cap})")
+                    f"{good}/{n} subagents ok in {total:.1f}s wall (cap {_cap}); {stats}")
                 for i, ok2, dt, det in results:
                     ui.info(f"  #{i + 1} {'✓' if ok2 else '✗'} {dt:.1f}s — {det}")
+                if good < n:
+                    ui.dim("  (failures at this size/concurrency = the gateway can't keep "
+                           "up. Raise ROBODOG_LLM_TIMEOUT, lower concurrency, or shrink "
+                           "the real prompts.)")
             elif cmd == "test":
                 # One-shot TIMED probe (no retries) so you can see the exact
                 # phase + latency: connect vs read timeout vs HTTP error.

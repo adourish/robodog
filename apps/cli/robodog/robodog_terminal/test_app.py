@@ -108,7 +108,7 @@ def main() -> int:
         "/cwd Z:\\definitely_missing_dir",
         "/verbose",              # ON
         "/verbose",              # OFF
-        "/test agents 2",        # subagent-path probe (echo backend)
+        "/test agents 3 big",    # aggressive subagent-path probe (echo backend)
         "! echo bang-works",
         "/model fresh-echo",     # rebuild client -> fresh demo script
         "run demo",              # real agent turn: write demo.py + bash + final
@@ -138,8 +138,9 @@ def main() -> int:
     check("transcript:" in out, "/context reports")
     check("verbose output ON" in out and "verbose output OFF" in out,
           "/verbose toggles on and off")
-    check("subagents ok" in out and "2/2" in out,
-          "/test agents runs a subagent fan-out and reports N/N ok")
+    check("subagents ok" in out and "3/3" in out and "per-agent" in out
+          and "big prompt" in out,
+          "/test agents N big runs a sized fan-out and reports N/N ok + timing stats")
 
     # session actually persisted turns
     from robodog_terminal.sessions import SessionStore
