@@ -45,6 +45,21 @@ try:
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.styles import Style as _PTStyle
     _HAVE_PT = True
+
+    class _SafeFileHistory(FileHistory):
+        """FileHistory that never crashes the REPL. A line pasted from a
+        Windows console can carry lone UTF-16 surrogates; FileHistory encodes
+        entries to UTF-8, and `surrogates not allowed` was propagating out of
+        the Enter key binding and killing the prompt. Strip surrogates before
+        storing, and swallow any residual write error — losing a history entry
+        must never take down input."""
+        def store_string(self, string: str) -> None:
+            clean = "".join(c for c in string
+                            if not 0xD800 <= ord(c) <= 0xDFFF)
+            try:
+                super().store_string(clean)
+            except Exception:  # pragma: no cover - defensive
+                pass
 except Exception:  # pragma: no cover
     _HAVE_PT = False
 
@@ -61,6 +76,14 @@ def _input_key_bindings():
     @kb.add("enter")
     def _(event):
         buf = event.current_buffer
+        # Strip lone UTF-16 surrogates a Windows-console paste can carry, before
+        # anything encodes them (history save, or the submitted line). Belt to
+        # _SafeFileHistory's braces.
+        if any(0xD800 <= ord(c) <= 0xDFFF for c in buf.text):
+            clean = "".join(c for c in buf.text
+                            if not 0xD800 <= ord(c) <= 0xDFFF)
+            buf.text = clean
+            buf.cursor_position = min(buf.cursor_position, len(clean))
         text = buf.text
         # Backslash-continuation: strip the trailing '\' and add a newline.
         if text.rstrip("\n").endswith("\\"):
@@ -116,7 +139,7 @@ class UI:
                 completer = WordCompleter(sorted(commands), sentence=True,
                                           match_middle=False)
             self._session = PromptSession(
-                history=FileHistory(str(hist_dir / "terminal_history")),
+                history=_SafeFileHistory(str(hist_dir / "terminal_history")),
                 completer=completer,
                 bottom_toolbar=self._toolbar,
                 complete_while_typing=True,

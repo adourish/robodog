@@ -70,6 +70,31 @@ def main() -> int:
     got = drive("no-continuation" + ENTER)
     check(got == "no-continuation", "plain Enter still submits")
 
+    # 7) a paste carrying lone UTF-16 surrogates (Windows console) submits
+    #    WITHOUT crashing — the Enter handler strips them before validate/save.
+    surrogate = "git branch \udce2\udc80 feature/x"
+    got = drive(surrogate + ENTER)
+    check("\udce2" not in got and "git branch" in got,
+          "surrogate paste submits cleanly (no crash, surrogates stripped)")
+
+    # 8) _SafeFileHistory never raises or writes invalid utf-8 on surrogate input
+    import tempfile
+    from robodog_terminal.ui import _SafeFileHistory
+    hf = Path(tempfile.mkdtemp()) / "hist"
+    h = _SafeFileHistory(str(hf))
+    raised = False
+    try:
+        h.store_string("bad \udce2\udc80 line")
+    except Exception:
+        raised = True
+    check(not raised, "_SafeFileHistory.store_string survives surrogates")
+    ok_utf8 = True
+    try:
+        hf.read_bytes().decode("utf-8")
+    except Exception:
+        ok_utf8 = False
+    check(ok_utf8, "_SafeFileHistory writes valid utf-8")
+
     print("\nINPUT:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 
