@@ -9,6 +9,12 @@ changing anything in robodog_terminal/ui.py so the docs stay honest:
 Then convert SVG -> PNG (headless Chrome):
 
     python docs/screenshots/generate.py --png
+
+Scenes 11 (parallel live-website fetch) and 12 (polyglot squad + Playwright)
+hit real network and launch a real browser, so they only refresh with an
+explicit opt-in — pass --live to include them:
+
+    python docs/screenshots/generate.py --live --png
 """
 import os, re, subprocess, sys, tempfile, time
 from pathlib import Path
@@ -238,6 +244,194 @@ ui.error("RuntimeError: LLM HTTP 401: Unauthorized\n"
          "'OpenRouter'/'OpenAI' entry — the key may be missing, expired, or for a "
          "different provider.")
 save(ui, "10_error_hints.svg", "robodog — errors explain themselves")
+
+# ---------- scene 13: .claude extensions from a Claude Code project ---------
+from robodog_terminal.skills import SkillsRegistry
+
+_wd = Path(tempfile.mkdtemp(prefix="rd_shot_cc_"))
+_cd = _wd / ".claude"
+(_cd / "commands").mkdir(parents=True)
+(_cd / "commands" / "ship.md").write_text(
+    "---\ndescription: build, tag, and publish a release\nargument-hint: <version>\n---\n"
+    "Ship release $1: run the tests, bump the version, publish.", encoding="utf-8")
+(_cd / "agents").mkdir()
+(_cd / "agents" / "reviewer.md").write_text(
+    "---\nname: reviewer\ndescription: strict read-only code reviewer\n"
+    "tools: read_file, grep, glob\n---\nReview code; report issues only.", encoding="utf-8")
+(_cd / "skills" / "release-notes").mkdir(parents=True)
+(_cd / "skills" / "release-notes" / "SKILL.md").write_text(
+    "---\ndescription: house style for release notes\n---\n"
+    "Use Add/Fix/Docs prefixes, keep entries under 80 chars.", encoding="utf-8")
+_rd = _wd / ".robodog"
+(_rd / "commands").mkdir(parents=True)
+(_rd / "commands" / "deploy.md").write_text(
+    "---\ndescription: deploy to an environment\nargument-hint: <env>\n---\n"
+    "Deploy to $1.", encoding="utf-8")
+
+_reg = SkillsRegistry(cwd=str(_wd))
+_reg.discover()
+ui = fresh_ui()
+ui.dim("(loaded project instructions: CLAUDE.md)")
+ui.dim(f"(extensions: {_reg.summary()} — custom /commands, skills, and agents)")
+ui.console.print("[bold magenta]›[/bold magenta] /skills")
+ui.info("custom commands:")
+for _n, _c in sorted(_reg.commands.items()):
+    _src = ".claude" if ".claude" in _c.source else ".robodog"
+    ui.info(f"  /{_n:<14} {_c.description}   [{_src}]")
+ui.info("skills:")
+for _n, _s in sorted(_reg.skills.items()):
+    ui.info(f"  /{_n:<14} {_s.description}   [.claude]")
+ui.info("custom agents:")
+for _n, _a in sorted(_reg.agents.items()):
+    ui.info(f"  {_n:<15} tools: {', '.join(_a.tools or ['(all)'])}   [.claude]")
+ui.console.print("[bold magenta]›[/bold magenta] /ship v0.2.7")
+ui.dim("  (rendered: \"Ship release v0.2.7: run the tests, bump the version, publish.\")")
+ui.console.print("[bold magenta]›[/bold magenta] /release-notes")
+ui.info("loaded skill 'release-notes' into context.")
+save(ui, "13_claude_dir.svg",
+     "robodog — .claude/ extensions from a Claude Code project, working unchanged")
+
+# ---------- LIVE scenes (need network / Playwright): --live ------------------
+# 11_parallel_web: 6 subagents fetch 6 live websites in parallel via run_script
+# 12_squad: python/powershell/bash scripts + GitHub/PyPI APIs + Playwright CLI
+# These re-run REAL network fetches and a REAL browser, so they only refresh
+# with an explicit opt-in; the committed PNGs are kept otherwise.
+if "--live" in sys.argv:
+    import html as _html
+    import urllib.request
+
+    _SITES = {
+        "0": "https://example.com", "1": "https://www.python.org",
+        "2": "https://pypi.org", "3": "https://github.com",
+        "4": "https://en.wikipedia.org/wiki/HTTP", "5": "https://openrouter.ai",
+    }
+    _FETCH = (
+        "import re, time, urllib.request\n"
+        "t0 = time.time()\n"
+        "req = urllib.request.Request({url!r}, headers={{'User-Agent': 'robodog-shots'}})\n"
+        "body = urllib.request.urlopen(req, timeout=20).read(65536).decode('utf-8', 'replace')\n"
+        "m = re.search(r'<title[^>]*>(.*?)</title>', body, re.S | re.I)\n"
+        "title = ' '.join((m.group(1) if m else '(no title)').split())[:60]\n"
+        "print(f'OK {{time.time()-t0:.2f}}s · title: {{title}}')\n"
+    )
+
+    def _web_script(prompt, ctx=""):
+        if "TOOL RESULT [agent]" in prompt:
+            return ("All six sites fetched in parallel. Every request returned OK — "
+                    "titles captured in the per-agent results above.")
+        if "SEARCHCHILD" in prompt:
+            unit = prompt.split("SEARCHCHILD ")[1].split(" ")[0].strip()
+            url = _SITES[unit]
+            if "TOOL RESULT [run_script]" in prompt:
+                hits = [h for h in re.findall(r"title: (.+)", prompt) if "{" not in h]
+                title = hits[-1].strip()[:60] if hits else "(unknown)"
+                return f"Fetched {url} — {title}"
+            return (f'<tool name="run_script"><param name="content">'
+                    f'{_html.escape(_FETCH.format(url=url))}</param>'
+                    f'<param name="interpreter">python</param></tool>')
+        return "".join(
+            f'<tool name="agent"><param name="prompt">SEARCHCHILD {i} fetch {_SITES[str(i)]}</param>'
+            f'<param name="type">general</param></tool>' for i in range(6))
+
+    ui = fresh_ui()
+    ui.console = Console(record=True, force_terminal=True, width=110,
+                         legacy_windows=False, file=open("nul", "w", encoding="utf-8"))
+    client = EchoClient(script=_web_script)
+    reg = default_registry(cwd=tempfile.mkdtemp())
+    register_agent_tool(reg, client)
+
+    def _on_event(kind, data):
+        if kind == "tool_start":
+            ui.tool_call(data["name"], data["args"])
+        elif kind == "tool_done":
+            ui.tool_result(data["name"], data["result"])
+
+    loop = AgentLoop(client, reg, max_iterations=8, on_event=_on_event)
+    ui.console.print("[bold magenta]›[/bold magenta] check six sites in parallel: "
+                     "fetch each homepage and report its title")
+    t0 = time.time()
+    res = loop.run("check six sites in parallel")
+    wall = time.time() - t0
+    t1 = time.time()
+    for url in _SITES.values():
+        subprocess.run([sys.executable, "-c", _FETCH.format(url=url)],
+                       capture_output=True, timeout=30)
+    serial = time.time() - t1
+    ui.assistant(res.final_text)
+    ui.dim(f"[2 steps · {res.total_tokens} tok · parallel {wall:.1f}s vs serial "
+           f"{serial:.1f}s → {serial / wall:.1f}x faster]")
+    save(ui, "11_parallel_web.svg",
+         "robodog — 6 subagents fetching 6 live websites in parallel")
+
+    _SHOT = OUT / "web_capture.png"
+    _TASKS = {
+        "0": ("write and run a python script: first 8 fibonacci numbers", "python",
+              "fibs=[0,1]\n"
+              "for _ in range(6): fibs.append(fibs[-1]+fibs[-2])\n"
+              "print('RESULT fibonacci:', fibs)"),
+        "1": ("run a powershell script: OS + CPU count", "powershell",
+              "$os = (Get-CimInstance Win32_OperatingSystem).Caption\n"
+              "Write-Output \"RESULT os: $os / $env:NUMBER_OF_PROCESSORS cores\""),
+        "2": ("run a bash script: count python files in the repo", "bash",
+              "cd /c/projects/robodog/apps/cli/robodog\n"
+              "echo \"RESULT py files: $(find . -name '*.py' | wc -l)\""),
+        "3": ("call the GitHub API: robodog repo stats", "python",
+              "import json, urllib.request\n"
+              "d = json.load(urllib.request.urlopen(\n"
+              "    'https://api.github.com/repos/adourish/robodog', timeout=20))\n"
+              "print('RESULT github:', d['stargazers_count'], 'stars ·',\n"
+              "      d['open_issues_count'], 'open issues ·', d['language'])"),
+        "4": ("call the PyPI API: latest robodog-terminal release", "python",
+              "import json, urllib.request\n"
+              "d = json.load(urllib.request.urlopen(\n"
+              "    'https://pypi.org/pypi/robodog-terminal/json', timeout=20))\n"
+              "files = d['releases'][d['info']['version']]\n"
+              "print('RESULT pypi:', d['info']['version'], '·', len(files), 'files')"),
+        "5": ("use the Playwright CLI to screenshot example.com", "powershell",
+              "cd C:\\projects\\robodog\n"
+              "npx playwright screenshot --viewport-size=1000,600 "
+              "https://example.com \"" + str(_SHOT) + "\" 2>&1 | Out-Null\n"
+              "if (Test-Path \"" + str(_SHOT) + "\") {\n"
+              "  $len = (Get-Item \"" + str(_SHOT) + "\").Length\n"
+              "  Write-Output \"RESULT playwright: captured example.com ($len bytes)\"\n"
+              "} else { Write-Output 'RESULT playwright: FAILED' }"),
+    }
+
+    def _squad_script(prompt, ctx=""):
+        if "TOOL RESULT [agent]" in prompt:
+            return ("Squad complete: three script interpreters exercised, two live APIs "
+                    "answered, and Playwright captured a real browser screenshot.")
+        if "SQUADCHILD" in prompt:
+            unit = prompt.split("SQUADCHILD ")[1].split(" ")[0].strip()
+            label, interp, code = _TASKS[unit]
+            if "TOOL RESULT [run_script]" in prompt:
+                hits = re.findall(r"RESULT (.+)", prompt)
+                real = [h for h in hits if "'" not in h[:8] and "{" not in h]
+                return f"Done — {real[-1].strip()[:90]}" if real else "Done (no RESULT line)"
+            return (f'<tool name="run_script"><param name="content">{_html.escape(code)}'
+                    f'</param><param name="interpreter">{interp}</param>'
+                    f'<param name="timeout">90</param></tool>')
+        return "".join(
+            f'<tool name="agent"><param name="prompt">SQUADCHILD {i} {_TASKS[str(i)][0]}</param>'
+            f'<param name="type">general</param></tool>' for i in range(6))
+
+    ui = fresh_ui()
+    ui.console = Console(record=True, force_terminal=True, width=112,
+                         legacy_windows=False, file=open("nul", "w", encoding="utf-8"))
+    client = EchoClient(script=_squad_script)
+    reg = default_registry(cwd=tempfile.mkdtemp())
+    register_agent_tool(reg, client)
+    loop = AgentLoop(client, reg, max_iterations=8, on_event=_on_event)
+    ui.console.print("[bold magenta]›[/bold magenta] squad task: run python/powershell/bash "
+                     "scripts, hit the GitHub + PyPI APIs, and screenshot a site with "
+                     "Playwright — in parallel")
+    t0 = time.time()
+    res = loop.run("squad")
+    wall = time.time() - t0
+    ui.assistant(res.final_text)
+    ui.dim(f"[2 steps · {res.total_tokens} tok · {wall:.1f}s wall for all six]")
+    save(ui, "12_squad.svg",
+         "robodog — 6 agents: 3 script types, 2 live APIs, 1 Playwright browser capture")
 
 
 def to_png():

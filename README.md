@@ -352,7 +352,8 @@ Prompted tool-use loop (intent nudge + circuit breaker) · tools:
 and whitespace-tolerant edits · **parallel subagents** (fan out several in one
 turn — they run concurrently) plus background subagents ·
 per-prompt **checkpoints** with `/rewind` · JSONL **sessions** (`/resume`,
-`--continue`) · **plan mode** · **skills & custom commands** (`.robodog/`) ·
+`--continue`) · **plan mode** · **skills & custom commands** (`.robodog/` or
+`.claude/` — Claude Code layouts work unchanged) ·
 `CLAUDE.md`/`ROBODOG.md` instruction hierarchy · a rich + prompt_toolkit **TUI**
 (emoji/color status line, clickable file & `file:line` links, multiline paste,
 mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
@@ -401,6 +402,35 @@ check that catches a mismatch before any request is sent:
 just a status code:
 
 ![error hints](docs/screenshots/10_error_hints.png)
+
+### Use cases
+
+**Search multiple websites in parallel** — six subagents each fetch a live
+site through `run_script` and report its title, 3.6× faster than doing it
+serially (this and the next scene run real network calls; regenerate with
+`generate.py --live`):
+
+![parallel web fetch](docs/screenshots/11_parallel_web.png)
+
+**A mixed-workload agent squad in one turn** — python, powershell, and bash
+scripts, live GitHub + PyPI API calls, and a Playwright CLI browser capture,
+all concurrent, 4.3s wall:
+
+![agent squad](docs/screenshots/12_squad.png)
+
+The Playwright agent's own artifact — a real browser page capture:
+
+![playwright capture](docs/screenshots/web_capture.png)
+
+**Claude Code projects work unchanged** — extensions in `.claude/commands`,
+`.claude/agents`, and `.claude/skills` are discovered alongside `.robodog/`
+(which stays the override layer), just like `CLAUDE.md` instructions:
+
+![.claude extensions](docs/screenshots/13_claude_dir.png)
+
+These three scenes are also automated tests: `ROBODOG_LIVE=1 python
+robodog_terminal/run_tests.py` runs the live web/API/Playwright suite, and
+`.claude`/`.robodog` discovery is covered in the default suite.
 
 ## Configuration
 
