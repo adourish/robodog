@@ -103,6 +103,7 @@ class UI:
         self.console = Console(stderr=stderr) if _HAVE_RICH else None
         self._stderr = stderr
         self._status = None          # active rich spinner
+        self._typing = False         # user is typing a mid-turn line (suppress spinner)
         self._interactive = bool(
             _HAVE_PT and sys.stdin.isatty() and sys.stdout.isatty()
         )
@@ -359,6 +360,11 @@ class UI:
 
     # ---- spinner --------------------------------------------------------
     def spinner_start(self, text: str):
+        # While the user is typing a mid-turn line, a rich Live spinner would
+        # repaint over their keystrokes and fragment each char onto its own
+        # line. Suppress it until they submit.
+        if getattr(self, "_typing", False):
+            return
         if self.console and sys.stdout.isatty() and self._status is None:
             self._status = self.console.status(f"[cyan]{text}[/cyan]",
                                                spinner="dots")
@@ -372,6 +378,41 @@ class UI:
         if self._status is not None:
             self._status.stop()
             self._status = None
+
+    # ---- mid-turn typing ------------------------------------------------
+    # Echo a line the user types WHILE the agent is working, without the Live
+    # spinner shredding it. The raw key reader (turnrunner.make_key_source)
+    # calls these; they own a single clean input line.
+    def mid_input_start(self):
+        """First keystroke of a mid-turn line: stop the spinner, mark typing
+        active (so it can't restart over the text), and print a prompt."""
+        self.spinner_stop()
+        self._typing = True
+        if sys.stdout.isatty():
+            sys.stdout.write("\n› ")
+            sys.stdout.flush()
+
+    def mid_input_echo(self, ch: str):
+        if sys.stdout.isatty():
+            sys.stdout.write(ch)
+            sys.stdout.flush()
+
+    def mid_input_backspace(self):
+        if sys.stdout.isatty():
+            sys.stdout.write("\b \b")
+            sys.stdout.flush()
+
+    def mid_input_end(self):
+        """Line submitted (or input abandoned): let the spinner run again."""
+        was_typing = getattr(self, "_typing", False)
+        self._typing = False
+        if was_typing and sys.stdout.isatty():
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+    def reset_typing(self):
+        """Belt-and-braces: never leave the spinner suppressed after a turn."""
+        self._typing = False
 
     # ---- output ---------------------------------------------------------
     def info(self, msg: str):

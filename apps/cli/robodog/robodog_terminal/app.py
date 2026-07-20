@@ -758,7 +758,7 @@ def main(argv=None) -> int:
         from robodog_terminal.turnrunner import TurnRunner, make_key_source
     pending_prompts = []      # follow-ups queued while a turn ran
     detached = [None]         # a TurnRunner still running in the background
-    key_source = make_key_source()
+    key_source = make_key_source(ui)
     # startup --resume may have preloaded history; don't re-persist those turns.
     persisted = [len(loop.history)]   # count of loop.history turns already saved
 
@@ -1128,9 +1128,11 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             outcome = runner.watch(lambda: "cancel")
         except Exception as exc:
+            ui.reset_typing()
             ui.spinner_stop()
             ui.error(f"{type(exc).__name__}: {exc}")
             continue
+        ui.reset_typing()   # never leave the spinner suppressed after a turn
 
         pending_prompts.extend(outcome.queued)
         if outcome.status == "backgrounded":

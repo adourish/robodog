@@ -104,12 +104,17 @@ class TurnRunner:
         return self._error
 
 
-def make_key_source(on_line_echo: Optional[Callable[[str], None]] = None) -> KeySource:
+def make_key_source(ui=None) -> KeySource:
     """
     Raw single-key reader for use during a turn (no prompt_toolkit active here).
     Windows: msvcrt; POSIX: select + cbreak. Ctrl+B -> background, Ctrl+C ->
     cancel, printable chars build a line submitted on Enter. Returns a no-op
     source when stdin is not a usable TTY (tests, pipes, headless).
+
+    `ui` (optional): when given, keystrokes are echoed through its
+    mid_input_* methods, which stop the Live spinner first so typed text isn't
+    fragmented onto one-char-per-line by the spinner's repaint. Without a ui,
+    falls back to raw stdout echo (old behavior).
     """
     import os
     import sys
@@ -118,6 +123,39 @@ def make_key_source(on_line_echo: Optional[Callable[[str], None]] = None) -> Key
         return lambda: None
 
     buf: List[str] = []
+    started = [False]   # whether the current line's mid_input_start() has fired
+
+    def _begin():
+        if not started[0]:
+            started[0] = True
+            if ui is not None:
+                ui.mid_input_start()
+
+    def _echo(ch: str):
+        if ui is not None:
+            ui.mid_input_echo(ch)
+        else:
+            sys.stdout.write(ch)
+            sys.stdout.flush()
+
+    def _backspace():
+        if ui is not None:
+            ui.mid_input_backspace()
+        else:
+            sys.stdout.write("\b \b")
+            sys.stdout.flush()
+
+    def _submit():
+        line = "".join(buf).strip()
+        buf.clear()
+        if started[0]:
+            started[0] = False
+            if ui is not None:
+                ui.mid_input_end()
+            else:
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+        return ("input", line)
 
     if os.name == "nt":
         import msvcrt
@@ -131,24 +169,19 @@ def make_key_source(on_line_echo: Optional[Callable[[str], None]] = None) -> Key
             if ch == "\x03":            # Ctrl+C
                 return "cancel"
             if ch in ("\r", "\n"):
-                line = "".join(buf).strip()
-                buf.clear()
-                sys.stdout.write("\n")
-                sys.stdout.flush()
-                return ("input", line)
+                return _submit()
             if ch in ("\x08", "\x7f"):  # backspace
                 if buf:
                     buf.pop()
-                    sys.stdout.write("\b \b")
-                    sys.stdout.flush()
+                    _backspace()
                 return None
             if ch == "\x00" or ch == "\xe0":  # function/arrow prefix — consume next
                 if msvcrt.kbhit():
                     msvcrt.getwch()
                 return None
+            _begin()
             buf.append(ch)
-            sys.stdout.write(ch)
-            sys.stdout.flush()
+            _echo(ch)
             return None
 
         return _src
@@ -166,10 +199,15 @@ def make_key_source(on_line_echo: Optional[Callable[[str], None]] = None) -> Key
         if ch == "\x03":
             return "cancel"
         if ch in ("\r", "\n"):
-            line = "".join(buf).strip()
-            buf.clear()
-            return ("input", line)
+            return _submit()
+        if ch in ("\x08", "\x7f"):
+            if buf:
+                buf.pop()
+                _backspace()
+            return None
+        _begin()
         buf.append(ch)
+        _echo(ch)
         return None
 
     return _src

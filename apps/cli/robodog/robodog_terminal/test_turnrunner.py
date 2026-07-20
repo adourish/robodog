@@ -144,6 +144,23 @@ def main() -> int:
     # ---------------- make_key_source: safe no-op off a TTY --------------
     ks = make_key_source()
     check(ks() is None, "make_key_source is a no-op when stdin is not a TTY")
+    ks2 = make_key_source(ui=object())  # ui arg accepted, still no-op off a TTY
+    check(ks2() is None, "make_key_source(ui=...) still no-ops off a TTY")
+
+    # ---------------- UI mid-turn typing: spinner suppression ------------
+    # The fragmentation bug is a Live spinner repainting over raw keystrokes;
+    # the fix is UI._typing gating spinner_start. Exercise that contract.
+    from robodog_terminal.ui import UI
+    tui = UI(model_name="m", cwd=str(Path(tempfile.gettempdir())))
+    tui.console = None
+    tui.mid_input_start()
+    check(tui._typing is True, "mid_input_start marks typing active")
+    tui.spinner_start("Thinking…")
+    check(tui._status is None, "spinner suppressed while the user is typing")
+    tui.mid_input_end()
+    check(tui._typing is False, "mid_input_end clears the typing flag")
+    tui.reset_typing()
+    check(tui._typing is False, "reset_typing is idempotent")
 
     print("\nTURNRUNNER:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
