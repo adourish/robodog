@@ -793,6 +793,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.1
+
+- **Fix:** typing a follow-up while the agent is working no longer fragments
+  into one character per line. The mid-turn key reader now stops the live
+  spinner while you type (the spinner's repaint was shredding raw keystrokes)
+  and resumes it on submit.
+
 ### 0.3.0
 
 - **Add:** `/cert [host]` captures a gateway's TLS certificate chain and
