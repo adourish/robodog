@@ -503,6 +503,20 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.2.6
+
+- **Add:** attributed subagent results. A fan-out used to render N identical
+  `[subagent:general finished…]  (+1 lines)` rows — metadata shown, the
+  child's answer hidden. Each child now gets an id, and its result renders
+  as `#3 general · 2 steps · 314 tok — <the child's actual answer>`.
+- **Add:** a live fan-out summary instead of per-call child spam — while
+  children work the spinner reads `✳ 6 subagents working · 23 tool calls`.
+- **Add:** `/verbose` — live-toggleable full output (per-child `#N` tool
+  trace + untruncated tool results); `--verbose` sets the startup default.
+- **Docs:** README rebuilt around real terminal screenshots (10 scenes,
+  rendered by the actual UI code; `docs/screenshots/generate.py` recreates
+  them so docs can't drift).
+
 ### 0.2.5
 
 - **Fix:** streamed command output is bounded. A long `bash` run printed every
