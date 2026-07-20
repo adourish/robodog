@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.8
+
+- **Fix:** a double Ctrl+C now actually exits when a parallel subagent
+  fan-out is wedged in network retries — previously "bye" printed but the
+  process hung (the executor's non-daemon workers blocked shutdown).
+- **Add:** `/doctor` `llm-config` line shows the concurrency cap + request
+  timeout, so you can confirm `ROBODOG_LLM_MAX_CONCURRENCY` took effect;
+  `ROBODOG_LLM_TIMEOUT` makes the per-request timeout configurable.
+
 ### 0.3.7
 
 - **Add:** run read-only slash commands **while an agent is working** —
