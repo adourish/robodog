@@ -121,33 +121,62 @@ def _check_robodog_home() -> CheckResult:
                            f"cannot write ~/.robodog ({type(exc).__name__})")
 
 
-def _check_keepass() -> CheckResult:
-    """Report loader presence and WHICH entries exist — names only, never values."""
+def _llm_entry_title(backend: str) -> str:
+    """The vault entry title the openai/openrouter backend will actually read:
+    ROBODOG_KEEPASS_LLM_ENTRY override, else the backend's default title."""
+    override = os.environ.get("ROBODOG_KEEPASS_LLM_ENTRY")
+    if override:
+        return override
+    return "OpenAI" if (backend or "").lower() == "openai" else "OpenRouter"
+
+
+def _check_keepass(backend: str = "") -> CheckResult:
+    """Report loader presence and WHICH entries exist — names only, never values.
+    Also probes the entry the current backend will REALLY use (honoring
+    ROBODOG_KEEPASS_LLM_ENTRY), so a misconfigured title shows up here instead
+    of silently falling back to the echo backend at launch."""
     loader_dir = Path(KEEPASS_LOADER_DIR)
     if not loader_dir.is_dir() or not (loader_dir / "keepass_loader.py").exists():
         return CheckResult("keepass", None,
                            f"loader not found at {KEEPASS_LOADER_DIR} — "
                            "run /keepass loader to create it (won't touch the vault)")
+    # Honor explicit DB/keyfile overrides; else default to files beside the loader.
+    db = os.environ.get("ROBODOG_KEEPASS_DB") or str(loader_dir / "automation-keys.kdbx")
+    keyfile = (os.environ.get("ROBODOG_KEEPASS_KEYFILE")
+               or str(Path(db).with_suffix(".keyfile")))
+    llm_entry = _llm_entry_title(backend)
+    # Probe the defaults plus the entry the LLM backend will read.
+    titles = list(KEEPASS_ENTRIES)
+    if llm_entry not in titles:
+        titles.append(llm_entry)
     try:
         sys.path.insert(0, str(loader_dir))
         from keepass_loader import KeePassLoader  # type: ignore
         # Loader chatter goes to stderr so stdout/report stays clean.
         with contextlib.redirect_stdout(sys.stderr):
-            kp = KeePassLoader(db_path=str(loader_dir / "automation-keys.kdbx"),
-                               keyfile=str(loader_dir / "automation-keys.keyfile"))
+            kp = KeePassLoader(db_path=db, keyfile=keyfile)
             kp.unlock()
             present: List[str] = []
             missing: List[str] = []
-            for title in KEEPASS_ENTRIES:
+            for title in titles:
                 try:
                     creds = kp.get_credentials(title=title)
                 except Exception:
                     creds = None
                 (present if creds else missing).append(title)
-        detail = "unlocked; entries present: " + (", ".join(present) or "none")
-        if missing:
-            detail += "; missing: " + ", ".join(missing)
-        return CheckResult("keepass", True, detail)
+        # Lead with the entry the current backend actually depends on, since
+        # that's the one that determines whether a live key is found.
+        llm_ok = llm_entry in present
+        env_key = bool(os.environ.get("ROBODOG_LLM_KEY"))
+        head = (f"LLM entry '{llm_entry}': {'present' if llm_ok else 'MISSING'}"
+                + ("" if llm_ok or env_key
+                   else " — /backend openai will fall back to echo; add it with "
+                        f"/keepass set {llm_entry} <key>, or set ROBODOG_KEEPASS_LLM_ENTRY"))
+        detail = (f"unlocked; {head}; entries present: "
+                  + (", ".join(p for p in present if p != llm_entry) or "none"))
+        # A missing LLM entry with no env key is a real, actionable problem.
+        ok = True if (llm_ok or env_key) else None
+        return CheckResult("keepass", ok, detail)
     except Exception as exc:
         logger.debug("keepass check failed", exc_info=True)
         return CheckResult("keepass", False, f"unlock failed: {type(exc).__name__}")
@@ -249,7 +278,7 @@ def run_doctor(cwd: str, backend: str = "", model: str = "") -> List[CheckResult
         ("encoding", lambda: _check_encoding()),
         ("cwd-writable", lambda: _check_cwd_writable(cwd)),
         ("robodog-home", lambda: _check_robodog_home()),
-        ("keepass", lambda: _check_keepass()),
+        ("keepass", lambda: _check_keepass(backend)),
         ("gateway-env", lambda: _check_gateway_env()),
         ("gateway-endpoint", lambda: _check_gateway_endpoint()),
         ("openai-endpoint", lambda: _check_openai_endpoint()),

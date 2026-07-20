@@ -301,18 +301,57 @@ def main() -> int:
         encoding="utf-8")
     saved_mod2 = sys.modules.pop("keepass_loader", None)
     doctor.KEEPASS_LOADER_DIR = str(fake_dir2)
+    _saved_llm_key = os.environ.pop("ROBODOG_LLM_KEY", None)
+    _saved_llm_entry = os.environ.pop("ROBODOG_KEEPASS_LLM_ENTRY", None)
     try:
-        kp2 = doctor._check_keepass()
-        check(kp2.ok is True and "entries present: none" in kp2.detail
-              and "missing: " + ", ".join(doctor.KEEPASS_ENTRIES) in kp2.detail,
-              "keepass entry lookup errors -> reported as missing (names only)")
+        kp2 = doctor._check_keepass("openai")
+        # all entries missing + no env key -> actionable warning (ok=None), and
+        # the report leads with the entry the backend actually needs.
+        check(kp2.ok is None and "entries present: none" in kp2.detail
+              and "LLM entry 'OpenAI': MISSING" in kp2.detail
+              and "fall back to echo" in kp2.detail,
+              "missing LLM entry (no env key) -> warn, names the entry + fix")
     finally:
+        if _saved_llm_key is not None:
+            os.environ["ROBODOG_LLM_KEY"] = _saved_llm_key
+        if _saved_llm_entry is not None:
+            os.environ["ROBODOG_KEEPASS_LLM_ENTRY"] = _saved_llm_entry
         doctor.KEEPASS_LOADER_DIR = saved_kp_dir
         sys.modules.pop("keepass_loader", None)
         if saved_mod2 is not None:
             sys.modules["keepass_loader"] = saved_mod2
         if str(fake_dir2) in sys.path:
             sys.path.remove(str(fake_dir2))
+
+    # KeePass: ROBODOG_KEEPASS_LLM_ENTRY is probed and reported present.
+    fake_dir3 = Path(tempfile.mkdtemp(prefix="robodog_fakekp3_"))
+    (fake_dir3 / "keepass_loader.py").write_text(
+        "class KeePassLoader:\n"
+        "    def __init__(self, **kw):\n"
+        "        pass\n"
+        "    def unlock(self):\n"
+        "        pass\n"
+        "    def get_credentials(self, title=None):\n"
+        "        return {'password': 'x'} if title == 'SEMOSS-Elsa-Dev' else None\n",
+        encoding="utf-8")
+    saved_mod3 = sys.modules.pop("keepass_loader", None)
+    doctor.KEEPASS_LOADER_DIR = str(fake_dir3)
+    _sk = os.environ.pop("ROBODOG_LLM_KEY", None)
+    os.environ["ROBODOG_KEEPASS_LLM_ENTRY"] = "SEMOSS-Elsa-Dev"
+    try:
+        kp3 = doctor._check_keepass("openai")
+        check(kp3.ok is True and "LLM entry 'SEMOSS-Elsa-Dev': present" in kp3.detail,
+              "configured ROBODOG_KEEPASS_LLM_ENTRY is probed and reported present")
+    finally:
+        os.environ.pop("ROBODOG_KEEPASS_LLM_ENTRY", None)
+        if _sk is not None:
+            os.environ["ROBODOG_LLM_KEY"] = _sk
+        doctor.KEEPASS_LOADER_DIR = saved_kp_dir
+        sys.modules.pop("keepass_loader", None)
+        if saved_mod3 is not None:
+            sys.modules["keepass_loader"] = saved_mod3
+        if str(fake_dir3) in sys.path:
+            sys.path.remove(str(fake_dir3))
 
     os.environ["GATEWAY_ENDPOINT"] = "http://[bad-ipv6-url"
     try:
