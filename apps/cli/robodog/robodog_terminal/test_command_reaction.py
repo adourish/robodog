@@ -12,7 +12,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from robodog_terminal.tools import default_registry, classify_danger  # noqa: E402
+from robodog_terminal.tools import (  # noqa: E402
+    default_registry, classify_danger, classify_network_mutation)
 
 ok = True
 
@@ -79,6 +80,47 @@ def main() -> int:
     r = reg.execute("bash", {"command": "echo 'rm -rf x' ; exit 0"})
     check("BLOCKED" not in r, "confirm mode proceeds on approval")
     reg.guard = "warn"
+
+    # ---------------- OUTWARD-FACING network-write guard -----------------
+    # Regression: an agent closed Jira tickets via run_script POSTing to the
+    # /transitions endpoint with NO confirmation (run_script was unguarded).
+    # Network writes must confirm by default and BLOCK when unconfirmable.
+    JIRA_CLOSE = ('result = mod.run({"method": "POST", '
+                  '"path": "/rest/api/2/issue/SERIO-38490/transitions", '
+                  '"body": {"transition": {"id": "41"}}})')
+    check(classify_network_mutation(JIRA_CLOSE) is not None,
+          "classify_network_mutation flags a POST-to-transitions close")
+    check(classify_network_mutation("requests.delete(url)") is not None,
+          "DELETE flagged")
+    check(classify_network_mutation('mod.run({"method": "GET", "path": "/x"})') is None,
+          "a GET (read) is NOT flagged")
+    check(classify_network_mutation("git log --oneline | head -5") is None,
+          "an ordinary shell command is NOT flagged")
+
+    # default net_guard = confirm; no confirmer (subagent/headless) -> BLOCK
+    reg.net_guard = "confirm"; reg.on_confirm = None
+    r = reg.execute("run_script", {"content": JIRA_CLOSE})
+    check(r.startswith("BLOCKED") and "confirmation" in r,
+          "run_script network write BLOCKS when it can't confirm (fail-safe)")
+    # bash path is guarded too
+    r = reg.execute("bash", {"command": "curl -X POST https://sde.fda.gov/close"})
+    check(r.startswith("BLOCKED"), "bash network write blocked without a confirmer")
+    # deny mode: always block, even with a confirmer present
+    reg.net_guard = "deny"; reg.on_confirm = lambda c, why: True
+    r = reg.execute("run_script", {"content": JIRA_CLOSE})
+    check(r.startswith("BLOCKED") and "denied" in r, "deny mode blocks outright")
+    # confirm + user declines -> blocked; user approves -> runs
+    reg.net_guard = "confirm"; reg.on_confirm = lambda c, why: False
+    r = reg.execute("run_script", {"content": JIRA_CLOSE})
+    check(r.startswith("BLOCKED") and "declined" in r, "confirm+decline blocks write")
+    reg.on_confirm = lambda c, why: True
+    r = reg.execute("run_script", {"content": '# method="POST"\nprint("ran-ok")'})
+    check("BLOCKED" not in r and "ran-ok" in r, "confirm+approve lets the write run")
+    # allow mode: unattended writes permitted (opt-in)
+    reg.net_guard = "allow"; reg.on_confirm = None
+    r = reg.execute("run_script", {"content": 'print("net allow path")'})
+    check("BLOCKED" not in r and "net allow" in r, "allow mode permits unattended")
+    reg.net_guard = "confirm"; reg.on_confirm = lambda c, why: True
 
     # ---------------- run_tests: auto-detect + summary -------------------
     # make a tiny passing pytest-less project: use a python -c as command

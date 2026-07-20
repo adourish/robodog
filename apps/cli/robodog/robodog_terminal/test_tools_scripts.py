@@ -165,6 +165,15 @@ def main() -> int:
         check("HINT" in h and "`;`" in h, "&& -> ; hint")
         check(_hint("git log --oneline -20", "") == "",
               "a clean command gets no hint")
+        # cmd.exe `dir /b`, `dir /s /b` -> Get-ChildItem (real session error)
+        h = _hint("dir C:\\projects\\fda-serio\\fdaskills /b",
+                  "Parameter name: path2 ... DirArgumentError")
+        check("HINT" in h and "Get-ChildItem" in h and "-Name" in h,
+              "dir /b -> Get-ChildItem -Name hint")
+        h = _hint("dir C:\\p\\x /s /b", "DirArgumentError")
+        check("HINT" in h and "-Recurse" in h, "dir /s /b -> -Recurse -Name hint")
+        check(_hint("git diff HEAD~1", "") == "",
+              "a path with a slash flag-like token but no `dir` gets no dir hint")
         # 2>/dev/null -> C:\dev\null (real session: find ... 2>/dev/null | grep)
         h = _hint('find C:\\p -type f -name "*.py" 2>/dev/null | grep idp',
                   "Could not find a part of the path 'C:\\dev\\null'")

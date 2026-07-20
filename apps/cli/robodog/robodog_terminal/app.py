@@ -526,6 +526,12 @@ def main(argv=None) -> int:
                         help="start in plan mode (read-only, propose first) or yolo (default)")
     parser.add_argument("--guard", default="warn", choices=["warn", "confirm"],
                         help="destructive-command handling: warn+proceed (default) or confirm")
+    parser.add_argument("--net-writes", default=None,
+                        choices=["confirm", "deny", "allow"],
+                        help="outward-facing network writes (POST/PUT/DELETE to a "
+                             "remote API, e.g. closing a Jira ticket): confirm "
+                             "(default), deny (block all), or allow (unattended). "
+                             "Overrides ROBODOG_NET_WRITES.")
     parser.add_argument("--no-verify-edits", action="store_true",
                         help="disable automatic post-edit syntax checking")
     parser.add_argument("--test-command", default=None,
@@ -586,7 +592,15 @@ def main(argv=None) -> int:
     if args.permission_mode == "plan":
         registry.mode = "plan"
     registry.guard = args.guard
+    if getattr(args, "net_writes", None):
+        registry.net_guard = args.net_writes   # CLI overrides env/default
     registry.verify_edits = not args.no_verify_edits
+    if registry.net_guard == "deny":
+        ui.dim("🛡 network writes: DENIED (read-only for external APIs)")
+    elif registry.net_guard == "allow":
+        ui.dim("⚠ network writes: ALLOWED unattended (POST/PUT/DELETE not gated)")
+    else:
+        ui.dim("🛡 network writes require confirmation (Jira/API POST/PUT/DELETE)")
     registry.test_command = args.test_command
 
     # Hooks + permission rules from .robodog/.claude settings.json.

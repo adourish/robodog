@@ -237,6 +237,43 @@ def classify_danger(command: str) -> Optional[str]:
     return None
 
 
+# Outward-facing state changes — POSTing to close a Jira ticket, deleting a
+# remote resource, etc. These are HARD TO REVERSE and must never run unattended
+# without the user's ok. Detected in BOTH bash and run_script content. Bias is
+# toward over-detecting: a false confirm prompt is cheap; a silent ticket-close
+# (which actually happened) is not.
+_NET_WRITE_PATTERNS = [
+    (r"\brequests\.(post|put|delete|patch)\s*\(", "HTTP {m} (requests)"),
+    (r"\bhttpx\.(post|put|delete|patch)\s*\(", "HTTP {m} (httpx)"),
+    (r"\b(?:session|client|http|api)\.(post|put|delete|patch)\s*\(", "HTTP {m}"),
+    # the skill run() dict + urllib Request(method=…): `"method": "POST"`
+    (r"""["']method["']\s*[:=]\s*["'](post|put|delete|patch)["']""", "API {m} call"),
+    (r"""\bmethod\s*=\s*["'](post|put|delete|patch)["']""", "API {m} call"),
+    (r"\bcurl\b[^\n]*?-X\s*(post|put|delete|patch)\b", "curl -X {m}"),
+    (r"\bInvoke-(?:RestMethod|WebRequest)\b[^\n]*?-Method\s+(post|put|delete|patch)\b",
+     "Invoke-RestMethod -Method {m}"),
+    # high-risk endpoints/verbs regardless of how the call is spelled
+    (r"/rest/api/[^\s'\"]*/transitions", "Jira issue transition (status change)"),
+    (r"\.transition\s*\(|\bdoTransition\b", "issue transition"),
+    (r"/issue/[A-Z][A-Z0-9]+-\d+\b[^\n]*\bDELETE\b", "delete a Jira issue"),
+]
+
+
+def classify_network_mutation(content: str) -> Optional[str]:
+    """Return a short reason if `content` looks like it makes an outward-facing,
+    hard-to-reverse change to an external service (a network write: POST/PUT/
+    DELETE/PATCH, a ticket transition, etc.), else None. Read-only calls (GET)
+    are never flagged."""
+    import re
+    for pat, label in _NET_WRITE_PATTERNS:
+        m = re.search(pat, content or "", re.IGNORECASE)
+        if m:
+            verb = next((g.upper() for g in (m.groups() or ())
+                         if g and g.lower() in ("post", "put", "delete", "patch")), "")
+            return label.replace("{m}", verb or "write")
+    return None
+
+
 def _split_top_level(command: str, op: str) -> List[str]:
     """Split on `op` (e.g. '&&') at the top level only — never inside single or
     double quotes. Returns [command] when the operator isn't present."""
@@ -434,6 +471,14 @@ def shell_syntax_hint(command: str, combined: str) -> str:
         return ("\nHINT: that's cmd.exe syntax in PowerShell. Use "
                 "`if (-not (Test-Path X)) { ... }` instead of `if not exist X`, "
                 "and `New-Item -ItemType Directory -Force X` to mkdir.")
+    # `dir /b`, `dir /s /b` — cmd.exe switches; PowerShell's dir is Get-ChildItem
+    # and treats `/b` as a second path argument (DirArgumentError / "path2").
+    if _re.search(r"\bdir\b[^\n]*\s/[a-z]\b", command, _re.IGNORECASE):
+        return ("\nHINT: `dir /b` / `dir /s` are cmd.exe switches — PowerShell's "
+                "`dir` is Get-ChildItem and reads `/b` as a path. Use "
+                "`Get-ChildItem -Name` (bare names, like /b), "
+                "`Get-ChildItem -Recurse -Name` (recursive, like /s /b), and "
+                "add `-Filter *.py` to match a pattern.")
     return ""
 
 
@@ -541,6 +586,14 @@ class ToolRegistry:
         # Dangerous-command guard: "warn" (log+proceed, YOLO) or "confirm".
         self.guard: str = "warn"
         self.on_confirm: Optional[Callable[[str, str], bool]] = None
+        # Outward-facing network-WRITE guard (POST/PUT/DELETE to a remote API —
+        # e.g. closing a Jira ticket). Independent of `guard` because the shell
+        # YOLO default must NOT extend to irreversible external changes.
+        #   "confirm" (default) — require approval; BLOCK if it can't be obtained
+        #   "deny"              — always block network writes (read-only remote)
+        #   "allow"             — permit unattended (opt-in, old behavior)
+        self.net_guard: str = (os.environ.get("ROBODOG_NET_WRITES", "confirm")
+                               .strip().lower() or "confirm")
         # Override/auto-detect the project's test command (run_tests tool).
         self.test_command: Optional[str] = None
         # Hooks + permission rules (hooks.HookEngine; wired by app.py).
@@ -965,6 +1018,47 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         return f"{head}\n... [truncated {len(text) - limit} chars] ...\n{tail}"
 
     # --- bash / run command ---------------------------------------------
+    def _guard_or_block(display: str, content: str, tool_name: str,
+                        params: dict) -> Optional[str]:
+        """Gate a shell/script call. Returns a BLOCKED message if it must NOT
+        run, else None. Two layers: outward-facing network writes (confirm by
+        default, fail-safe block when unconfirmable) and destructive shell
+        commands (existing `guard` behavior). A permission `allow` rule
+        pre-approves and skips both."""
+        preapproved = (reg.hooks is not None and
+                       reg.hooks.check_permission(tool_name, params)[0] == "allow")
+        if preapproved:
+            return None
+        # --- outward-facing network write (e.g. closing a Jira ticket) -------
+        netmut = classify_network_mutation(content)
+        if netmut:
+            mode = reg.net_guard or "confirm"
+            if mode == "deny":
+                return (f"BLOCKED: outward-facing change refused — {netmut}. "
+                        f"Network writes are denied (ROBODOG_NET_WRITES=deny). "
+                        f"Re-run interactively with the guard set to confirm/allow "
+                        f"if this is intended.")
+            if mode != "allow":   # "confirm" (default) or anything unrecognized
+                reason = f"outward-facing change to an external service — {netmut}"
+                if reg.on_confirm is not None:
+                    if not reg.on_confirm(display, reason):
+                        return f"BLOCKED: user declined the outward-facing change ({netmut})."
+                else:
+                    # No way to ask (headless / subagent) -> fail safe, DON'T run.
+                    return (f"BLOCKED: outward-facing change ({netmut}) needs confirmation, "
+                            f"but nothing here can prompt for it (headless or subagent "
+                            f"context). Run it from the interactive session, or set "
+                            f"ROBODOG_NET_WRITES=allow to permit unattended writes.")
+        # --- destructive local shell command (rm -rf, git reset --hard, …) ---
+        danger = classify_danger(content)
+        if danger:
+            if reg.guard == "confirm" and reg.on_confirm is not None:
+                if not reg.on_confirm(display, danger):
+                    return f"BLOCKED: user declined the potentially destructive command: {display}"
+            elif reg.on_bash_line is not None:
+                reg.on_bash_line(f"⚠ running potentially destructive command: {display}")
+        return None
+
     def _bash(args):
         command = args["command"]
         background = str(args.get("background", "")).strip().lower()
@@ -975,18 +1069,9 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                 return reg.background_spawn(command, str(cwd_path))
             return ("ERROR: background execution is not available yet — "
                     "run in foreground or split the work.")
-        # Dangerous-command guard. An `allow` permission rule pre-approves the
-        # exact call, skipping the confirm prompt (deny rules were already
-        # enforced in execute() before the handler ran).
-        danger = classify_danger(command)
-        preapproved = (reg.hooks is not None and
-                       reg.hooks.check_permission("bash", {"command": command})[0] == "allow")
-        if danger and not preapproved:
-            if reg.guard == "confirm" and reg.on_confirm is not None:
-                if not reg.on_confirm(command, danger):
-                    return f"BLOCKED: user declined the potentially destructive command: {command}"
-            elif reg.on_bash_line is not None:
-                reg.on_bash_line(f"⚠ running potentially destructive command: {command}")
+        blocked = _guard_or_block(command, command, "bash", {"command": command})
+        if blocked:
+            return blocked
         timeout = int(args.get("timeout", 120) or 120)
         # Use PowerShell on Windows, sh elsewhere, matching the host shell.
         if os.name == "nt":
@@ -1026,6 +1111,14 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         if ext is None:
             return (f"ERROR: unknown interpreter '{interpreter}'. "
                     f"Use one of: python, powershell, bash.")
+        # Same guard as bash — run_script is the escape hatch a model used to
+        # POST a Jira ticket closed with no confirmation. Show a content snippet
+        # so the confirm prompt reveals WHAT would run.
+        snippet = content if len(content) <= 800 else content[:800] + " …(truncated)"
+        blocked = _guard_or_block(f"run_script({interpreter}):\n{snippet}",
+                                  content, "run_script", {"content": content})
+        if blocked:
+            return blocked
         fd, tmp_path = tempfile.mkstemp(
             suffix=ext, prefix="robodog_script_", dir=tempfile.gettempdir())
         try:

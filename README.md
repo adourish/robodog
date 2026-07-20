@@ -805,6 +805,24 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.23
+
+- **🛡 Outward-facing network-write guard (safety fix).** An agent could close
+  Jira tickets (and make any POST/PUT/DELETE to a remote API) with **no
+  confirmation** — `run_script` was entirely unguarded and the shell guard only
+  understood destructive *local* commands. Now both `bash` and `run_script`
+  detect network writes (`requests.post`, `curl -X POST`, `Invoke-RestMethod
+  -Method Post`, a skill `run({"method":"POST", …/transitions})`, etc.) and:
+  - **confirm** by default — and **BLOCK** (fail-safe) when they can't prompt,
+    i.e. in headless or **sub-agent** contexts, so an autonomous agent can no
+    longer make irreversible external changes on its own;
+  - `--net-writes deny` (or `ROBODOG_NET_WRITES=deny`) refuses all network
+    writes (read-only against remote APIs); `--net-writes allow` opts back into
+    unattended writes. Independent of `--guard`, so the shell-YOLO default never
+    extends to closing tickets. Read-only calls (GET) are never gated.
+- **Shell hint:** `dir /b` / `dir /s /b` (cmd.exe switches that error in
+  PowerShell) now point at `Get-ChildItem -Name` / `-Recurse -Name`.
+
 ### 0.3.22
 
 - **`read_file` "did you mean …":** a `file not found` miss now searches the
