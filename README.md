@@ -805,6 +805,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.13
+
+- **Add:** `/test agents [N] [big|huge]` — the subagent probe now scales to
+  N (up to 16) and pads each prompt to ~4k/12k tokens to reproduce the
+  large-context requests that actually time out, with per-agent min/avg/max
+  timing so you can see where the fan-out degrades.
+
 ### 0.3.12
 
 - **Add:** `/test agents [N]` probes the **subagent** path — spawns N tiny
