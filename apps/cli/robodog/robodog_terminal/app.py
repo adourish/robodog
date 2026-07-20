@@ -251,7 +251,7 @@ Commands:
   /init              generate a ROBODOG.md project guide via the agent
   /doctor            run environment diagnostics
   /cert [host]       capture a gateway's TLS chain -> REQUESTS_CA_BUNDLE (private CA)
-  /test              send a tiny request to check the backend is reachable
+  /test [agents [N]] tiny reachability probe; `agents` times an N-way subagent fan-out
   /keepass [init|set] create or inspect the encrypted key vault
   /skills            list custom commands, skills, and agents (.robodog/…)
   /todos             show the agent's task checklist
@@ -1061,12 +1061,51 @@ def main(argv=None) -> int:
                     from robodog_terminal.certs import handle as _cert_handle
                 _c_ok, _c_msg = _cert_handle(rest)
                 (ui.info if _c_ok else ui.error)(_c_msg)
+            elif cmd == "test" and rest.split()[0:1] == ["agents"]:
+                # Subagent path probe: spawn N tiny parallel subagents and time
+                # them — this exercises the fan-out that actually times out
+                # (child loops + concurrency cap), unlike the single-request probe.
+                import concurrent.futures as _cf
+                import time as _t
+                parts = rest.split()
+                try:
+                    n = max(1, min(8, int(parts[1]))) if len(parts) > 1 else 2
+                except ValueError:
+                    n = 2
+                ui.info(f"probing the subagent path — {n} parallel agents…")
+
+                def _one(i):
+                    t0 = _t.time()
+                    try:
+                        r = registry.execute("agent", {
+                            "prompt": "Reply with the single word: ready. "
+                                      "Use no tools.", "type": "general"})
+                        return (i, "ERROR" not in r[:6], _t.time() - t0,
+                                r.splitlines()[0][:70])
+                    except Exception as exc:
+                        return (i, False, _t.time() - t0, f"{type(exc).__name__}: {exc}")
+
+                try:
+                    from .llm_client import _effective_max_concurrency as _emc
+                except ImportError:
+                    from robodog_terminal.llm_client import _effective_max_concurrency as _emc
+                _cap = _emc() or "unlimited"
+                t0 = _t.time()
+                with _cf.ThreadPoolExecutor(max_workers=n) as _ex:
+                    results = sorted(_ex.map(_one, range(n)))
+                total = _t.time() - t0
+                good = sum(1 for _, ok2, _, _ in results if ok2)
+                (ui.info if good == n else ui.error)(
+                    f"{good}/{n} subagents ok in {total:.1f}s wall (cap {_cap})")
+                for i, ok2, dt, det in results:
+                    ui.info(f"  #{i + 1} {'✓' if ok2 else '✗'} {dt:.1f}s — {det}")
             elif cmd == "test":
                 # One-shot TIMED probe (no retries) so you can see the exact
                 # phase + latency: connect vs read timeout vs HTTP error.
                 if model_label.startswith("echo"):
                     ui.error("backend is echo/demo — no key resolved. Run /doctor "
-                             "to see which layer is missing.")
+                             "to see which layer is missing. (Try /test agents to "
+                             "exercise the subagent path in any backend.)")
                 elif hasattr(client, "diagnose"):
                     ui.spinner_start("✳ probing the backend (single request)…")
                     r = client.diagnose("Reply with the single word: pong.")
