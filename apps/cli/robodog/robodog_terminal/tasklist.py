@@ -81,7 +81,12 @@ class TaskChecklist:
         string, or 'ERROR: ...' for a bad id or status."""
         item = self._find(task_id)
         if item is None:
-            return f"ERROR: no task with id {task_id}."
+            ids = [i.id for i in self._items]
+            if ids:
+                return (f"ERROR: no task with id {task_id}. Existing ids: "
+                        f"{ids}. (Use task_add to create a task first.)")
+            return (f"ERROR: no task with id {task_id} — the checklist is empty. "
+                    "Use task_add to create tasks before updating them.")
         if status is not None and status not in VALID_STATUSES:
             return (f"ERROR: invalid status '{status}'. "
                     f"Use one of: {', '.join(VALID_STATUSES)}.")
@@ -152,10 +157,14 @@ def register_task_tools(registry: ToolRegistry, checklist: TaskChecklist) -> Non
     ))
 
     def _task_update(args: Dict[str, str]) -> str:
-        try:
-            task_id = int(str(args["id"]).strip())
-        except ValueError:
-            return f"ERROR: 'id' must be an integer, got {args['id']!r}."
+        # Tolerate the id forms models reach for — 't1', '#2', 'task-3', '1' —
+        # by pulling the integer out, instead of rejecting and making them loop.
+        import re as _re
+        m = _re.search(r"\d+", str(args.get("id", "")))
+        if not m:
+            return (f"ERROR: could not read a task id from {args.get('id')!r}. "
+                    "Use the integer id shown in the checklist (e.g. 1).")
+        task_id = int(m.group())
         result = checklist.update(task_id, status=args["status"])
         if result.startswith("ERROR"):
             return result

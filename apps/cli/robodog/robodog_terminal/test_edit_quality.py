@@ -90,6 +90,13 @@ def main() -> int:
                                   "new_string": "q"})
     check("not found" in r, "absent old_string still errors")
 
+    # editing a NONEXISTENT file points at write_file (self-healing) — from a
+    # real session that looped read_file/edit_file on a file that didn't exist
+    r = reg.execute("edit_file", {"path": "does_not_exist.md",
+                                  "old_string": "a", "new_string": "b"})
+    check("file not found" in r and "write_file" in r,
+          "edit_file on a missing file -> hint to use write_file")
+
     # _fuzzy_find ambiguity returns None
     check(_fuzzy_find("a  \na\nfoo\na  \n", "a") is None,
           "_fuzzy_find refuses ambiguous match")

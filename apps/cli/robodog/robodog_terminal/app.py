@@ -669,8 +669,14 @@ def main(argv=None) -> int:
         elif kind == "llm_done":
             ui.spinner_stop()
             if data.get("prose") and data.get("n_calls"):
-                # interim reasoning when the model both talks AND calls tools
-                ui.assistant(data["prose"])
+                # Interim reasoning shown between tool calls. Cap it: some models
+                # (esp. weaker gateways) regurgitate whole tool results as prose,
+                # flooding the trace. The FINAL answer is always shown in full;
+                # this only trims mid-turn chatter. /verbose shows it all.
+                prose = data["prose"]
+                if not verbose[0] and len(prose) > 600:
+                    prose = prose[:600].rstrip() + f"  …[+{len(prose) - 600} chars, /verbose for all]"
+                ui.assistant(prose)
         elif kind == "tool_start":
             ui.spinner_stop()
             ui.tool_call(data["name"], data["args"])
@@ -1292,6 +1298,10 @@ def main(argv=None) -> int:
         runner = TurnRunner(loop)
         runner.start(expanded, _threading.Event())
         if not headless and sys.stdin.isatty():
+            # The bottom-toolbar status bar only shows at the idle prompt; print
+            # it as a header so model/tokens/context/branch stay visible while
+            # the agent works.
+            ui.print_status()
             ui.dim("  (Ctrl+C cancel · Ctrl+B background · /doctor,/status,… run now "
                    "· other text queues)")
         # Opt-in sticky mid-turn input (ROBODOG_STICKY_INPUT=1): a fixed bottom

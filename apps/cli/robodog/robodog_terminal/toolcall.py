@@ -27,7 +27,11 @@ _TOOL_RE = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 _PARAM_RE = re.compile(
-    r"<param\s+name\s*=\s*[\"']?(?P<pname>[\w.\-]+)[\"']?\s*>(?P<pval>.*?)</param>",
+    # Close tag may be the correct </param> OR the param NAME the model echoed
+    # by mistake (`<param name="path">…</path>`) — otherwise the value would
+    # swallow every following param up to the next real </param>.
+    r"<param\s+name\s*=\s*[\"']?(?P<pname>[\w.\-]+)[\"']?\s*>"
+    r"(?P<pval>.*?)</(?:param|(?P=pname))>",
     re.DOTALL | re.IGNORECASE,
 )
 # key="value" / key='value' attributes on a tag.

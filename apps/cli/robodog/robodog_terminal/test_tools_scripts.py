@@ -71,15 +71,15 @@ def main() -> int:
           "timeout returns tree-kill ERROR message")
     check(elapsed < 8, f"timeout returned quickly ({elapsed:.1f}s < 8s)")
 
-    # --- 3b. PowerShell shell-syntax hint (&& not valid) -----------------
-    # A model that chains with && on Windows gets a targeted fix appended, so
-    # it self-corrects instead of looping (the real ELSA failure scenario).
+    # --- 3b. PowerShell && is auto-translated and RUNS -------------------
+    # A model that chains with && on Windows used to loop on the parser error;
+    # now the chain is rewritten to PowerShell and actually runs.
     if os.name == "nt":
-        print("=== 3b. shell-syntax hint (live) ===")
+        print("=== 3b. && auto-translate (live) ===")
         reg = fresh_registry()
-        result = reg.execute("bash", {"command": "echo a && echo b"})
-        check("HINT" in result and "PowerShell" in result and "`;`" in result,
-              "&& on PowerShell -> hint to use ; or separate commands")
+        result = reg.execute("bash", {"command": "echo aaa && echo bbb"})
+        check("aaa" in result and "bbb" in result and "(exit 0)" in result,
+              "&& auto-translated -> both commands run, no error")
         ok_result = reg.execute("bash", {"command": "echo fine"})
         check("HINT" not in ok_result, "no hint on a clean command")
 
@@ -88,6 +88,27 @@ def main() -> int:
     # cmd.exe (`if not exist ... mkdir`). Test the classifier against the
     # ACTUAL error text those produce, without depending on whether Git's
     # head/wc happen to be on this machine's PATH.
+    # --- 3d. powershell_translate: && / || auto-fix -----------------------
+    # From a real session: the model looped on `cd X && git status` (invalid in
+    # PowerShell) and even hallucinated success. We rewrite the chain so it runs.
+    print("=== 3d. powershell_translate ===")
+    from robodog_terminal.tools import powershell_translate as _pt
+    if os.name == "nt":
+        check(_pt("cd X && git status") == "cd X; if ($?) { git status }",
+              "&& -> nested if ($?) (preserves conditional)")
+        check(_pt("a && b && c") == "a; if ($?) { b; if ($?) { c } }",
+              "&&-chain nests correctly")
+        check(_pt("cd X || echo no") == "cd X; if (-not $?) { echo no }",
+              "|| -> if (-not $?)")
+        check(_pt('echo "a && b"') == 'echo "a && b"',
+              "&& inside quotes is NOT translated")
+        check(_pt("git status") == "git status", "no operator -> unchanged")
+        check(_pt("a && b || c") == "a && b || c", "mixed &&/|| left alone")
+        # end-to-end: a real && command actually runs now
+        r_run = reg.execute("bash", {"command": "cd . && echo CHAINED_OK"})
+        check("CHAINED_OK" in r_run and "(exit 0)" in r_run,
+              "live: `cd . && echo` runs (translated) instead of erroring")
+
     print("=== 3c. shell_syntax_hint classifier ===")
     from robodog_terminal.tools import shell_syntax_hint as _hint
     if os.name == "nt":

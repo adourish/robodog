@@ -68,6 +68,14 @@ def main() -> int:
     # bad id / bad status
     r = cl.update(99, status="completed")
     check(r.startswith("ERROR") and "99" in r, f"bad id returns ERROR ({r!r})")
+    # a bad id now lists the valid ids + points at task_add (self-healing) —
+    # from a real session that looped `task_update 2/3` before task_add
+    check("Existing ids:" in r and "task_add" in r,
+          "bad-id error lists existing ids and suggests task_add")
+    empty = TaskChecklist()
+    r_empty = empty.update(2, status="completed")
+    check("empty" in r_empty and "task_add" in r_empty,
+          "bad id on an empty checklist explains it's empty + task_add")
     r = cl.update(1, status="donezo")
     check(r.startswith("ERROR") and "donezo" in r, f"bad status returns ERROR ({r!r})")
     check(cl.items()[0].status == "completed", "bad status did not mutate the task")
@@ -153,13 +161,25 @@ def main() -> int:
     r = reg.execute("task_update", {"id": "1", "status": "nope"})
     check(r.startswith("ERROR"), f"task_update bad status -> ERROR ({r!r})")
     r = reg.execute("task_update", {"id": "abc", "status": "completed"})
-    check(r.startswith("ERROR") and "integer" in r,
-          f"task_update non-integer id -> ERROR ({r!r})")
+    check(r.startswith("ERROR") and "could not read a task id" in r,
+          f"task_update id with no digits -> ERROR ({r!r})")
 
     # task_list non-empty
     r = reg.execute("task_list", {})
     check(r == "[x] plan step one\n[~] plan step two\n[ ] plan step three",
           f"task_list shows current state ({r!r})")
+
+    # tolerant id forms models reach for (t1/#2/task-3) — from a real session
+    # that looped `task_update id=t1`. The digit is pulled out. Fresh checklist
+    # so it doesn't perturb the state asserted just above.
+    clT = TaskChecklist()
+    regT = default_registry(cwd=workdir)
+    register_task_tools(regT, clT)
+    regT.execute("task_add", {"subjects": "one\ntwo\nthree"})
+    regT.execute("task_update", {"id": "t1", "status": "in_progress"})
+    check(clT._find(1).status == "in_progress", "task_update accepts 't1' -> id 1")
+    regT.execute("task_update", {"id": "#2", "status": "completed"})
+    check(clT._find(2).status == "completed", "task_update accepts '#2' -> id 2")
 
     # ================= ask_user tool =====================================
     print("\n=== ask_user tool ===")

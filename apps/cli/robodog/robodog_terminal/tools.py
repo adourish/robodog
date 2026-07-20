@@ -148,6 +148,64 @@ def classify_danger(command: str) -> Optional[str]:
     return None
 
 
+def _split_top_level(command: str, op: str) -> List[str]:
+    """Split on `op` (e.g. '&&') at the top level only — never inside single or
+    double quotes. Returns [command] when the operator isn't present."""
+    parts, buf = [], []
+    i, n, L = 0, len(command), len(op)
+    quote = None
+    while i < n:
+        ch = command[i]
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        if command[i:i + L] == op:
+            parts.append("".join(buf))
+            buf = []
+            i += L
+            continue
+        buf.append(ch)
+        i += 1
+    parts.append("".join(buf))
+    return parts
+
+
+def powershell_translate(command: str) -> str:
+    """Rewrite a bash-style `A && B` / `A || B` chain into PowerShell so it runs
+    instead of erroring — models trained on bash reach for `&&` constantly on
+    Windows. `&&` -> nested `if ($?) { … }` (preserves the run-B-only-if-A
+    conditional, unlike a bare `;`); `||` -> `if (-not $?) { … }`. Only pure
+    chains are translated (mixed &&/|| is left for the hint); quotes are
+    respected so `echo "a && b"` is untouched. Returns the command unchanged
+    when there's nothing to do."""
+    if os.name != "nt" or ("&&" not in command and "||" not in command):
+        return command
+    ands = _split_top_level(command, "&&")
+    ors = _split_top_level(command, "||")
+    if len(ands) > 1 and len(ors) == 1:
+        chain = [p.strip() for p in ands]
+        cond = "if ($?)"
+    elif len(ors) > 1 and len(ands) == 1:
+        chain = [p.strip() for p in ors]
+        cond = "if (-not $?)"
+    else:
+        return command   # mixed / operator only inside quotes — leave it
+    if any(not seg for seg in chain):
+        return command   # empty segment -> malformed, don't touch
+    out = chain[-1]
+    for seg in reversed(chain[:-1]):
+        out = f"{seg}; {cond} {{ {out} }}"
+    return out
+
+
 def shell_syntax_hint(command: str, combined: str) -> str:
     """A one-line fix for the shell-syntax mistakes models repeat on Windows
     PowerShell — appended to a FAILED command result so the model self-corrects
@@ -427,7 +485,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
     def _edit_file(args):
         path = reg._resolve(args["path"])
         if not path.exists():
-            return f"ERROR: file not found: {path}"
+            return (f"ERROR: file not found: {path} — it doesn't exist yet, so "
+                    "there's nothing to edit. Use write_file to CREATE it.")
         if str(path) not in reg.read_paths:
             return (f"ERROR: refusing to edit {path} — read it first with "
                     f"read_file so old_string matches the real content.")
@@ -649,7 +708,10 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         timeout = int(args.get("timeout", 120) or 120)
         # Use PowerShell on Windows, sh elsewhere, matching the host shell.
         if os.name == "nt":
-            shell_cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", command]
+            # Auto-fix the bash `&&`/`||` chains models reach for so they run
+            # instead of erroring (and the model hallucinating success).
+            run_cmd = powershell_translate(command)
+            shell_cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", run_cmd]
         else:
             shell_cmd = ["/bin/sh", "-c", command]
         rc, out_lines, err_lines, timed_out = _run_streaming(shell_cmd, cwd_path, timeout)
