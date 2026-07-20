@@ -16,6 +16,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -235,24 +236,112 @@ def powershell_translate(command: str) -> str:
     chains are translated (mixed &&/|| is left for the hint); quotes are
     respected so `echo "a && b"` is untouched. Returns the command unchanged
     when there's nothing to do."""
-    if os.name != "nt" or ("&&" not in command and "||" not in command):
+    if os.name != "nt":
         return command
+    # No &&/|| chain: still translate Unix pipe filters (| head/tail/wc).
+    if "&&" not in command and "||" not in command:
+        return translate_unix_pipe_filters(command)
     ands = _split_top_level(command, "&&")
     ors = _split_top_level(command, "||")
     if len(ands) > 1 and len(ors) == 1:
-        chain = [p.strip() for p in ands]
-        cond = "if ($?)"
+        parts, cond = ands, "if ($?)"
     elif len(ors) > 1 and len(ands) == 1:
-        chain = [p.strip() for p in ors]
-        cond = "if (-not $?)"
+        parts, cond = ors, "if (-not $?)"
     else:
         return command   # mixed / operator only inside quotes — leave it
-    if any(not seg for seg in chain):
+    if any(not p.strip() for p in parts):
         return command   # empty segment -> malformed, don't touch
+    # Translate pipe filters WITHIN each chain segment so the parens they add
+    # stay local (translating the whole string first would let the paren cross
+    # the `&&` split boundary and unbalance the `if ($?) { }` block).
+    chain = [translate_unix_pipe_filters(p.strip()) for p in parts]
     out = chain[-1]
     for seg in reversed(chain[:-1]):
         out = f"{seg}; {cond} {{ {out} }}"
     return out
+
+
+def _split_pipes_top_level(command: str) -> List[str]:
+    """Split on a single top-level `|` — never inside quotes, and never on the
+    `||` operator (kept intact). Returns [command] when no splittable pipe."""
+    parts, buf = [], []
+    i, n = 0, len(command)
+    quote = None
+    while i < n:
+        ch = command[i]
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "|":
+            if i + 1 < n and command[i + 1] == "|":   # `||` operator — keep whole
+                buf.append("||")
+                i += 2
+                continue
+            parts.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    parts.append("".join(buf))
+    return parts
+
+
+_PIPE_FILTER_RE = re.compile(r"^(head|tail)(?:\s+-n\s+(\d+)|\s+-(\d+))?$", re.IGNORECASE)
+_PIPE_WC_RE = re.compile(r"^wc\s+-l$", re.IGNORECASE)
+
+
+def _translate_filter_segment(seg: str) -> Optional[str]:
+    """A single pipe segment that is EXACTLY a Unix `head`/`tail`/`wc -l` filter
+    -> its PowerShell equivalent. None if the segment isn't a bare filter (so
+    `head file.txt` or `grep head` is never touched)."""
+    s = seg.strip()
+    m = _PIPE_FILTER_RE.match(s)
+    if m:
+        n = m.group(2) or m.group(3) or "10"   # bare head/tail default to 10
+        sel = "-First" if m.group(1).lower() == "head" else "-Last"
+        return f"Select-Object {sel} {n}"
+    if _PIPE_WC_RE.match(s):
+        return "Measure-Object -Line | Select-Object -ExpandProperty Lines"
+    return None
+
+
+def translate_unix_pipe_filters(command: str) -> str:
+    """Rewrite trailing/embedded `| head -N`, `| tail -N`, `| wc -l` to the
+    PowerShell equivalents so `git log | head -20` actually runs on Windows
+    instead of failing on the missing `head` cmdlet (models reach for these
+    constantly and don't heed the hint). Quote-aware; `||` is preserved; only
+    segments that are EXACTLY a bare filter are converted.
+
+    The upstream is wrapped in parentheses — `(git log) | Select-Object -First
+    20` — so the native producer runs to COMPLETION and exits 0. Without the
+    parens, `Select-Object -First` stops the pipeline early, kills git, and the
+    command reports a false non-zero exit even though it worked. No-op off
+    Windows or when there's no bare filter to translate."""
+    if os.name != "nt" or "|" not in command:
+        return command
+    segs = _split_pipes_top_level(command)
+    if len(segs) < 2:
+        return command
+    # A filter must have upstream (idx > 0) to filter — a leading `head` reads
+    # stdin and isn't our case. Find the first translatable filter segment.
+    translated = [(_translate_filter_segment(s) if i > 0 else None)
+                  for i, s in enumerate(segs)]
+    first = next((i for i, t in enumerate(translated) if t is not None), None)
+    if first is None:
+        return command
+    upstream = "|".join(segs[:first]).strip()
+    tail = [translated[i] if translated[i] is not None else segs[i].strip()
+            for i in range(first, len(segs))]
+    return f"({upstream}) | " + " | ".join(tail)
 
 
 def shell_syntax_hint(command: str, combined: str) -> str:
@@ -861,8 +950,10 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         timeout = int(args.get("timeout", 120) or 120)
         # Use PowerShell on Windows, sh elsewhere, matching the host shell.
         if os.name == "nt":
-            # Auto-fix the bash `&&`/`||` chains models reach for so they run
-            # instead of erroring (and the model hallucinating success).
+            # Auto-fix the bash-isms models reach for on Windows so they run
+            # instead of erroring: `&&`/`||` chains -> if ($?)/if (-not $?), and
+            # `| head/tail/wc` -> Select-Object/Measure-Object (handled per chain
+            # segment inside powershell_translate).
             run_cmd = powershell_translate(command)
             shell_cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", run_cmd]
         else:

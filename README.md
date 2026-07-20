@@ -805,6 +805,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.21
+
+- **Auto-translate Unix pipe filters (Windows):** `… | head -N`, `… | tail -N`,
+  and `… | wc -l` now rewrite to PowerShell (`Select-Object -First/-Last N`,
+  `Measure-Object -Line`) so `git log --oneline | head -20` actually runs
+  instead of failing on the missing `head` cmdlet. The upstream is wrapped in
+  parentheses — `(git log) | Select-Object -First 20` — so the producer runs to
+  completion and **exits 0** (bare `Select-Object -First` would kill git and
+  report a false failure). Composes with the `&&` translation
+  (`cd X && git log | head -20` → `cd X; if ($?) { (git log) | Select-Object
+  -First 20 }`). Quote-aware; `head <file>` and pipes inside quotes are left
+  alone.
+
 ### 0.3.20
 
 - **Shell hints (Windows):** two more Unix-isms models trip on now self-correct —

@@ -109,6 +109,45 @@ def main() -> int:
         check("CHAINED_OK" in r_run and "(exit 0)" in r_run,
               "live: `cd . && echo` runs (translated) instead of erroring")
 
+    # --- 3g. Unix pipe filters | head/tail/wc auto-translate --------------
+    # From a real ELSA session: the model looped 4x on `git log ... | head -20`
+    # (head isn't a PowerShell cmdlet). Translate to Select-Object so it RUNS,
+    # wrapping the producer in parens so it exits 0 (Select-Object -First else
+    # kills git -> false non-zero exit).
+    print("=== 3g. unix pipe filters (head/tail/wc) ===")
+    from robodog_terminal.tools import (
+        powershell_translate as _pt2, translate_unix_pipe_filters as _tf)
+    if os.name == "nt":
+        check(_tf("git log --oneline | head -20")
+              == "(git log --oneline) | Select-Object -First 20",
+              "| head -20 -> (upstream) | Select-Object -First 20")
+        check(_tf("cat x | tail -5") == "(cat x) | Select-Object -Last 5",
+              "| tail -5 -> Select-Object -Last 5")
+        check(_tf("git log | head") == "(git log) | Select-Object -First 10",
+              "bare | head defaults to First 10")
+        check(_tf("git log | wc -l")
+              == "(git log) | Measure-Object -Line | Select-Object -ExpandProperty Lines",
+              "| wc -l -> Measure-Object -Line")
+        check(_tf('echo "a | head -5"') == 'echo "a | head -5"',
+              "pipe inside quotes is NOT translated")
+        check(_tf("type f | head file.txt") == "type f | head file.txt",
+              "`head <file>` (a real arg) is NOT a bare filter -> untouched")
+        check(_tf("git status") == "git status", "no pipe -> unchanged")
+        # combined with &&: parens stay inside the if-block, not across the split
+        check(_pt2("cd X && git log --all | head -20")
+              == "cd X; if ($?) { (git log --all) | Select-Object -First 20 }",
+              "&& + | head: paren-wrapped filter nests inside if ($?)")
+        # live: exit code is 0 (parens let git finish) AND output is limited.
+        # Needs a git repo — ROOT sits under the robodog working tree.
+        git_reg = default_registry(cwd=str(ROOT))
+        r_head = git_reg.execute("bash", {"command": "git log --oneline | head -3"})
+        check("(exit 0)" in r_head and "not recognized" not in r_head,
+              "live: `git log | head -3` runs with exit 0 (no false failure)")
+        r_chain = git_reg.execute(
+            "bash", {"command": "cd . && git log --oneline | head -2"})
+        check("(exit 0)" in r_chain and "COMMAND FAILED" not in r_chain,
+              "live: `cd . && git log | head -2` runs clean end-to-end")
+
     print("=== 3c. shell_syntax_hint classifier ===")
     from robodog_terminal.tools import shell_syntax_hint as _hint
     if os.name == "nt":
