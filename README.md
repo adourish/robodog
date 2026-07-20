@@ -805,6 +805,17 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.16
+
+- **Fix:** the status line no longer disappears while an agent is working — the
+  running spinner now folds in the model, token count, context-remaining %, and
+  branch (`✳ Thinking… step N (ctrl-c cancel) · …`), the one element that stays
+  on screen mid-turn.
+- **New:** `/btw <question>` works mid-turn now, answered in the **background** —
+  ask `/btw are you stuck?` while an agent runs and the reply lands when ready
+  without blocking your input or the turn. It sees the conversation, adds nothing
+  to it, and never emits tool calls.
+
 ### 0.3.15
 
 - **Fix:** PowerShell `&&`/`||` chains are auto-translated so bash-style

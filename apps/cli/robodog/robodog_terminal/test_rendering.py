@@ -370,6 +370,25 @@ def main() -> int:
         else:
             delattr(_os, "startfile")
 
+    # ------- status line stays visible mid-turn (folded into spinner) -----
+    # Regression: the bottom-toolbar status bar only shows at the idle prompt,
+    # so while an agent runs the user lost sight of model/tokens/context. The
+    # running spinner is the ONE persistent element mid-turn, so thinking_line()
+    # folds the status bar into it. It MUST carry the same segments status_line
+    # does, plus the step counter.
+    tl_ui = UI(model_name="anthropic/claude-sonnet-4.6", cwd=str(Path.cwd()))
+    tl_ui.total_tokens = 15600
+    tl_ui.context_pct = 36
+    tline = tl_ui.thinking_line(7)
+    status = tl_ui.status_line()
+    check("step 7" in tline, "thinking_line shows the step counter")
+    check("claude-sonnet-4.6" in tline, "thinking_line carries the model")
+    check("15.6k" in tline, "thinking_line carries the token count")
+    check("64%" in tline, "thinking_line carries the context-remaining %")
+    check(all(seg in tline for seg in status.split("  ") if seg.strip()),
+          "thinking_line contains every status_line segment")
+    check("cancel" in tline.lower(), "thinking_line still tells you how to cancel")
+
     print("\nRENDERING:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

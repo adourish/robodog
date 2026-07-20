@@ -243,7 +243,8 @@ Commands:
   /plan              toggle plan mode (read-only: agent proposes before editing)
   /status            show model, cwd, token usage
   /context           show transcript size breakdown
-  /btw <question>    ask a quick side question (sees the convo, adds nothing to it)
+  /btw <question>    ask a quick side question (sees the convo, adds nothing to it);
+                     works mid-turn too — answered in the background, e.g. "are you stuck?"
   /compact           summarize the conversation to free context
   /clear             reset the conversation
   /rewind [n]        list checkpoints, or undo file changes from prompt n onward
@@ -288,6 +289,19 @@ INIT_PROMPT = (
     "code layout, and any conventions an AI coding agent should follow. "
     "Keep it under 120 lines."
 )
+
+
+def build_btw_prompt(convo: str, question: str, running: bool = False) -> str:
+    """Assemble the side-question prompt for /btw. `running=True` (mid-turn use)
+    tells the model the session may still be working, so 'are you stuck?'-style
+    check-ins get a sensible answer. Never touches the real conversation."""
+    note = (" (which may STILL BE RUNNING right now)" if running else "")
+    return (
+        f"You are answering a quick SIDE QUESTION about the ongoing coding "
+        f"session below{note}. Answer briefly and directly. Do NOT use tools or "
+        f"emit <tool> blocks — just reply in prose.\n\n"
+        f"=== conversation so far ===\n{convo}\n\n"
+        f"=== side question ===\n{question}")
 
 
 def _expand_mentions(line: str, registry) -> str:
@@ -657,7 +671,8 @@ def main(argv=None) -> int:
             with child_lock:      # new parent step: reset the fan-out counters
                 child_stats["children"].clear()
                 child_stats["calls"] = 0
-            ui.spinner_start(f"✳ Thinking… (step {data['iteration']}, ctrl-c to cancel)")
+            # Spinner carries the status bar so it stays visible mid-turn.
+            ui.spinner_start(ui.thinking_line(data["iteration"]))
         elif kind == "llm_error":
             ui.spinner_stop()
             if data.get("will_retry"):
@@ -813,7 +828,28 @@ def main(argv=None) -> int:
     # Read-only slash commands that are safe to run WHILE an agent turn is in
     # flight (they don't touch loop.history, the client, or checkpoints).
     SAFE_MIDTURN = {"doctor", "status", "context", "tools", "tasks", "tail",
-                    "help", "verbose", "todos", "skills"}
+                    "help", "verbose", "todos", "skills", "btw"}
+
+    def _btw_background(question: str):
+        """Answer a /btw side question WITHOUT blocking the turn: snapshot the
+        conversation, ask the model on a daemon thread, print the answer when
+        it lands. Used mid-turn so you can check in on a working agent."""
+        try:
+            convo = loop._render_prompt() if loop.history else "(no conversation yet)"
+        except Exception:
+            convo = "(conversation unavailable)"
+        side_prompt = build_btw_prompt(convo, question, running=True)
+
+        def _work():
+            try:
+                ans = client.complete(side_prompt, max_tokens=1200).text
+            except Exception as exc:
+                ui.dim(f"  [btw failed: {type(exc).__name__}]")
+                return
+            ui.info("\n[btw — not part of the conversation]")
+            ui.assistant(ans)
+        _threading.Thread(target=_work, daemon=True).start()
+        ui.dim("  [btw: asking in the background — the answer will appear when ready]")
 
     def midturn_command(line: str) -> bool:
         """If `line` is a safe read-only slash command, run it NOW (while the
@@ -863,6 +899,11 @@ def main(argv=None) -> int:
                     ui.info(f"  {t.id}  [{t.status}]  {t.kind}  {t.title}")
             elif cmd == "tail":
                 ui.info(manager.output(rest or "bg1"))
+            elif cmd == "btw":
+                if not rest:
+                    ui.info("usage: /btw <question>  (answered in the background)")
+                else:
+                    _btw_background(rest)
         except Exception as exc:   # a race with the worker must never crash the REPL
             ui.dim(f"  (/{cmd} unavailable mid-turn: {type(exc).__name__})")
         return True
@@ -946,12 +987,7 @@ def main(argv=None) -> int:
                 # Side question: full visibility into the conversation, no tools,
                 # single answer, and it does NOT touch the conversation history.
                 convo = loop._render_prompt() if loop.history else "(no conversation yet)"
-                side_prompt = (
-                    "You are answering a quick SIDE QUESTION about the ongoing "
-                    "coding session below. Answer briefly and directly. Do NOT "
-                    "use tools or emit <tool> blocks — just reply in prose.\n\n"
-                    f"=== conversation so far ===\n{convo}\n\n"
-                    f"=== side question ===\n{rest}")
+                side_prompt = build_btw_prompt(convo, rest)
                 ui.spinner_start("✳ (side question…)")
                 try:
                     ans = client.complete(side_prompt, max_tokens=1500).text

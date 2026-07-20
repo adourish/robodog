@@ -1,0 +1,714 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: github-profile.spec.ts >> GitHub Public Profile Page >> Name field is present
+- Location: tests\e2e\github-profile.spec.ts:8:7
+
+# Error details
+
+```
+Error: expect(locator).toBeVisible() failed
+
+Locator: locator('.p-name')
+Expected: visible
+Timeout: 5000ms
+Error: element(s) not found
+
+Call log:
+  - Expect "toBeVisible" with timeout 5000ms
+  - waiting for locator('.p-name')
+
+```
+
+```yaml
+- link "Skip to content":
+  - /url: "#start-of-content"
+- banner:
+  - heading "Navigation Menu" [level=2]
+  - link "Homepage":
+    - /url: /
+  - navigation "Global":
+    - list:
+      - listitem:
+        - button "Platform"
+      - listitem:
+        - button "Solutions"
+      - listitem:
+        - button "Resources"
+      - listitem:
+        - button "Open Source"
+      - listitem:
+        - button "Enterprise"
+      - listitem:
+        - link "Pricing":
+          - /url: https://github.com/pricing
+  - button "Search or jump to…"
+  - link "Sign in":
+    - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fgithub
+  - link "Sign up":
+    - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Corg-login%3E&source=header
+  - button "Appearance settings"
+- main:
+  - img "@github"
+  - heading "GitHub" [level=1]
+  - text: How people build software.
+  - list:
+    - listitem:
+      - group: Verified
+    - listitem
+    - listitem:
+      - link "Sponsor":
+        - /url: /sponsors
+  - list:
+    - listitem:
+      - link "80.2k followers":
+        - /url: /orgs/github/followers
+    - listitem: United States of America
+    - listitem:
+      - link "https://github.com/about":
+        - /url: https://github.com/about
+  - navigation "Organization":
+    - list:
+      - listitem:
+        - link "Overview":
+          - /url: /github
+      - listitem:
+        - link "Repositories 553":
+          - /url: /orgs/github/repositories
+      - listitem:
+        - link "Projects 16":
+          - /url: /orgs/github/projects
+      - listitem:
+        - link "Packages":
+          - /url: /orgs/github/packages
+      - listitem:
+        - link "People 223":
+          - /url: /orgs/github/people
+      - listitem:
+        - link "Sponsoring 11":
+          - /url: /orgs/github/sponsoring
+  - link "README.md":
+    - /url: /github/.github/tree/main/profile/README.md
+  - article:
+    - heading "Hey, this is us 👋" [level=2]
+    - 'link "Permalink: Hey, this is us 👋"':
+      - /url: "#hey-this-is-us-"
+    - paragraph:
+      - link "An illustration showing a variety of differently themed Octocats. Monuments from different cities are indicated in the background like the Space Needle, Berlin Fernsehturm and Transamerica Pyramid.":
+        - /url: https://user-images.githubusercontent.com/3369400/133268513-5bfe2f93-4402-42c9-a403-81c9e86934b6.jpeg
+        - img "An illustration showing a variety of differently themed Octocats. Monuments from different cities are indicated in the background like the Space Needle, Berlin Fernsehturm and Transamerica Pyramid."
+    - paragraph:
+      - text: Yes, we are building GitHub on GitHub. In fact, we’ve been doing this since
+      - strong: October 19th, 2007
+      - text: . That's when we made our first commit. Since then we pushed
+      - strong: over 2.5 million commits
+      - text: ", opened"
+      - strong: over 1 million issues
+      - text: ", submitted roughly"
+      - strong: 650k pull requests
+      - text: across
+      - strong: 4357 repositories
+      - text: from over
+      - strong: 50 countries
+      - text: . 🤯 But that's just us. We are proud to be part of the work of millions of developers, companies and robots across the solar system. 🪐 Yes,
+      - link "Robots":
+        - /url: https://github.com/readme/featured/nasa-ingenuity-helicopter
+      - text: "!"
+    - heading "🍿 An interconnected community" [level=3]
+    - 'link "Permalink: 🍿 An interconnected community"':
+      - /url: "#-an-interconnected-community"
+    - paragraph: "The open source community is the 💗 heart of GitHub and fundamental to how we build software today. See for yourself:"
+    - list:
+      - listitem:
+        - link "GitHub Sponsors":
+          - /url: https://github.com/sponsors
+        - text: helped support more than
+        - strong: 5k
+        - text: individuals and projects around the world 🌍
+      - listitem:
+        - text: Open source projects on GitHub received a stunning
+        - strong: 218 million
+        - text: contributions 🚀 in the last year alone
+      - listitem:
+        - strong: Every minute
+        - text: a developer creates a new release 🏄 for a public project on GitHub
+    - paragraph:
+      - text: Now that we are talking about the important things, ☝️ are you contributing to open source? Yes? Okay, you rock! 🎸 If not, we can help you get started! Open source software is made by people just like you. Learn more about
+      - link "how to contribute":
+        - /url: https://opensource.guide/
+      - text: .
+    - heading "🦦 Contributing to the ecosystem" [level=3]
+    - 'link "Permalink: 🦦 Contributing to the ecosystem"':
+      - /url: "#-contributing-to-the-ecosystem"
+    - paragraph: "We contribute to the tools 🔧 we rely on to build and run GitHub, while also maintaining 🧙‍♂️ our own open source projects like:"
+    - list:
+      - listitem:
+        - link "GitHub CLI":
+          - /url: https://github.com/cli/cli
+        - text: "- A command line tool for GitHub"
+      - listitem:
+        - link "GitHub Desktop":
+          - /url: https://github.com/desktop/desktop
+        - text: "- A visual approach to using Git with GitHub"
+      - listitem:
+        - link "Git Large File Storage":
+          - /url: https://github.com/git-lfs/git-lfs
+        - text: "- A Git extension for versioning large files"
+      - listitem:
+        - link "Primer":
+          - /url: https://github.com/primer/css
+        - text: "- The GitHub design system"
+    - heading "👓 Appendix" [level=3]
+    - 'link "Permalink: 👓 Appendix"':
+      - /url: "#-appendix"
+    - paragraph:
+      - text: See what's next on our
+      - link "public roadmap":
+        - /url: https://github.com/github/roadmap
+      - text: ✨ and
+      - link "let us know":
+        - /url: https://github.com/github/feedback
+      - text: if you have any suggestions. 🙇‍♂️ Oh, and by the way, we are always hiring talented, passionate people to
+      - link "join our team":
+        - /url: https://github.com/about/careers
+      - text: . 🙌
+    - group: "\"Tell me more, I can't get enough!\""
+    - separator
+    - paragraph:
+      - subscript:
+        - text: 🤫 Psst! You can create your own
+        - link "organization README":
+          - /url: https://docs.github.com/en/organizations/collaborating-with-groups-in-organizations/customizing-your-organizations-profile
+        - text: .
+  - heading "Pinned Loading" [level=2]:
+    - text: Pinned Loading
+    - status
+  - list:
+    - listitem:
+      - link "training-kit":
+        - /url: /github/training-kit
+      - text: Public
+      - paragraph: Open source courseware for Git and GitHub
+      - paragraph:
+        - text: HTML
+        - link "stars 5k":
+          - /url: /github/training-kit/stargazers
+          - img "stars"
+          - text: 5k
+        - link "forks 4.5k":
+          - /url: /github/training-kit/forks
+          - img "forks"
+          - text: 4.5k
+    - listitem:
+      - link "choosealicense.com":
+        - /url: /github/choosealicense.com
+      - text: Public
+      - paragraph: A site to provide non-judgmental guidance on choosing a license for your open source project
+      - paragraph:
+        - text: HTML
+        - link "stars 4.2k":
+          - /url: /github/choosealicense.com/stargazers
+          - img "stars"
+          - text: 4.2k
+        - link "forks 1.6k":
+          - /url: /github/choosealicense.com/forks
+          - img "forks"
+          - text: 1.6k
+    - listitem:
+      - link "scientist":
+        - /url: /github/scientist
+      - text: Public
+      - paragraph: 🔬 A Ruby library for carefully refactoring critical paths.
+      - paragraph:
+        - text: Ruby
+        - link "stars 7.7k":
+          - /url: /github/scientist/stargazers
+          - img "stars"
+          - text: 7.7k
+        - link "forks 502":
+          - /url: /github/scientist/forks
+          - img "forks"
+          - text: "502"
+    - listitem:
+      - link "gh-ost":
+        - /url: /github/gh-ost
+      - text: Public
+      - paragraph: GitHub's Online Schema-migration Tool for MySQL
+      - paragraph:
+        - text: Go
+        - link "stars 13.5k":
+          - /url: /github/gh-ost/stargazers
+          - img "stars"
+          - text: 13.5k
+        - link "forks 1.4k":
+          - /url: /github/gh-ost/forks
+          - img "forks"
+          - text: 1.4k
+    - listitem:
+      - link "github-mcp-server":
+        - /url: /github/github-mcp-server
+      - text: Public
+      - paragraph: GitHub's official MCP Server
+      - paragraph:
+        - text: Go
+        - link "stars 31.6k":
+          - /url: /github/github-mcp-server/stargazers
+          - img "stars"
+          - text: 31.6k
+        - link "forks 4.6k":
+          - /url: /github/github-mcp-server/forks
+          - img "forks"
+          - text: 4.6k
+  - heading "Repositories" [level=3]
+  - search:
+    - searchbox "Find a repository…"
+    - text: Loading
+    - group:
+      - button "Type"
+    - group:
+      - button "Language"
+    - group:
+      - button "Sort"
+  - text: Showing 10 of 553 repositories
+  - list:
+    - listitem:
+      - link "gh-aw":
+        - /url: /github/gh-aw
+      - text: Public
+      - paragraph: GitHub Agentic Workflows
+      - link "github/gh-aw's past year of commit activity":
+        - /url: /github/gh-aw/graphs/commit-activity
+      - text: Go
+      - link "4779 stars":
+        - /url: /github/gh-aw/stargazers
+        - text: 4,779
+      - text: MIT
+      - link "458 forks":
+        - /url: /github/gh-aw/forks
+        - text: "458"
+      - link "245 issues":
+        - /url: /github/gh-aw/issues
+        - text: "245"
+      - link "5 pull requests":
+        - /url: /github/gh-aw/pulls
+        - text: "5"
+      - text: Updated Jul 19, 2026now
+    - listitem:
+      - link "codeql-coding-standards":
+        - /url: /github/codeql-coding-standards
+      - text: Public
+      - paragraph: This repository contains CodeQL queries and libraries which support various Coding Standards.
+      - link "github/codeql-coding-standards's past year of commit activity":
+        - /url: /github/codeql-coding-standards/graphs/commit-activity
+      - text: CodeQL
+      - link "213 stars":
+        - /url: /github/codeql-coding-standards/stargazers
+        - text: "213"
+      - text: MIT
+      - link "77 forks":
+        - /url: /github/codeql-coding-standards/forks
+        - text: "77"
+      - link "112 issues":
+        - /url: /github/codeql-coding-standards/issues
+        - text: "112"
+      - link "17 pull requests":
+        - /url: /github/codeql-coding-standards/pulls
+        - text: "17"
+      - text: Updated Jul 19, 2026now
+    - listitem:
+      - link "advisory-database":
+        - /url: /github/advisory-database
+      - text: Public
+      - paragraph: Security vulnerability database inclusive of CVEs and GitHub originated security advisories from the world of open source software.
+      - link "github/advisory-database's past year of commit activity":
+        - /url: /github/advisory-database/graphs/commit-activity
+      - link "2373 stars":
+        - /url: /github/advisory-database/stargazers
+        - text: 2,373
+      - text: CC-BY-4.0
+      - link "671 forks":
+        - /url: /github/advisory-database/forks
+        - text: "671"
+      - link "98 issues":
+        - /url: /github/advisory-database/issues
+        - text: "98"
+      - link "606 pull requests":
+        - /url: /github/advisory-database/pulls
+        - text: "606"
+      - text: Updated Jul 19, 20262 minutes ago
+    - listitem:
+      - link "gh-aw-firewall":
+        - /url: /github/gh-aw-firewall
+      - text: Public
+      - paragraph: GitHub Agentic Workflows Firewall
+      - link "github/gh-aw-firewall's past year of commit activity":
+        - /url: /github/gh-aw-firewall/graphs/commit-activity
+      - text: TypeScript
+      - link "112 stars":
+        - /url: /github/gh-aw-firewall/stargazers
+        - text: "112"
+      - text: MIT
+      - link "38 forks":
+        - /url: /github/gh-aw-firewall/forks
+        - text: "38"
+      - link "58 issues":
+        - /url: /github/gh-aw-firewall/issues
+        - text: "58"
+      - link "1 pull request":
+        - /url: /github/gh-aw-firewall/pulls
+        - text: "1"
+      - text: Updated Jul 19, 202611 minutes ago
+    - listitem:
+      - link "forgoodfirstissue":
+        - /url: /github/forgoodfirstissue
+      - text: Public
+      - paragraph: Find your first issue for good to contribute to
+      - link "github/forgoodfirstissue's past year of commit activity":
+        - /url: /github/forgoodfirstissue/graphs/commit-activity
+      - text: TypeScript
+      - link "235 stars":
+        - /url: /github/forgoodfirstissue/stargazers
+        - text: "235"
+      - text: MIT
+      - link "115 forks":
+        - /url: /github/forgoodfirstissue/forks
+        - text: "115"
+      - link "22 issues":
+        - /url: /github/forgoodfirstissue/issues
+        - text: "22"
+      - link "24 pull requests":
+        - /url: /github/forgoodfirstissue/pulls
+        - text: "24"
+      - text: Updated Jul 19, 20262 hours ago
+    - listitem:
+      - link "gh-aw-mcpg":
+        - /url: /github/gh-aw-mcpg
+      - text: Public
+      - paragraph: Github Agentic Workflows MCP Gateway
+      - link "github/gh-aw-mcpg's past year of commit activity":
+        - /url: /github/gh-aw-mcpg/graphs/commit-activity
+      - text: Go
+      - link "148 stars":
+        - /url: /github/gh-aw-mcpg/stargazers
+        - text: "148"
+      - text: MIT
+      - link "31 forks":
+        - /url: /github/gh-aw-mcpg/forks
+        - text: "31"
+      - link "7 issues":
+        - /url: /github/gh-aw-mcpg/issues
+        - text: "7"
+      - link "0 pull requests":
+        - /url: /github/gh-aw-mcpg/pulls
+        - text: "0"
+      - text: Updated Jul 19, 20263 hours ago
+    - listitem:
+      - link "copilot-sdk":
+        - /url: /github/copilot-sdk
+      - text: Public
+      - paragraph: Multi-platform SDK for integrating GitHub Copilot Agent into apps and services
+      - link "github/copilot-sdk's past year of commit activity":
+        - /url: /github/copilot-sdk/graphs/commit-activity
+      - text: Java
+      - link "9937 stars":
+        - /url: /github/copilot-sdk/stargazers
+        - text: 9,937
+      - text: MIT
+      - link "1349 forks":
+        - /url: /github/copilot-sdk/forks
+        - text: 1,349
+      - link "194 issues":
+        - /url: /github/copilot-sdk/issues
+        - text: "194"
+      - link "51 pull requests":
+        - /url: /github/copilot-sdk/pulls
+        - text: "51"
+      - text: Updated Jul 19, 20265 hours ago
+    - listitem:
+      - link "actions-migrations-via-copilot":
+        - /url: /github/actions-migrations-via-copilot
+      - text: Public
+      - paragraph: Migrate to GitHub Actions from multiple other CI/CD systems using Copilot
+      - link "github/actions-migrations-via-copilot's past year of commit activity":
+        - /url: /github/actions-migrations-via-copilot/graphs/commit-activity
+      - link "64 stars":
+        - /url: /github/actions-migrations-via-copilot/stargazers
+        - text: "64"
+      - link "12 forks":
+        - /url: /github/actions-migrations-via-copilot/forks
+        - text: "12"
+      - link "1 issue":
+        - /url: /github/actions-migrations-via-copilot/issues
+        - text: "1"
+      - link "2 pull requests":
+        - /url: /github/actions-migrations-via-copilot/pulls
+        - text: "2"
+      - text: Updated Jul 19, 20267 hours ago
+    - listitem:
+      - link "github-mcp-server":
+        - /url: /github/github-mcp-server
+      - text: Public
+      - paragraph: GitHub's official MCP Server
+      - link "github/github-mcp-server's past year of commit activity":
+        - /url: /github/github-mcp-server/graphs/commit-activity
+      - text: Go
+      - link "31557 stars":
+        - /url: /github/github-mcp-server/stargazers
+        - text: 31,557
+      - text: MIT
+      - link "4616 forks":
+        - /url: /github/github-mcp-server/forks
+        - text: 4,616
+      - link "168 issues":
+        - /url: /github/github-mcp-server/issues
+        - text: "168"
+      - link "168 pull requests":
+        - /url: /github/github-mcp-server/pulls
+        - text: "168"
+      - text: Updated Jul 19, 20268 hours ago
+    - listitem:
+      - link "vscode-codeql":
+        - /url: /github/vscode-codeql
+      - text: Public
+      - paragraph: An extension for Visual Studio Code that adds rich language support for CodeQL
+      - link "github/vscode-codeql's past year of commit activity":
+        - /url: /github/vscode-codeql/graphs/commit-activity
+      - text: TypeScript
+      - link "529 stars":
+        - /url: /github/vscode-codeql/stargazers
+        - text: "529"
+      - text: MIT
+      - link "234 forks":
+        - /url: /github/vscode-codeql/forks
+        - text: "234"
+      - link "146 issues":
+        - /url: /github/vscode-codeql/issues
+        - text: "146"
+      - link "(12 issues need help)":
+        - /url: /github/vscode-codeql/issues?q=label%3A%22good+first+issue%22+is%3Aissue+is%3Aopen
+      - link "11 pull requests":
+        - /url: /github/vscode-codeql/pulls
+        - text: "11"
+      - text: Updated Jul 19, 20268 hours ago
+  - link "View all repositories":
+    - /url: /orgs/github/repositories?type=all
+  - link "People":
+    - /url: /orgs/github/people
+    - heading "People" [level=4]
+  - link "@mtodd":
+    - /url: /mtodd
+    - img "@mtodd"
+  - link "@jonmagic":
+    - /url: /jonmagic
+    - img "@jonmagic"
+  - link "@kjg":
+    - /url: /kjg
+    - img "@kjg"
+  - link "@kdaigle":
+    - /url: /kdaigle
+    - img "@kdaigle"
+  - link "@abraham":
+    - /url: /abraham
+    - img "@abraham"
+  - link "@nathos":
+    - /url: /nathos
+    - img "@nathos"
+  - link "@omgitsads":
+    - /url: /omgitsads
+    - img "@omgitsads"
+  - link "@tma":
+    - /url: /tma
+    - img "@tma"
+  - link "@nickh":
+    - /url: /nickh
+    - img "@nickh"
+  - link "@digitarald":
+    - /url: /digitarald
+    - img "@digitarald"
+  - link "@look":
+    - /url: /look
+    - img "@look"
+  - link "@kyanny":
+    - /url: /kyanny
+    - img "@kyanny"
+  - link "@rubiojr":
+    - /url: /rubiojr
+    - img "@rubiojr"
+  - link "@northrup":
+    - /url: /northrup
+    - img "@northrup"
+  - link "@hilli":
+    - /url: /hilli
+    - img "@hilli"
+  - link "@antonio":
+    - /url: /antonio
+    - img "@antonio"
+  - link "@phillmv":
+    - /url: /phillmv
+    - img "@phillmv"
+  - link "@mahata":
+    - /url: /mahata
+    - img "@mahata"
+  - link "@azizshamim":
+    - /url: /azizshamim
+    - img "@azizshamim"
+  - link "@georgedrummond":
+    - /url: /georgedrummond
+    - img "@georgedrummond"
+  - link "View all":
+    - /url: /orgs/github/people
+  - heading "Sponsoring" [level=4]
+  - list "Sponsoring":
+    - listitem:
+      - link "@SAML-Toolkits":
+        - /url: /SAML-Toolkits
+        - img "@SAML-Toolkits"
+    - listitem:
+      - link "@exercism":
+        - /url: /exercism
+        - img "@exercism"
+    - listitem:
+      - link "@its-a-feature":
+        - /url: /its-a-feature
+        - img "@its-a-feature"
+    - listitem:
+      - link "@kivikakk":
+        - /url: /kivikakk
+        - img "@kivikakk"
+    - listitem:
+      - link "@knsv":
+        - /url: /knsv
+        - img "@knsv"
+    - listitem:
+      - link "@tannerlinsley":
+        - /url: /tannerlinsley
+        - img "@tannerlinsley"
+    - listitem:
+      - link "@Homebrew":
+        - /url: /Homebrew
+        - img "@Homebrew"
+    - listitem:
+      - link "@processing":
+        - /url: /processing
+        - img "@processing"
+    - listitem:
+      - link "@sindresorhus":
+        - /url: /sindresorhus
+        - img "@sindresorhus"
+    - listitem:
+      - link "@zx2c4":
+        - /url: /zx2c4
+        - img "@zx2c4"
+    - listitem:
+      - link "@emmet0r":
+        - /url: /emmet0r
+        - img "@emmet0r"
+  - heading "Top languages" [level=4]
+  - link "Ruby":
+    - /url: /orgs/github/repositories?language=ruby&type=all
+  - link "JavaScript":
+    - /url: /orgs/github/repositories?language=javascript&type=all
+  - link "TypeScript":
+    - /url: /orgs/github/repositories?language=typescript&type=all
+  - link "Go":
+    - /url: /orgs/github/repositories?language=go&type=all
+  - link "Python":
+    - /url: /orgs/github/repositories?language=python&type=all
+  - heading "Most used topics" [level=4]
+  - link "github":
+    - /url: /search?q=topic%3Agithub+org%3Agithub+fork%3Atrue&type=repositories
+  - link "custom-elements":
+    - /url: /search?q=topic%3Acustom-elements+org%3Agithub+fork%3Atrue&type=repositories
+  - link "web-components":
+    - /url: /search?q=topic%3Aweb-components+org%3Agithub+fork%3Atrue&type=repositories
+  - link "gh-extension":
+    - /url: /search?q=topic%3Agh-extension+org%3Agithub+fork%3Atrue&type=repositories
+  - link "ruby":
+    - /url: /search?q=topic%3Aruby+org%3Agithub+fork%3Atrue&type=repositories
+  - link "GitHub Sponsor":
+    - /url: /sponsors
+  - link "Developer Program Member":
+    - /url: https://docs.github.com
+- contentinfo:
+  - heading "Footer" [level=2]
+  - link "GitHub Homepage":
+    - /url: https://github.com
+  - text: © 2026 GitHub, Inc.
+  - navigation "Footer":
+    - heading "Footer navigation" [level=3]
+    - list "Footer navigation":
+      - listitem:
+        - link "Terms":
+          - /url: https://docs.github.com/site-policy/github-terms/github-terms-of-service
+      - listitem:
+        - link "Privacy":
+          - /url: https://docs.github.com/site-policy/privacy-policies/github-privacy-statement
+      - listitem:
+        - link "Security":
+          - /url: https://github.com/security
+      - listitem:
+        - link "Status":
+          - /url: https://www.githubstatus.com/
+      - listitem:
+        - link "Community":
+          - /url: https://github.community/
+      - listitem:
+        - link "Docs":
+          - /url: https://docs.github.com/
+      - listitem:
+        - link "Contact":
+          - /url: https://support.github.com?tags=dotcom-footer
+      - listitem:
+        - button "Manage cookies"
+      - listitem:
+        - button "Do not share my personal information"
+```
+
+# Test source
+
+```ts
+  1  | import { test, expect } from '@playwright/test';
+  2  | 
+  3  | // Tests run against the public GitHub profile page — no login required.
+  4  | // Using the canonical "github" org profile as a stable public target.
+  5  | const PROFILE_URL = 'https://github.com/github';
+  6  | 
+  7  | test.describe('GitHub Public Profile Page', () => {
+  8  |   test('Name field is present', async ({ page }) => {
+  9  |     await page.goto(PROFILE_URL);
+  10 |     // .p-name is the vCard name element on every GitHub profile
+  11 |     const nameEl = page.locator('.p-name');
+> 12 |     await expect(nameEl).toBeVisible();
+     |                          ^ Error: expect(locator).toBeVisible() failed
+  13 |     const nameText = await nameEl.textContent();
+  14 |     console.log('Profile name:', nameText?.trim());
+  15 |     await page.screenshot({ path: 'test-results/profile-name.png', fullPage: false });
+  16 |   });
+  17 | 
+  18 |   test('Avatar image is present', async ({ page }) => {
+  19 |     await page.goto(PROFILE_URL);
+  20 |     // Profile avatar image
+  21 |     const avatar = page.locator('img.avatar').first();
+  22 |     await expect(avatar).toBeVisible();
+  23 |     await page.screenshot({ path: 'test-results/profile-avatar.png', fullPage: false });
+  24 |   });
+  25 | 
+  26 |   test('Pronouns field is present', async ({ page }) => {
+  27 |     // Pronouns only appear when a user has set them.
+  28 |     // We navigate to a known account that has pronouns set (torvalds has none,
+  29 |     // so we check for the element's existence in the DOM rather than visibility).
+  30 |     await page.goto(PROFILE_URL);
+  31 |     // The pronouns span uses class "p-pronoun" in GitHub's vCard markup.
+  32 |     // If the org/user has no pronouns set the element simply won't exist —
+  33 |     // so we assert the page loaded successfully instead and screenshot it.
+  34 |     const response = await page.evaluate(() => document.readyState);
+  35 |     expect(response).toBe('complete');
+  36 |     await page.screenshot({ path: 'test-results/profile-pronouns.png', fullPage: false });
+  37 |   });
+  38 | });
+```

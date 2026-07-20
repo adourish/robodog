@@ -1,0 +1,871 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: github-profile.spec.ts >> GitHub Public Profile Page >> Pronouns field is present
+- Location: tests\e2e\github-profile.spec.ts:26:7
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - link "Skip to content" [ref=e4]:
+      - /url: "#start-of-content"
+    - banner [ref=e6]:
+      - heading "Navigation Menu" [level=2] [ref=e7]
+      - generic [ref=e8]:
+        - link "Homepage" [ref=e10]:
+          - /url: /
+          - img [ref=e11]
+        - generic [ref=e13]:
+          - navigation "Global" [ref=e16]:
+            - list [ref=e17]:
+              - listitem [ref=e18]:
+                - button "Platform" [ref=e20] [cursor=pointer]:
+                  - text: Platform
+                  - img [ref=e21]
+              - listitem [ref=e23]:
+                - button "Solutions" [ref=e25] [cursor=pointer]:
+                  - text: Solutions
+                  - img [ref=e26]
+              - listitem [ref=e28]:
+                - button "Resources" [ref=e30] [cursor=pointer]:
+                  - text: Resources
+                  - img [ref=e31]
+              - listitem [ref=e33]:
+                - button "Open Source" [ref=e35] [cursor=pointer]:
+                  - text: Open Source
+                  - img [ref=e36]
+              - listitem [ref=e38]:
+                - button "Enterprise" [ref=e40] [cursor=pointer]:
+                  - text: Enterprise
+                  - img [ref=e41]
+              - listitem [ref=e43]:
+                - link "Pricing" [ref=e44]:
+                  - /url: https://github.com/pricing
+                  - generic [ref=e45]: Pricing
+          - generic [ref=e46]:
+            - button "Search or jump to…" [ref=e49] [cursor=pointer]:
+              - img [ref=e51]
+            - link "Sign in" [ref=e54]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fgithub
+            - link "Sign up" [ref=e55]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Corg-login%3E&source=header
+            - button "Appearance settings" [ref=e58] [cursor=pointer]:
+              - img
+  - main [ref=e61]:
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - generic [ref=e65]:
+          - img "@github" [ref=e67]
+          - generic [ref=e68]:
+            - heading "GitHub" [level=1] [ref=e69]
+            - generic [ref=e71]: How people build software.
+            - list [ref=e72]:
+              - listitem [ref=e73]:
+                - group [ref=e74]:
+                  - generic "Verified" [ref=e75] [cursor=pointer]
+              - listitem
+              - listitem [ref=e76]:
+                - link "Sponsor" [ref=e77]:
+                  - /url: /sponsors
+                  - generic "Sponsor" [ref=e78]
+            - list [ref=e80]:
+              - listitem [ref=e81]:
+                - img [ref=e82]
+                - link "80.2k followers" [ref=e84]:
+                  - /url: /orgs/github/followers
+              - listitem [ref=e85]:
+                - img [ref=e86]
+                - text: United States of America
+              - listitem [ref=e88]:
+                - img [ref=e89]
+                - link "https://github.com/about" [ref=e91]:
+                  - /url: https://github.com/about
+        - navigation "Organization" [ref=e93]:
+          - list [ref=e95]:
+            - listitem [ref=e96]:
+              - link "Overview" [ref=e97] [cursor=pointer]:
+                - /url: /github
+                - img [ref=e98]
+                - text: Overview
+            - listitem [ref=e100]:
+              - link "Repositories 553" [ref=e101] [cursor=pointer]:
+                - /url: /orgs/github/repositories
+                - img [ref=e102]
+                - text: Repositories
+                - generic "Not available" [ref=e104]: "553"
+            - listitem [ref=e105]:
+              - link "Projects 16" [ref=e106] [cursor=pointer]:
+                - /url: /orgs/github/projects
+                - img [ref=e107]
+                - text: Projects
+                - generic "Not available" [ref=e109]: "16"
+            - listitem [ref=e110]:
+              - link "Packages" [ref=e111] [cursor=pointer]:
+                - /url: /orgs/github/packages
+                - img [ref=e112]
+                - text: Packages
+            - listitem [ref=e114]:
+              - link "People 223" [ref=e115] [cursor=pointer]:
+                - /url: /orgs/github/people
+                - img [ref=e116]
+                - text: People
+                - generic "Not available" [ref=e118]: "223"
+            - listitem [ref=e119]:
+              - link "Sponsoring 11" [ref=e120] [cursor=pointer]:
+                - /url: /orgs/github/sponsoring
+                - img [ref=e121]
+                - text: Sponsoring
+                - generic "11" [ref=e123]
+      - generic [ref=e125]:
+        - generic [ref=e128]:
+          - generic [ref=e130]:
+            - link "README.md" [ref=e133]:
+              - /url: /github/.github/tree/main/profile/README.md
+            - article [ref=e134]:
+              - generic [ref=e135]:
+                - heading "Hey, this is us 👋" [level=2] [ref=e136]
+                - 'link "Permalink: Hey, this is us 👋" [ref=e137]':
+                  - /url: "#hey-this-is-us-"
+                  - img [ref=e138]
+              - paragraph [ref=e140]:
+                - link "An illustration showing a variety of differently themed Octocats. Monuments from different cities are indicated in the background like the Space Needle, Berlin Fernsehturm and Transamerica Pyramid." [ref=e141]:
+                  - /url: https://user-images.githubusercontent.com/3369400/133268513-5bfe2f93-4402-42c9-a403-81c9e86934b6.jpeg
+                  - img "An illustration showing a variety of differently themed Octocats. Monuments from different cities are indicated in the background like the Space Needle, Berlin Fernsehturm and Transamerica Pyramid." [ref=e142]
+              - paragraph [ref=e143]:
+                - text: Yes, we are building GitHub on GitHub. In fact, we’ve been doing this since
+                - strong [ref=e144]: October 19th, 2007
+                - text: . That's when we made our first commit. Since then we pushed
+                - strong [ref=e145]: over 2.5 million commits
+                - text: ", opened"
+                - strong [ref=e146]: over 1 million issues
+                - text: ", submitted roughly"
+                - strong [ref=e147]: 650k pull requests
+                - text: across
+                - strong [ref=e148]: 4357 repositories
+                - text: from over
+                - strong [ref=e149]: 50 countries
+                - text: . 🤯 But that's just us. We are proud to be part of the work of millions of developers, companies and robots across the solar system. 🪐 Yes,
+                - link "Robots" [ref=e150]:
+                  - /url: https://github.com/readme/featured/nasa-ingenuity-helicopter
+                - text: "!"
+              - generic [ref=e151]:
+                - heading "🍿 An interconnected community" [level=3] [ref=e152]
+                - 'link "Permalink: 🍿 An interconnected community" [ref=e153]':
+                  - /url: "#-an-interconnected-community"
+                  - img [ref=e154]
+              - paragraph [ref=e156]: "The open source community is the 💗 heart of GitHub and fundamental to how we build software today. See for yourself:"
+              - list [ref=e157]:
+                - listitem [ref=e158]:
+                  - link "GitHub Sponsors" [ref=e159]:
+                    - /url: https://github.com/sponsors
+                  - text: helped support more than
+                  - strong [ref=e160]: 5k
+                  - text: individuals and projects around the world 🌍
+                - listitem [ref=e161]:
+                  - text: Open source projects on GitHub received a stunning
+                  - strong [ref=e162]: 218 million
+                  - text: contributions 🚀 in the last year alone
+                - listitem [ref=e163]:
+                  - strong [ref=e164]: Every minute
+                  - text: a developer creates a new release 🏄 for a public project on GitHub
+              - paragraph [ref=e165]:
+                - text: Now that we are talking about the important things, ☝️ are you contributing to open source? Yes? Okay, you rock! 🎸 If not, we can help you get started! Open source software is made by people just like you. Learn more about
+                - link "how to contribute" [ref=e166]:
+                  - /url: https://opensource.guide/
+                - text: .
+              - generic [ref=e167]:
+                - heading "🦦 Contributing to the ecosystem" [level=3] [ref=e168]
+                - 'link "Permalink: 🦦 Contributing to the ecosystem" [ref=e169]':
+                  - /url: "#-contributing-to-the-ecosystem"
+                  - img [ref=e170]
+              - paragraph [ref=e172]: "We contribute to the tools 🔧 we rely on to build and run GitHub, while also maintaining 🧙‍♂️ our own open source projects like:"
+              - list [ref=e173]:
+                - listitem [ref=e174]:
+                  - link "GitHub CLI" [ref=e175]:
+                    - /url: https://github.com/cli/cli
+                  - text: "- A command line tool for GitHub"
+                - listitem [ref=e176]:
+                  - link "GitHub Desktop" [ref=e177]:
+                    - /url: https://github.com/desktop/desktop
+                  - text: "- A visual approach to using Git with GitHub"
+                - listitem [ref=e178]:
+                  - link "Git Large File Storage" [ref=e179]:
+                    - /url: https://github.com/git-lfs/git-lfs
+                  - text: "- A Git extension for versioning large files"
+                - listitem [ref=e180]:
+                  - link "Primer" [ref=e181]:
+                    - /url: https://github.com/primer/css
+                  - text: "- The GitHub design system"
+              - generic [ref=e182]:
+                - heading "👓 Appendix" [level=3] [ref=e183]
+                - 'link "Permalink: 👓 Appendix" [ref=e184]':
+                  - /url: "#-appendix"
+                  - img [ref=e185]
+              - paragraph [ref=e187]:
+                - text: See what's next on our
+                - link "public roadmap" [ref=e188]:
+                  - /url: https://github.com/github/roadmap
+                - text: ✨ and
+                - link "let us know" [ref=e189]:
+                  - /url: https://github.com/github/feedback
+                - text: if you have any suggestions. 🙇‍♂️ Oh, and by the way, we are always hiring talented, passionate people to
+                - link "join our team" [ref=e190]:
+                  - /url: https://github.com/about/careers
+                - text: . 🙌
+              - group [ref=e191]:
+                - generic "\"Tell me more, I can't get enough!\"" [ref=e192] [cursor=pointer]
+              - separator [ref=e193]
+              - paragraph [ref=e194]:
+                - subscript [ref=e195]:
+                  - text: 🤫 Psst! You can create your own
+                  - link "organization README" [ref=e196]:
+                    - /url: https://docs.github.com/en/organizations/collaborating-with-groups-in-organizations/customizing-your-organizations-profile
+                  - text: .
+          - generic [ref=e197]:
+            - heading "Pinned Loading" [level=2] [ref=e198]:
+              - text: Pinned
+              - generic [ref=e199]: Loading
+              - status
+            - list [ref=e200]:
+              - listitem [ref=e201]:
+                - generic [ref=e203]:
+                  - generic [ref=e205]:
+                    - img [ref=e206]
+                    - link "training-kit" [ref=e209]:
+                      - /url: /github/training-kit
+                    - text: Public
+                  - paragraph [ref=e210]: Open source courseware for Git and GitHub
+                  - paragraph [ref=e211]:
+                    - generic [ref=e212]: HTML
+                    - link "stars 5k" [ref=e214]:
+                      - /url: /github/training-kit/stargazers
+                      - img "stars" [ref=e215]
+                      - text: 5k
+                    - link "forks 4.5k" [ref=e217]:
+                      - /url: /github/training-kit/forks
+                      - img "forks" [ref=e218]
+                      - text: 4.5k
+              - listitem [ref=e220]:
+                - generic [ref=e222]:
+                  - generic [ref=e224]:
+                    - img [ref=e225]
+                    - link "choosealicense.com" [ref=e228]:
+                      - /url: /github/choosealicense.com
+                    - text: Public
+                  - paragraph [ref=e229]: A site to provide non-judgmental guidance on choosing a license for your open source project
+                  - paragraph [ref=e230]:
+                    - generic [ref=e231]: HTML
+                    - link "stars 4.2k" [ref=e233]:
+                      - /url: /github/choosealicense.com/stargazers
+                      - img "stars" [ref=e234]
+                      - text: 4.2k
+                    - link "forks 1.6k" [ref=e236]:
+                      - /url: /github/choosealicense.com/forks
+                      - img "forks" [ref=e237]
+                      - text: 1.6k
+              - listitem [ref=e239]:
+                - generic [ref=e241]:
+                  - generic [ref=e243]:
+                    - img [ref=e244]
+                    - link "scientist" [ref=e247]:
+                      - /url: /github/scientist
+                    - text: Public
+                  - paragraph [ref=e248]: 🔬 A Ruby library for carefully refactoring critical paths.
+                  - paragraph [ref=e249]:
+                    - generic [ref=e250]: Ruby
+                    - link "stars 7.7k" [ref=e252]:
+                      - /url: /github/scientist/stargazers
+                      - img "stars" [ref=e253]
+                      - text: 7.7k
+                    - link "forks 502" [ref=e255]:
+                      - /url: /github/scientist/forks
+                      - img "forks" [ref=e256]
+                      - text: "502"
+              - listitem [ref=e258]:
+                - generic [ref=e260]:
+                  - generic [ref=e262]:
+                    - img [ref=e263]
+                    - link "gh-ost" [ref=e266]:
+                      - /url: /github/gh-ost
+                    - text: Public
+                  - paragraph [ref=e267]: GitHub's Online Schema-migration Tool for MySQL
+                  - paragraph [ref=e268]:
+                    - generic [ref=e269]: Go
+                    - link "stars 13.5k" [ref=e271]:
+                      - /url: /github/gh-ost/stargazers
+                      - img "stars" [ref=e272]
+                      - text: 13.5k
+                    - link "forks 1.4k" [ref=e274]:
+                      - /url: /github/gh-ost/forks
+                      - img "forks" [ref=e275]
+                      - text: 1.4k
+              - listitem [ref=e277]:
+                - generic [ref=e279]:
+                  - generic [ref=e281]:
+                    - img [ref=e282]
+                    - link "github-mcp-server" [ref=e285]:
+                      - /url: /github/github-mcp-server
+                    - text: Public
+                  - paragraph [ref=e286]: GitHub's official MCP Server
+                  - paragraph [ref=e287]:
+                    - generic [ref=e288]: Go
+                    - link "stars 31.6k" [ref=e290]:
+                      - /url: /github/github-mcp-server/stargazers
+                      - img "stars" [ref=e291]
+                      - text: 31.6k
+                    - link "forks 4.6k" [ref=e293]:
+                      - /url: /github/github-mcp-server/forks
+                      - img "forks" [ref=e294]
+                      - text: 4.6k
+          - generic [ref=e297]:
+            - heading "Repositories" [level=3] [ref=e298]:
+              - img [ref=e299]
+              - text: Repositories
+            - search [ref=e303]:
+              - generic [ref=e304]:
+                - generic [ref=e305]:
+                  - searchbox "Find a repository…" [ref=e306]
+                  - img [ref=e307]
+                  - generic [ref=e309]: Loading
+                - generic [ref=e310]:
+                  - group [ref=e311]:
+                    - button "Type" [ref=e312] [cursor=pointer]: Type
+                  - group [ref=e314]:
+                    - button "Language" [ref=e315] [cursor=pointer]: Language
+                  - group [ref=e317]:
+                    - button "Sort" [ref=e318] [cursor=pointer]: Sort
+            - generic [ref=e321]:
+              - generic [ref=e322]: Showing 10 of 553 repositories
+              - generic [ref=e323]:
+                - list [ref=e324]:
+                  - listitem [ref=e325]:
+                    - generic [ref=e326]:
+                      - generic [ref=e327]:
+                        - generic [ref=e328]:
+                          - link "awesome-copilot" [ref=e329]:
+                            - /url: /github/awesome-copilot
+                          - 'generic "Label: Public" [ref=e330]': Public
+                          - paragraph [ref=e331]: Community-contributed instructions, agents, skills, and configurations to help you make the most of GitHub Copilot.
+                        - link "github/awesome-copilot's past year of commit activity" [ref=e334]:
+                          - /url: /github/awesome-copilot/graphs/commit-activity
+                          - img [ref=e336]
+                      - generic [ref=e340]:
+                        - generic [ref=e341]: Python
+                        - link "36775 stars" [ref=e343]:
+                          - /url: /github/awesome-copilot/stargazers
+                          - img [ref=e344]
+                          - text: 36,775
+                        - generic [ref=e346]:
+                          - img [ref=e347]
+                          - text: MIT
+                        - link "4605 forks" [ref=e349]:
+                          - /url: /github/awesome-copilot/forks
+                          - img [ref=e350]
+                          - text: 4,605
+                        - link "23 issues" [ref=e352]:
+                          - /url: /github/awesome-copilot/issues
+                          - img [ref=e353]
+                          - text: "23"
+                        - link "31 pull requests" [ref=e356]:
+                          - /url: /github/awesome-copilot/pulls
+                          - img [ref=e357]
+                          - text: "31"
+                        - generic [ref=e359]: Updated Jul 19, 2026now
+                  - listitem [ref=e360]:
+                    - generic [ref=e361]:
+                      - generic [ref=e362]:
+                        - generic [ref=e363]:
+                          - link "gh-aw" [ref=e364]:
+                            - /url: /github/gh-aw
+                          - 'generic "Label: Public" [ref=e365]': Public
+                          - paragraph [ref=e366]: GitHub Agentic Workflows
+                        - link "github/gh-aw's past year of commit activity" [ref=e369]:
+                          - /url: /github/gh-aw/graphs/commit-activity
+                          - img [ref=e371]
+                      - generic [ref=e375]:
+                        - generic [ref=e376]: Go
+                        - link "4779 stars" [ref=e378]:
+                          - /url: /github/gh-aw/stargazers
+                          - img [ref=e379]
+                          - text: 4,779
+                        - generic [ref=e381]:
+                          - img [ref=e382]
+                          - text: MIT
+                        - link "458 forks" [ref=e384]:
+                          - /url: /github/gh-aw/forks
+                          - img [ref=e385]
+                          - text: "458"
+                        - link "245 issues" [ref=e387]:
+                          - /url: /github/gh-aw/issues
+                          - img [ref=e388]
+                          - text: "245"
+                        - link "5 pull requests" [ref=e391]:
+                          - /url: /github/gh-aw/pulls
+                          - img [ref=e392]
+                          - text: "5"
+                        - generic [ref=e394]: Updated Jul 19, 20261 minute ago
+                  - listitem [ref=e395]:
+                    - generic [ref=e396]:
+                      - generic [ref=e397]:
+                        - generic [ref=e398]:
+                          - link "codeql-coding-standards" [ref=e399]:
+                            - /url: /github/codeql-coding-standards
+                          - 'generic "Label: Public" [ref=e400]': Public
+                          - paragraph [ref=e401]: This repository contains CodeQL queries and libraries which support various Coding Standards.
+                        - link "github/codeql-coding-standards's past year of commit activity" [ref=e404]:
+                          - /url: /github/codeql-coding-standards/graphs/commit-activity
+                          - img [ref=e406]
+                      - generic [ref=e410]:
+                        - generic [ref=e411]: CodeQL
+                        - link "213 stars" [ref=e413]:
+                          - /url: /github/codeql-coding-standards/stargazers
+                          - img [ref=e414]
+                          - text: "213"
+                        - generic [ref=e416]:
+                          - img [ref=e417]
+                          - text: MIT
+                        - link "77 forks" [ref=e419]:
+                          - /url: /github/codeql-coding-standards/forks
+                          - img [ref=e420]
+                          - text: "77"
+                        - link "112 issues" [ref=e422]:
+                          - /url: /github/codeql-coding-standards/issues
+                          - img [ref=e423]
+                          - text: "112"
+                        - link "17 pull requests" [ref=e426]:
+                          - /url: /github/codeql-coding-standards/pulls
+                          - img [ref=e427]
+                          - text: "17"
+                        - generic [ref=e429]: Updated Jul 19, 20261 minute ago
+                  - listitem [ref=e430]:
+                    - generic [ref=e431]:
+                      - generic [ref=e432]:
+                        - generic [ref=e433]:
+                          - link "advisory-database" [ref=e434]:
+                            - /url: /github/advisory-database
+                          - 'generic "Label: Public" [ref=e435]': Public
+                          - paragraph [ref=e436]: Security vulnerability database inclusive of CVEs and GitHub originated security advisories from the world of open source software.
+                        - link "github/advisory-database's past year of commit activity" [ref=e439]:
+                          - /url: /github/advisory-database/graphs/commit-activity
+                          - img [ref=e441]
+                      - generic [ref=e445]:
+                        - link "2373 stars" [ref=e446]:
+                          - /url: /github/advisory-database/stargazers
+                          - img [ref=e447]
+                          - text: 2,373
+                        - generic [ref=e449]:
+                          - img [ref=e450]
+                          - text: CC-BY-4.0
+                        - link "671 forks" [ref=e452]:
+                          - /url: /github/advisory-database/forks
+                          - img [ref=e453]
+                          - text: "671"
+                        - link "98 issues" [ref=e455]:
+                          - /url: /github/advisory-database/issues
+                          - img [ref=e456]
+                          - text: "98"
+                        - link "606 pull requests" [ref=e459]:
+                          - /url: /github/advisory-database/pulls
+                          - img [ref=e460]
+                          - text: "606"
+                        - generic [ref=e462]: Updated Jul 19, 20263 minutes ago
+                  - listitem [ref=e463]:
+                    - generic [ref=e464]:
+                      - generic [ref=e465]:
+                        - generic [ref=e466]:
+                          - link "gh-aw-firewall" [ref=e467]:
+                            - /url: /github/gh-aw-firewall
+                          - 'generic "Label: Public" [ref=e468]': Public
+                          - paragraph [ref=e469]: GitHub Agentic Workflows Firewall
+                        - link "github/gh-aw-firewall's past year of commit activity" [ref=e472]:
+                          - /url: /github/gh-aw-firewall/graphs/commit-activity
+                          - img [ref=e474]
+                      - generic [ref=e478]:
+                        - generic [ref=e479]: TypeScript
+                        - link "112 stars" [ref=e481]:
+                          - /url: /github/gh-aw-firewall/stargazers
+                          - img [ref=e482]
+                          - text: "112"
+                        - generic [ref=e484]:
+                          - img [ref=e485]
+                          - text: MIT
+                        - link "38 forks" [ref=e487]:
+                          - /url: /github/gh-aw-firewall/forks
+                          - img [ref=e488]
+                          - text: "38"
+                        - link "58 issues" [ref=e490]:
+                          - /url: /github/gh-aw-firewall/issues
+                          - img [ref=e491]
+                          - text: "58"
+                        - link "1 pull request" [ref=e494]:
+                          - /url: /github/gh-aw-firewall/pulls
+                          - img [ref=e495]
+                          - text: "1"
+                        - generic [ref=e497]: Updated Jul 19, 202612 minutes ago
+                  - listitem [ref=e498]:
+                    - generic [ref=e499]:
+                      - generic [ref=e500]:
+                        - generic [ref=e501]:
+                          - link "forgoodfirstissue" [ref=e502]:
+                            - /url: /github/forgoodfirstissue
+                          - 'generic "Label: Public" [ref=e503]': Public
+                          - paragraph [ref=e504]: Find your first issue for good to contribute to
+                        - link "github/forgoodfirstissue's past year of commit activity" [ref=e507]:
+                          - /url: /github/forgoodfirstissue/graphs/commit-activity
+                          - img [ref=e509]
+                      - generic [ref=e513]:
+                        - generic [ref=e514]: TypeScript
+                        - link "235 stars" [ref=e516]:
+                          - /url: /github/forgoodfirstissue/stargazers
+                          - img [ref=e517]
+                          - text: "235"
+                        - generic [ref=e519]:
+                          - img [ref=e520]
+                          - text: MIT
+                        - link "115 forks" [ref=e522]:
+                          - /url: /github/forgoodfirstissue/forks
+                          - img [ref=e523]
+                          - text: "115"
+                        - link "22 issues" [ref=e525]:
+                          - /url: /github/forgoodfirstissue/issues
+                          - img [ref=e526]
+                          - text: "22"
+                        - link "24 pull requests" [ref=e529]:
+                          - /url: /github/forgoodfirstissue/pulls
+                          - img [ref=e530]
+                          - text: "24"
+                        - generic [ref=e532]: Updated Jul 19, 20262 hours ago
+                  - listitem [ref=e533]:
+                    - generic [ref=e534]:
+                      - generic [ref=e535]:
+                        - generic [ref=e536]:
+                          - link "gh-aw-mcpg" [ref=e537]:
+                            - /url: /github/gh-aw-mcpg
+                          - 'generic "Label: Public" [ref=e538]': Public
+                          - paragraph [ref=e539]: Github Agentic Workflows MCP Gateway
+                        - link "github/gh-aw-mcpg's past year of commit activity" [ref=e542]:
+                          - /url: /github/gh-aw-mcpg/graphs/commit-activity
+                          - img [ref=e544]
+                      - generic [ref=e548]:
+                        - generic [ref=e549]: Go
+                        - link "148 stars" [ref=e551]:
+                          - /url: /github/gh-aw-mcpg/stargazers
+                          - img [ref=e552]
+                          - text: "148"
+                        - generic [ref=e554]:
+                          - img [ref=e555]
+                          - text: MIT
+                        - link "31 forks" [ref=e557]:
+                          - /url: /github/gh-aw-mcpg/forks
+                          - img [ref=e558]
+                          - text: "31"
+                        - link "7 issues" [ref=e560]:
+                          - /url: /github/gh-aw-mcpg/issues
+                          - img [ref=e561]
+                          - text: "7"
+                        - link "0 pull requests" [ref=e564]:
+                          - /url: /github/gh-aw-mcpg/pulls
+                          - img [ref=e565]
+                          - text: "0"
+                        - generic [ref=e567]: Updated Jul 19, 20263 hours ago
+                  - listitem [ref=e568]:
+                    - generic [ref=e569]:
+                      - generic [ref=e570]:
+                        - generic [ref=e571]:
+                          - link "copilot-sdk" [ref=e572]:
+                            - /url: /github/copilot-sdk
+                          - 'generic "Label: Public" [ref=e573]': Public
+                          - paragraph [ref=e574]: Multi-platform SDK for integrating GitHub Copilot Agent into apps and services
+                        - link "github/copilot-sdk's past year of commit activity" [ref=e577]:
+                          - /url: /github/copilot-sdk/graphs/commit-activity
+                          - img [ref=e579]
+                      - generic [ref=e583]:
+                        - generic [ref=e584]: Java
+                        - link "9937 stars" [ref=e586]:
+                          - /url: /github/copilot-sdk/stargazers
+                          - img [ref=e587]
+                          - text: 9,937
+                        - generic [ref=e589]:
+                          - img [ref=e590]
+                          - text: MIT
+                        - link "1349 forks" [ref=e592]:
+                          - /url: /github/copilot-sdk/forks
+                          - img [ref=e593]
+                          - text: 1,349
+                        - link "194 issues" [ref=e595]:
+                          - /url: /github/copilot-sdk/issues
+                          - img [ref=e596]
+                          - text: "194"
+                        - link "51 pull requests" [ref=e599]:
+                          - /url: /github/copilot-sdk/pulls
+                          - img [ref=e600]
+                          - text: "51"
+                        - generic [ref=e602]: Updated Jul 19, 20265 hours ago
+                  - listitem [ref=e603]:
+                    - generic [ref=e604]:
+                      - generic [ref=e605]:
+                        - generic [ref=e606]:
+                          - link "actions-migrations-via-copilot" [ref=e607]:
+                            - /url: /github/actions-migrations-via-copilot
+                          - 'generic "Label: Public" [ref=e608]': Public
+                          - paragraph [ref=e609]: Migrate to GitHub Actions from multiple other CI/CD systems using Copilot
+                        - link "github/actions-migrations-via-copilot's past year of commit activity" [ref=e612]:
+                          - /url: /github/actions-migrations-via-copilot/graphs/commit-activity
+                          - img [ref=e614]
+                      - generic [ref=e618]:
+                        - link "64 stars" [ref=e619]:
+                          - /url: /github/actions-migrations-via-copilot/stargazers
+                          - img [ref=e620]
+                          - text: "64"
+                        - link "12 forks" [ref=e622]:
+                          - /url: /github/actions-migrations-via-copilot/forks
+                          - img [ref=e623]
+                          - text: "12"
+                        - link "1 issue" [ref=e625]:
+                          - /url: /github/actions-migrations-via-copilot/issues
+                          - img [ref=e626]
+                          - text: "1"
+                        - link "2 pull requests" [ref=e629]:
+                          - /url: /github/actions-migrations-via-copilot/pulls
+                          - img [ref=e630]
+                          - text: "2"
+                        - generic [ref=e632]: Updated Jul 19, 20267 hours ago
+                  - listitem [ref=e633]:
+                    - generic [ref=e634]:
+                      - generic [ref=e635]:
+                        - generic [ref=e636]:
+                          - link "github-mcp-server" [ref=e637]:
+                            - /url: /github/github-mcp-server
+                          - 'generic "Label: Public" [ref=e638]': Public
+                          - paragraph [ref=e639]: GitHub's official MCP Server
+                        - link "github/github-mcp-server's past year of commit activity" [ref=e642]:
+                          - /url: /github/github-mcp-server/graphs/commit-activity
+                          - img [ref=e644]
+                      - generic [ref=e648]:
+                        - generic [ref=e649]: Go
+                        - link "31557 stars" [ref=e651]:
+                          - /url: /github/github-mcp-server/stargazers
+                          - img [ref=e652]
+                          - text: 31,557
+                        - generic [ref=e654]:
+                          - img [ref=e655]
+                          - text: MIT
+                        - link "4616 forks" [ref=e657]:
+                          - /url: /github/github-mcp-server/forks
+                          - img [ref=e658]
+                          - text: 4,616
+                        - link "168 issues" [ref=e660]:
+                          - /url: /github/github-mcp-server/issues
+                          - img [ref=e661]
+                          - text: "168"
+                        - link "168 pull requests" [ref=e664]:
+                          - /url: /github/github-mcp-server/pulls
+                          - img [ref=e665]
+                          - text: "168"
+                        - generic [ref=e667]: Updated Jul 19, 20268 hours ago
+                - link "View all repositories" [ref=e669]:
+                  - /url: /orgs/github/repositories?type=all
+        - generic [ref=e671]:
+          - generic [ref=e674]:
+            - link "People" [ref=e675]:
+              - /url: /orgs/github/people
+              - heading "People" [level=4] [ref=e676]
+            - generic [ref=e677]:
+              - link "@mtodd" [ref=e678]:
+                - /url: /mtodd
+                - img "@mtodd" [ref=e679]
+              - link "@jonmagic" [ref=e680]:
+                - /url: /jonmagic
+                - img "@jonmagic" [ref=e681]
+              - link "@kjg" [ref=e682]:
+                - /url: /kjg
+                - img "@kjg" [ref=e683]
+              - link "@kdaigle" [ref=e684]:
+                - /url: /kdaigle
+                - img "@kdaigle" [ref=e685]
+              - link "@abraham" [ref=e686]:
+                - /url: /abraham
+                - img "@abraham" [ref=e687]
+              - link "@nathos" [ref=e688]:
+                - /url: /nathos
+                - img "@nathos" [ref=e689]
+              - link "@omgitsads" [ref=e690]:
+                - /url: /omgitsads
+                - img "@omgitsads" [ref=e691]
+              - link "@tma" [ref=e692]:
+                - /url: /tma
+                - img "@tma" [ref=e693]
+              - link "@nickh" [ref=e694]:
+                - /url: /nickh
+                - img "@nickh" [ref=e695]
+              - link "@digitarald" [ref=e696]:
+                - /url: /digitarald
+                - img "@digitarald" [ref=e697]
+              - link "@look" [ref=e698]:
+                - /url: /look
+                - img "@look" [ref=e699]
+              - link "@kyanny" [ref=e700]:
+                - /url: /kyanny
+                - img "@kyanny" [ref=e701]
+              - link "@rubiojr" [ref=e702]:
+                - /url: /rubiojr
+                - img "@rubiojr" [ref=e703]
+              - link "@northrup" [ref=e704]:
+                - /url: /northrup
+                - img "@northrup" [ref=e705]
+              - link "@hilli" [ref=e706]:
+                - /url: /hilli
+                - img "@hilli" [ref=e707]
+              - link "@antonio" [ref=e708]:
+                - /url: /antonio
+                - img "@antonio" [ref=e709]
+              - link "@phillmv" [ref=e710]:
+                - /url: /phillmv
+                - img "@phillmv" [ref=e711]
+              - link "@mahata" [ref=e712]:
+                - /url: /mahata
+                - img "@mahata" [ref=e713]
+              - link "@azizshamim" [ref=e714]:
+                - /url: /azizshamim
+                - img "@azizshamim" [ref=e715]
+              - link "@georgedrummond" [ref=e716]:
+                - /url: /georgedrummond
+                - img "@georgedrummond" [ref=e717]
+            - link "View all" [ref=e719]:
+              - /url: /orgs/github/people
+          - generic [ref=e721]:
+            - heading "Sponsoring" [level=4] [ref=e722]
+            - list "Sponsoring" [ref=e724]:
+              - listitem [ref=e725]:
+                - link "@SAML-Toolkits" [ref=e727]:
+                  - /url: /SAML-Toolkits
+                  - img "@SAML-Toolkits" [ref=e728]
+              - listitem [ref=e729]:
+                - link "@exercism" [ref=e731]:
+                  - /url: /exercism
+                  - img "@exercism" [ref=e732]
+              - listitem [ref=e733]:
+                - link "@its-a-feature" [ref=e735]:
+                  - /url: /its-a-feature
+                  - img "@its-a-feature" [ref=e736]
+              - listitem [ref=e737]:
+                - link "@kivikakk" [ref=e739]:
+                  - /url: /kivikakk
+                  - img "@kivikakk" [ref=e740]
+              - listitem [ref=e741]:
+                - link "@knsv" [ref=e743]:
+                  - /url: /knsv
+                  - img "@knsv" [ref=e744]
+              - listitem [ref=e745]:
+                - link "@tannerlinsley" [ref=e747]:
+                  - /url: /tannerlinsley
+                  - img "@tannerlinsley" [ref=e748]
+              - listitem [ref=e749]:
+                - link "@Homebrew" [ref=e751]:
+                  - /url: /Homebrew
+                  - img "@Homebrew" [ref=e752]
+              - listitem [ref=e753]:
+                - link "@processing" [ref=e755]:
+                  - /url: /processing
+                  - img "@processing" [ref=e756]
+              - listitem [ref=e757]:
+                - link "@sindresorhus" [ref=e759]:
+                  - /url: /sindresorhus
+                  - img "@sindresorhus" [ref=e760]
+              - listitem [ref=e761]:
+                - link "@zx2c4" [ref=e763]:
+                  - /url: /zx2c4
+                  - img "@zx2c4" [ref=e764]
+              - listitem [ref=e765]:
+                - link "@emmet0r" [ref=e767]:
+                  - /url: /emmet0r
+                  - img "@emmet0r" [ref=e768]
+          - generic [ref=e770]:
+            - heading "Top languages" [level=4] [ref=e771]
+            - link "Ruby" [ref=e772]:
+              - /url: /orgs/github/repositories?language=ruby&type=all
+              - generic [ref=e773]: Ruby
+            - link "JavaScript" [ref=e775]:
+              - /url: /orgs/github/repositories?language=javascript&type=all
+              - generic [ref=e776]: JavaScript
+            - link "TypeScript" [ref=e778]:
+              - /url: /orgs/github/repositories?language=typescript&type=all
+              - generic [ref=e779]: TypeScript
+            - link "Go" [ref=e781]:
+              - /url: /orgs/github/repositories?language=go&type=all
+              - generic [ref=e782]: Go
+            - link "Python" [ref=e784]:
+              - /url: /orgs/github/repositories?language=python&type=all
+              - generic [ref=e785]: Python
+          - generic [ref=e788]:
+            - heading "Most used topics" [level=4] [ref=e790]
+            - generic [ref=e791]:
+              - link "github" [ref=e792]:
+                - /url: /search?q=topic%3Agithub+org%3Agithub+fork%3Atrue&type=repositories
+              - link "custom-elements" [ref=e793]:
+                - /url: /search?q=topic%3Acustom-elements+org%3Agithub+fork%3Atrue&type=repositories
+              - link "web-components" [ref=e794]:
+                - /url: /search?q=topic%3Aweb-components+org%3Agithub+fork%3Atrue&type=repositories
+              - link "gh-extension" [ref=e795]:
+                - /url: /search?q=topic%3Agh-extension+org%3Agithub+fork%3Atrue&type=repositories
+              - link "ruby" [ref=e796]:
+                - /url: /search?q=topic%3Aruby+org%3Agithub+fork%3Atrue&type=repositories
+          - generic [ref=e797]:
+            - link "GitHub Sponsor" [ref=e798]:
+              - /url: /sponsors
+              - img [ref=e799]
+              - text: GitHub Sponsor
+            - link "Developer Program Member" [ref=e801]:
+              - /url: https://docs.github.com
+              - img [ref=e802]
+              - text: Developer Program Member
+  - contentinfo [ref=e804]:
+    - heading "Footer" [level=2] [ref=e805]
+    - generic [ref=e806]:
+      - generic [ref=e807]:
+        - link "GitHub Homepage" [ref=e808]:
+          - /url: https://github.com
+          - img [ref=e809]
+        - generic [ref=e811]: © 2026 GitHub, Inc.
+      - navigation "Footer" [ref=e812]:
+        - heading "Footer navigation" [level=3] [ref=e813]
+        - list "Footer navigation" [ref=e814]:
+          - listitem [ref=e815]:
+            - link "Terms" [ref=e816]:
+              - /url: https://docs.github.com/site-policy/github-terms/github-terms-of-service
+          - listitem [ref=e817]:
+            - link "Privacy" [ref=e818]:
+              - /url: https://docs.github.com/site-policy/privacy-policies/github-privacy-statement
+          - listitem [ref=e819]:
+            - link "Security" [ref=e820]:
+              - /url: https://github.com/security
+          - listitem [ref=e821]:
+            - link "Status" [ref=e822]:
+              - /url: https://www.githubstatus.com/
+          - listitem [ref=e823]:
+            - link "Community" [ref=e824]:
+              - /url: https://github.community/
+          - listitem [ref=e825]:
+            - link "Docs" [ref=e826]:
+              - /url: https://docs.github.com/
+          - listitem [ref=e827]:
+            - link "Contact" [ref=e828]:
+              - /url: https://support.github.com?tags=dotcom-footer
+          - listitem [ref=e829]:
+            - button "Manage cookies" [ref=e831] [cursor=pointer]
+          - listitem [ref=e832]:
+            - button "Do not share my personal information" [ref=e834] [cursor=pointer]
+```

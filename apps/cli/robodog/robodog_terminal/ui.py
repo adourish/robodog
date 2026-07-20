@@ -320,6 +320,13 @@ class UI:
         """Plain (uncolored) status line — fallback + tests."""
         return "  ".join(t for t, _ in self._status_segments())
 
+    def thinking_line(self, iteration: int) -> str:
+        """Spinner text for a running turn, WITH the status bar folded in — the
+        spinner is the only element that persists on screen mid-turn, so this is
+        how model/tokens/context/branch stay visible while the agent works."""
+        return (f"✳ Thinking… step {iteration} (ctrl-c cancel) · "
+                + self.status_line())
+
     def _status_ansi(self) -> str:
         C = self._C
         sep = f" {C['gray']}|{C['reset']} "

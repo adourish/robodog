@@ -1,0 +1,40 @@
+STDOUT:
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests\e2e\github-profile.spec.ts:50:7 › GitHub Profile Settings – Page Structure › Name field is present (6.5s)
+
+
+  1) [chromium] › tests\e2e\github-profile.spec.ts:50:7 › GitHub Profile Settings – Page Structure › Name field is present 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('input#user_profile_name')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for locator('input#user_profile_name')
+
+
+      50 |   test('Name field is present', async ({ page }) => {
+      51 |     const nameInput = page.locator('input#user_profile_name');
+    > 52 |     await expect(nameInput).toBeVisible();
+         |                             ^
+      53 |   });
+      54 |
+      55 |   test('Bio field is present', async ({ page }) => {
+        at C:\projects\robodog\tests\e2e\github-profile.spec.ts:52:29
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\github-profile-GitHub-Prof-4630e-cture-Name-field-is-present-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\github-profile-GitHub-Prof-4630e-cture-Name-field-is-present-chromium\error-context.md
+
+  1 failed
+    [chromium] › tests\e2e\github-profile.spec.ts:50:7 › GitHub Profile Settings – Page Structure › Name field is present 
+
+STDERR:

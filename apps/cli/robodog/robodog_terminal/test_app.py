@@ -334,6 +334,24 @@ def main() -> int:
     finally:
         _os._exit = _saved_exit
 
+    # ---------- /btw side-question prompt builder --------------------------
+    # /btw asks the model a question WITHOUT touching the conversation. Mid-turn
+    # use (running=True) tells the model the session may still be working, so
+    # "are you stuck?" gets a sensible answer. The convo + question are embedded.
+    p = app_mod.build_btw_prompt("USER: fix the bug\nASSISTANT: on it", "are you stuck?")
+    check("SIDE QUESTION" in p, "btw prompt frames it as a side question")
+    check("fix the bug" in p and "are you stuck?" in p,
+          "btw prompt embeds the conversation and the question")
+    check("Do NOT use tools" in p, "btw prompt forbids tool calls")
+    check("STILL BE RUNNING" not in p, "non-running btw prompt omits the running note")
+    p_run = app_mod.build_btw_prompt("USER: build it", "are you stuck?", running=True)
+    check("STILL BE RUNNING" in p_run,
+          "mid-turn btw prompt tells the model the session may still be running")
+
+    # "btw" is in the mid-turn-safe command set so it works while an agent runs.
+    src = Path(app_mod.__file__).read_text(encoding="utf-8")
+    check('"btw"' in src and "SAFE_MIDTURN" in src, "btw registered for mid-turn use")
+
     print("\nAPP:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

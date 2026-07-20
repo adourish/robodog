@@ -13,6 +13,7 @@ Ensure that all skill paths use `SKILLS_ROOT`, and PARA method locations use `PA
 ## Skills
 - **Skill 1**: Description of skill 1.
 - **Skill 2**: Description of skill 2.
+- **E2E Testing with Playwright**: `G:\My Drive\06_Skills\Testing\Playwright_E2E_Testing_aitools.md` — How to write, run, and capture screenshots for Playwright e2e tests in this repo.
 
 ## Tools
 - **Tool 1**: Description of tool 1.
