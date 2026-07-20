@@ -729,6 +729,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.2.8
+
+- **Add:** `/doctor` now probes the KeePass entry the current backend will
+  actually read (`ROBODOG_KEEPASS_LLM_ENTRY`, else the backend's default
+  title) and leads with `LLM entry '<title>': present|MISSING`. A missing
+  entry with no `ROBODOG_LLM_KEY` is a warning that names the fix, instead
+  of showing all-green while the launch silently falls back to echo. Also
+  honors `ROBODOG_KEEPASS_DB` / `ROBODOG_KEEPASS_KEYFILE`.
+
 ### 0.2.7
 
 - **Add:** hooks & permission rules via `settings.json` in `.robodog/` or
