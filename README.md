@@ -805,6 +805,21 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.15
+
+- **Fix:** PowerShell `&&`/`||` chains are auto-translated so bash-style
+  `cd X && git status` just runs instead of erroring (and the model
+  hallucinating success).
+- **Fix:** the tool parser tolerates a mismatched close tag
+  (`<param name="path">…</path>`) instead of losing the following params.
+- **Fix:** interim model prose is capped in the trace (some gateways
+  regurgitate whole tool results and flood the screen); the final answer is
+  still shown in full, and `/verbose` shows everything.
+- **Fix:** `edit_file` on a missing file points at `write_file`;
+  `task_update` accepts `t1`/`#2`-style ids and lists valid ids on a miss.
+- The status bar is printed at the start of each turn so it stays visible
+  while the agent works.
+
 ### 0.3.14
 
 - **Fix:** read-only `git log --format=…` (and `dotnet format`, etc.) no
