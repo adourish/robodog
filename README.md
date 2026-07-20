@@ -10,25 +10,14 @@ models or a fully offline mock for development.
 
 ## Preview
 
-```text
-┌──────────────────────────── 🤖 robodog ─────────────────────────────┐
-│                                                                     │
-│  Robodog Terminal   agentic coding in your shell                    │
-│                                                                     │
-│  model: gpt-4o                                                      │
-│  cwd:   C:\projects\robodog                                         │
-│                                                                     │
-│  /help commands   ! run shell   /rewind undo edits   /exit quit     │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-🫧 64% | 🔋 15.6k | 🦾 gpt-4o | 🌿 main | 📁 apps/cli
-› create fib.py that prints fib(10), run it, and report the result
-  ⚙ write_file fib.py
-  ⚙ bash python fib.py
-    ↳ $ python fib.py  (exit 0)  ·  55
-The script printed 55. Created fib.py and ran it.
-[3 steps · 5.7k tok · 4.2s]
-```
+Six subagents fanned out in one turn — each result attributed, the answer
+surfaced (not the metadata):
+
+![6-way subagent fan-out, compact trace](docs/screenshots/2_fanout_compact.png)
+
+![welcome banner and status line](docs/screenshots/1_welcome.png)
+
+More screenshots in the [gallery](#screenshots) below.
 
 ## Get Started
 
@@ -367,6 +356,51 @@ per-prompt **checkpoints** with `/rewind` · JSONL **sessions** (`/resume`,
 `CLAUDE.md`/`ROBODOG.md` instruction hierarchy · a rich + prompt_toolkit **TUI**
 (emoji/color status line, clickable file & `file:line` links, multiline paste,
 mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
+
+## Screenshots
+
+Every image is rendered by the real UI code (rich SVG export), not a mockup.
+The default trace is compact — summaries, counts, attributed subagent
+answers; `/verbose` (or `--verbose`) switches to the full per-call feed.
+
+**Tool trace — summaries, a bounded live stream, loud failures.** `read_file`
+reports a line count instead of echoing content; long command output shows a
+15-line head with the rest held back (the model still gets everything);
+failures render red, never dim:
+
+![tool trace](docs/screenshots/4_tool_trace.png)
+
+**The same fan-out with `/verbose`** — per-child `#N` tool calls and full
+untruncated results:
+
+![verbose fan-out](docs/screenshots/3_fanout_verbose.png)
+
+**Plan mode** — the agent proposes read-only, you approve, it implements:
+
+![plan mode](docs/screenshots/6_plan_mode.png)
+
+**Colored diff preview** on every file edit (paths are clickable):
+
+![diff preview](docs/screenshots/5_diff.png)
+
+**Live task checklist** the agent maintains (`/todos`):
+
+![todos](docs/screenshots/7_todos.png)
+
+**Background subagents** — `/bg` detaches work, `/tasks` lists it, done
+notifications land above the prompt:
+
+![background subagents](docs/screenshots/8_background.png)
+
+**`/doctor`** — environment diagnostics, including the model/backend pairing
+check that catches a mismatch before any request is sent:
+
+![doctor](docs/screenshots/9_doctor.png)
+
+**Errors explain themselves** — provider mistakes come back with the fix, not
+just a status code:
+
+![error hints](docs/screenshots/10_error_hints.png)
 
 ## Configuration
 
