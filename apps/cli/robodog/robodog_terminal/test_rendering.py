@@ -215,6 +215,23 @@ def main() -> int:
           f"turn-level preview capped ({preview} <= {ui.TURN_STREAM_LIMIT}); "
           f"without the cap it would be {10 * ui.STREAM_LIMIT}")
 
+    # stream caps are read at INSTANCE creation (in __init__), so config.env
+    # values loaded AFTER the module is imported still take effect.
+    import os as _os
+    _old = _os.environ.get("ROBODOG_STREAM_LINES")
+    _os.environ["ROBODOG_STREAM_LINES"] = "3"
+    _os.environ["ROBODOG_TURN_STREAM_LINES"] = "15"
+    try:
+        u2 = UI(model_name="t/m", cwd=".")
+        check(u2.STREAM_LIMIT == 3 and u2.TURN_STREAM_LIMIT == 15,
+              "stream caps read from env at __init__ (config.env-loaded-late works)")
+    finally:
+        if _old is None:
+            _os.environ.pop("ROBODOG_STREAM_LINES", None)
+        else:
+            _os.environ["ROBODOG_STREAM_LINES"] = _old
+        _os.environ.pop("ROBODOG_TURN_STREAM_LINES", None)
+
     # ROBODOG_STREAM_LINES=0 -> summary-only (no live │ lines at all)
     ui, buf = capture()
     ui.STREAM_LIMIT = 0

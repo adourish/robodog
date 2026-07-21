@@ -538,6 +538,20 @@ places, and a **real OS environment variable wins** over the file:
 | `ROBODOG_KEEPASS_DB` / `ROBODOG_KEEPASS_DIR` / `ROBODOG_KEEPASS_KEYFILE` | KeePass vault, loader dir, keyfile (see [KeePass reference](#keepass-reference)) |
 | `GATEWAY_ENDPOINT` / `GATEWAY_ENGINE` / `GATEWAY_ACCESS_KEY` / `GATEWAY_SECRET_KEY` | self-hosted runPixel-style gateway |
 
+**Behavior & tuning** (all optional; all work in `config.env` too):
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `ROBODOG_STREAM_LINES` | `8` | Live-output preview lines shown **per shell command**. `0` = summary-only (no live `│` lines). |
+| `ROBODOG_TURN_STREAM_LINES` | `40` | Live-preview lines across **all commands in one turn**; over budget → summaries only. `0` = no cap. |
+| `ROBODOG_NET_WRITES` | `confirm` | Remote-write approvals: `confirm` \| `allow` \| `deny` (also `/net-writes` at runtime). |
+| `ROBODOG_LLM_MAX_CONCURRENCY` | auto | Cap on concurrent model calls (auto-2 for a custom gateway; `0`/unset = unlimited on fast hosts). |
+| `ROBODOG_LLM_TIMEOUT` | auto | Per-request timeout in seconds (auto-300 for a custom gateway, else 120). |
+
+The stream caps affect the **display only** — the model always receives the full
+tool output — and `/verbose` shows everything regardless. Run `/doctor` to see the
+effective values (`trace-config`, `llm-config`).
+
 #### How to set them
 
 **Option 1 — `config.env` (simplest, robodog-only).** Robodog auto-loads
@@ -866,6 +880,16 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
+
+### 0.3.49
+
+- **Fix: trace/verbosity settings now honor `config.env`.** `ROBODOG_STREAM_LINES`
+  and `ROBODOG_TURN_STREAM_LINES` were read at module-import time (before
+  `config.env` loads), so putting them in the config file did nothing. They're now
+  resolved when the UI is built, so `config.env` (and any late-set env) works.
+- **`/doctor` shows the effective trace caps** (`trace-config`: per-command +
+  per-turn preview, and whether each is set or default). README documents the
+  behavior/tuning env vars in a table.
 
 ### 0.3.48
 

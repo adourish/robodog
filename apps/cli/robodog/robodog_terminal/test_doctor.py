@@ -32,7 +32,7 @@ EXPECTED_NAMES = [
     "python", "rich", "prompt_toolkit", "requests", "tty", "encoding",
     "cwd-writable", "robodog-home", "keepass", "gateway-env", "gateway-endpoint",
     "openai-endpoint", "ca-bundle", "git", "powershell", "model-backend",
-    "llm-config", "terminal-modules",
+    "llm-config", "trace-config", "terminal-modules",
 ]
 
 # A secret-looking string: a long unbroken alnum run (real keys are 25+ chars
@@ -274,6 +274,21 @@ def main() -> int:
             os.environ.pop(_k, None)
             if _v is not None:
                 os.environ[_k] = _v
+
+    # trace-config surfaces the effective stream-line caps (incl. from env)
+    _stl = os.environ.pop("ROBODOG_STREAM_LINES", None)
+    try:
+        tc0 = doctor._check_trace_config()
+        check(tc0.name == "trace-config" and "8 lines/command (default)" in tc0.detail,
+              "trace-config: default per-command preview reported")
+        os.environ["ROBODOG_STREAM_LINES"] = "0"
+        tc1 = doctor._check_trace_config()
+        check("summary-only (set)" in tc1.detail,
+              "trace-config: ROBODOG_STREAM_LINES=0 shows summary-only (set)")
+    finally:
+        os.environ.pop("ROBODOG_STREAM_LINES", None)
+        if _stl is not None:
+            os.environ["ROBODOG_STREAM_LINES"] = _stl
 
     tty = doctor._check_tty()
     check(tty.name == "tty" and tty.ok in (True, None), "tty check returns pass/warn")

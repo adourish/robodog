@@ -336,6 +336,27 @@ def _check_llm_config() -> CheckResult:
     return CheckResult("llm-config", None, detail)
 
 
+def _check_trace_config() -> CheckResult:
+    """Show the effective live-output line caps so a user tuning verbosity can
+    confirm ROBODOG_STREAM_LINES / ROBODOG_TURN_STREAM_LINES (incl. from
+    config.env) actually took effect."""
+    try:
+        from .ui import UI
+    except Exception:
+        try:
+            from robodog_terminal.ui import UI
+        except Exception:
+            return CheckResult("trace-config", None, "UI not importable")
+    per_cmd, per_turn = UI.stream_settings()
+    cmd_src = "set" if os.environ.get("ROBODOG_STREAM_LINES") else "default"
+    turn_src = "set" if os.environ.get("ROBODOG_TURN_STREAM_LINES") else "default"
+    cmd_txt = "summary-only" if per_cmd <= 0 else f"{per_cmd} lines/command"
+    turn_txt = "no cap" if per_turn <= 0 else f"{per_turn} lines/turn"
+    detail = (f"live preview: {cmd_txt} ({cmd_src}), {turn_txt} ({turn_src}) "
+              "— /verbose shows full output; the model always gets everything")
+    return CheckResult("trace-config", True, detail)
+
+
 def _check_terminal_modules() -> CheckResult:
     """All terminal package modules must import; report the FIRST failure."""
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -375,6 +396,7 @@ def run_doctor(cwd: str, backend: str = "", model: str = "") -> List[CheckResult
         ("powershell", lambda: _check_which("powershell", "powershell")),
         ("model-backend", lambda: _check_model_backend(backend, model)),
         ("llm-config", lambda: _check_llm_config()),
+        ("trace-config", lambda: _check_trace_config()),
         ("terminal-modules", lambda: _check_terminal_modules()),
     ]
     results: List[CheckResult] = []

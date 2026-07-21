@@ -168,6 +168,9 @@ class UI:
         self.console = Console(stderr=stderr) if _HAVE_RICH else None
         self._stderr = stderr
         self._status = None          # active rich spinner
+        # Resolve the stream-line caps from the env NOW (config.env is loaded
+        # before the UI is built), not at import time.
+        self.STREAM_LIMIT, self.TURN_STREAM_LIMIT = UI.stream_settings()
         self._typing = False         # user is typing a mid-turn line (suppress spinner)
         self._interactive = bool(
             _HAVE_PT and sys.stdin.isatty() and sys.stdout.isatty()
@@ -678,12 +681,27 @@ class UI:
     # trace shows a small bounded head and then reports what it held back — the
     # `↳` summary line (exit status + line count) carries the result. The MODEL
     # still receives the complete output; this caps the DISPLAY only.
-    # ROBODOG_STREAM_LINES=0 -> no live stream at all (summary only).
-    STREAM_LIMIT = int(os.environ.get("ROBODOG_STREAM_LINES", "8") or 8)
-    # Turn-level budget: across ALL commands in one turn, cap the live preview so
-    # a many-command turn can't flood the trace (each command still gets its
-    # compact `↳` summary). 0 = no turn cap.
-    TURN_STREAM_LIMIT = int(os.environ.get("ROBODOG_TURN_STREAM_LINES", "40") or 40)
+    #   ROBODOG_STREAM_LINES=0      -> no live stream at all (summary only)
+    #   ROBODOG_TURN_STREAM_LINES=0 -> no per-turn cap
+    # NOTE: read in __init__ (see stream_settings), NOT at class-definition time,
+    # so values from ~/.robodog/config.env (loaded during startup, after this
+    # module is imported) actually take effect.
+    STREAM_LIMIT = 8          # per-command default (overridden per-instance)
+    TURN_STREAM_LIMIT = 40    # per-turn default (overridden per-instance)
+
+    @staticmethod
+    def stream_settings():
+        """(per-command limit, per-turn limit) resolved from the env RIGHT NOW —
+        so config.env values loaded during startup are honored."""
+        try:
+            per_cmd = int(os.environ.get("ROBODOG_STREAM_LINES", "8") or 8)
+        except ValueError:
+            per_cmd = 8
+        try:
+            per_turn = int(os.environ.get("ROBODOG_TURN_STREAM_LINES", "40") or 40)
+        except ValueError:
+            per_turn = 40
+        return per_cmd, per_turn
 
     def reset_turn_stream(self):
         """Start-of-turn: reset the per-turn live-preview budget."""
