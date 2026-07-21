@@ -805,6 +805,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.40
+
+- **Clearer 404s.** A `404` whose body says `No endpoints found for <model>`
+  (or `model_not_found`) now hints at the **model id / slug** (e.g. use
+  `anthropic/claude-sonnet-4.6`, see openrouter.ai/models) instead of wrongly
+  blaming the base URL. A genuine base-URL 404 still gets the URL hint.
+
 ### 0.3.39
 
 - **`glob`/`grep` lead with a COUNT (reliability, found in a live test).** A real

@@ -286,6 +286,17 @@ def main() -> int:
             check(False, f"HTTP {status} raises")
         except RuntimeError as exc:
             check(want in str(exc) and f"{status}" in str(exc), label)
+    # 404 with a "no endpoints for <model>" body -> model-id hint, not base-URL.
+    oc = OpenAICompatClient(base_url="https://openrouter.ai/api", api_key="k",
+                            model="anthropic/claude-3.5-haiku",
+                            session=FakeSession([FakeResp(404,
+                                text='{"error":{"message":"No endpoints found for anthropic/claude-3.5-haiku."}}')]))
+    try:
+        oc.complete("q"); check(False, "404 model raises")
+    except RuntimeError as exc:
+        check("isn't available on this provider" in str(exc)
+              and "claude-3.5-haiku" in str(exc) and "ROBODOG_LLM_URL" not in str(exc).split("If the model")[0],
+              "404 'no endpoints for <model>' -> model-id hint (not base-URL)")
     oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
                             max_attempts=2,
                             session=FakeSession([FakeResp(200, oai_payload("")),

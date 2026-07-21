@@ -108,7 +108,7 @@ def _model_mismatch_hint(url: str, model: str) -> str:
     return ""
 
 
-def _http_error_hint(status: int, url: str, model: str) -> str:
+def _http_error_hint(status: int, url: str, model: str, body: str = "") -> str:
     """
     One actionable line for the non-retryable HTTP failures users actually hit,
     appended to the raw error so nobody has to decode a bare status code.
@@ -121,6 +121,16 @@ def _http_error_hint(status: int, url: str, model: str) -> str:
         return ("\nHint: the provider reports insufficient credits/quota for "
                 "this key — top up or switch models.")
     if status == 404:
+        b = (body or "").lower()
+        # A 404 is usually one of two things: a bad MODEL id (the provider
+        # served the endpoint but has no such model) or a wrong BASE URL.
+        if ("no endpoints found" in b or "model_not_found" in b
+                or "does not exist" in b or "not a valid model" in b):
+            return (f"\nHint: the model id '{model}' isn't available on this "
+                    "provider. Check the exact slug — OpenRouter uses "
+                    "'vendor/model' (e.g. 'anthropic/claude-sonnet-4.6'); see "
+                    "openrouter.ai/models. (If the model is correct, then verify "
+                    "ROBODOG_LLM_URL points at the provider's API base.)")
         return (f"\nHint: nothing is served at {url} — the base URL is likely "
                 "wrong. Check ROBODOG_LLM_URL (it should look like "
                 "https://openrouter.ai/api/v1).")
@@ -505,7 +515,7 @@ class OpenAICompatClient(LLMClient):
                         retry_after = _parse_retry_after(
                             resp.headers.get("Retry-After"))
                     else:
-                        hint = _http_error_hint(resp.status_code, self.url, self.model)
+                        hint = _http_error_hint(resp.status_code, self.url, self.model, resp.text)
                         raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}{hint}")
                 except _rq.ConnectTimeout:
                     last_err = ("connect timeout (>10s to reach the host — VPN down, "
@@ -553,7 +563,7 @@ class OpenAICompatClient(LLMClient):
                 return {"ok": True, "status": 200, "elapsed": elapsed,
                         "detail": f"replied in {elapsed:.1f}s"
                                   + (f": {txt[:50]!r}" if txt else " (empty body)")}
-            hint = _http_error_hint(resp.status_code, self.url, self.model)
+            hint = _http_error_hint(resp.status_code, self.url, self.model, resp.text)
             return {"ok": False, "status": resp.status_code, "elapsed": elapsed,
                     "detail": f"HTTP {resp.status_code} in {elapsed:.1f}s"
                               f"{(' — ' + resp.text[:160]) if resp.text else ''}{hint}"}
