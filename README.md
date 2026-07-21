@@ -805,6 +805,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.29
+
+- **Multi-format tool parsing (roadmap 2.4 — Phase 2 complete).**
+  - **`<think>` reasoning is stripped** before parsing (Qwen/DeepSeek-style
+    scratchpads), including the streaming case where the opening tag is lost and
+    only a trailing `</think>` leaks. A tool call emitted *inside* the reasoning
+    block is still recovered as a fallback.
+  - **JSON tool calls** (`{"name": "bash", "arguments": {…}}` or
+    `{"tool": …, "parameters": {…}}`, optionally fenced) are parsed when the model
+    emits JSON instead of XML — conservatively, only when the whole message is a
+    single tool-naming object, so a normal JSON answer is never hijacked.
+
 ### 0.3.28
 
 - **Smarter compaction (roadmap 2.1).** `/compact` and auto-compaction no longer

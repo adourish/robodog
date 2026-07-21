@@ -97,7 +97,7 @@ Robodog clamps some output. Make it universal + explicit: every `read_file` / co
 gets head+tail truncation with a visible `[truncated N bytes]` marker *before* it enters the
 transcript (Cline #4576/#4419; Roo #4186 — an oversized file wiped the whole task).
 
-### 2.4 ⬜ Multi-format tool extraction  · M
+### 2.4 ✅ Multi-format tool extraction  · M · *<think> stripping (incl. leaked-no-opener) + JSON-tool fallback shipped 0.3.29*
 ELSA may switch formats. Accept, in priority order: robodog XML → native `tool_calls` field →
 JSON-in-content → tool calls inside `reasoning_content`/`<think>` (cline #10843/#8365,
 llama.cpp #12107). **Strip `<think>…</think>` before parsing**, even when the opening tag is

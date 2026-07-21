@@ -16,9 +16,10 @@ model's prose. If no tool blocks are present, the completion is a final answer.
 from __future__ import annotations
 
 import html
+import json
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # Accept <tool …>…</tool> AND Anthropic-style <invoke …>…</invoke> (some models
 # emit the format they were trained on). Either close tag is tolerated. Extra
@@ -87,12 +88,74 @@ def _mask_impure_fences(text: str) -> str:
     return _FENCE_RE.sub(repl, text)
 
 
+# Reasoning-model scratchpad. Qwen/DeepSeek emit <think>…</think> and the real
+# tool call AFTER it; strip it before parsing (and streaming can drop the OPEN
+# tag, leaking reasoning with only a trailing </think> — handle that too).
+_THINK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
+_THINK_LEAK_RE = re.compile(r"^.*?</think>\s*", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_think(text: str) -> str:
+    if "</think>" not in text.lower():
+        return text
+    t = _THINK_RE.sub("", text)
+    # A stray </think> with no opener == reasoning leaked without the open tag.
+    if "</think>" in t.lower() and "<think>" not in t.lower():
+        t = _THINK_LEAK_RE.sub("", t, count=1)
+    return t
+
+
+def _json_tool_fallback(prose: str) -> Optional[ToolCall]:
+    """Some models (Qwen2.5-coder, GLM) emit a tool call as a JSON object in the
+    content instead of XML. VERY conservative: only when the ENTIRE prose is a
+    single JSON object naming a tool, so a normal JSON answer isn't hijacked."""
+    s = (prose or "").strip()
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", s, re.DOTALL | re.IGNORECASE)
+    if fence:
+        s = fence.group(1).strip()
+    if not (s.startswith("{") and s.endswith("}")):
+        return None
+    try:
+        obj = json.loads(s)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(obj, dict):
+        return None
+    name = obj.get("name") or obj.get("tool") or obj.get("tool_name")
+    raw_args = (obj.get("arguments") or obj.get("parameters")
+                or obj.get("args") or obj.get("input") or {})
+    if not (isinstance(name, str) and name.strip() and isinstance(raw_args, dict)):
+        return None
+    args = {k: (v if isinstance(v, str) else json.dumps(v)
+                if isinstance(v, (dict, list)) else str(v))
+            for k, v in raw_args.items()}
+    return ToolCall(name=name.strip(), args=args, raw=prose)
+
+
 def parse_tool_calls(text: str) -> Tuple[List[ToolCall], str]:
     """
     Return (tool_calls, prose). `prose` is the text with tool blocks removed.
-    Hardened: unwraps fence-wrapped tool calls; ignores tool syntax quoted
-    inside mixed-content code fences.
+    Hardened: strips <think> reasoning; unwraps fence-wrapped tool calls; ignores
+    tool syntax quoted inside mixed-content fences; falls back to a JSON tool call
+    when the model emitted one instead of XML.
     """
+    stripped = _strip_think(text)
+    calls, prose = _parse_xml(stripped)
+    # A tool call emitted INSIDE the reasoning block: if stripping lost it and we
+    # found nothing, re-parse the original (keep the clean, think-stripped prose).
+    if not calls and stripped != text:
+        recovered, _ = _parse_xml(text)
+        if recovered:
+            return recovered, prose
+    # No XML tool at all: maybe the model emitted a JSON tool call as content.
+    if not calls:
+        jc = _json_tool_fallback(prose)
+        if jc is not None:
+            return [jc], ""
+    return calls, prose
+
+
+def _parse_xml(text: str) -> Tuple[List[ToolCall], str]:
     normalized = _unwrap_pure_tool_fences(text)
     matchable = _mask_impure_fences(normalized)
     calls: List[ToolCall] = []

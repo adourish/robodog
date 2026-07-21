@@ -142,6 +142,32 @@ def main() -> int:
     check(calls[0].args["content"] == "import os\nprint(1)",
           r'content param still decodes literal \n to newline')
 
+    # Multi-format extraction (roadmap 2.4): <think> stripping + JSON fallback.
+    calls, prose = parse_tool_calls(
+        '<think>Let me reason step by step about the approach.</think>'
+        '<tool name="bash"><param name="command">ls</param></tool>')
+    check(len(calls) == 1 and calls[0].name == "bash"
+          and "reason step by step" not in prose,
+          '<think> reasoning is stripped and the tool after it parses')
+    calls, prose = parse_tool_calls("leaked reasoning no opener </think>Answer.")
+    check(calls == [] and prose == "Answer.",
+          'reasoning leaked without a <think> opener is stripped up to </think>')
+    calls, _ = parse_tool_calls(
+        '<think>I will <tool name="read_file"><param name="path">a.py</param>'
+        '</tool></think>')
+    check(len(calls) == 1 and calls[0].name == "read_file",
+          'a tool call emitted inside <think> is recovered as a fallback')
+    calls, _ = parse_tool_calls('{"name": "bash", "arguments": {"command": "echo hi"}}')
+    check(len(calls) == 1 and calls[0].name == "bash"
+          and calls[0].args.get("command") == "echo hi",
+          'a JSON tool call (name/arguments) is parsed when no XML is present')
+    calls, _ = parse_tool_calls('```json\n{"tool":"glob","parameters":{"pattern":"*.py"}}\n```')
+    check(len(calls) == 1 and calls[0].name == "glob",
+          'a fenced JSON tool call (tool/parameters) is parsed')
+    calls, prose = parse_tool_calls('{"result": 42, "status": "ok"}')
+    check(calls == [] and "result" in prose,
+          'a plain JSON answer (no tool name) is NOT hijacked as a tool call')
+
     # Truncation / attempted-tool detectors (Phase 1 loop recovery).
     from robodog_terminal.toolcall import (has_unclosed_tool_call,
                                            looks_like_attempted_tool)
