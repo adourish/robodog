@@ -373,12 +373,15 @@ def _split_pipes_top_level(command: str) -> List[str]:
 
 _PIPE_FILTER_RE = re.compile(r"^(head|tail)(?:\s+-n\s+(\d+)|\s+-(\d+))?$", re.IGNORECASE)
 _PIPE_WC_RE = re.compile(r"^wc\s+-l$", re.IGNORECASE)
+# `grep [flags] PATTERN` in a pipe — flags captured, PATTERN kept VERBATIM so a
+# quoted pattern with spaces (grep -i "foo bar") survives intact.
+_PIPE_GREP_RE = re.compile(r"^grep\s+((?:-[A-Za-z]+\s+)*)(.+)$", re.IGNORECASE)
 
 
 def _translate_filter_segment(seg: str) -> Optional[str]:
-    """A single pipe segment that is EXACTLY a Unix `head`/`tail`/`wc -l` filter
-    -> its PowerShell equivalent. None if the segment isn't a bare filter (so
-    `head file.txt` or `grep head` is never touched)."""
+    """A single pipe segment that is EXACTLY a Unix `head`/`tail`/`wc -l`/`grep`
+    filter -> its PowerShell equivalent. None if the segment isn't a bare filter
+    (so `head file.txt` is never touched)."""
     s = seg.strip()
     m = _PIPE_FILTER_RE.match(s)
     if m:
@@ -387,6 +390,14 @@ def _translate_filter_segment(seg: str) -> Optional[str]:
         return f"Select-Object {sel} {n}"
     if _PIPE_WC_RE.match(s):
         return "Measure-Object -Line | Select-Object -ExpandProperty Lines"
+    g = _PIPE_GREP_RE.match(s)
+    if g:
+        flags, pattern = g.group(1) or "", g.group(2).strip()
+        # A trailing file arg means it's `grep pattern file`, not a pipe filter —
+        # leave it (Select-String reads the pipeline, not a file, here).
+        if pattern:
+            invert = "v" in flags.replace(" ", "").replace("-", "")
+            return f"Select-String {'-NotMatch ' if invert else ''}{pattern}"
     return None
 
 
@@ -521,6 +532,16 @@ def python_import_hint(stderr: str, cwd: str) -> str:
                     f"    mod = importlib.util.module_from_spec(spec); "
                     f"spec.loader.exec_module(mod)")
         break
+    # src-layout / local package not on sys.path: Python failed to import the TOP
+    # package (single-segment miss) but a directory by that name exists here — it
+    # just isn't importable. (`No module named 'src'` while `src/` sits in cwd.)
+    if len(parts) == 1 and (base / parts[0]).is_dir():
+        pkg = parts[0]
+        return (f"\nHINT: '{pkg}' exists as a directory here but isn't on Python's "
+                f"path, so `import {pkg}` fails. Run from the project root with the "
+                f"root on the path — PowerShell: `$env:PYTHONPATH='.'; python -m "
+                f"pytest` — or `pip install -e .` if it's a package. (A missing "
+                f"{pkg}/__init__.py can also cause this.)")
     return ""
 
 
@@ -540,6 +561,20 @@ def python_error_hint(stderr: str) -> str:
                 f"json.loads() call and use it directly (index/iterate it). "
                 f"json.loads() only takes a JSON *string*; call it just once on "
                 f"raw text, never on a dict/list you already have.")
+    # A well-known dev/test tool isn't installed for THIS interpreter. Seen when
+    # the model flip-flops `python` vs `py` (which resolve to different installs,
+    # one lacking pytest) — `<python>: No module named pytest`.
+    _KNOWN_TOOLS = {"pytest", "pip", "black", "flake8", "mypy", "coverage",
+                    "tox", "pylint", "isort", "poetry", "pipenv", "ruff",
+                    "virtualenv", "nose", "twine", "build"}
+    mt = _re.search(r"No module named ['\"]?([\w.]+)", err)
+    if mt and mt.group(1).split(".")[0] in _KNOWN_TOOLS:
+        top = mt.group(1).split(".")[0]
+        return (f"\nHINT: '{top}' isn't installed for the Python interpreter you "
+                f"ran. Install it with `python -m pip install {top}`, and use the "
+                f"SAME interpreter throughout — `py` and `python` can point at "
+                f"different installs (one may have {top}, the other not). "
+                f"`python -m {top} …` runs it against the current interpreter.")
     return ""
 
 
@@ -578,7 +613,9 @@ class ToolRegistry:
         self.cwd = Path(cwd or os.getcwd()).resolve()
         self._tools: Dict[str, Tool] = {}
         # Safety layer (wired by app.py):
-        self.read_paths: set = set()      # files Read this session (read-before-edit)
+        # files Read this session -> mtime at read time (read-before-edit +
+        # freshness: refuse to edit a file changed on disk since we last saw it).
+        self.read_paths: dict = {}
         self.checkpointer = None          # Checkpointer — snapshots before mutation
         self.on_diff: Optional[Callable[[str, str], None]] = None  # UI diff preview
         self.on_bash_line: Optional[Callable[[str], None]] = None  # UI live output, per line
@@ -692,6 +729,27 @@ class ToolRegistry:
             elif self.on_bash_line is not None:
                 self.on_bash_line(f"⚠ running potentially destructive command: {display}")
         return None
+
+    # ---- read/freshness tracking ----------------------------------------
+    def _mark_read(self, path: Path) -> None:
+        """Record that `path` was read (or written by us) and its current mtime,
+        so a later edit can tell whether the file changed underneath us."""
+        try:
+            mtime = path.stat().st_mtime if path.exists() else 0.0
+        except OSError:
+            mtime = 0.0
+        self.read_paths[str(path)] = mtime
+
+    def _stale_since_read(self, path: Path) -> bool:
+        """True if `path` was read this session but has since changed on disk
+        (an external edit) — so editing now would clobber content we never saw."""
+        recorded = self.read_paths.get(str(path))
+        if recorded is None:
+            return False
+        try:
+            return path.stat().st_mtime > recorded + 1e-6
+        except OSError:
+            return False
 
     # ---- path helper ----------------------------------------------------
     def _project_root(self) -> Optional[Path]:
@@ -809,7 +867,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         if not path.exists():
             base = reg._project_root() or reg.cwd
             return f"ERROR: file not found: {path}" + read_not_found_hint(base, path)
-        reg.read_paths.add(str(path))
+        reg._mark_read(path)
         text = path.read_text(encoding="utf-8", errors="replace")
         lines = text.splitlines()
         offset = int(args.get("offset", 0) or 0)
@@ -839,7 +897,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         path.parent.mkdir(parents=True, exist_ok=True)
         _diff_and_checkpoint(path, old_text, new_text)
         path.write_text(new_text, encoding="utf-8")
-        reg.read_paths.add(str(path))
+        reg._mark_read(path)
         if reg.verify_edits:
             err = verify_syntax(path)
             if err:
@@ -855,6 +913,11 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         if existed and str(path) not in reg.read_paths:
             return (f"ERROR: refusing to overwrite {path} — read it first with "
                     f"read_file so you know what you are replacing.")
+        if existed and reg._stale_since_read(path):
+            reg._mark_read(path)
+            return (f"ERROR: {path} CHANGED ON DISK since you last read it — "
+                    f"re-read it with read_file before overwriting (it may contain "
+                    f"changes you never saw).")
         old_text = path.read_text(encoding="utf-8", errors="replace") if existed else None
         verb = "Overwrote" if existed else "Created"
         return _finalize_write(
@@ -882,6 +945,12 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         if str(path) not in reg.read_paths:
             return (f"ERROR: refusing to edit {path} — read it first with "
                     f"read_file so old_string matches the real content.")
+        if reg._stale_since_read(path):
+            reg._mark_read(path)  # adopt the new state so the re-read isn't a loop
+            return (f"ERROR: {path} CHANGED ON DISK since you last read it — "
+                    f"something edited it outside this tool. Re-read it with "
+                    f"read_file so your edit matches the current content (editing "
+                    f"now could clobber changes you never saw).")
         original = path.read_text(encoding="utf-8")
         old = args["old_string"]
         new = args.get("new_string", "")
@@ -929,6 +998,11 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             return f"ERROR: file not found: {path}"
         if str(path) not in reg.read_paths:
             return (f"ERROR: refusing to edit {path} — read it first with read_file.")
+        if reg._stale_since_read(path):
+            reg._mark_read(path)
+            return (f"ERROR: {path} CHANGED ON DISK since you last read it — "
+                    f"re-read it with read_file before editing (it may contain "
+                    f"changes you never saw).")
         raw = args["edits"]
         # edits format: one 'old_string>>>new_string' pair per line, pairs
         # separated by a line containing only '==='.

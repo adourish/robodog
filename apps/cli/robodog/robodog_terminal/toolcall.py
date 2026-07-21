@@ -47,6 +47,11 @@ _ATTR_RE = re.compile(r"(?P<k>[\w.\-]+)\s*=\s*\"(?P<v>[^\"]*)\"|(?P<k2>[\w.\-]+)
 
 _FENCE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
 
+# Params where a literal `\n`/`\t` should be decoded to a real newline/tab (the
+# model sometimes escapes newlines in multi-line CODE). NEVER includes command/
+# path/cwd — decoding there mangles Windows paths (`\node_modules`, `C:\temp`).
+_ESCAPE_DECODE_PARAMS = {"content", "new_string", "old_string", "text", "body"}
+
 
 @dataclass
 class ToolCall:
@@ -110,10 +115,12 @@ def parse_tool_calls(text: str) -> Tuple[List[ToolCall], str]:
             pval = pm.group("pval")
             # Unescape HTML entities the model may have emitted (&lt; etc.)
             val = html.unescape(pval).strip("\n")
-            # Models sometimes emit literal backslash-n instead of newlines in
-            # multi-statement content (observed with gpt-4o-mini). If a value
-            # has NO real newlines but contains \n escapes, decode them.
-            if "\n" not in val and "\\n" in val:
+            # Some weak models emit literal backslash-n for real newlines in
+            # multi-line CODE. Decode it — but ONLY for text/code params. Applying
+            # it to a command or path CORRUPTS Windows paths: `\nodeids` -> newline,
+            # `C:\temp` -> C:<tab>emp. So restrict it to content-style params.
+            if (pname.lower() in _ESCAPE_DECODE_PARAMS
+                    and "\n" not in val and "\\n" in val):
                 val = (val.replace("\\r\\n", "\n").replace("\\n", "\n")
                           .replace("\\t", "\t"))
             args[pname] = val

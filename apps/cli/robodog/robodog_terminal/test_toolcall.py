@@ -123,6 +123,25 @@ def main() -> int:
                          '</parameter></invoke>'),
           'has_tool_calls recognizes the <invoke> form')
 
+    # Windows paths must NOT be mangled by the \n/\t escape-decode. From a real
+    # session: `Get-Content ...\cache\nodeids` had its `\n` turned into a newline
+    # ("Illegal characters in path"). Decode is now content-params only.
+    calls, _ = parse_tool_calls(
+        r'<tool name="bash"><param name="command">'
+        r'Get-Content "C:\proj\.pytest_cache\v\cache\nodeids"</param></tool>')
+    check(calls[0].args["command"] == r'Get-Content "C:\proj\.pytest_cache\v\cache\nodeids"',
+          r'bash command with \nodeids / backslash paths is NOT decoded')
+    calls, _ = parse_tool_calls(
+        r'<tool name="read_file"><param name="path">C:\temp\tests\new\node_modules</param></tool>')
+    check(calls[0].args["path"] == r'C:\temp\tests\new\node_modules',
+          r'path C:\temp\tests\new (\, \t, \n) is preserved exactly')
+    # content params still decode (the original weak-model case).
+    calls, _ = parse_tool_calls(
+        '<tool name="write_file"><param name="path">a.py</param>'
+        '<param name="content">import os\\nprint(1)</param></tool>')
+    check(calls[0].args["content"] == "import os\nprint(1)",
+          r'content param still decodes literal \n to newline')
+
     # Truncation / attempted-tool detectors (Phase 1 loop recovery).
     from robodog_terminal.toolcall import (has_unclosed_tool_call,
                                            looks_like_attempted_tool)

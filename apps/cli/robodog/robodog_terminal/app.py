@@ -321,7 +321,7 @@ def _expand_mentions(line: str, registry) -> str:
                 content = p.read_text(encoding="utf-8", errors="replace")[:20_000]
             except OSError:
                 continue
-            registry.read_paths.add(str(p))
+            registry._mark_read(p)
             out += f"\n\n[content of {rel}]:\n{content}"
     return out
 

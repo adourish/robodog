@@ -805,6 +805,22 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.27
+
+- **Fix (Windows path corruption — important):** a `bash` command or `path` like
+  `…\cache\nodeids` or `C:\temp\tests` is no longer mangled by the literal-`\n`/`\t`
+  escape-decode (which turned `\n`→newline, `\t`→tab → "Illegal characters in
+  path"). The decode now applies **only** to text/code params
+  (`content`/`new_string`/`old_string`), never to commands or paths.
+- **Files-always-fresh (2.2):** editing a file that **changed on disk since you
+  read it** is refused with "re-read it first" — prevents clobbering changes the
+  agent never saw. Robodog's own consecutive edits don't false-trigger.
+- **Auto-translate `| grep PATTERN`** → `| Select-String PATTERN` (Windows), with
+  `-v`→`-NotMatch` and quoted patterns preserved — joins the head/tail/wc set.
+- **Better import errors:** `No module named 'src'` while a `src/` dir exists →
+  a PYTHONPATH / `pip install -e .` hint; a missing dev tool (`No module named
+  pytest`) → an install + "use the same interpreter (`py` vs `python`)" hint.
+
 ### 0.3.26
 
 - **Reliability core (Phase 1 of the roadmap).** Turns the ELSA model's frequent

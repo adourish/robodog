@@ -169,6 +169,26 @@ def main() -> int:
     check("-**See**: `a/skill.md`" in d and "+**See**: `b/skill.md`" in d,
           "both the old and new last lines appear, on their own lines")
 
+    # ---- freshness: refuse to edit a file changed on disk since read -------
+    # Prevents the data-loss class where the agent edits from a stale mental
+    # copy and clobbers changes it never saw (Roo #1891, aider #2864).
+    import os as _os
+    fresh = wd / "fresh.py"
+    fresh.write_text("a = 1\n", encoding="utf-8")
+    reg.execute("read_file", {"path": "fresh.py"})
+    r = reg.execute("edit_file", {"path": "fresh.py", "old_string": "a = 1", "new_string": "a = 2"})
+    check("Edited" in r, "read->edit works when the file is unchanged")
+    r = reg.execute("edit_file", {"path": "fresh.py", "old_string": "a = 2", "new_string": "a = 3"})
+    check("Edited" in r and "CHANGED ON DISK" not in r,
+          "consecutive robodog edits don't false-trigger the freshness guard")
+    rec = reg.read_paths[str(fresh)]
+    _os.utime(fresh, (rec + 100, rec + 100))   # simulate an external edit
+    r = reg.execute("edit_file", {"path": "fresh.py", "old_string": "a = 3", "new_string": "a = 4"})
+    check("CHANGED ON DISK" in r, "edit refused after the file changed on disk")
+    reg.execute("read_file", {"path": "fresh.py"})   # re-read clears staleness
+    r = reg.execute("edit_file", {"path": "fresh.py", "old_string": "a = 3", "new_string": "a = 4"})
+    check("Edited" in r, "re-reading clears staleness and the edit applies")
+
     # ---- read_file 'did you mean': right filename, wrong directory ---------
     # From a real ELSA session: the model read_file'd IdpFlowHandler.java etc.
     # in the wrong package dir and got a bare "file not found"; the file lived

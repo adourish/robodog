@@ -128,6 +128,13 @@ def main() -> int:
         check(_tf("git log | wc -l")
               == "(git log) | Measure-Object -Line | Select-Object -ExpandProperty Lines",
               "| wc -l -> Measure-Object -Line")
+        # grep -> Select-String (real session: `... | grep "router"` failed)
+        check(_tf('git log | grep "router"') == '(git log) | Select-String "router"',
+              "| grep PATTERN -> Select-String PATTERN")
+        check(_tf('ls | grep -i "Foo Bar"') == '(ls) | Select-String "Foo Bar"',
+              "grep quoted pattern with spaces is preserved intact")
+        check(_tf("cmd | grep -v error") == "(cmd) | Select-String -NotMatch error",
+              "grep -v -> Select-String -NotMatch")
         check(_tf('echo "a | head -5"') == 'echo "a | head -5"',
               "pipe inside quotes is NOT translated")
         check(_tf("type f | head file.txt") == "type f | head file.txt",
@@ -216,6 +223,20 @@ def main() -> int:
           "no hint when the module maps to no directory")
     check(_pih("ZeroDivisionError: division by zero", str(root)) == "",
           "no hint on an unrelated traceback")
+    # src-layout: `No module named 'src'` while a src/ dir exists -> PYTHONPATH hint
+    (root / "src").mkdir(exist_ok=True)
+    h = _pih("ModuleNotFoundError: No module named 'src'", str(root))
+    check("PYTHONPATH" in h and "isn't on Python's path" in h,
+          "src-layout miss -> PYTHONPATH / pip install -e hint")
+    check(_pih("ModuleNotFoundError: No module named 'src.router'", str(root)) == "",
+          "multi-segment miss (submodule) does NOT mis-fire the PYTHONPATH hint")
+    # not-installed dev tool (model flipped python vs py -> pytest-less interpreter)
+    from robodog_terminal.tools import python_error_hint as _peh2
+    h = _peh2("C:\\Python312\\python.exe: No module named pytest")
+    check("isn't installed" in h and "pytest" in h and "same interpreter" in h.lower(),
+          "not-installed dev tool -> install + same-interpreter hint")
+    check(_peh2("No module named 'some_random_pkg'") == "",
+          "an unknown module is not treated as a known dev tool")
     # end-to-end: the hint rides along on the failed run_script result
     content = ("import sys\n"
                f"sys.path.insert(0, r'{root}')\n"
