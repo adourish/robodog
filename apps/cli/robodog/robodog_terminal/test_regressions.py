@@ -76,9 +76,18 @@ def main() -> int:
               "multi-file head is left alone (no clean equivalent)")
         check(twa("curl -s -o x https://a") == "curl.exe -s -o x https://a",
               "`curl` (PS alias for Invoke-WebRequest) -> curl.exe")
-        h = T.shell_syntax_hint('find C:/p -type f -name "*.py" 2>/dev/null',
-                                "Could not find a part of the path 'C:\\dev\\null'")
-        check("2>$null" in h, "`2>/dev/null` -> C:\\dev\\null error -> 2>$null hint")
+        # `2>nul` (cmd null device) BREAKS PowerShell ("device that was not a
+        # file") — now auto-translated to 2>$null so the command runs.
+        check(T.translate_null_redirects("dir /s /b *Seizure* 2>nul")
+              == "dir /s /b *Seizure* 2>$null",
+              "`2>nul` (reserved DOS device) -> 2>$null (auto-translated)")
+        check(T.translate_null_redirects("git log 2>/dev/null") == "git log 2>$null",
+              "`2>/dev/null` -> 2>$null (auto-translated)")
+        check(T.translate_null_redirects("echo 2>&1") == "echo 2>&1",
+              "`2>&1` is NOT mistaken for a null redirect")
+        h = T.shell_syntax_hint("dir x 2>nul",
+                                "FileStream was asked to open a device that was not a file")
+        check("$null" in h, "leftover `nul` device error -> $null fallback hint")
         check("Get-ChildItem" in T.shell_syntax_hint("find . -type f -name x",
                                                       "find: command not found"),
               "unix `find -type` -> Get-ChildItem hint")

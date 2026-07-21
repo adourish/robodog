@@ -881,6 +881,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.57
+
+- **`2>nul` / `2>/dev/null` are auto-translated to `2>$null`.** On Windows `nul`
+  is a reserved DOS device, so PowerShell tried to open a *file* named `nul` and
+  died with *"FileStream was asked to open a device that was not a file"* — every
+  `dir … 2>nul` the model reached for failed. The null-device redirect targets
+  (`2>nul`, `>nul`, `1>nul`, and the `/dev/null` forms) now rewrite to `$null` so
+  the command runs; a fallback hint still fires if any variant slips through.
+
 ### 0.3.56
 
 - **`Get-Content`/`cat` on a missing path now gets a "did you mean".** When a

@@ -530,6 +530,22 @@ def translate_windows_aliases(command: str) -> str:
     return out
 
 
+# `2>nul`/`>nul` (cmd) and `2>/dev/null`/`>/dev/null` (unix) both BREAK in
+# PowerShell: `nul` is a reserved DOS device, so PS opens a *file* named `nul` and
+# dies ("FileStream was asked to open a device that was not a file"); `/dev/null`
+# becomes C:\dev\null. PowerShell's null sink is `$null`. Rewrite the redirect
+# TARGET (keep the operator: 2>, >, >>, 1>). Lookahead requires a real redirect
+# endpoint so a filename like `nul.txt` is never touched. `2>&1` never matches.
+_NULL_REDIR_RE = re.compile(
+    r"(?P<op>\d*>{1,2})\s*(?:/dev/null|nul)(?=\s|$|[|;&])", re.IGNORECASE)
+
+
+def translate_null_redirects(command: str) -> str:
+    if os.name != "nt":
+        return command
+    return _NULL_REDIR_RE.sub(lambda m: f"{m.group('op')}$null", command)
+
+
 def translate_unix_pipe_filters(command: str) -> str:
     """Rewrite trailing/embedded `| head -N`, `| tail -N`, `| wc -l` to the
     PowerShell equivalents so `git log | head -20` actually runs on Windows
@@ -574,13 +590,18 @@ def shell_syntax_hint(command: str, combined: str) -> str:
     _failed = any(s in low for s in (
         "error", "not found", "not recognized", "could not find",
         "exception", "cannot find", "is not a valid"))
-    # `2>/dev/null` — PowerShell has no /dev/null; it writes stderr to a file
-    # literally named C:\dev\null and dies before the pipe even runs. Key on the
-    # REDIRECTION (not a bare mention) so an echo of "/dev/null" isn't flagged.
-    if _re.search(r"\d?\s*>\s*/dev/null", command):
-        return ("\nHINT: `/dev/null` doesn't exist on Windows — PowerShell tried "
-                "to write to C:\\dev\\null and failed. Discard stderr with "
-                "`2>$null`, or all output with `| Out-Null`.")
+    # Null-device redirect that slipped past translation, OR a non-redirect use
+    # of a reserved device. `2>nul`/`2>/dev/null` are auto-rewritten to `2>$null`
+    # now, so key this FALLBACK on the actual device ERROR (not the command text)
+    # — otherwise it would fire spuriously on a command we already fixed. The
+    # signatures: cmd's `nul` -> "device that was not a file"; unix's `/dev/null`
+    # -> C:\dev\null path error.
+    if ("device that was not a file" in low or "c:\\dev\\null" in low
+            or "\\dev\\null" in low):
+        return ("\nHINT: redirect to `$null` on Windows PowerShell — `2>$null` "
+                "discards errors, `>$null` discards output. `nul`/`con`/`/dev/null` "
+                "are not valid targets here (`nul` is a reserved device; "
+                "`/dev/null` becomes C:\\dev\\null).")
     # Unix `find PATH -name/-type ...` — not available (cmd's find.exe is a
     # different, text-search tool). This trips models constantly on Windows.
     if _failed and _re.search(
@@ -1481,7 +1502,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             # instead of erroring: `&&`/`||` chains -> if ($?)/if (-not $?), and
             # `| head/tail/wc` -> Select-Object/Measure-Object (handled per chain
             # segment inside powershell_translate).
-            run_cmd = powershell_translate(translate_windows_aliases(command))
+            run_cmd = powershell_translate(
+                translate_null_redirects(translate_windows_aliases(command)))
             # Force UTF-8 so non-ASCII survives BOTH ways: native-command output
             # (git log) is decoded as UTF-8, and args we pass to native commands
             # (git commit -m "…") are encoded as UTF-8 — no more `—` -> `â€"`.
