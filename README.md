@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.39
+
+- **`glob`/`grep` lead with a COUNT (reliability, found in a live test).** A real
+  turn had gpt-4o-mini miscount 75 `glob` lines as "66" — small models count
+  lists poorly. Output now starts with `75 file(s) matching '*.md':` /
+  `3 match(es) for /needle/:` so the model reads the number instead of counting.
+  Re-running the same live turn then answered **75** correctly. Truncation
+  ("showing first 500/300") is stated explicitly.
+
 ### 0.3.38
 
 - **Better `read_file` misses (from a real fda-serio session).** When a file

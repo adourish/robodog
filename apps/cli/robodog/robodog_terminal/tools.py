@@ -1421,7 +1421,13 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                          and fnmatch.fnmatch(p.name, pattern))
         if not matches:
             return f"No files matching '{pattern}' under {root}."
-        return "\n".join(matches[:500])
+        # Lead with the COUNT so the model doesn't have to count lines (small
+        # models miscount) — then the list (capped at 500).
+        n = len(matches)
+        shown = matches[:500]
+        head = (f"{n} file(s) matching '{pattern}'"
+                + (f" (showing first 500)" if n > 500 else "") + ":")
+        return head + "\n" + "\n".join(shown)
 
     reg.register(Tool(
         name="glob",
@@ -1462,7 +1468,10 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                 continue
             if len(results) >= 300:
                 break
-        return "\n".join(results) if results else f"No matches for /{pattern}/."
+        if not results:
+            return f"No matches for /{pattern}/."
+        capped = " (showing first 300)" if len(results) >= 300 else ""
+        return f"{len(results)} match(es) for /{pattern}/{capped}:\n" + "\n".join(results)
 
     reg.register(Tool(
         name="grep",

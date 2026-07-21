@@ -169,6 +169,20 @@ def main() -> int:
     check("-**See**: `a/skill.md`" in d and "+**See**: `b/skill.md`" in d,
           "both the old and new last lines appear, on their own lines")
 
+    # ---- glob/grep lead with a COUNT (so models don't miscount lines) ------
+    # Found live: gpt-4o-mini miscounted 75 glob lines as 66; the count header
+    # fixed it. Verify the count is present and correct.
+    gd = wd / "countdir"
+    gd.mkdir(exist_ok=True)
+    for i in range(7):
+        (gd / f"f{i}.md").write_text("needle here\n" if i < 3 else "x\n", encoding="utf-8")
+    r = reg.execute("glob", {"path": "countdir", "pattern": "*.md"})
+    check(r.startswith("7 file(s) matching '*.md'") and r.count("\n") == 7,
+          "glob output leads with the correct file count")
+    r = reg.execute("grep", {"path": "countdir", "pattern": "needle", "glob": "*.md"})
+    check(r.startswith("3 match(es) for /needle/"),
+          "grep output leads with the correct match count")
+
     # ---- verify-after-write + byte-faithful writes (4.2) -------------------
     reg.execute("write_file", {"path": "vw.py", "content": "a = 1\nb = 2\n"})
     check((wd / "vw.py").read_bytes() == b"a = 1\nb = 2\n",
