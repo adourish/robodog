@@ -50,7 +50,7 @@ on unknown/misspelled tool name (`write_file` vs `write_files` — Roo #4530, op
 return the valid tool list + a `difflib` "did you mean"; on missing required param, name it and
 re-embed the format. Never crash the session on an unknown tool.
 
-### 1.4 🟡 Tool-result framing  · S · *empty-result naming shipped 0.3.26; echo-back already present*
+### 1.4 🟡 Tool-result framing  · S · *empty-result naming (0.3.26) + echo-back present; <error>/<feedback> wrappers TODO*
 Cline/Roo §5. Cheap, high-leverage for a no-native-tool-API loop:
 - Echo the call back: `[read_file for 'src/main.py'] Result:\n…` (substitutes for a
   `tool_use_id`, re-anchors which call the result belongs to).
@@ -74,7 +74,7 @@ rest were ignored, re-issue them." Enforce in `loop.py`, not just the prompt.
 
 ## Phase 2 — Context & correctness
 
-### 2.1 ⬜ Token accounting + threshold auto-compaction  · M
+### 2.1 🟡 Token accounting + threshold auto-compaction  · M · *keep-first/middle/recent compaction shipped 0.3.28; per-model token accounting still TODO*
 Robodog has manual `/compact` + char-based trimming. Upgrade (goose 80%-threshold +
 OpenHands condenser):
 - Real token accounting vs the model's context limit (per-model override).
@@ -92,7 +92,7 @@ claude-code #28383): store mtime/hash at read; on edit, if the file changed sinc
 re-read instead of writing from a stale mental copy. Optionally re-inject current contents of
 in-context files each turn so history never carries a stale version.
 
-### 2.3 🟡 Hard output caps entering context  · S
+### 2.3 ✅ Hard output caps entering context  · S · *universal via _clamp head+tail + [truncated N] markers*
 Robodog clamps some output. Make it universal + explicit: every `read_file` / command stdout
 gets head+tail truncation with a visible `[truncated N bytes]` marker *before* it enters the
 transcript (Cline #4576/#4419; Roo #4186 — an oversized file wiped the whole task).
@@ -103,7 +103,7 @@ JSON-in-content → tool calls inside `reasoning_content`/`<think>` (cline #1084
 llama.cpp #12107). **Strip `<think>…</think>` before parsing**, even when the opening tag is
 missing, and scan the reasoning channel as a fallback.
 
-### 2.5 ⬜ Edit failure-message shape  · S
+### 2.5 ✅ Edit failure-message shape  · S · *closest-line + already-applied idempotency shipped 0.3.28 (atomic multi_edit = no 'other N')*
 When an edit doesn't apply, return (Aider `SearchReplaceNoExactMatch`): the closest actual
 lines, "the other N blocks applied — only resend the failures," and an "these REPLACE lines are
 already present" idempotency note (catches double-application on retries). Robodog already has

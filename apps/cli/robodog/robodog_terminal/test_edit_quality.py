@@ -211,6 +211,15 @@ def main() -> int:
     check("Did you mean" not in r,
           "read_file miss with no basename match gives no false suggestion")
 
+    # ---- idempotency: edit already applied (old gone, new present) ----------
+    idem = wd / "idem.py"
+    idem.write_text("value = 2\n", encoding="utf-8")   # already the target state
+    reg.execute("read_file", {"path": "idem.py"})
+    r = reg.execute("edit_file", {"path": "idem.py",
+                                  "old_string": "value = 1", "new_string": "value = 2"})
+    check("old_string not found" in r and "ALREADY present" in r,
+          "edit_file flags an already-applied edit instead of a bare 'not found'")
+
     # ---- edit_not_found_hint: turn "not found" into something actionable ----
     # From a real ELSA session: two edit_file calls looped on a bare
     # "old_string not found" with no way for the model to self-correct.

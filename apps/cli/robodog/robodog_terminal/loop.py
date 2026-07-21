@@ -106,6 +106,57 @@ class AgentLoop:
                 if total <= self.max_transcript_chars:
                     break
 
+    # Structured schema so the compaction summary keeps what a resuming agent
+    # actually needs (mirrors OpenHands' condenser summary shape).
+    _COMPACT_PROMPT = (
+        "Summarize the EARLIER part of this coding session so the agent can keep "
+        "working without re-reading it. Use these exact headings and be concise "
+        "but keep every fact needed to resume:\n"
+        "## Goal\n## Decisions made\n## Files touched (and what changed)\n"
+        "## Current state\n## Next steps\n## Open problems / failing tests\n\n"
+        "=== transcript to summarize ===\n")
+
+    def compact(self, keep_recent: int = 6) -> bool:
+        """Summarize the MIDDLE of the transcript while preserving the FIRST turn
+        (the user's original goal, verbatim) and the last `keep_recent` turns
+        (recent work, verbatim). Returns True if it compacted. Fail-safe: on any
+        error, or if it wouldn't actually shrink things, the history is untouched.
+        """
+        if len(self.history) <= keep_recent + 2:
+            return False
+        first = self.history[0]
+        recent = self.history[-keep_recent:]
+        middle = self.history[1:-keep_recent]
+        if not middle:
+            return False
+        parts = []
+        for t in middle:
+            if t.role == "user":
+                parts.append(f"USER: {t.content}")
+            elif t.role == "assistant":
+                parts.append(f"ASSISTANT: {t.content}")
+            else:
+                parts.append(f"TOOL RESULT [{t.tool_name}]:\n{t.content}")
+        middle_text = "\n\n".join(parts)
+        try:
+            summary = self.client.complete(
+                self._COMPACT_PROMPT + middle_text,
+                context=self._system_context(), max_tokens=1500).text
+        except Exception:   # a summarization failure must never lose the history
+            return False
+        if not (summary or "").strip():
+            return False
+        rebuilt = [first, Turn("user", f"[earlier conversation summary]\n{summary}")]
+        rebuilt.extend(recent)
+        # Only adopt the compaction if it actually shrank the transcript (a summary
+        # somehow larger than the middle it replaced would be worse than nothing).
+        old_chars = self.transcript_chars()
+        new_chars = sum(len(t.content) for t in rebuilt)
+        if new_chars >= old_chars:
+            return False
+        self.history[:] = rebuilt
+        return True
+
     # ---- prompt rendering ----------------------------------------------
     def _system_context(self) -> str:
         base = self.registry.catalog()

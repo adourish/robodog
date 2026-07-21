@@ -1016,21 +1016,19 @@ def main(argv=None) -> int:
                 if not loop.history:
                     ui.info("nothing to compact.")
                     continue
+                before = loop.transcript_chars()
                 ui.spinner_start("✳ Compacting conversation…")
                 try:
-                    transcript = loop._render_prompt()
-                    summary = client.complete(
-                        "Summarize this coding-session transcript into a compact "
-                        "brief a coding agent can resume from. Keep: the goal, "
-                        "decisions, files touched, current state, next steps.\n\n"
-                        + transcript,
-                        max_tokens=2000).text
+                    did = loop.compact()
                 finally:
                     ui.spinner_stop()
-                loop.history.clear()
-                loop.history.append(_mk_turn("user", f"[conversation summary]\n{summary}"))
-                persisted[0] = len(loop.history)
-                ui.info("conversation compacted.")
+                if did:
+                    persisted[0] = len(loop.history)
+                    after = loop.transcript_chars()
+                    ui.info(f"conversation compacted (~{before // 4} → {after // 4} "
+                            f"tokens; goal + recent turns kept verbatim).")
+                else:
+                    ui.info("nothing to compact yet (too short, or it wouldn't shrink).")
             elif cmd == "clear":
                 loop.history.clear()
                 persisted[0] = 0
@@ -1410,19 +1408,13 @@ def main(argv=None) -> int:
                     ui.dim("[interrupted]")
                 registry.mode = "plan"
 
-        # Auto-compact near the context ceiling (an agentic coding terminal behavior).
+        # Auto-compact near the context ceiling (keeps the goal + recent turns
+        # verbatim, summarizes the middle — see AgentLoop.compact).
         if loop.transcript_chars() > int(loop.max_transcript_chars * 0.9):
             ui.dim("(auto-compacting conversation…)")
             try:
-                transcript = loop._render_prompt()
-                summary = client.complete(
-                    "Summarize this coding-session transcript into a compact brief "
-                    "a coding agent can resume from. Keep: goal, decisions, files "
-                    "touched, current state, next steps.\n\n" + transcript,
-                    max_tokens=2000).text
-                loop.history.clear()
-                loop.history.append(_mk_turn("user", f"[conversation summary]\n{summary}"))
-                persisted[0] = len(loop.history)
+                if loop.compact():
+                    persisted[0] = len(loop.history)
             except Exception as exc:
                 ui.dim(f"(auto-compact skipped: {exc})")
 

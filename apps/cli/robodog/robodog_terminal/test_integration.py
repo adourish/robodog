@@ -166,6 +166,35 @@ def main() -> int:
     check("unknown tool" in r and "Did you mean 'write_file'" in r,
           "unknown tool name -> closest-match suggestion")
 
+    # ---------------- context: keep-first/middle/recent compaction -------
+    # (2.1) compact() summarizes the MIDDLE, keeps the original goal + recent
+    # turns verbatim, and is fail-safe (never loses history on error).
+    cl = AgentLoop(EchoClient(script=lambda p, c: "## Goal\nX\n## Next steps\nY"),
+                   default_registry(cwd=str(wd)))
+    cl.history.append(Turn("user", "ORIGINAL GOAL: build the thing"))
+    for i in range(20):
+        cl.history.append(Turn("assistant", f"step {i} " + "x" * 200))
+        cl.history.append(Turn("tool", f"result {i} " + "y" * 200, tool_name="bash"))
+    before = cl.transcript_chars()
+    check(cl.compact(keep_recent=6) is True, "compact() summarizes a long transcript")
+    check(cl.history[0].content == "ORIGINAL GOAL: build the thing",
+          "compaction keeps the original goal verbatim")
+    check("earlier conversation summary" in cl.history[1].content,
+          "compaction inserts the summary as turn 2")
+    check(cl.history[-1].content.startswith("result 19"),
+          "compaction keeps the most recent turns verbatim")
+    check(cl.transcript_chars() < before, "compaction shrinks the transcript")
+
+    def _boom(p, c):
+        raise RuntimeError("gateway down")
+    cf = AgentLoop(EchoClient(script=_boom), default_registry(cwd=str(wd)))
+    cf.history.append(Turn("user", "goal"))
+    for i in range(15):
+        cf.history.append(Turn("tool", "z" * 300, tool_name="bash"))
+    snapshot = list(cf.history)
+    check(cf.compact() is False and cf.history == snapshot,
+          "compaction failure leaves history intact (no data loss)")
+
     print("\nINTEGRATION:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

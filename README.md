@@ -805,6 +805,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.28
+
+- **Smarter compaction (roadmap 2.1).** `/compact` and auto-compaction no longer
+  wipe the whole conversation — they keep your **original goal** and the **recent
+  turns** verbatim and summarize only the **middle**, using a structured schema
+  (goal / decisions / files touched / state / next steps / open problems).
+  Fail-safe: if the summary errors or wouldn't shrink things, history is left
+  untouched (no data loss).
+- **Edit idempotency (roadmap 2.5).** When `old_string` isn't found but the
+  `new_string` is already present, `edit_file`/`multi_edit` now say "this edit was
+  likely applied already — skip it" instead of a bare "not found" (stops
+  double-apply retry loops).
+
 ### 0.3.27
 
 - **Fix (Windows path corruption — important):** a `bash` command or `path` like

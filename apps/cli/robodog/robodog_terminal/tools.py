@@ -108,19 +108,27 @@ def _fuzzy_find(original: str, old: str) -> Optional[Tuple[int, int]]:
     return matches[0] if len(matches) == 1 else None
 
 
-def edit_not_found_hint(original: str, old: str) -> str:
+def edit_not_found_hint(original: str, old: str, new: str = "") -> str:
     """
     Explain WHY an edit_file old_string didn't match, so the model can self-
     correct instead of re-submitting the same broken edit. Returns a short hint
     string (leading space, no trailing newline), or "" if nothing useful found.
 
-    Detects, in priority order: the text is present but with different line
-    endings; present but with different leading/trailing whitespace; a non-unique
-    whitespace-normalized match; or shows the closest actual line in the file
-    with its line number so the model can copy the real content.
+    Detects, in priority order: the edit was ALREADY applied (idempotency); the
+    text is present but with different line endings; present but with different
+    leading/trailing whitespace; a non-unique whitespace-normalized match; or
+    shows the closest actual line in the file with its line number.
     """
     if not old.strip():
         return " old_string is empty — nothing to find."
+    # 0. Already applied: old_string is gone but new_string is present. On a
+    # retry this means the edit already succeeded — resubmitting loops forever.
+    # Require a SUBSTANTIAL new_string (>=8 non-space chars) so a short/common
+    # replacement like "x" or "0" doesn't false-positive against unrelated text.
+    if (new and len(new.strip()) >= 8 and new in original and old not in original):
+        return (" the new_string is ALREADY present and old_string is gone — this "
+                "edit was likely applied already. Skip it and move on (re-read the "
+                "file if unsure).")
     # 1. Line-ending mismatch: model sent CRLF the file doesn't have, or vice-versa.
     if old not in original:
         if old.replace("\r\n", "\n") in original.replace("\r\n", "\n") and (
@@ -962,7 +970,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             span = _fuzzy_find(original, old)
             if span is None:
                 return (f"ERROR: old_string not found in {path}."
-                        + edit_not_found_hint(original, old))
+                        + edit_not_found_hint(original, old, new))
             s, e = span
             updated = original[:s] + new + original[e:]
             note = " (matched with whitespace-normalization)"
@@ -1032,7 +1040,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                     applied += 1
                 else:
                     reason = "not found" if c == 0 else f"not unique ({c} matches)"
-                    hint = edit_not_found_hint(updated, old) if c == 0 else (
+                    hint = edit_not_found_hint(updated, old, new) if c == 0 else (
                         " add more surrounding context so it's unique.")
                     return (f"ERROR: edit #{i} {reason} — NO changes applied "
                             f"(atomic). old text starts: {old[:50]!r}.{hint}")
