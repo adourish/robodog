@@ -134,6 +134,19 @@ def main() -> int:
     ui.tool_result("glob", "No files matching '*.zzz' under /tmp.")
     check("No files matching" in plain(buf.getvalue()), "glob keeps its empty message")
 
+    # glob/grep now lead with a count header — the summary uses it (no off-by-one
+    # from the header line, and grep doesn't double-report "(+N more)").
+    ui, buf = capture()
+    ui.tool_result("glob", "75 file(s) matching '*.md':\n" + "\n".join(f"p{i}.md" for i in range(75)))
+    p = plain(buf.getvalue())
+    check("75 file(s) matching" in p and "76 entr" not in p,
+          "glob summary uses the accurate count header (not header+1)")
+    ui, buf = capture()
+    ui.tool_result("grep", "193 match(es) for /FDA/:\n" + "\n".join(f"f:{i}: FDA" for i in range(193)))
+    p = plain(buf.getvalue())
+    check("193 match(es)" in p and "more)" not in p,
+          "grep summary uses the count header without a redundant '(+N more)'")
+
     # subagent results: labeled with the child id, ANSWER surfaced (like a
     # modern agentic terminal), boilerplate header NOT echoed
     ui, buf = capture()

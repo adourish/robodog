@@ -716,6 +716,7 @@ class UI:
         leaks content into the trace and reads like noise. Failures get a
         loud style so the eye lands on them instead of scrolling past.
         """
+        import re as _re
         text = (result or "").strip()
         if not text:
             return "(no output)", "dim"
@@ -745,11 +746,18 @@ class UI:
                     "red" if failed else "dim")
 
         if name == "grep":
+            # result leads with "N match(es) for /…/:" — that header IS the
+            # summary; don't append a redundant "(+N more)".
+            if _re.match(r"\d+ match", first):
+                return self._flatten(first, 120), "dim"
             more = f"  (+{n - 1} more)" if n > 1 else ""
             return self._flatten(first, 100) + more, "dim"
 
         if name in ("glob", "list_dir"):
             if first.lower().startswith("no files"):
+                return self._flatten(first, 120), "dim"
+            # glob leads with "N file(s) matching …" — use that (accurate count).
+            if name == "glob" and _re.match(r"\d+ file", first):
                 return self._flatten(first, 120), "dim"
             return f"{n} entr{'y' if n == 1 else 'ies'}", "dim"
 

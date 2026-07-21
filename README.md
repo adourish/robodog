@@ -805,6 +805,16 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.42
+
+- **Cleaner compact trace (found verifying verbose-vs-summary).** After the
+  glob/grep count headers landed (0.3.39), the summary line double-reported —
+  `193 match(es) for /FDA/: (+193 more)` and glob showed an off-by-one count.
+  Fixed: grep/glob summaries now use the header's accurate count with no
+  redundant `(+N more)`. (Verified live: a heavy task renders **26 lines** in
+  summary vs **844** in verbose — a 34.5× reduction — with `read 233 lines` /
+  `19 entries` / `193 match(es)` and never a file dump.)
+
 ### 0.3.41
 
 - **`/stats` now shows estimated cost.** Session $ spend from a built-in
