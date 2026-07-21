@@ -805,6 +805,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.45
+
+- **`@`-path tab-completion.** Typing `@src/` (or any `@path`) now tab-completes
+  files and directories under the working dir — directories first, hidden files
+  only when you type the leading `.`, and an `@` mid-word (e.g. an email) doesn't
+  trigger it. Slash-command completion is unchanged.
+
 ### 0.3.44
 
 - **`/copy` and `/save <file>`** — copy the last answer to the clipboard

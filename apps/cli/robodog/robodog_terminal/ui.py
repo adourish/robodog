@@ -40,7 +40,7 @@ except Exception:  # pragma: no cover
 
 try:
     from prompt_toolkit import PromptSession
-    from prompt_toolkit.completion import WordCompleter
+    from prompt_toolkit.completion import WordCompleter, Completer, Completion
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.patch_stdout import patch_stdout
     from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
@@ -61,6 +61,47 @@ try:
                 super().store_string(clean)
             except Exception:  # pragma: no cover - defensive
                 pass
+
+    class _RobodogCompleter(Completer):
+        """Completes slash commands AND @-file mentions. When the word under the
+        cursor starts with '@', complete file/dir paths under cwd; otherwise fall
+        back to the slash-command word list."""
+
+        def __init__(self, commands, cwd):
+            self._words = (WordCompleter(sorted(commands), sentence=True,
+                                         match_middle=False) if commands else None)
+            self._cwd = Path(cwd)
+
+        def get_completions(self, document, complete_event):
+            text = document.text_before_cursor
+            at = text.rfind("@")
+            if (at != -1 and (at == 0 or text[at - 1].isspace())
+                    and " " not in text[at + 1:]):
+                yield from self._paths(text[at + 1:])
+                return
+            if self._words is not None:
+                yield from self._words.get_completions(document, complete_event)
+
+        def _paths(self, frag):
+            frag = frag.replace("\\", "/")
+            if "/" in frag:
+                sub, _, prefix = frag.rpartition("/")
+                base = self._cwd / sub
+            else:
+                base, prefix = self._cwd, frag
+            try:
+                entries = sorted(base.iterdir(),
+                                 key=lambda p: (p.is_file(), p.name.lower()))
+            except OSError:
+                return
+            pl = prefix.lower()
+            for child in entries:
+                name = child.name
+                if name.startswith(".") and not prefix.startswith("."):
+                    continue
+                if name.lower().startswith(pl):
+                    yield Completion(name + ("/" if child.is_dir() else ""),
+                                     start_position=-len(prefix))
 except Exception:  # pragma: no cover
     _HAVE_PT = False
 
@@ -135,10 +176,8 @@ class UI:
         if self._interactive:
             hist_dir = Path.home() / ".robodog"
             hist_dir.mkdir(parents=True, exist_ok=True)
-            completer = None
-            if commands:
-                completer = WordCompleter(sorted(commands), sentence=True,
-                                          match_middle=False)
+            # Slash commands + @-path completion (files/dirs under cwd).
+            completer = _RobodogCompleter(commands or [], self.cwd)
             self._session = PromptSession(
                 history=_SafeFileHistory(str(hist_dir / "terminal_history")),
                 completer=completer,

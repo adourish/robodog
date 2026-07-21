@@ -95,6 +95,28 @@ def main() -> int:
         ok_utf8 = False
     check(ok_utf8, "_SafeFileHistory writes valid utf-8")
 
+    # ---- @-file completion + slash-command completion --------------------
+    import tempfile
+    from robodog_terminal.ui import _RobodogCompleter
+    from prompt_toolkit.document import Document
+    wd = Path(tempfile.mkdtemp())
+    (wd / "src").mkdir()
+    (wd / "src" / "app.py").write_text("x", encoding="utf-8")
+    (wd / "src" / "api.py").write_text("y", encoding="utf-8")
+    (wd / "README.md").write_text("z", encoding="utf-8")
+    comp = _RobodogCompleter(["/help", "/save", "/stats"], str(wd))
+
+    def _c(t):
+        return [x.text for x in comp.get_completions(Document(t, len(t)), None)]
+
+    check("src/" in _c("read @sr"), "@-mention completes a directory")
+    check(set(_c("@src/")) == {"app.py", "api.py"},
+          "@dir/ completes the files inside it")
+    check(_c("@src/app") == ["app.py"], "@ path completes an unambiguous file")
+    check("/save" in _c("/s") and "/stats" in _c("/s"),
+          "slash-command completion still works")
+    check("src/" not in _c("email@"), "an @ mid-word doesn't spew path completions")
+
     print("\nINPUT:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

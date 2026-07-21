@@ -174,7 +174,7 @@ become dynamically-registered entries — weekend-scale, not a rearchitecture. E
 (GitHub, Postgres, browsers, Slack…) becomes a robodog tool for free. **Note:** MCP tools are
 network-capable → they must default to `executes=True` and pass the 4.1 guard.
 
-### 5.2 ✅ `@file` / `@folder` mentions + tab-complete  · S · *@folder listing shipped 0.3.33; @file + completion already present*
+### 5.2 ✅ `@file` / `@folder` mentions + tab-complete  · S · *@folder listing (0.3.33) + @-path tab-completion (0.3.45)*
 Robodog has `@`-mention expansion; make sure it covers folders and has REPL tab-completion.
 Table-stakes ergonomics (universal across Continue/Gemini/Qwen).
 
