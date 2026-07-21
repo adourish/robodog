@@ -1,10 +1,10 @@
 # robodog-terminal
 
-A agentic **agentic coding terminal**: a prompted tool-use loop that
-reads/edits files, runs commands, runs tests, and self-corrects — over pluggable
-LLM backends. Designed to run **leading models on self-hosted gateways**
-(air-gapped, where an agentic coding terminal can't reach), and works equally with
-OpenAI-compatible models or a fully offline mock.
+An **agentic coding terminal**: a prompted tool-use loop that reads/edits files,
+runs commands, runs tests, and self-corrects — over pluggable LLM backends.
+Designed to run **leading models on self-hosted gateways** (air-gapped, where the
+usual agentic assistants can't reach), and works equally with OpenAI-compatible
+models or a fully offline mock.
 
 ## Install
 ```bash
@@ -60,15 +60,39 @@ Other providers (`ROBODOG_LLM_URL`) and the enterprise gateway (`GATEWAY_*`)
 are covered in the [repo README](https://github.com/adourish/robodog#configuration).
 
 ## Features
-Agentic loop with an intent nudge + circuit breaker · tools (read/write/edit/
-multi_edit/bash/run_script/run_tests/glob/grep/list_dir) with read-before-edit,
-post-edit syntax verification and fuzzy edits · foreground + background subagents
-(`/bg /tasks /tail /kill`) · per-prompt checkpoints with `/rewind` · JSONL
-sessions (`/resume`, `--continue`) · plan mode · encrypted KeePass key vault
-(`/keepass`) · skills & custom commands
-(`.robodog/`) · `CLAUDE.md`/`ROBODOG.md` hierarchy · a rich + prompt_toolkit TUI
-with an emoji/color status line, clickable file & `file:line` links, multiline
-paste, and mid-turn Ctrl+B backgrounding · headless `-p` (text/json) · `/doctor`.
+
+**Agentic loop** — tools (read/write/edit/multi_edit/bash/run_script/run_tests/
+glob/grep/list_dir) with read-before-edit, byte-faithful writes + verify-after-
+write, fuzzy edits, and syntax checks.
+
+**Built for flaky gateways** — truncation-aware parsing (a cut-off tool call is
+recovered), a capped reflection loop that re-teaches the format on a malformed
+call, self-healing error hints (Windows paths, hyphenated skill dirs, `json.loads`
+on a dict, a credit-limited 402 auto-retried smaller), jittered `Retry-After`
+backoff, multi-format parsing (`<tool>`/`<invoke>`, `<think>` stripping, JSON tool
+calls).
+
+**Windows-smart** — auto-translates `&&`/`||`, `| head/tail/wc/grep`,
+`curl`→`curl.exe`, `dir /b`, `2>/dev/null`; UTF-8 end-to-end (no mojibake).
+
+**Safe by default** — one central guard on every code-executing tool; outward
+network writes (Jira POST, `git push`, `gh pr create`) confirm and **block
+fail-safe** when unattended. `/net-writes allow|deny|confirm`, or press `a` to
+always-allow.
+
+**Context & concurrency** — keep-goal/summarize-middle compaction, on-disk
+freshness checks, **parallel subagents** (live progress + model-concurrency cap)
+plus background subagents (`/bg /tasks /tail /kill`), a bounded never-overwhelming
+trace (`/verbose` for the full feed).
+
+**Ergonomics** — `@file`/`@folder` mentions with tab-completion · atomic
+`/rewind` (files + transcript) · JSONL sessions (`/resume`, `--continue`) · plan
+mode · encrypted KeePass vault (`/keepass`) · skills & custom commands with
+keyword triggers (`.robodog/`, `.claude/`) · `CLAUDE.md`/`ROBODOG.md` hierarchy ·
+rich + prompt_toolkit TUI (emoji/color status line, clickable `file:line`) ·
+`/stats` (tokens + est. cost), `/copy`, `/save` · headless `-p` (text/json) ·
+`/doctor`.
 
 Benchmarked at **capability parity with a leading agentic coding assistant** across 20 agentic
-scenarios. See `robodogcli/docs/TERMINAL_MODE_PLAN.md` for the full design.
+scenarios. See `docs/TERMINAL_MODE_PLAN.md` for the full design and `ROADMAP.md`
+for what's shipped/next.

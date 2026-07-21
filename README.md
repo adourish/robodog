@@ -383,17 +383,67 @@ output. Off by default (the raw reader is used otherwise); enable it in
 
 ## What it does
 
-Prompted tool-use loop (intent nudge + circuit breaker) · tools:
-`read_file / write_file / edit_file / multi_edit / bash / run_script / run_tests
-/ glob / grep / list_dir` with read-before-edit, post-edit syntax verification,
-and whitespace-tolerant edits · **parallel subagents** (fan out several in one
-turn — they run concurrently) plus background subagents ·
-per-prompt **checkpoints** with `/rewind` · JSONL **sessions** (`/resume`,
-`--continue`) · **plan mode** · **skills & custom commands** (`.robodog/` or
-`.claude/` — Claude Code layouts work unchanged) ·
-`CLAUDE.md`/`ROBODOG.md` instruction hierarchy · a rich + prompt_toolkit **TUI**
-(emoji/color status line, clickable file & `file:line` links, multiline paste,
-mid-turn Ctrl+B backgrounding) · **headless `-p`** (text/json) · `/doctor`.
+A prompted tool-use loop for LLMs with **no native tool API** (gateways,
+OpenAI-compatible endpoints, self-hosted models) — the model emits `<tool>`
+blocks as text and robodog parses, guards, and runs them.
+
+**Core tools** — `read_file / write_file / edit_file / multi_edit / bash /
+run_script / run_tests / glob / grep / list_dir`, with read-before-edit,
+byte-faithful writes + verify-after-write, whitespace-tolerant edits, and
+post-edit syntax checking.
+
+**Reliability (built for flaky gateways).** Truncation-aware parsing (a response
+cut off mid-tool-call is recovered, not misread as done) · a reflection loop that
+re-teaches the format on a malformed call, capped so it never loops forever ·
+self-healing hints that turn common errors into a fix (wrong Windows path, a
+hyphenated skill dir, `json.loads` on a parsed dict, a missing dev tool, a
+credit-limited 402 auto-retried smaller) · jittered backoff honoring
+`Retry-After` · garbled-200 retries.
+
+**Windows/PowerShell smoothing.** Auto-translates the bash-isms models reach for
+— `&&`/`||` chains, `| head/tail/wc/grep`, `curl`→`curl.exe`, `dir /b`,
+`2>/dev/null` — and forces UTF-8 end-to-end (no more `—`→`â€"` mojibake).
+
+**Safety.** Every code-executing tool passes one central guard; a new tool is
+guarded by default. Outward-facing **network writes** (a Jira POST, `git push`,
+`gh pr create`) confirm before running and **block fail-safe** in headless /
+sub-agent contexts — `/net-writes allow|deny|confirm` or press `a` to
+always-allow. Destructive local commands (`rm -rf`, `git reset --hard`) are
+flagged too.
+
+**Context & concurrency.** Keep-goal + summarize-middle + keep-recent compaction
+(auto near the ceiling) · freshness checks (refuses to edit a file changed on
+disk since you read it) · **parallel subagents** (fan out in one turn; live
+progress + the model-concurrency cap shown) plus background subagents · bounded,
+never-overwhelming trace (per-command + per-turn preview budgets; `/verbose` for
+the full feed).
+
+**Ergonomics.** Multi-format tool parsing (`<tool>`/`<invoke>`, `<think>`
+stripping, JSON tool calls) · `@file`/`@folder` mentions with tab-completion ·
+per-prompt **checkpoints** with atomic `/rewind` (files + transcript) · JSONL
+**sessions** (`/resume`, `--continue`) · **plan mode** · **skills & custom
+commands** with keyword triggers (`.robodog/` or `.claude/` — Claude Code layouts
+work unchanged) · `CLAUDE.md`/`ROBODOG.md` instruction hierarchy · rich +
+prompt_toolkit **TUI** (emoji/color status line, clickable `file:line` links) ·
+`/stats` (tokens + est. cost), `/copy`, `/save` · **headless `-p`** (text/json) ·
+`/doctor`.
+
+### Slash commands
+
+| | |
+|---|---|
+| `/help` `/status` `/stats` `/doctor` | help, status bar, session tokens+cost, environment check |
+| `/context` `/compact` `/clear` | transcript size · summarize (keep goal+recent) · wipe |
+| `/rewind [n]` | undo file edits **and** conversation back to prompt n |
+| `/model [id]` `/plan` | show/switch model · toggle plan mode (read-only until approved) |
+| `/net-writes [confirm\|allow\|deny]` | remote-write approval mode (or press `a` at a prompt) |
+| `/copy` `/save <file>` | copy / write the last answer |
+| `/btw <q>` | ask a side question (sees the convo, adds nothing to it; works mid-turn) |
+| `/tasks` `/tail` `/bg` `/kill` | background tasks · `/todos` · `/skills` · `/tools` · `/verbose` |
+| `@path` | tab-completes files/dirs; inlines a file (or lists a folder) into your message |
+
+Read-only commands (`/status`, `/doctor`, `/stats`, …) also work **mid-turn**
+while the agent is running.
 
 ## Screenshots
 
@@ -402,9 +452,10 @@ The default trace is compact — summaries, counts, attributed subagent
 answers; `/verbose` (or `--verbose`) switches to the full per-call feed.
 
 **Tool trace — summaries, a bounded live stream, loud failures.** `read_file`
-reports a line count instead of echoing content; long command output shows a
-15-line head with the rest held back (the model still gets everything);
-failures render red, never dim:
+reports a line count instead of echoing content; `glob`/`grep` lead with a count;
+long command output shows an 8-line head with the rest held back (and a per-turn
+preview budget so many commands can't flood the trace — the model still gets
+everything); failures render red, never dim:
 
 ![tool trace](docs/screenshots/4_tool_trace.png)
 
@@ -672,8 +723,19 @@ wins, `.robodog` over `.claude` — Claude Code settings work unchanged):
 **Permissions** — rules are `tool` or `tool(glob)`, matched against the
 call's main argument (the command for `bash`/`run_script`, the path for file
 tools). `deny` always blocks (the agent is told not to retry); `allow`
-pre-approves the call past the `--guard confirm` prompt; anything unmatched
-keeps the default behavior.
+pre-approves the call past the confirm prompt; anything unmatched keeps the
+default behavior.
+
+**Outward-facing writes (safety).** Separate from `--guard` (which covers
+destructive *local* commands), robodog gates **network writes** — a Jira/API
+`POST`/`PUT`/`DELETE`, `git push` (incl. `--force`), `gh pr/issue/release
+create` — through one central checkpoint that *every* code-executing tool (and
+any future tool, by default) passes. Default `confirm`: prompt with
+`[y]es / [N]o / [a]lways this session`, and **block fail-safe** when it can't
+prompt (headless or a sub-agent) so an autonomous agent can't push or close a
+ticket on its own. Switch at runtime with `/net-writes allow|deny|confirm`, or
+start with `--net-writes …` / `ROBODOG_NET_WRITES=…`. (An `allow` permission
+rule also pre-approves a specific call.)
 
 **Hooks** — shell commands run on agent events, with a JSON payload
 (`event`, `tool_name`, `tool_input`, `tool_result`, `cwd`) on stdin.
@@ -804,6 +866,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
+
+### 0.3.47
+
+- **Docs:** README + PyPI page rewritten to cover this session's work — the
+  reliability loop, self-healing hints, Windows/PowerShell smoothing + UTF-8, the
+  central network-write safety guard, compaction/freshness, subagent progress,
+  and the new commands (`/stats` with cost, `/copy`, `/save`, `/net-writes`,
+  `@`-path completion). Added a slash-command reference and a network-write-guard
+  section.
 
 ### 0.3.46
 
