@@ -191,7 +191,7 @@ Robodog discovers `.claude`/`.robodog` skills. Add OpenHands-style frontmatter
 `triggers: [k8s, kubernetes]` so a skill loads into context **only** when the user's message
 matches — conditional context injection almost for free, reduces bloat (synergy with 2.1).
 
-### 5.6 🟡 Shadow-git checkpoint + atomic file+transcript restore  · M
+### 5.6 🟡 Shadow-git checkpoint + atomic file+transcript restore  · M · *atomic file+transcript restore shipped 0.3.34; shadow-git snapshot store still TODO*
 Robodog has checkpoint/rewind. Upgrades (Gemini CLI): snapshot into a *shadow* git repo
 (handles untracked/multi-file states, free diff/GC, isolated from the user's repo); restore
 files **and** rewind the transcript together so undo is atomic across both.

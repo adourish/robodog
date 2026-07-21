@@ -144,6 +144,16 @@ def main() -> int:
           and "big prompt" in out,
           "/test agents N big runs a sized fan-out and reports N/N ok + timing stats")
 
+    # ---- /rewind is atomic: reverts files AND the transcript (5.6) --------
+    wd6 = tempfile.mkdtemp(prefix="rd_app_rewind_")
+    code, out = run_main(["--echo", "--cwd", wd6],
+                         inputs=["build the demo", "/rewind 0", "/exit"])
+    check(code == 0, "rewind drive exits cleanly")
+    check(not (Path(wd6) / "demo.py").exists(),
+          "/rewind 0 deleted the created demo.py")
+    check("dropped" in out and "conversation turn" in out,
+          "/rewind also rewinds the conversation transcript (files+context atomic)")
+
     # session actually persisted turns
     from robodog_terminal.sessions import SessionStore
     store = SessionStore(project_dir=str(Path(wd5).resolve()))

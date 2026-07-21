@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.34
+
+- **`/rewind` is now atomic across files AND the conversation (roadmap 5.6).**
+  Rewinding to before prompt N reverts the files *and* drops the conversation
+  turns from N onward, so the model's context matches what's actually on disk
+  (previously it reverted files but still "remembered" making the changes, which
+  desynced the agent). Reports e.g. `rewound 2 file(s) … and dropped 5
+  conversation turn(s)`.
+
 ### 0.3.33
 
 - **UX (roadmap Phase 5).**

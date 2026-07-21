@@ -840,6 +840,10 @@ def main(argv=None) -> int:
         ui.dim("📋 plan mode ON — agent is read-only until you approve a plan")
     prompt_count = 0
     prompt_texts = []
+    # marker (prompt index) -> len(loop.history) BEFORE that prompt ran, so
+    # /rewind can drop the conversation turns from that prompt onward (keeping the
+    # model's context in sync with the reverted files).
+    history_marks: dict = {}
     import time as _time
     _session_start = _time.time()
 
@@ -1104,7 +1108,17 @@ def main(argv=None) -> int:
                     actions = checkpointer.restore(n)
                     for a in actions:
                         ui.info(f"  ↩ {a}")
-                    ui.info(f"rewound {len(actions)} file(s) to before prompt {n}.")
+                    # Also rewind the CONVERSATION to before prompt n, so the model's
+                    # context matches the reverted files (atomic files+transcript undo).
+                    convo_note = ""
+                    mark = history_marks.get(n)
+                    if mark is not None and mark <= len(loop.history):
+                        dropped = len(loop.history) - mark
+                        if dropped > 0:
+                            del loop.history[mark:]
+                            persisted[0] = min(persisted[0], len(loop.history))
+                            convo_note = f" and dropped {dropped} conversation turn(s)"
+                    ui.info(f"rewound {len(actions)} file(s) to before prompt {n}{convo_note}.")
             elif cmd == "model":
                 if rest:
                     want = _normalize_model_id(rest)
@@ -1134,6 +1148,7 @@ def main(argv=None) -> int:
                     ui.info("⏵ plan mode OFF — YOLO")
             elif cmd == "init":
                 prompt_texts.append("/init")
+                history_marks[prompt_count] = len(loop.history)
                 checkpointer.set_marker(prompt_count)
                 prompt_count += 1
                 try:
@@ -1337,6 +1352,7 @@ def main(argv=None) -> int:
                 # Custom slash command: render template + run as an agent turn.
                 tmpl = skills.get_command(cmd)
                 prompt = tmpl.render(rest, ui.cwd)
+                history_marks[prompt_count] = len(loop.history)
                 checkpointer.set_marker(prompt_count)
                 prompt_texts.append(line)
                 prompt_count += 1
@@ -1388,6 +1404,7 @@ def main(argv=None) -> int:
             finalize_and_show(detached[0].result)
             detached[0] = None
 
+        history_marks[prompt_count] = len(loop.history)
         checkpointer.set_marker(prompt_count)
         prompt_texts.append(line)
         prompt_count += 1
