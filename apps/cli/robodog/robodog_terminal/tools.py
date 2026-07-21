@@ -1599,12 +1599,50 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
     def _glob(args):
         pattern = args["pattern"]
         root = reg._resolve(args.get("path", ".") or ".", search=True)
-        matches = sorted(str(p.relative_to(reg.cwd)) if str(p).startswith(str(reg.cwd)) else str(p)
-                         for p in root.rglob("*")
-                         if p.is_file() and not _is_excluded(p.relative_to(root))
-                         and fnmatch.fnmatch(p.name, pattern))
+        cwd_s = str(reg.cwd)
+
+        def _rel(full: str) -> str:
+            return str(Path(full).relative_to(reg.cwd)) if full.startswith(cwd_s) else full
+
+        # os.walk with in-place dir pruning so node_modules/.git/etc. are never
+        # descended into (rglob would walk all of them first, then filter — slow
+        # right after an `npm install`). Collect a small sample of NON-matching
+        # files too, to orient the model when the pattern matches nothing.
+        matches: List[str] = []
+        present: List[str] = []
+        scanned = 0
+        try:
+            for dirpath, dirnames, filenames in os.walk(str(root)):
+                dirnames[:] = [d for d in dirnames
+                               if d not in EXCLUDE_DIRS and not d.endswith(".egg-info")]
+                for fn in filenames:
+                    if fnmatch.fnmatch(fn, pattern):
+                        matches.append(_rel(os.path.join(dirpath, fn)))
+                    elif len(present) < 40:
+                        present.append(os.path.relpath(os.path.join(dirpath, fn), str(root)))
+                scanned += len(filenames)
+                if len(matches) >= 2000 or scanned > 60_000:
+                    break
+        except (OSError, RuntimeError):
+            pass
+        matches.sort()
         if not matches:
-            return f"No files matching '{pattern}' under {root}."
+            # Mirror the read_file/list_dir "did you mean" philosophy: a bare "no
+            # files" leads models to barrel on and read paths they only assumed
+            # exist. Show what IS there so they can fix the pattern or the path.
+            if not present:
+                return (f"No files matching '{pattern}' under {root} "
+                        f"(the directory is empty or fully excluded).")
+            exts = sorted({os.path.splitext(p)[1] for p in present
+                           if os.path.splitext(p)[1]})
+            sample = sorted(present)[:15]
+            more = "\n  …(more)" if len(present) >= 40 else ""
+            return (f"No files matching '{pattern}' under {root} — but files ARE "
+                    f"present there"
+                    + (f" (types: {' '.join(exts[:12])})" if exts else "")
+                    + ". The pattern matches the file BASENAME (e.g. '*.js', "
+                    "'*.test.js'). What's actually there:\n  "
+                    + "\n  ".join(sample) + more)
         # Lead with the COUNT so the model doesn't have to count lines (small
         # models miscount) — then the list (capped at 500).
         n = len(matches)

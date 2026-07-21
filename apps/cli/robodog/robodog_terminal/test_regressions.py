@@ -130,6 +130,17 @@ def main() -> int:
     check("Did you mean" in r and "test" in r, "list_dir near-miss subdir -> src/test")
     r = reg.execute("list_dir", {"path": "note.py"})
     check("is a file" in r and "read_file" in r, "list_dir on a file -> use read_file")
+    # glob that matches nothing orients the model with what IS there (it globbed
+    # *.test.js, got nothing, then read 12 files it only ASSUMED existed).
+    (wd / "suite").mkdir()
+    (wd / "suite" / "chatHandler.js").write_text("x")
+    r = reg.execute("glob", {"path": "suite", "pattern": "*.test.js"})
+    check("No files matching" in r and "chatHandler.js" in r and "ARE present" in r,
+          "glob with 0 matches shows the files that DO exist (not a bare 'no files')")
+    (wd / "node_modules" / "pkg").mkdir(parents=True)
+    (wd / "node_modules" / "pkg" / "d.test.js").write_text("x")
+    r = reg.execute("glob", {"path": ".", "pattern": "*.test.js"})
+    check("node_modules" not in r, "glob prunes node_modules (never descends into it)")
     reg.execute("read_file", {"path": "note.py"})
     r = reg.execute("edit_file", {"path": "note.py", "old_string": "value = 1",
                                   "new_string": "value = 2"})

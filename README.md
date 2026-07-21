@@ -881,6 +881,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.55
+
+- **`glob` that matches nothing now orients you.** Instead of a bare "No files
+  matching '*.test.js'", it lists the files that *are* under that path (with the
+  extensions present) — so when a pattern or directory is wrong, you see the real
+  layout immediately instead of proceeding to read files that were only assumed to
+  exist. Mirrors the read_file / list_dir "did you mean" behavior.
+- **`glob` no longer descends into `node_modules`/`.git`/etc.** Switched from
+  `rglob` (which walked excluded trees, then filtered) to a pruning `os.walk` —
+  noticeably faster in a Node repo right after `npm install`, and excluded dirs
+  can never leak a false match.
+
 ### 0.3.54
 
 - **Fixed a `grep`-in-a-pipe mistranslation.** `… | grep -n "pattern"` was being
