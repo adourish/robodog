@@ -881,6 +881,14 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.51
+
+- **`list_dir` misses now help (like `read_file`).** Listing a directory that
+  doesn't exist now — when the parent exists — fuzzy-matches sibling subdirectories
+  (`src/tests` → "Did you mean src/test") or lists what subdirs *do* exist,
+  instead of a bare "not found". Pointing `list_dir` at a file says "that's a file —
+  use read_file". (Found in a live session.)
+
 ### 0.3.50
 
 - **npm error hints (non-Node repo).** When a model runs `npm test` / `npm

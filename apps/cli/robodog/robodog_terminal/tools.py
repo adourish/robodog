@@ -234,6 +234,30 @@ def read_not_found_hint(root: Path, requested: Path) -> str:
     return ""
 
 
+def dir_not_found_hint(requested: Path) -> str:
+    """A 'did you mean …' for a list_dir miss on a directory: when the parent
+    exists, fuzzy-match the name against its SUBDIRECTORIES (a model looking for
+    `src/tests` when the dir is `src/test`), else list the subdirs that exist.
+    Returns a hint (leading space) or "". Assumes `requested` doesn't exist."""
+    parent = requested.parent
+    try:
+        if parent.is_dir():
+            subdirs = sorted(p.name for p in parent.iterdir() if p.is_dir())
+            if subdirs:
+                import difflib
+                near = difflib.get_close_matches(requested.name, subdirs, n=3, cutoff=0.4)
+                if near:
+                    return " Did you mean: " + " | ".join(str(parent / n) for n in near)
+                sample = ", ".join(subdirs[:12])
+                more = f" (+{len(subdirs) - 12} more)" if len(subdirs) > 12 else ""
+                return (f" {parent} has no '{requested.name}' subdir. "
+                        f"Its subdirs: {sample}{more}")
+            return f" {parent} exists but has no subdirectories."
+    except OSError:
+        pass
+    return ""
+
+
 def _clamp(text: str, limit: int = MAX_OUTPUT) -> str:
     if len(text) <= limit:
         return text
@@ -1521,7 +1545,10 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
     def _list_dir(args):
         path = reg._resolve(args.get("path", ".") or ".", search=True)
         if not path.exists():
-            return f"ERROR: not found: {path}"
+            return f"ERROR: not found: {path}." + dir_not_found_hint(path)
+        if not path.is_dir():
+            return (f"ERROR: {path} is a file, not a directory — "
+                    f"use read_file to view it.")
         entries = []
         for p in sorted(path.iterdir()):
             entries.append(f"{'d' if p.is_dir() else '-'} {p.name}")

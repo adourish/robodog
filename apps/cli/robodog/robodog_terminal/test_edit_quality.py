@@ -192,6 +192,22 @@ def main() -> int:
           and (wd / "crlf.txt").read_bytes() == b"l1\r\nl2\r\n",
           "CRLF content is preserved exactly and verifies clean")
 
+    # ---- list_dir on a missing/wrong path helps (like read_file) -----------
+    # From a real session: list_dir src/tests -> bare "not found" though src/
+    # existed. Now it fuzzy-matches sibling subdirs / lists them / flags a file.
+    (wd / "srcx" / "test").mkdir(parents=True, exist_ok=True)
+    (wd / "srcx" / "main").mkdir(exist_ok=True)
+    r = reg.execute("list_dir", {"path": "srcx/tests"})   # 'tests' vs 'test'
+    check("Did you mean" in r and "test" in r,
+          "list_dir near-miss subdir -> fuzzy suggestion")
+    r = reg.execute("list_dir", {"path": "srcx/nope"})
+    check("has no 'nope' subdir" in r and "main" in r,
+          "list_dir unrelated miss -> lists the parent's subdirs")
+    (wd / "afile.txt").write_text("x", encoding="utf-8")
+    r = reg.execute("list_dir", {"path": "afile.txt"})
+    check("is a file" in r and "read_file" in r,
+          "list_dir on a file -> points at read_file")
+
     # ---- freshness: refuse to edit a file changed on disk since read -------
     # Prevents the data-loss class where the agent edits from a stale mental
     # copy and clobbers changes it never saw (Roo #1891, aider #2864).
