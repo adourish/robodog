@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -477,6 +478,27 @@ class OpenAICompatClient(LLMClient):
                                 finish_reason=(choice.get("finish_reason") or ""))
                         if not last_err.startswith("malformed"):
                             last_err = "empty response"
+                    elif resp.status_code == 402:
+                        # Payment required. OpenRouter says how many tokens the
+                        # balance CAN afford ("can only afford 1074"); if it's less
+                        # than we asked for, shrink max_tokens and retry so the turn
+                        # succeeds instead of failing every time. Only truly-broke
+                        # (afford too small / no number) falls through to an error.
+                        body = resp.text or ""
+                        m = re.search(r"can only afford (\d+)", body)
+                        afford = int(m.group(1)) if m else 0
+                        cur = payload.get("max_tokens") or max_tokens
+                        if afford >= 256 and afford < cur:
+                            payload["max_tokens"] = afford - 16   # small safety margin
+                            last_err = (f"HTTP 402 — shrinking max_tokens to "
+                                        f"{payload['max_tokens']} (credit-limited) and retrying")
+                            retry_after = 0.0   # no backoff; it's a config retry
+                        else:
+                            raise RuntimeError(
+                                f"LLM HTTP 402 (out of credits): {resp.text[:200]} — "
+                                f"add credits at openrouter.ai/settings, or lower "
+                                f"--max-tokens / ROBODOG_MAX_TOKENS below the affordable "
+                                f"amount ({afford or 'unknown'}).")
                     elif resp.status_code in (429,) or resp.status_code >= 500:
                         last_err = f"HTTP {resp.status_code}"
                         # Honor the server's backoff ask on rate-limit / overload.

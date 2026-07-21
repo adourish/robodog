@@ -62,7 +62,9 @@ class LoopResult:
     iterations: int
     total_tokens: int
     turns: List[Turn]
-    duration: float = 0.0   # wall-clock seconds for the turn
+    duration: float = 0.0        # wall-clock seconds for the turn
+    prompt_tokens: int = 0       # input tokens (for cost accounting)
+    completion_tokens: int = 0   # output tokens
 
 
 class AgentLoop:
@@ -214,6 +216,8 @@ class AgentLoop:
         _t0 = _time.time()
         self.history.append(Turn("user", user_message))
         total_tokens = 0
+        ptok_sum = 0
+        ctok_sum = 0
         iterations = 0
         final_text = ""
         nudged = False
@@ -241,6 +245,8 @@ class AgentLoop:
                               "Your conversation is kept — just try again in a moment.]").strip()
                 break
             total_tokens += completion.total_tokens
+            ptok_sum += getattr(completion, "prompt_tokens", 0) or 0
+            ctok_sum += getattr(completion, "completion_tokens", 0) or 0
             text = completion.text or ""
             calls, prose = parse_tool_calls(text)
             self.on_event("llm_done", {
@@ -392,4 +398,6 @@ class AgentLoop:
             total_tokens=total_tokens,
             turns=list(self.history),
             duration=_time.time() - _t0,
+            prompt_tokens=ptok_sum,
+            completion_tokens=ctok_sum,
         )

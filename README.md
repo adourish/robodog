@@ -805,6 +805,21 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.36
+
+- **Fix (unblocks credit-limited turns): HTTP 402 auto-shrink.** When OpenRouter
+  replies `402 … you requested up to 8192 tokens, but can only afford 1074`,
+  robodog now retries the request with `max_tokens` lowered to the affordable
+  amount instead of failing every turn. Truly out of credits → one clear error
+  (add credits / lower max-tokens), no useless retries.
+- **`curl` works on Windows.** `curl` is auto-aliased to `curl.exe` (PowerShell's
+  `curl` is really `Invoke-WebRequest`, which breaks real curl flags like
+  `-s -o -w`). Only in command position; `curl.exe` is left alone.
+- **`/net-writes [confirm|allow|deny]`** — switch the remote-write approval mode
+  at runtime (no restart). `/net-writes allow` stops the `git push`/API-write
+  prompts for the session. (You can also press **`a`** at any prompt to
+  always-allow just that action.)
+
 ### 0.3.35
 
 - **Fix: byte-faithful file writes.** `write_file`/`edit_file` now write content

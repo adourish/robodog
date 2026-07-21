@@ -414,6 +414,21 @@ def _translate_filter_segment(seg: str) -> Optional[str]:
     return None
 
 
+_CURL_RE = re.compile(r"(^|[|&;{(]\s*)curl(?=\s)", re.IGNORECASE)
+
+
+def translate_windows_aliases(command: str) -> str:
+    """On Windows, `curl` and `wget` are PowerShell ALIASES for
+    Invoke-WebRequest, which chokes on real curl flags (`curl -s -o x -w y` ->
+    "Missing an argument for parameter 'SessionVariable'"). Point `curl` at the
+    real `curl.exe` (ships with Windows 10 1803+/11) so those commands run.
+    Only rewrites `curl` in command position (start, or after |/&/;/{/(); a
+    `curl.exe` already present is left alone."""
+    if os.name != "nt" or "curl" not in command.lower():
+        return command
+    return _CURL_RE.sub(lambda m: m.group(1) + "curl.exe", command)
+
+
 def translate_unix_pipe_filters(command: str) -> str:
     """Rewrite trailing/embedded `| head -N`, `| tail -N`, `| wc -l` to the
     PowerShell equivalents so `git log | head -20` actually runs on Windows
@@ -1217,7 +1232,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             # instead of erroring: `&&`/`||` chains -> if ($?)/if (-not $?), and
             # `| head/tail/wc` -> Select-Object/Measure-Object (handled per chain
             # segment inside powershell_translate).
-            run_cmd = powershell_translate(command)
+            run_cmd = powershell_translate(translate_windows_aliases(command))
             shell_cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", run_cmd]
         else:
             shell_cmd = ["/bin/sh", "-c", command]

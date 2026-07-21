@@ -244,6 +244,7 @@ Commands:
   /status            show model, cwd, token usage
   /context           show transcript size breakdown
   /stats             session tokens, context %, turns, files read, uptime
+  /net-writes [mode] remote-write approvals: confirm (default) | allow | deny
   /btw <question>    ask a quick side question (sees the convo, adds nothing to it);
                      works mid-turn too — answered in the background, e.g. "are you stuck?"
   /compact           summarize the conversation to free context
@@ -276,7 +277,8 @@ Anything else is sent to the agent, which can read/edit files, run commands,
 and delegate to subagents.
 """
 
-SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/stats", "/btw",
+SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/stats",
+                  "/net-writes", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
                   "/keepass", "/cert", "/test",
                   "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/verbose",
@@ -1050,6 +1052,19 @@ def main(argv=None) -> int:
                     f"  turns:       {prompt_count} prompts · {len(loop.history)} history entries\n"
                     f"  files read:  {files}\n"
                     f"  uptime:      {mm}m {ss}s")
+            elif cmd in ("net-writes", "netwrites", "allow"):
+                mode = rest.lower().strip()
+                if mode not in ("confirm", "deny", "allow"):
+                    ui.info(f"network-write guard: {registry.net_guard}\n"
+                            f"  /net-writes confirm  — ask before each remote write (default)\n"
+                            f"  /net-writes allow    — permit remote writes without asking\n"
+                            f"  /net-writes deny     — block all remote writes\n"
+                            f"  (also: choose 'a' at a prompt to always-allow that one action; "
+                            f"local commands are governed by --guard)")
+                else:
+                    registry.net_guard = mode
+                    registry.session_allow.clear()   # a mode change resets remembered approvals
+                    ui.info(f"network-write guard set to '{mode}' for this session.")
             elif cmd == "btw":
                 if not rest:
                     ui.error("usage: /btw <question>")

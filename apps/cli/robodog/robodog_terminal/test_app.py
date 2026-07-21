@@ -91,6 +91,8 @@ def main() -> int:
         "/status",
         "/context",
         "/stats",
+        "/net-writes",           # show current mode
+        "/net-writes allow",     # switch mode at runtime
         "/tools",
         "/model",                # show
         "/model gpt-4o",         # live switch (echo backend rebuild)
@@ -127,6 +129,8 @@ def main() -> int:
     check("project instructions" in out, "CLAUDE.md loading announced")
     check("plan mode ON" in out and "plan mode OFF" in out, "/plan toggles")
     check("session stats" in out and "uptime" in out, "/stats shows a session summary")
+    check("network-write guard" in out and "set to 'allow'" in out,
+          "/net-writes shows current mode and switches at runtime")
     check("switched to" in out, "/model live switch")
     check("bang-works" in out, "! passthrough ran")
     check("no background tasks" in out, "/tasks empty listing")

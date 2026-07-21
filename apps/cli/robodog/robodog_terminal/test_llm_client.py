@@ -212,6 +212,34 @@ def main() -> int:
     check(oc.complete("q").text == "ok2" and "malformed" in oretries[0],
           "a 200 whose body won't parse as JSON is retried")
 
+    # HTTP 402: shrink max_tokens to the affordable amount and retry (unblocks
+    # a credit-limited turn instead of failing every time).
+    class _Sess402:
+        def __init__(self, responses):
+            self.responses = list(responses); self.posts = []
+        def post(self, url, **kw):
+            self.posts.append(dict(kw.get("json") or {}))
+            r = self.responses.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+    body = '{"error":{"message":"requested up to 8192 tokens, but can only afford 1074."}}'
+    s402 = _Sess402([FakeResp(402, text=body), FakeResp(200, oai_payload("recovered"))])
+    oc = OpenAICompatClient(base_url="https://openrouter.ai/api", api_key="k", model="m",
+                            session=s402, on_retry=lambda *a: None)
+    check(oc.complete("q", max_tokens=8192).text == "recovered"
+          and s402.posts[1]["max_tokens"] == 1074 - 16,
+          "402 'can only afford N' -> retry with max_tokens=N-16 -> recovers")
+    s402b = _Sess402([FakeResp(402, text='{"error":{"message":"Insufficient credits."}}')])
+    ocb = OpenAICompatClient(base_url="https://openrouter.ai/api", api_key="k", model="m",
+                             session=s402b, on_retry=lambda *a: None)
+    try:
+        ocb.complete("q", max_tokens=8192)
+        check(False, "402 out-of-credits should raise")
+    except RuntimeError as exc:
+        check("out of credits" in str(exc) and len(s402b.posts) == 1,
+              "402 with no affordable amount -> clear error, no useless retry")
+
     # ---- backend/model mismatch hint --------------------------------------
     oc = OpenAICompatClient(base_url="https://api.openai.com", api_key="k",
                             model="anthropic/claude-sonnet-4.6",

@@ -135,6 +135,15 @@ def main() -> int:
               "grep quoted pattern with spaces is preserved intact")
         check(_tf("cmd | grep -v error") == "(cmd) | Select-String -NotMatch error",
               "grep -v -> Select-String -NotMatch")
+        # curl -> curl.exe (PowerShell aliases curl to Invoke-WebRequest)
+        from robodog_terminal.tools import translate_windows_aliases as _twa
+        check(_twa('curl -s -o x -w "%{http_code}" https://a') ==
+              'curl.exe -s -o x -w "%{http_code}" https://a',
+              "curl with real flags -> curl.exe")
+        check(_twa("cd x && curl y") == "cd x && curl.exe y",
+              "curl after && -> curl.exe")
+        check(_twa("curl.exe already") == "curl.exe already", "curl.exe left alone")
+        check(_twa("echo mycurl") == "echo mycurl", "non-command-position curl untouched")
         check(_tf('echo "a | head -5"') == 'echo "a | head -5"',
               "pipe inside quotes is NOT translated")
         check(_tf("type f | head file.txt") == "type f | head file.txt",
