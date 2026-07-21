@@ -622,6 +622,42 @@ def shell_syntax_hint(command: str, combined: str) -> str:
     return ""
 
 
+_PS_MISSING_PATH_RE = re.compile(
+    r"Cannot find path '([^']+)' because it does not exist", re.IGNORECASE)
+
+
+def shell_path_not_found_hint(command: str, combined: str, cwd: str) -> str:
+    """PowerShell's `Cannot find path 'X' because it does not exist` (from
+    Get-Content/cat/gc/type/Remove-Item/…) is a raw dead-end. Give it the same
+    did-you-mean that read_file gives — models constantly `cat`/`Get-Content` a
+    file at a path they only ASSUMED (seen repeatedly on a mono-repo) — and, for a
+    plain file read, nudge toward the read_file tool (which tracks the file for a
+    later edit and suggests near-misses itself). Returns a hint or ""."""
+    if os.name != "nt":
+        return ""
+    m = _PS_MISSING_PATH_RE.search(combined or "")
+    if not m:
+        return ""
+    missing = m.group(1).strip().strip('"')
+    name = os.path.basename(missing.rstrip("\\/"))
+    hint = f"\nHINT: '{missing}' does not exist."
+    if name:
+        try:
+            hits = [h for h in find_by_basename(Path(cwd), name, limit=3)
+                    if os.path.normpath(h) != os.path.normpath(missing)]
+        except Exception:
+            hits = []
+        if hits:
+            hint += ((" Did you mean:\n    " + hits[0]) if len(hits) == 1
+                     else " Did you mean one of:\n    " + "\n    ".join(hits))
+        else:
+            hint += " Check the path with list_dir or glob."
+    if re.search(r"\b(get-content|gc|cat|type)\b", (command or "").lower()):
+        hint += ("\n(To read a file, prefer the read_file tool — it finds "
+                 "near-misses and lets you edit the file afterward.)")
+    return hint
+
+
 def python_import_hint(stderr: str, cwd: str) -> str:
     """A one-line fix for the #1 Python import loop we see with skill repos:
     `from pkg.sub.jira_call.main import run` fails with ModuleNotFoundError
@@ -1399,6 +1435,12 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         hint = shell_syntax_hint(command or shown_cmd, out + "\n" + err)
         if hint:
             parts.append(hint.lstrip("\n"))
+        # Missing-path did-you-mean also keys on error text (Get-Content on a
+        # non-existent file is a non-terminating error — may exit 0).
+        ph = shell_path_not_found_hint(command or shown_cmd, out + "\n" + err,
+                                       str(reg.cwd))
+        if ph:
+            parts.append(ph.lstrip("\n"))
         # Python self-heal hints (failed runs only): hyphenated-skill-dir import
         # loop (fdaskills.jira.jira_call -> jira-call) and json.loads on an
         # already-parsed value — both observed looping 3x on ELSA.

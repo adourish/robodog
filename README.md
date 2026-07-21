@@ -881,6 +881,16 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.56
+
+- **`Get-Content`/`cat` on a missing path now gets a "did you mean".** When a
+  bash command reads a file that doesn't exist, PowerShell's raw *"Cannot find
+  path 'X' because it does not exist"* is now followed by the same fuzzy
+  same-basename suggestion the `read_file` tool gives — plus a nudge to use
+  `read_file` (which tracks the file for a later edit). Models frequently `cat` a
+  path they only assumed existed; this points them at the real one instead of a
+  dead-end.
+
 ### 0.3.55
 
 - **`glob` that matches nothing now orients you.** Instead of a bare "No files

@@ -85,6 +85,16 @@ def main() -> int:
         check("Get-ChildItem" in T.shell_syntax_hint("dir C:\\x /b",
                                                       "DirArgumentError path2"),
               "`dir /b` (cmd.exe) -> Get-ChildItem -Name hint")
+        # `Get-Content`/`cat` on a missing path (bash-read of an ASSUMED file) gets
+        # the same did-you-mean + read_file nudge that read_file gives.
+        preg, pwd = _reg({"config/babel.config.cjs": "x"})
+        ph = T.shell_path_not_found_hint(
+            "Get-Content babel.config.cjs",
+            r"Get-Content : Cannot find path 'Z:\x\babel.config.cjs' because it "
+            r"does not exist.", str(pwd))
+        check("Did you mean" in ph and "babel.config.cjs" in ph
+              and "read_file tool" in ph,
+              "bash `Get-Content missing` -> did-you-mean + read_file nudge")
 
     # ============ B. Prompted tool-call parsing ============
     print("=== B. tool-call parsing ===")
