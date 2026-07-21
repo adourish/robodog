@@ -805,6 +805,17 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.35
+
+- **Fix: byte-faithful file writes.** `write_file`/`edit_file` now write content
+  **exactly** as given (`newline=""`) instead of translating `\n`→`\r\n` on
+  Windows — which had been silently mangling CRLF content (doubling line endings)
+  and rewriting line endings on every save.
+- **Verify-after-write (roadmap 4.2).** After a write, robodog reads the bytes
+  back and confirms they match — catching a truncated/failed write (disk full, a
+  lock, a racing process) and telling the model to re-read instead of assuming
+  success (the Gemini-CLI "hallucinated the write landed" class).
+
 ### 0.3.34
 
 - **`/rewind` is now atomic across files AND the conversation (roadmap 5.6).**

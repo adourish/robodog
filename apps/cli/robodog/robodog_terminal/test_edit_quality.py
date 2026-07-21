@@ -169,6 +169,15 @@ def main() -> int:
     check("-**See**: `a/skill.md`" in d and "+**See**: `b/skill.md`" in d,
           "both the old and new last lines appear, on their own lines")
 
+    # ---- verify-after-write + byte-faithful writes (4.2) -------------------
+    reg.execute("write_file", {"path": "vw.py", "content": "a = 1\nb = 2\n"})
+    check((wd / "vw.py").read_bytes() == b"a = 1\nb = 2\n",
+          "write_file writes LF byte-faithfully (no \\n->\\r\\n translation)")
+    r = reg.execute("write_file", {"path": "crlf.txt", "content": "l1\r\nl2\r\n"})
+    check("WRITE NOT VERIFIED" not in r
+          and (wd / "crlf.txt").read_bytes() == b"l1\r\nl2\r\n",
+          "CRLF content is preserved exactly and verifies clean")
+
     # ---- freshness: refuse to edit a file changed on disk since read -------
     # Prevents the data-loss class where the agent edits from a stale mental
     # copy and clobbers changes it never saw (Roo #1891, aider #2864).

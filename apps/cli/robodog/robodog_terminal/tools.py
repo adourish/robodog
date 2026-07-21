@@ -910,10 +910,28 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
 
     def _finalize_write(path: Path, old_text: Optional[str], new_text: str,
                         summary: str) -> str:
-        """Checkpoint + diff + write + mark-read + post-edit verify."""
+        """Checkpoint + diff + write + verify-after-write + mark-read + syntax."""
         path.parent.mkdir(parents=True, exist_ok=True)
         _diff_and_checkpoint(path, old_text, new_text)
-        path.write_text(new_text, encoding="utf-8")
+        # Write byte-faithfully (newline="" = no \n->\r\n translation) so the
+        # content lands EXACTLY as the model intended — otherwise CRLF content
+        # gets mangled and Windows silently rewrites line endings.
+        with open(path, "w", encoding="utf-8", newline="") as _fh:
+            _fh.write(new_text)
+        # (4.2) Verify-after-write: read the bytes back and confirm they landed.
+        # Catches a truncated/failed write (disk full, a lock, permissions) and
+        # gives the model ground truth instead of assuming success.
+        try:
+            with open(path, "r", encoding="utf-8", newline="") as _fh:
+                on_disk = _fh.read()
+            if on_disk != new_text:
+                summary += (f"\n\n⚠ WRITE NOT VERIFIED: the file on disk does not "
+                            f"match what was written ({len(on_disk)} vs "
+                            f"{len(new_text)} chars) — it may have been truncated or "
+                            f"changed by another process. Re-read it before relying "
+                            f"on it.")
+        except OSError as exc:
+            summary += f"\n\n⚠ WROTE but could not read back to verify ({exc})."
         reg._mark_read(path)
         if reg.verify_edits:
             err = verify_syntax(path)

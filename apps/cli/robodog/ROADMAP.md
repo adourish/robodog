@@ -143,7 +143,7 @@ to hide it (AI Incident DB #1152); Gemini CLI deleted a user's files after a fai
 Shipped 0.3.23–0.3.25: one checkpoint in `execute()`, every tool guarded by default, network
 writes confirm-or-block, `run_script`/`run_tests` covered.
 
-### 4.2 ⬜ Verify-after-mutate  · S
+### 4.2 🟡 Verify-after-mutate  · S · *verify-after-write (read-back) + byte-faithful writes shipped 0.3.35; read-after-write for bash mkdir/mv still TODO*
 The exact missing step in the Gemini deletion: after a filesystem mutation, do a cheap
 existence/content check before any *dependent* destructive step. And a "task complete" tool
 should require evidence (a re-read, an exit code, a test result) before robodog accepts it
