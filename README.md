@@ -881,6 +881,16 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.60
+
+- **Shell translators are now quote-aware (correctness fix).** `2>nul` /
+  `2>/dev/null` and the `curl`→`curl.exe` rewrite were applied by plain regex, so
+  a redirect token or the word `curl` *inside a quoted string* got rewritten too —
+  e.g. `git commit -m "handle 2>/dev/null path"` had its message mangled to
+  `2>$null`. Both now skip quoted spans; real redirects/aliases outside quotes
+  still translate (`echo "log 2>nul" 2>nul` → `echo "log 2>nul" 2>$null`). Found by
+  auditing the translators added in 0.3.52–0.3.59.
+
 ### 0.3.59
 
 - **`findstr` isn't grep — hint when `\|` alternation is used.** Models reach for

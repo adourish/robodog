@@ -85,6 +85,17 @@ def main() -> int:
               "`2>/dev/null` -> 2>$null (auto-translated)")
         check(T.translate_null_redirects("echo 2>&1") == "echo 2>&1",
               "`2>&1` is NOT mistaken for a null redirect")
+        # QUOTE-SAFETY: a redirect token INSIDE a quoted string (commit message,
+        # echo, doc) must NOT be rewritten — only the real redirect outside quotes.
+        check(T.translate_null_redirects('git commit -m "handle 2>/dev/null path"')
+              == 'git commit -m "handle 2>/dev/null path"',
+              "`2>/dev/null` inside a quoted commit message is NOT corrupted")
+        check(T.translate_null_redirects('echo "log 2>nul" 2>nul')
+              == 'echo "log 2>nul" 2>$null',
+              "quoted `2>nul` preserved; the real trailing `2>nul` still translates")
+        check(T.translate_windows_aliases('echo "then; curl the api"')
+              == 'echo "then; curl the api"',
+              "`curl` inside a quoted string is NOT rewritten to curl.exe")
         h = T.shell_syntax_hint("dir x 2>nul",
                                 "FileStream was asked to open a device that was not a file")
         check("$null" in h, "leftover `nul` device error -> $null fallback hint")

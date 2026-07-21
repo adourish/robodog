@@ -393,6 +393,35 @@ def powershell_translate(command: str) -> str:
     return out
 
 
+def _sub_outside_quotes(rx: "re.Pattern", repl, command: str) -> str:
+    """Apply `rx.sub(repl, …)` only to the UNQUOTED spans of `command`, leaving
+    text inside '…' or "…" untouched. Needed because the alias/redirect rewrites
+    are regex-based and would otherwise corrupt a quoted commit message / echo /
+    doc string that happens to contain `2>nul`, `curl`, etc."""
+    result: List[str] = []
+    unq: List[str] = []
+    q = None
+
+    def flush() -> None:
+        if unq:
+            result.append(rx.sub(repl, "".join(unq)))
+            unq.clear()
+
+    for ch in command:
+        if q:
+            result.append(ch)
+            if ch == q:
+                q = None
+        elif ch in ("'", '"'):
+            flush()
+            q = ch
+            result.append(ch)
+        else:
+            unq.append(ch)
+    flush()
+    return "".join(result)
+
+
 def _split_pipes_top_level(command: str) -> List[str]:
     """Split on a single top-level `|` — never inside quotes, and never on the
     `||` operator (kept intact). Returns [command] when no splittable pipe."""
@@ -515,7 +544,8 @@ def translate_windows_aliases(command: str) -> str:
         return command
     out = command
     if "curl" in out.lower():
-        out = _CURL_RE.sub(lambda m: m.group(1) + "curl.exe", out)
+        out = _sub_outside_quotes(
+            _CURL_RE, lambda m: m.group(1) + "curl.exe", out)
     # grep/head/tail with a FILE arg are a COMMAND, so only the first pipe
     # segment can hold one — in `cat x | grep p` the grep reads stdin (a pipe
     # filter, handled by translate_unix_pipe_filters), NOT a file. Translating a
@@ -543,7 +573,8 @@ _NULL_REDIR_RE = re.compile(
 def translate_null_redirects(command: str) -> str:
     if os.name != "nt":
         return command
-    return _NULL_REDIR_RE.sub(lambda m: f"{m.group('op')}$null", command)
+    return _sub_outside_quotes(
+        _NULL_REDIR_RE, lambda m: f"{m.group('op')}$null", command)
 
 
 def _tokenize_ws(s: str) -> List[str]:
