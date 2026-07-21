@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -142,6 +143,19 @@ class SkillDef:
     description: str
     body: str
     source: str
+    # Keyword triggers (frontmatter `triggers: k8s, kubernetes`). When the user's
+    # message matches one, the skill is auto-injected for that turn — conditional
+    # context that costs nothing until it's relevant (OpenHands microagents).
+    triggers: Optional[List[str]] = None
+
+
+def _parse_triggers(value) -> List[str]:
+    """Parse a frontmatter `triggers` value: comma/space/`[...]`-separated words."""
+    if not value:
+        return []
+    s = str(value).strip().strip("[]")
+    parts = re.split(r"[,\s]+", s)
+    return [p.strip().strip("'\"").lower() for p in parts if p.strip().strip("'\"")]
 
 
 # ========================================================================
@@ -290,6 +304,7 @@ class SkillsRegistry:
                     description=fm.get("description", ""),
                     body=body,
                     source=str(skill_md),
+                    triggers=_parse_triggers(fm.get("triggers")),
                 )
             except Exception as exc:
                 logger.warning("skills: failed to load skill %s: %s", sub, exc)
@@ -302,6 +317,19 @@ class SkillsRegistry:
     def skill_names(self) -> List[str]:
         """Return ['/bar', ...] for the completer."""
         return [f"/{name}" for name in sorted(self.skills)]
+
+    def triggered(self, message: str) -> List[SkillDef]:
+        """Skills whose frontmatter `triggers` keyword appears (whole word,
+        case-insensitive) in `message` — for auto-injecting relevant skills into
+        a turn without the user typing /skill. Empty when nothing matches."""
+        text = (message or "").lower()
+        hits = []
+        for sk in self.skills.values():
+            for kw in (sk.triggers or []):
+                if re.search(r"(?<!\w)" + re.escape(kw) + r"(?!\w)", text):
+                    hits.append(sk)
+                    break
+        return hits
 
     def agent_type_overrides(self) -> dict:
         """Return a mapping to merge into an AGENT_TYPES-shaped dict.

@@ -193,6 +193,32 @@ def main() -> int:
         check(reg.get_skill("/greet").name == "greet", "get_skill tolerates slash")
         check(reg.get_skill("nope") is None, "get_skill missing -> None")
 
+        # ---- keyword-triggered skills (5.5) -----------------------------
+        print("=== triggered skills ===")
+        from robodog_terminal.skills import _parse_triggers
+        check(_parse_triggers("k8s, kubernetes") == ["k8s", "kubernetes"],
+              "triggers parsed from comma list")
+        check(_parse_triggers("[deploy release]") == ["deploy", "release"],
+              "triggers parsed from bracket/space list")
+        check(_parse_triggers("") == [] and _parse_triggers(None) == [],
+              "empty triggers -> []")
+        trg = tmp / ".robodog" / "skills" / "kube"
+        trg.mkdir(parents=True, exist_ok=True)
+        (trg / "SKILL.md").write_text(
+            "---\nname: kube\ndescription: k\ntriggers: k8s, kubernetes\n---\n"
+            "kubectl guidance\n", encoding="utf-8")
+        treg = SkillsRegistry(cwd=str(tmp), project_root=str(tmp / ".robodog"))
+        treg.discover()
+        check(treg.skills["kube"].triggers == ["k8s", "kubernetes"],
+              "skill loads its trigger list")
+        hits = treg.triggered("scale my Kubernetes deployment please")
+        check(len(hits) == 1 and hits[0].name == "kube",
+              "a trigger keyword (whole word, case-insensitive) matches")
+        check(treg.triggered("the ok8sy thing") == [],
+              "a substring does NOT trigger the skill")
+        check(treg.triggered("an unrelated question") == [],
+              "an unrelated message triggers nothing")
+
         # ---- summary -----------------------------------------------------
         print("=== summary ===")
         s = reg.summary()

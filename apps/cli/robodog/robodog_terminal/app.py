@@ -243,6 +243,7 @@ Commands:
   /plan              toggle plan mode (read-only: agent proposes before editing)
   /status            show model, cwd, token usage
   /context           show transcript size breakdown
+  /stats             session tokens, context %, turns, files read, uptime
   /btw <question>    ask a quick side question (sees the convo, adds nothing to it);
                      works mid-turn too — answered in the background, e.g. "are you stuck?"
   /compact           summarize the conversation to free context
@@ -275,7 +276,7 @@ Anything else is sent to the agent, which can read/edit files, run commands,
 and delegate to subagents.
 """
 
-SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/btw",
+SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/stats", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
                   "/keepass", "/cert", "/test",
                   "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/verbose",
@@ -306,10 +307,18 @@ def build_btw_prompt(convo: str, question: str, running: bool = False) -> str:
 
 def _expand_mentions(line: str, registry) -> str:
     """
-    @-file mentions: '@src/foo.py' inlines the file into the message (clamped)
-    and marks it read so the agent may edit it without a separate read_file.
+    @-mentions:
+      '@src/foo.py'  -> inlines the file (clamped) and marks it read so the agent
+                        may edit it without a separate read_file.
+      '@src/'  or a directory -> lists the files under it (pruned + capped) so the
+                        agent gets an overview without a tool call.
     """
+    import os
     import re
+    try:
+        from .tools import EXCLUDE_DIRS
+    except ImportError:
+        from robodog_terminal.tools import EXCLUDE_DIRS
     out = line
     for m in re.finditer(r"@([\w./\\~-]+)", line):
         rel = m.group(1)
@@ -323,6 +332,25 @@ def _expand_mentions(line: str, registry) -> str:
                 continue
             registry._mark_read(p)
             out += f"\n\n[content of {rel}]:\n{content}"
+        elif p.is_dir():
+            files, capped = [], False
+            for dirpath, dirnames, filenames in os.walk(str(p)):
+                dirnames[:] = [d for d in dirnames
+                               if d not in EXCLUDE_DIRS and not d.endswith(".egg-info")]
+                for fn in sorted(filenames):
+                    full = Path(dirpath) / fn
+                    try:
+                        files.append(str(full.relative_to(p)).replace("\\", "/"))
+                    except ValueError:
+                        files.append(fn)
+                    if len(files) >= 200:
+                        capped = True
+                        break
+                if capped:
+                    break
+            listing = "\n".join(files) or "(empty)"
+            more = "\n… (list truncated at 200)" if capped else ""
+            out += f"\n\n[files under {rel.rstrip('/')}/ ]:\n{listing}{more}"
     return out
 
 
@@ -812,6 +840,8 @@ def main(argv=None) -> int:
         ui.dim("📋 plan mode ON — agent is read-only until you approve a plan")
     prompt_count = 0
     prompt_texts = []
+    import time as _time
+    _session_start = _time.time()
 
     # --continue / --resume at startup
     startup_resume = ("latest" if args.continue_latest else args.resume)
@@ -1002,6 +1032,20 @@ def main(argv=None) -> int:
                 chars = loop.transcript_chars()
                 ui.info(f"transcript: {len(loop.history)} turns · ~{chars // 4} tokens "
                         f"({chars} chars) · trim threshold {loop.max_transcript_chars} chars")
+            elif cmd == "stats":
+                chars = loop.transcript_chars()
+                pct = min(99, chars * 100 // max(1, loop.max_transcript_chars))
+                elapsed = int(_time.time() - _session_start)
+                mm, ss = divmod(elapsed, 60)
+                files = len(getattr(registry, "read_paths", {}) or {})
+                ui.info(
+                    f"session stats\n"
+                    f"  model:       {model_label}\n"
+                    f"  tokens:      {ui.total_tokens:,} this session\n"
+                    f"  context:     ~{chars // 4:,} tokens ({pct}% of the trim window)\n"
+                    f"  turns:       {prompt_count} prompts · {len(loop.history)} history entries\n"
+                    f"  files read:  {files}\n"
+                    f"  uptime:      {mm}m {ss}s")
             elif cmd == "btw":
                 if not rest:
                     ui.error("usage: /btw <question>")
@@ -1348,6 +1392,11 @@ def main(argv=None) -> int:
         prompt_texts.append(line)
         prompt_count += 1
         expanded = _expand_mentions(line, registry)
+        # Auto-inject skills whose trigger keywords appear in the message
+        # (conditional context — costs nothing until it's relevant).
+        for _sk in skills.triggered(line):
+            ui.dim(f"(+ skill '{_sk.name}' — matched a trigger keyword)")
+            expanded += f"\n\n[skill: {_sk.name}]\n{_sk.body}"
         if session_id[0] is None:
             session_id[0] = store.new_session()
 

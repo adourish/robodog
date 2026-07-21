@@ -805,6 +805,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.33
+
+- **UX (roadmap Phase 5).**
+  - **`@folder` mentions** — `@src/` (or any directory) now inlines a pruned,
+    capped file listing so the agent gets an overview without a tool call.
+    `@file` still inlines contents. `node_modules`/`.git`/etc. are pruned.
+  - **`/stats`** — session tokens, context %, prompts/turns, files read, and
+    uptime at a glance.
+  - **Keyword-triggered skills** — a skill with frontmatter `triggers: k8s,
+    kubernetes` auto-injects into a turn when a trigger word appears (whole-word,
+    case-insensitive) — conditional context that costs nothing until relevant.
+
 ### 0.3.32
 
 - **"Always allow" for approvals (roadmap 4.3).** The confirm prompt now offers

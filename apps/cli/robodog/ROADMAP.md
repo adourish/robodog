@@ -174,11 +174,11 @@ become dynamically-registered entries — weekend-scale, not a rearchitecture. E
 (GitHub, Postgres, browsers, Slack…) becomes a robodog tool for free. **Note:** MCP tools are
 network-capable → they must default to `executes=True` and pass the 4.1 guard.
 
-### 5.2 🟡 `@file` / `@folder` mentions + tab-complete  · S
+### 5.2 ✅ `@file` / `@folder` mentions + tab-complete  · S · *@folder listing shipped 0.3.33; @file + completion already present*
 Robodog has `@`-mention expansion; make sure it covers folders and has REPL tab-completion.
 Table-stakes ergonomics (universal across Continue/Gemini/Qwen).
 
-### 5.3 ⬜ `/stats` — token + cost surface  · S
+### 5.3 ✅ `/stats` — token + cost surface  · S · *shipped 0.3.33 (tokens/context%/turns/files/uptime; cost pending price table)*
 Per-session tokens, context-window %, cost, cached-token savings, duration (Gemini `/stats`).
 High-trust, and it's a **prerequisite for 2.1's threshold trigger** (you need window accounting).
 
@@ -186,7 +186,7 @@ High-trust, and it's a **prerequisite for 2.1's threshold trigger** (you need wi
 Robodog has `-p`; confirm it prints only the final answer to stdout for pipes/CI/git-hooks
 (Continue `cn -p`), and that in headless mode network writes hard-block (already true via 4.1).
 
-### 5.5 ⬜ Keyword-triggered skill injection  · S
+### 5.5 ✅ Keyword-triggered skill injection  · S · *shipped 0.3.33 (frontmatter `triggers`, whole-word match, auto-inject)*
 Robodog discovers `.claude`/`.robodog` skills. Add OpenHands-style frontmatter
 `triggers: [k8s, kubernetes]` so a skill loads into context **only** when the user's message
 matches — conditional context injection almost for free, reduces bloat (synergy with 2.1).
