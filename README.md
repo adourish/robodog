@@ -881,6 +881,14 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.50
+
+- **npm error hints (non-Node repo).** When a model runs `npm test` / `npm
+  install` in a repo with no `package.json` (a .NET or Python project) and hits
+  `Missing script: "test"` or a missing-`package.json` error, robodog now hints
+  that it may not be a Node project — check `package.json`'s `scripts`, or run the
+  real command directly — so it stops looping. (Found in a live session.)
+
 ### 0.3.49
 
 - **Fix: trace/verbosity settings now honor `config.env`.** `ROBODOG_STREAM_LINES`

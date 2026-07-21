@@ -625,6 +625,28 @@ def python_error_hint(stderr: str) -> str:
     return ""
 
 
+def npm_error_hint(combined: str) -> str:
+    """Hints for the npm errors a model loops on in a non-Node repo — e.g. it
+    tries `npm test` / `npm install` in a .NET or Python project that has no
+    package.json. Returns a hint (leading '\\n') or ""."""
+    text = combined or ""
+    import re as _re
+    m = _re.search(r'[Mm]issing script:?\s*["\']?([\w:.-]+)', text)
+    if m:
+        script = m.group(1)
+        return (f"\nHINT: package.json has no '{script}' script — so this may not "
+                f"be a Node project, or the script just isn't defined. Check "
+                f'package.json\'s "scripts" (or that a package.json exists here at '
+                f"all); add the script, or run the real command directly instead "
+                f"of `npm {script}`.")
+    if _re.search(r"(ENOENT|no such file)[^\n]*package\.json|Could not read package\.json"
+                  r"|package\.json.*not found", text, _re.IGNORECASE):
+        return ("\nHINT: there's no package.json here — this directory likely "
+                "isn't a Node project. Confirm the project type before running "
+                "npm (a .NET repo uses dotnet, a Python repo uses pip/pytest).")
+    return ""
+
+
 @dataclass
 class ToolParam:
     name: str
@@ -1231,7 +1253,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         # already-parsed value — both observed looping 3x on ELSA.
         if returncode not in (0, None):
             for h in (python_import_hint(err, str(reg.cwd)),
-                      python_error_hint(err)):
+                      python_error_hint(err),
+                      npm_error_hint(out + "\n" + err)):
                 if h:
                     parts.append(h.lstrip("\n"))
         return "\n".join(parts)

@@ -284,6 +284,17 @@ def main() -> int:
     check("HINT" in res and "ALREADY a parsed dict" in res,
           "run_script surfaces the drop-json.loads hint")
 
+    # --- 3h. npm error hints (non-Node repo) -----------------------------
+    # From a real session: the model ran `npm test` in a .NET repo (no
+    # package.json) and looped on "Missing script: test".
+    print("=== 3h. npm_error_hint ===")
+    from robodog_terminal.tools import npm_error_hint as _npm
+    check("no 'test' script" in _npm('npm error Missing script: "test"'),
+          "missing-script -> names the script + 'not a Node project?'")
+    check("no package.json here" in _npm("npm error code ENOENT open package.json"),
+          "no package.json -> not-a-Node-project hint")
+    check(_npm("some unrelated build failure") == "", "no hint on an unrelated error")
+
     # --- 4. bash background param stub -----------------------------------
     print("=== 4. bash background stub ===")
     reg = fresh_registry()
