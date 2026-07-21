@@ -805,6 +805,14 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.37
+
+- **Fix: UTF-8 everywhere (no more mojibake).** Non-ASCII in shell output and in
+  args passed to native commands is now handled as UTF-8 end-to-end — a git
+  commit message with `—` no longer becomes `â€"`, and accented text in `bash`/
+  `run_script` output survives. (PowerShell is told to use UTF-8; subprocess
+  output is decoded as UTF-8; `run_script python` runs with `PYTHONUTF8=1`.)
+
 ### 0.3.36
 
 - **Fix (unblocks credit-limited turns): HTTP 402 auto-shrink.** When OpenRouter

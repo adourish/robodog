@@ -1122,18 +1122,22 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         except Exception:
             pass
 
-    def _run_streaming(cmd_list: List[str], cwd, timeout: int
+    def _run_streaming(cmd_list: List[str], cwd, timeout: int, env=None
                        ) -> Tuple[Optional[int], List[str], List[str], bool]:
         """Run cmd_list, streaming each output line to reg.on_bash_line as it
         arrives. Returns (returncode, stdout_lines, stderr_lines, timed_out).
-        On timeout the whole process TREE is killed."""
+        On timeout the whole process TREE is killed. Output is decoded as UTF-8
+        so non-ASCII (em-dashes, accents) isn't mojibake'd (`—` -> `â€"`) by the
+        Windows codepage default."""
         popen_kwargs = {}
         if os.name != "nt":
             popen_kwargs["start_new_session"] = True
+        if env is not None:
+            popen_kwargs["env"] = env
         proc = subprocess.Popen(
             cmd_list, cwd=str(cwd),
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, errors="replace", **popen_kwargs,
+            text=True, encoding="utf-8", errors="replace", **popen_kwargs,
         )
         out_lines: List[str] = []
         err_lines: List[str] = []
@@ -1233,6 +1237,11 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             # `| head/tail/wc` -> Select-Object/Measure-Object (handled per chain
             # segment inside powershell_translate).
             run_cmd = powershell_translate(translate_windows_aliases(command))
+            # Force UTF-8 so non-ASCII survives BOTH ways: native-command output
+            # (git log) is decoded as UTF-8, and args we pass to native commands
+            # (git commit -m "…") are encoded as UTF-8 — no more `—` -> `â€"`.
+            run_cmd = ("[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                       "$OutputEncoding=[Text.Encoding]::UTF8;" + run_cmd)
             shell_cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", run_cmd]
         else:
             shell_cmd = ["/bin/sh", "-c", command]
@@ -1269,9 +1278,19 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         # hatch a model used to POST a Jira ticket closed with no confirmation).
         fd, tmp_path = tempfile.mkstemp(
             suffix=ext, prefix="robodog_script_", dir=tempfile.gettempdir())
+        env = None
         try:
+            body = content
+            # UTF-8: match the utf-8 decode in _run_streaming so non-ASCII output
+            # isn't mojibake'd. Python obeys PYTHONUTF8/PYTHONIOENCODING; a
+            # PowerShell script gets an encoding preamble.
+            if interpreter == "powershell":
+                body = ("[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                        "$OutputEncoding=[Text.Encoding]::UTF8;\n" + content)
+            elif interpreter == "python":
+                env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
-                fh.write(content)
+                fh.write(body)
             if interpreter == "powershell":
                 cmd = ["powershell", "-NoProfile", "-NonInteractive",
                        "-ExecutionPolicy", "Bypass", "-File", tmp_path]
@@ -1280,7 +1299,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             else:
                 cmd = [sys.executable, tmp_path]
             shown = f"run_script({interpreter})"
-            rc, out_lines, err_lines, timed_out = _run_streaming(cmd, reg.cwd, timeout)
+            rc, out_lines, err_lines, timed_out = _run_streaming(cmd, reg.cwd, timeout, env=env)
             return _format_run_result(shown, rc, out_lines, err_lines, timed_out, timeout)
         finally:
             try:

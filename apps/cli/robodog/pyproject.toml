@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robodog-terminal"
-version = "0.3.36"
+version = "0.3.37"
 description = "Agentic coding terminal for the shell (runPixel gateway / OpenAI-compatible / offline backends)"
 readme = "TERMINAL_README.md"
 requires-python = ">=3.8"

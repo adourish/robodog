@@ -60,6 +60,19 @@ def main() -> int:
     check("--- stderr ---" in result, "result contains stderr section")
     check("nope" in result, "stderr text 'nope' captured")
 
+    # --- 2b. UTF-8 output isn't mojibake'd (em-dash / accents) -----------
+    # Regression: a git commit message with `—` showed as `â€"` because the
+    # subprocess was decoded with the Windows codepage, not UTF-8.
+    if os.name == "nt":
+        print("=== 2b. UTF-8 output ===")
+        reg = fresh_registry()
+        r = reg.execute("bash", {"command": 'Write-Output "handoff — café résumé"'})
+        check("—" in r and "café" in r and "â€" not in r,
+              "em-dash and accents survive bash output (no mojibake)")
+        r = reg.execute("run_script", {"content": 'print("em—dash café")'})
+        check("em—dash" in r and "café" in r,
+              "run_script python unicode round-trips (PYTHONUTF8)")
+
     # --- 3. bash timeout with tree kill ----------------------------------
     print("=== 3. bash timeout tree-kill ===")
     reg = fresh_registry()
