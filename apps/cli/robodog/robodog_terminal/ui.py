@@ -562,6 +562,14 @@ class UI:
         else:
             print(msg)
 
+    def warn(self, msg: str):
+        """An amber notice — attention-getting but NOT an error (used for the
+        approval prompt, which reads wrong in red)."""
+        if self.console:
+            self.console.print(msg, style="yellow", markup=False, highlight=False)
+        else:
+            print(msg)
+
     def assistant(self, text: str):
         """Render a final answer as markdown (falls back to plain text)."""
         if self.console:

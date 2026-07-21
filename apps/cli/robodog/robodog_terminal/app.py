@@ -244,6 +244,8 @@ Commands:
   /status            show model, cwd, token usage
   /context           show transcript size breakdown
   /stats             session tokens, context %, turns, files read, uptime
+  /copy              copy the last answer to the clipboard
+  /save <file>       write the last answer to a file
   /net-writes [mode] remote-write approvals: confirm (default) | allow | deny
   /btw <question>    ask a quick side question (sees the convo, adds nothing to it);
                      works mid-turn too — answered in the background, e.g. "are you stuck?"
@@ -278,7 +280,7 @@ and delegate to subagents.
 """
 
 SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/stats",
-                  "/net-writes", "/btw",
+                  "/net-writes", "/copy", "/save", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
                   "/keepass", "/cert", "/test",
                   "/skills", "/todos", "/cwd", "/open", "/paste", "/tools", "/verbose",
@@ -354,6 +356,27 @@ def _expand_mentions(line: str, registry) -> str:
             more = "\n… (list truncated at 200)" if capped else ""
             out += f"\n\n[files under {rel.rstrip('/')}/ ]:\n{listing}{more}"
     return out
+
+
+def _copy_to_clipboard(text: str) -> bool:
+    """Copy `text` to the OS clipboard via the platform tool (no extra dep).
+    Returns True on success. Windows: clip; macOS: pbcopy; Linux: xclip/xsel/wl-copy."""
+    import subprocess
+    if os.name == "nt":
+        cmds = [["clip"]]
+    elif sys.platform == "darwin":
+        cmds = [["pbcopy"]]
+    else:
+        cmds = [["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "-b", "-i"]]
+    data = text.encode("utf-8", "replace")
+    for cmd in cmds:
+        try:
+            p = subprocess.run(cmd, input=data, timeout=5)
+            if p.returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return False
 
 
 def _open_target(target: str, cwd: str) -> str:
@@ -652,7 +675,7 @@ def main(argv=None) -> int:
         if headless:
             return False  # never run destructive/outward commands unattended
         ui.spinner_stop()
-        ui.error(f"needs your approval: {reason}")
+        ui.warn(f"⏸ needs your approval: {reason}")
         ui.dim(f"  {command[:300]}")
         try:
             ans = input("  run it? [y]es / [N]o / [a]lways this session: ").strip().lower()
@@ -873,6 +896,7 @@ def main(argv=None) -> int:
     import time as _time
     _session_start = _time.time()
     cost_tokens = {"in": 0, "out": 0}   # session input/output tokens for /stats cost
+    last_answer = [""]                  # most recent final answer (for /copy, /save)
 
     # --continue / --resume at startup
     startup_resume = ("latest" if args.continue_latest else args.resume)
@@ -1012,6 +1036,7 @@ def main(argv=None) -> int:
         ui.context_pct = min(99, loop.transcript_chars() * 100
                              // loop.max_transcript_chars)
         ui.assistant(result.final_text)
+        last_answer[0] = result.final_text or ""
         dur = getattr(result, "duration", 0.0)
         ui.dim(f"[{result.iterations} steps · {result.total_tokens} tok · {dur:.1f}s]")
         if registry.hooks is not None:
@@ -1086,6 +1111,32 @@ def main(argv=None) -> int:
                     f"  turns:       {prompt_count} prompts · {len(loop.history)} history entries\n"
                     f"  files read:  {files}\n"
                     f"  uptime:      {mm}m {ss}s")
+            elif cmd == "copy":
+                if not last_answer[0].strip():
+                    ui.info("nothing to copy yet — no answer this session.")
+                elif _copy_to_clipboard(last_answer[0]):
+                    ui.info(f"copied the last answer to the clipboard "
+                            f"({len(last_answer[0]):,} chars).")
+                else:
+                    ui.error("couldn't reach a clipboard tool (clip/pbcopy/xclip). "
+                             "Use /save <file> instead.")
+            elif cmd == "save":
+                if not last_answer[0].strip():
+                    ui.info("nothing to save yet — no answer this session.")
+                elif not rest:
+                    ui.error("usage: /save <file>")
+                else:
+                    dest = Path(rest).expanduser()
+                    if not dest.is_absolute():
+                        dest = Path(registry.cwd) / rest
+                    try:
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        with open(dest, "w", encoding="utf-8", newline="") as _fh:
+                            _fh.write(last_answer[0])
+                        ui.info(f"saved the last answer to {dest} "
+                                f"({len(last_answer[0]):,} chars).")
+                    except OSError as exc:
+                        ui.error(f"could not save: {exc}")
             elif cmd in ("net-writes", "netwrites", "allow"):
                 mode = rest.lower().strip()
                 if mode not in ("confirm", "deny", "allow"):

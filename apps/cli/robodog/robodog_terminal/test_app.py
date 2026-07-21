@@ -115,6 +115,8 @@ def main() -> int:
         "! echo bang-works",
         "/model fresh-echo",     # rebuild client -> fresh demo script
         "run demo",              # real agent turn: write demo.py + bash + final
+        "/copy",                 # copy the last answer to the clipboard
+        "/save answer.txt",      # write the last answer to a file
         "/rewind",               # now lists the checkpoint marker
         "/compact",              # summarizes via echo client
         "/clear",
@@ -130,6 +132,10 @@ def main() -> int:
     check("plan mode ON" in out and "plan mode OFF" in out, "/plan toggles")
     check("session stats" in out and "uptime" in out, "/stats shows a session summary")
     check("est. cost:" in out, "/stats shows an estimated cost line")
+    check("saved the last answer to" in out and (Path(wd5) / "answer.txt").exists(),
+          "/save writes the last answer to a file")
+    check("copied the last answer" in out or "clipboard" in out,
+          "/copy reports copying the last answer (or a clipboard-tool note)")
     check("network-write guard" in out and "set to 'allow'" in out,
           "/net-writes shows current mode and switches at runtime")
     check("switched to" in out, "/model live switch")

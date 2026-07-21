@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.44
+
+- **`/copy` and `/save <file>`** — copy the last answer to the clipboard
+  (Windows `clip` / macOS `pbcopy` / Linux `xclip`/`xsel`/`wl-copy`, no extra
+  dependency) or write it to a file.
+- **Softer approval prompt.** The remote-write/destructive confirmation now shows
+  as an amber `⏸ needs your approval: …` instead of a red `error:` — it's a pause
+  for input, not a failure.
+
 ### 0.3.43
 
 - **Live subagent-fan-out progress.** During a fan-out the spinner now shows how
