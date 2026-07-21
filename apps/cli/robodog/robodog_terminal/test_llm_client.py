@@ -192,6 +192,26 @@ def main() -> int:
     except RuntimeError as exc:
         check("404" in str(exc), "openai-compat 404 fails fast")
 
+    # (3.2) A garbled 200 (no 'choices' / unparseable body) is RETRIED, not a crash.
+    oretries.clear()
+    oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
+                            session=FakeSession([FakeResp(200, {"unexpected": "shape"}),
+                                                 FakeResp(200, oai_payload("recovered"))]),
+                            on_retry=lambda a, m_, d, r: oretries.append(r))
+    check(oc.complete("q").text == "recovered" and len(oretries) == 1,
+          "malformed 200 (missing choices) is retried, not a crash")
+
+    class _BadJSON(FakeResp):
+        def json(self):
+            raise ValueError("not json (SSE?)")
+    oretries.clear()
+    oc = OpenAICompatClient(base_url="https://x", api_key="k", model="m",
+                            session=FakeSession([_BadJSON(200, text="data: ..."),
+                                                 FakeResp(200, oai_payload("ok2"))]),
+                            on_retry=lambda a, m_, d, r: oretries.append(r))
+    check(oc.complete("q").text == "ok2" and "malformed" in oretries[0],
+          "a 200 whose body won't parse as JSON is retried")
+
     # ---- backend/model mismatch hint --------------------------------------
     oc = OpenAICompatClient(base_url="https://api.openai.com", api_key="k",
                             model="anthropic/claude-sonnet-4.6",

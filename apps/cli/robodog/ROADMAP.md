@@ -118,7 +118,7 @@ Robodog auto-sets a long timeout for custom gateways. Add (cline #2941/#713, Roo
 jittered exponential backoff honoring `Retry-After`; a **global** retry budget so a retry storm
 can't run all night; distinguish "no first token yet" from "stream stalled mid-response."
 
-### 3.2 ⬜ Response-shape resilience  · M
+### 3.2 🟡 Response-shape resilience  · M · *garbled-200 retry + finish_reason-independent tool detection shipped 0.3.31; SSE-sniff/non-streaming-fallback N/A (robodog is non-streaming)*
 OpenAI-compatible proxies lie. Defenses (litellm #17246/#19744/#25766, vllm #31871):
 - Never key tool detection off `finish_reason` alone — inspect the accumulated message.
 - On empty/garbled/unterminated stream with substantial content, **parse what arrived**
@@ -153,7 +153,7 @@ should require evidence (a re-read, an exit code, a test result) before robodog 
 Robodog *reads* `settings.json` permissions; make the confirm flow **write** them — "always
 allow this" persists a rule so the same action never re-asks (Continue CLI's approve-once model).
 
-### 4.4 ⬜ Treat outward-facing git as network-class  · S
+### 4.4 ✅ Treat outward-facing git as network-class  · S · *git push / gh pr|issue|release create|merge|close guarded, shipped 0.3.31*
 `git push --force`, `git push` to a remote, PR/issue creation → route through the network-write
 guard, not just the local danger list (Gemini #5894). Small addition to `classify_*`.
 

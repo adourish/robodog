@@ -805,6 +805,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.31
+
+- **Safety: outward git is now guarded (roadmap 4.4).** `git push` (incl.
+  `--force`), `gh pr/issue/release create`, and `gh pr merge/close` are treated as
+  outward-facing network writes — they confirm by default and **block** in
+  headless/sub-agent contexts (an agent force-pushed to origin unprompted in a
+  known incident). Local git (`status`/`commit`/`log`/`diff`/`fetch`/`pull`) is
+  not gated.
+- **Gateway resilience (roadmap 3.2).** A garbled HTTP 200 (missing `choices`, or
+  a body that won't parse as JSON — e.g. a proxy returning SSE) is now **retried**
+  instead of crashing the turn.
+
 ### 0.3.30
 
 - **Gateway resilience (roadmap 3.1).** LLM retries now **honor the server's

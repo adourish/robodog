@@ -96,6 +96,15 @@ def main() -> int:
           "a GET (read) is NOT flagged")
     check(classify_network_mutation("git log --oneline | head -5") is None,
           "an ordinary shell command is NOT flagged")
+    # (4.4) Outward-facing git/GitHub — publishing to a shared remote is guarded
+    # (an agent force-pushed to origin unprompted: gemini-cli#5894).
+    check(classify_network_mutation("git push --force origin main") is not None,
+          "git push (incl. --force) is flagged as outward-facing")
+    check(classify_network_mutation("gh pr create --title x") is not None,
+          "gh pr create is flagged as outward-facing")
+    for local in ("git status", "git commit -m x", "git log", "git fetch", "git pull"):
+        check(classify_network_mutation(local) is None,
+              f"local git op '{local}' is NOT flagged")
 
     # default net_guard = confirm; no confirmer (subagent/headless) -> BLOCK
     reg.net_guard = "confirm"; reg.on_confirm = None

@@ -264,6 +264,11 @@ _NET_WRITE_PATTERNS = [
     (r"/rest/api/[^\s'\"]*/transitions", "Jira issue transition (status change)"),
     (r"\.transition\s*\(|\bdoTransition\b", "issue transition"),
     (r"/issue/[A-Z][A-Z0-9]+-\d+\b[^\n]*\bDELETE\b", "delete a Jira issue"),
+    # Outward-facing git/GitHub — publishing to a SHARED remote is hard to undo
+    # (an agent force-pushed to origin unprompted: gemini-cli#5894).
+    (r"\bgit\s+push\b", "git push (publish commits to a remote)"),
+    (r"\bgh\s+(?:pr|issue|release)\s+create\b", "create a GitHub PR/issue/release"),
+    (r"\bgh\s+(?:pr|issue)\s+(?:close|merge|comment)\b", "modify a GitHub PR/issue"),
 ]
 
 

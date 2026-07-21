@@ -457,18 +457,26 @@ class OpenAICompatClient(LLMClient):
                         headers={"Authorization": f"Bearer {self.api_key}",
                                  "HTTP-Referer": self.referer})
                     if resp.status_code == 200:
-                        data = resp.json()
-                        choice = data["choices"][0]
-                        text = (choice.get("message") or {}).get("content") or ""
-                        usage = data.get("usage") or {}
-                        if text.strip():
+                        # A 200 with a garbled/missing body (proxy hiccup, SSE where
+                        # JSON was expected) must be RETRIED, not crash the turn.
+                        try:
+                            data = resp.json()
+                            choice = (data.get("choices") or [{}])[0]
+                            msg = choice.get("message") or {}
+                            text = msg.get("content") or ""
+                            usage = data.get("usage") or {}
+                        except (ValueError, TypeError, KeyError, IndexError):
+                            last_err = "malformed 200 response (unparseable body)"
+                            text = ""
+                        if text and text.strip():
                             return Completion(
                                 text=text,
                                 prompt_tokens=usage.get("prompt_tokens", 0),
                                 completion_tokens=usage.get("completion_tokens", 0),
                                 raw=data,
                                 finish_reason=(choice.get("finish_reason") or ""))
-                        last_err = "empty response"
+                        if not last_err.startswith("malformed"):
+                            last_err = "empty response"
                     elif resp.status_code in (429,) or resp.status_code >= 500:
                         last_err = f"HTTP {resp.status_code}"
                         # Honor the server's backoff ask on rate-limit / overload.
