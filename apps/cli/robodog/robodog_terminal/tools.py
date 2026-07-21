@@ -203,16 +203,35 @@ def find_by_basename(root: Path, name: str, limit: int = 5,
 
 
 def read_not_found_hint(root: Path, requested: Path) -> str:
-    """A 'did you mean …' for a read_file miss: same basename elsewhere in the
-    tree. Returns a hint (leading space) or "" when there's no better path."""
+    """A 'did you mean …' for a read_file miss. In priority order: the SAME
+    basename elsewhere in the tree; else — when the parent directory exists — the
+    CLOSEST-named sibling(s) (a typo/near-miss like RUNBOOK-serioplus-stack vs
+    RUNBOOK-build-run-serioplus), else a sample of what the directory contains.
+    Returns a hint (leading space) or "" when there's nothing useful."""
     matches = find_by_basename(root, requested.name)
-    # Don't suggest the exact path we already failed to open.
     matches = [m for m in matches if Path(m) != requested]
-    if not matches:
-        return ""
-    if len(matches) == 1:
-        return f" Did you mean: {matches[0]}"
-    return " Did you mean one of: " + " | ".join(matches)
+    if matches:
+        if len(matches) == 1:
+            return f" Did you mean: {matches[0]}"
+        return " Did you mean one of: " + " | ".join(matches)
+    # Parent dir exists but the file doesn't — fuzzy-match against its siblings.
+    parent = requested.parent
+    try:
+        if parent.is_dir():
+            import difflib
+            siblings = sorted(p.name for p in parent.iterdir() if p.is_file())
+            if siblings:
+                near = difflib.get_close_matches(requested.name, siblings, n=3, cutoff=0.5)
+                if near:
+                    paths = " | ".join(str(parent / n) for n in near)
+                    return f" Did you mean: {paths}"
+                sample = ", ".join(siblings[:10])
+                more = f" (+{len(siblings) - 10} more)" if len(siblings) > 10 else ""
+                return (f" {parent} exists but has no '{requested.name}'. "
+                        f"It contains: {sample}{more}")
+    except OSError:
+        pass
+    return ""
 
 
 def _clamp(text: str, limit: int = MAX_OUTPUT) -> str:

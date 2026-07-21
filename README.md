@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.38
+
+- **Better `read_file` misses (from a real fda-serio session).** When a file
+  isn't found and no same-named file exists elsewhere, robodog now — if the
+  parent directory exists — **fuzzy-matches the closest-named sibling(s)**
+  (e.g. `docs/runbooks/RUNBOOK-serioplus-stack.md` → "Did you mean
+  RUNBOOK-build-run-serioplus.md"), or lists what the directory actually
+  contains. No more bare "not found" when the right file is sitting right there.
+
 ### 0.3.37
 
 - **Fix: UTF-8 everywhere (no more mojibake).** Non-ASCII in shell output and in

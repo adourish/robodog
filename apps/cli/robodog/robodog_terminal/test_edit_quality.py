@@ -219,6 +219,19 @@ def main() -> int:
     r = reg.execute("read_file", {"path": "no_such_unique_name_zzz.txt"})
     check("Did you mean" not in r,
           "read_file miss with no basename match gives no false suggestion")
+    # Near-miss in an EXISTING dir -> fuzzy-match siblings (found via a real
+    # fda-serio scenario: RUNBOOK-serioplus-stack vs RUNBOOK-build-run-serioplus).
+    rb = wd / "docs" / "runbooks"
+    rb.mkdir(parents=True, exist_ok=True)
+    for nm in ("RUNBOOK-build-run-serioplus.md", "RUNBOOK-run-serio.md",
+               "RUNBOOK-elsa-access.md"):
+        (rb / nm).write_text("x", encoding="utf-8")
+    r = reg.execute("read_file", {"path": "docs/runbooks/RUNBOOK-serioplus-stack.md"})
+    check("Did you mean" in r and "RUNBOOK-build-run-serioplus.md" in r,
+          "read_file near-miss -> fuzzy-matches a sibling file")
+    r = reg.execute("read_file", {"path": "docs/runbooks/totally-unrelated-xyz.md"})
+    check("exists but has no" in r and "RUNBOOK-run-serio.md" in r,
+          "read_file miss in a real dir -> lists what the directory contains")
 
     # ---- idempotency: edit already applied (old gone, new present) ----------
     idem = wd / "idem.py"
