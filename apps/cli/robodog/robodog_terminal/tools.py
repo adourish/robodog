@@ -487,33 +487,120 @@ def _translate_filter_segment(seg: str) -> Optional[str]:
 
 
 _CURL_RE = re.compile(r"(^|[|&;{(]\s*)curl(?=\s)", re.IGNORECASE)
-# `grep [flags] PATTERN FILE...` (a FILE arg present) — the standalone code-search
-# form models reach for, distinct from the `| grep` pipe filter. PATTERN keeps its
-# quoting; the rest are the file path(s).
-_GREP_FILE_RE = re.compile(
-    r"""^grep\s+((?:-[A-Za-z]+\s+)*)("[^"]*"|'[^']*'|[^\s|]+)\s+([^|]+?)\s*$""",
-    re.IGNORECASE)
 
 
-def _grep_with_file(seg: str) -> Optional[str]:
-    """A `grep [flags] PATTERN FILE...` segment -> `Select-String -Pattern P
-    -Path F` (Select-String already prints file:line:text). None if it isn't that
-    shape, or if it's recursive (`-r`, which Select-String doesn't do directly —
-    leave it for the shell hint)."""
-    m = _GREP_FILE_RE.match(seg.strip())
-    if not m:
+def _split_connectors(command: str) -> List[str]:
+    """Split into [seg, conn, seg, conn, …] on top-level `&&` / `||` / `;`
+    (quote-aware). A grep/head/tail COMMAND lives at the start of a connector
+    segment — `cd repo && grep …` — so callers translate each segment's command
+    and rejoin the connectors verbatim."""
+    pieces: List[str] = []
+    buf: List[str] = []
+    i, n = 0, len(command)
+    q = None
+    while i < n:
+        ch = command[i]
+        if q:
+            buf.append(ch)
+            if ch == q:
+                q = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            q = ch
+            buf.append(ch)
+            i += 1
+            continue
+        if command[i:i + 2] in ("&&", "||"):
+            pieces.append("".join(buf))
+            pieces.append(command[i:i + 2])
+            buf = []
+            i += 2
+            continue
+        if ch == ";":
+            pieces.append("".join(buf))
+            pieces.append(";")
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    pieces.append("".join(buf))
+    return pieces
+
+
+def _translate_grep_command(seg: str) -> Optional[str]:
+    """A `grep [flags] PATTERN [FILE/DIR…]` COMMAND -> its PowerShell equivalent.
+    `grep` isn't on Windows and models reach for it constantly (incl. `cd x &&
+    grep -rn …`). Non-recursive with a file -> `Select-String -Pattern P -Path F`
+    (already prints file:line:text). Recursive (`-r`) -> `Get-ChildItem -Recurse
+    -File DIR | Select-String -Pattern P`. `-A/-B/-C N` -> -Context, `-v` ->
+    -NotMatch, `-l` -> -List; -n/-i/-H/-E/-w are Select-String defaults. Trailing
+    redirects are preserved. Returns None for `grep P` with NO file (that's the
+    `| grep` stdin filter, handled by _translate_filter_segment)."""
+    s = seg.strip()
+    if not re.match(r"^grep\b", s, re.IGNORECASE):
         return None
-    flags = (m.group(1) or "").replace("-", "").replace(" ", "").lower()
-    if "r" in flags:
+    toks = _tokenize_ws(s)[1:]
+    recursive = invert = list_files = False
+    ctx = pattern = None
+    paths: List[str] = []
+    redirs: List[str] = []
+    i, n = 0, len(toks)
+    while i < n:
+        t = toks[i]
+        if _REDIR_TOK_RE.match(t):
+            redirs.append(t)
+            if re.fullmatch(r"\d*>{1,2}|&>|<", t) and i + 1 < n:
+                redirs.append(toks[i + 1])   # bare operator -> its target
+                i += 2
+                continue
+            i += 1
+            continue
+        if pattern is None and t.startswith("-") and len(t) > 1:
+            body = t[1:]
+            if body in ("A", "B", "C") and i + 1 < n and toks[i + 1].isdigit():
+                ctx = (body, toks[i + 1])   # (A=after, B=before, C=both)
+                i += 2
+                continue
+            for c in body:
+                if c in ("r", "R"):
+                    recursive = True
+                elif c == "v":
+                    invert = True
+                elif c == "l":
+                    list_files = True
+            i += 1
+            continue
+        if pattern is None:
+            pattern = t
+            i += 1
+            continue
+        paths.append(t)
+        i += 1
+    if pattern is None:
         return None
-    pattern, files = m.group(2), m.group(3).strip()
-    # A pattern that is itself a bare flag (e.g. `-n`) means the regex backtracked
-    # and mis-split `grep -n "x"` (a PIPE filter, no file) into pattern=`-n`,
-    # file=`"x"`. That's not a grep-with-file — bail so the pipe path handles it.
-    if pattern.startswith("-") or files.startswith("-"):
-        return None
-    invert = "-NotMatch " if "v" in flags else ""
-    return f"Select-String {invert}-Pattern {pattern} -Path {files}"
+    ss = ["Select-String"]
+    if invert:
+        ss.append("-NotMatch")
+    if list_files:
+        ss.append("-List")
+    if ctx:
+        flag, num = ctx
+        ss.append(f"-Context 0,{num}" if flag == "A"
+                  else f"-Context {num},0" if flag == "B"
+                  else f"-Context {num}")
+    ss.append(f"-Pattern {pattern}")
+    tail = (" " + " ".join(redirs)) if redirs else ""
+    if recursive:
+        target = paths[0] if paths else "."
+        gci = (f"Get-ChildItem -Path {target} -Recurse -File "
+               f"-ErrorAction SilentlyContinue")
+        return f"{gci} | {' '.join(ss)}{tail}"
+    if not paths:
+        return None                      # `grep P` alone -> stdin filter, not us
+    ss.append("-Path " + " ".join(paths))
+    return " ".join(ss) + tail
 
 
 # Standalone `head`/`tail` at command position (NOT a pipe filter) reading ONE
@@ -546,17 +633,23 @@ def translate_windows_aliases(command: str) -> str:
     if "curl" in out.lower():
         out = _sub_outside_quotes(
             _CURL_RE, lambda m: m.group(1) + "curl.exe", out)
-    # grep/head/tail with a FILE arg are a COMMAND, so only the first pipe
-    # segment can hold one — in `cat x | grep p` the grep reads stdin (a pipe
-    # filter, handled by translate_unix_pipe_filters), NOT a file. Translating a
-    # later segment would wrongly invent a -Path and break the pipe.
+    # grep/head/tail with a FILE arg are a COMMAND, so they live at the start of a
+    # connector segment (`cd repo && grep -rn x src/`) — process each segment's
+    # command position. A grep LATER in a pipe (`cat x | grep p`) reads stdin (a
+    # filter handled by translate_unix_pipe_filters), so only the FIRST pipe
+    # sub-segment of each connector segment is a candidate.
     if any(k in out.lower() for k in ("grep", "head", "tail")):
-        segs = _split_pipes_top_level(out)
-        first = segs[0]
-        repl = _grep_with_file(first) or _head_tail_with_file(first)
-        if repl is not None:
-            segs[0] = repl
-            out = "|".join(segs)
+        pieces = _split_connectors(out)
+        for idx in range(0, len(pieces), 2):        # even indices = command segs
+            seg = pieces[idx]
+            psegs = _split_pipes_top_level(seg)
+            first = psegs[0]
+            lead = first[:len(first) - len(first.lstrip())]
+            repl = _translate_grep_command(first) or _head_tail_with_file(first)
+            if repl is not None:
+                psegs[0] = lead + repl
+                pieces[idx] = "|".join(psegs)
+        out = "".join(pieces)
     return out
 
 

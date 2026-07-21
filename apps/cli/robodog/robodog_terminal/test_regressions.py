@@ -60,6 +60,16 @@ def main() -> int:
         check(twa('grep -n "max_retries" f.py')
               == 'Select-String -Pattern "max_retries" -Path f.py',
               "standalone `grep PATTERN FILE` -> Select-String -Path")
+        # grep is the #1 tool models reach for and kept failing "grep not
+        # recognized" in two forms: after `cd X &&`, and recursive `-r`.
+        check("Get-ChildItem -Path src/ -Recurse -File" in twa("grep -rn foo src/")
+              and "Select-String -Pattern foo" in twa("grep -rn foo src/"),
+              "recursive `grep -r P DIR` -> Get-ChildItem -Recurse | Select-String")
+        check("Select-String -Pattern foo" in twa("cd C:\\p && grep -rn foo src/"),
+              "`cd X && grep -rn ...` is translated (grep is a command after &&)")
+        check(twa('grep -A 3 "foo" f.java')
+              == 'Select-String -Context 0,3 -Pattern "foo" -Path f.java',
+              "`grep -A N` (after-context) -> Select-String -Context 0,N")
         # `| grep -n PATTERN` (flags in a PIPE) must NOT be mis-split into
         # -Pattern <flag> -Path <pattern> (produced 'Missing argument for Pattern').
         g = pt('cat r.js | grep -n "resolveModule" | head -10')

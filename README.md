@@ -881,6 +881,20 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.61
+
+- **`grep` translation now covers the forms models actually use.** Two gaps made
+  `grep` fail with *"grep is not recognized"* repeatedly: it wasn't translated when
+  it followed a chain (`cd repo && grep …`), and recursive `grep -r` was bailed
+  entirely. Now:
+  - `grep` is translated at the command position of **every** `&&`/`||`/`;` segment,
+    not just the whole line's first — `cd x && grep -rn "P" src/` works.
+  - **recursive** `grep -r/-rn "P" DIR` → `Get-ChildItem -Path DIR -Recurse -File |
+    Select-String -Pattern P`.
+  - `-A/-B/-C N` → `Select-String -Context` (after/before/both), `-v` → `-NotMatch`,
+    `-l` → `-List`; trailing redirects preserved. The `| grep` stdin filter is still
+    handled as a filter.
+
 ### 0.3.60
 
 - **Shell translators are now quote-aware (correctness fix).** `2>nul` /

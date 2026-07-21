@@ -162,7 +162,14 @@ def main() -> int:
               "standalone grep PATTERN FILE -> Select-String -Path")
         check(_twa("grep -v error log.txt") == "Select-String -NotMatch -Pattern error -Path log.txt",
               "grep -v FILE -> -NotMatch")
-        check(_twa("grep -rn x .") == "grep -rn x .", "recursive grep left alone (hint fires)")
+        check(_twa("grep -rn foo src/")
+              == "Get-ChildItem -Path src/ -Recurse -File -ErrorAction "
+                 "SilentlyContinue | Select-String -Pattern foo",
+              "recursive grep -r -> Get-ChildItem -Recurse | Select-String")
+        check(_twa("cd C:\\p && grep -rn foo src/").endswith(
+              "&& Get-ChildItem -Path src/ -Recurse -File -ErrorAction "
+              "SilentlyContinue | Select-String -Pattern foo"),
+              "grep after `cd X &&` is now translated (was: 'grep not recognized')")
         check(_twa("git log | grep x") == "git log | grep x",
               "the `| grep` pipe filter is NOT touched here (pipe path handles it)")
         check(_tf('echo "a | head -5"') == 'echo "a | head -5"',
