@@ -546,6 +546,72 @@ def translate_null_redirects(command: str) -> str:
     return _NULL_REDIR_RE.sub(lambda m: f"{m.group('op')}$null", command)
 
 
+def _tokenize_ws(s: str) -> List[str]:
+    """Whitespace-split, keeping quoted spans intact (quotes retained)."""
+    toks: List[str] = []
+    buf: List[str] = []
+    q = None
+    for ch in s.strip():
+        if q:
+            buf.append(ch)
+            if ch == q:
+                q = None
+        elif ch in ("'", '"'):
+            q = ch
+            buf.append(ch)
+        elif ch.isspace():
+            if buf:
+                toks.append("".join(buf))
+                buf = []
+        else:
+            buf.append(ch)
+    if buf:
+        toks.append("".join(buf))
+    return toks
+
+
+_DIR_HEAD_RE = re.compile(r"^\s*dir\b", re.IGNORECASE)
+_REDIR_TOK_RE = re.compile(r"^(?:\d*>{1,2}|&>|<)")
+# `dir /b` / `dir /s /b` are cmd.exe switches; PowerShell's `dir` (Get-ChildItem)
+# reads `/b` as a second path and dies ("Second path fragment must not be a
+# drive"). Translate the common single-path form so it runs; bail to the hint for
+# anything with an unknown switch or >1 path/glob (Get-ChildItem can't take two
+# positional filespecs cleanly).
+_DIR_SWITCHES = {"/b": "-Name", "/s": "-Recurse", "/a": "-Force"}
+
+
+def translate_dir_switches(command: str) -> str:
+    if os.name != "nt" or not _DIR_HEAD_RE.match(command):
+        return command
+    segs = _split_pipes_top_level(command)
+    if not _DIR_HEAD_RE.match(segs[0]):
+        return command
+    toks = _tokenize_ws(segs[0])
+    out = ["Get-ChildItem"]
+    tail: List[str] = []          # redirects, appended after the switches
+    paths = 0
+    saw_switch = False
+    for t in toks[1:]:
+        if re.fullmatch(r"/[A-Za-z]", t):
+            repl = _DIR_SWITCHES.get(t.lower())
+            if repl is None:
+                return command      # unknown cmd switch -> let the hint guide
+            if repl not in out:
+                out.append(repl)
+            saw_switch = True
+        elif _REDIR_TOK_RE.match(t):
+            tail.append(t)
+        else:
+            paths += 1
+            if paths > 1:
+                return command      # >1 filespec -> GCI can't; hint instead
+            out.insert(1, t)        # path right after Get-ChildItem
+    if not saw_switch:
+        return command              # plain `dir` already works in PowerShell
+    segs[0] = " ".join(out + tail)
+    return "|".join(segs)
+
+
 def translate_unix_pipe_filters(command: str) -> str:
     """Rewrite trailing/embedded `| head -N`, `| tail -N`, `| wc -l` to the
     PowerShell equivalents so `git log | head -20` actually runs on Windows
@@ -633,8 +699,11 @@ def shell_syntax_hint(command: str, combined: str) -> str:
                 "`if (-not (Test-Path X)) { ... }` instead of `if not exist X`, "
                 "and `New-Item -ItemType Directory -Force X` to mkdir.")
     # `dir /b`, `dir /s /b` — cmd.exe switches; PowerShell's dir is Get-ChildItem
-    # and treats `/b` as a second path argument (DirArgumentError / "path2").
-    if _re.search(r"\bdir\b[^\n]*\s/[a-z]\b", command, _re.IGNORECASE):
+    # and treats `/b` as a second path argument (DirArgumentError / "path2"). The
+    # single-path form is now auto-translated, so gate the hint on an ACTUAL dir
+    # error (multi-glob / unknown-switch forms that translation bailed on) — else
+    # it would fire spuriously on a command we already fixed.
+    if _failed and _re.search(r"\bdir\b[^\n]*\s/[a-z]\b", command, _re.IGNORECASE):
         return ("\nHINT: `dir /b` / `dir /s` are cmd.exe switches — PowerShell's "
                 "`dir` is Get-ChildItem and reads `/b` as a path. Use "
                 "`Get-ChildItem -Name` (bare names, like /b), "
@@ -853,6 +922,43 @@ def pytest_error_hint(combined: str) -> str:
             "listed test files never ran. Read the traceback under each `ERROR "
             "collecting …` and fix the import (missing dependency, wrong sys.path, "
             "or a bad conftest) before trusting any pass/fail counts.")
+
+
+def maven_error_hint(combined: str) -> str:
+    """Distinguish a Maven COMPILE failure from a TEST failure — the #1 confusion
+    on the SERIOPlus Java monorepo. `mvn test` that dies at `maven-compiler-plugin`
+    (missing class/package) never ran a single test, but the model reads "BUILD
+    FAILURE" and starts editing test logic. Observed: `mvn test -Dtest=Seizure…`
+    failed because `package …common.dto.seizure does not exist` / `cannot find
+    symbol class SeizureMemoDto` — the DTO was never created. Returns a hint or ""."""
+    text = combined or ""
+    if "BUILD FAILURE" not in text and "BUILD ERROR" not in text:
+        return ""
+    import re as _re
+    # Compile step failed -> code doesn't build, so nothing was tested.
+    if _re.search(r"COMPILATION ERROR|cannot find symbol"
+                  r"|package [\w.]+ does not exist"
+                  r"|maven-compiler-plugin[^\n]*compile", text, _re.IGNORECASE):
+        pkg = _re.search(r"package ([\w.]+) does not exist", text)
+        cls = _re.search(r"symbol:\s*class (\w+)", text)
+        detail = (f" (missing package `{pkg.group(1)}`)" if pkg
+                  else f" (missing class `{cls.group(1)}`)" if cls else "")
+        return (f"\nHINT: Maven BUILD FAILURE at the COMPILE step{detail} — the "
+                f"code does not compile, so NO tests ran. This is a missing/renamed "
+                f"class, package, or import, NOT a test-logic bug — create or import "
+                f"the missing type, then re-run. (`mvn -o` skips the slow online "
+                f"dependency check once deps are cached.)")
+    # No test matched the -Dtest filter (surefire ran, found nothing).
+    if _re.search(r"No tests were executed|No tests matching", text, _re.IGNORECASE):
+        return ("\nHINT: `-Dtest=<Name>` matched no tests — use the SIMPLE class "
+                "name (no package), check the spelling, or drop `-Dtest` to run the "
+                "whole module. Add `-DfailIfNoTests=false` to tolerate no matches.")
+    # Compiled fine, but assertions/errors in the tests themselves.
+    if _re.search(r"There are test failures|Failures: [1-9]|Errors: [1-9]", text):
+        return ("\nHINT: Maven compiled but TESTS failed — the full stack traces are "
+                "in `target/surefire-reports/` (the console summary truncates them); "
+                "read the `.txt` for the failing class.")
+    return ""
 
 
 @dataclass
@@ -1469,7 +1575,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             for h in (python_import_hint(err, str(reg.cwd)),
                       python_error_hint(err),
                       npm_error_hint(out + "\n" + err),
-                      pytest_error_hint(out + "\n" + err)):
+                      pytest_error_hint(out + "\n" + err),
+                      maven_error_hint(out + "\n" + err)):
                 if h:
                     parts.append(h.lstrip("\n"))
         return "\n".join(parts)
@@ -1502,8 +1609,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             # instead of erroring: `&&`/`||` chains -> if ($?)/if (-not $?), and
             # `| head/tail/wc` -> Select-Object/Measure-Object (handled per chain
             # segment inside powershell_translate).
-            run_cmd = powershell_translate(
-                translate_null_redirects(translate_windows_aliases(command)))
+            run_cmd = powershell_translate(translate_null_redirects(
+                translate_dir_switches(translate_windows_aliases(command))))
             # Force UTF-8 so non-ASCII survives BOTH ways: native-command output
             # (git log) is decoded as UTF-8, and args we pass to native commands
             # (git commit -m "…") are encoded as UTF-8 — no more `—` -> `â€"`.

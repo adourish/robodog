@@ -881,6 +881,24 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.58
+
+- **`dir /b` / `dir /s /b` now auto-translate to `Get-ChildItem`.** PowerShell's
+  `dir` reads `/b` as a second path and fails (*"Second path fragment must not be
+  a drive"*); models reach for the cmd.exe form constantly and ignored the hint.
+  The single-path form (`dir "C:\x" /s /b`) now rewrites to
+  `Get-ChildItem "C:\x" -Recurse -Name`, redirects preserved; multi-glob forms
+  (`dir /s /b *a* *b*`) still defer to the hint. The hint now fires only on a real
+  `dir` error, not after a successful translation.
+- **Maven compile-vs-test hint.** A `mvn test` that dies at the compiler
+  (`cannot find symbol`, `package … does not exist`) never ran a single test, but
+  the "BUILD FAILURE" banner reads like a test failure — so the model starts
+  editing test logic. robodog now says it's a *compile* failure (naming the
+  missing class/package), that no tests ran, and to create/import the missing type
+  first. Also distinguishes "no test matched `-Dtest=`" and genuine test failures
+  (→ `target/surefire-reports/`). Same can't-build-vs-test-failed distinction as
+  the pytest hint, for the Java/Maven monorepo.
+
 ### 0.3.57
 
 - **`2>nul` / `2>/dev/null` are auto-translated to `2>$null`.** On Windows `nul`

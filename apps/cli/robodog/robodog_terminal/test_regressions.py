@@ -91,9 +91,22 @@ def main() -> int:
         check("Get-ChildItem" in T.shell_syntax_hint("find . -type f -name x",
                                                       "find: command not found"),
               "unix `find -type` -> Get-ChildItem hint")
-        check("Get-ChildItem" in T.shell_syntax_hint("dir C:\\x /b",
-                                                      "DirArgumentError path2"),
-              "`dir /b` (cmd.exe) -> Get-ChildItem -Name hint")
+        check(T.shell_syntax_hint("dir C:\\x /b", "DirArgumentError path2")
+              and not T.shell_syntax_hint("dir C:\\x /b", "(exit 0)\na.txt"),
+              "`dir /b` hint fires on the dir error, NOT on a translated success")
+        # single-path `dir /b` / `dir /s /b` now auto-translate (model ignored the
+        # hint 3x; "Second path fragment must not be a drive" on every try).
+        check(T.translate_dir_switches('dir "C:\\p\\svc" /b 2>&1')
+              == 'Get-ChildItem "C:\\p\\svc" -Name 2>&1',
+              "`dir PATH /b` -> Get-ChildItem PATH -Name (redirect preserved)")
+        check("-Recurse" in T.translate_dir_switches('dir "C:\\p" /s /b')
+              and "-Name" in T.translate_dir_switches('dir "C:\\p" /s /b'),
+              "`dir PATH /s /b` -> Get-ChildItem PATH -Recurse -Name")
+        check(T.translate_dir_switches("dir /s /b *a* *b* 2>nul")
+              == "dir /s /b *a* *b* 2>nul",
+              "multi-glob `dir` is left for the hint (GCI can't take 2 filespecs)")
+        check(T.translate_dir_switches("dir C:\\p") == "dir C:\\p",
+              "plain `dir` (no cmd switch) is untouched — it works in PowerShell")
         # `Get-Content`/`cat` on a missing path (bash-read of an ASSUMED file) gets
         # the same did-you-mean + read_file nudge that read_file gives.
         preg, pwd = _reg({"config/babel.config.cjs": "x"})
@@ -200,6 +213,17 @@ def main() -> int:
           "`No module named pytest` -> install / same-interpreter hint")
     check("Node project" in T.npm_error_hint('npm error Missing script: "test"'),
           "`npm Missing script: test` in a non-Node repo -> hint")
+    # Maven COMPILE failure vs TEST failure (SERIOPlus `mvn test` on code that
+    # doesn't build — package/DTO missing — never ran a test).
+    check("NO tests ran" in T.maven_error_hint(
+        "[ERROR] COMPILATION ERROR :\n[ERROR] package gov.fda.x.dto does not exist\n"
+        "[INFO] BUILD FAILURE\n[ERROR] ...maven-compiler-plugin:3.11.0:compile"),
+        "mvn compile failure -> 'code doesn't build, no tests ran', not a test bug")
+    check("surefire-reports" in T.maven_error_hint(
+        "Tests run: 5, Failures: 2, Errors: 0\nThere are test failures.\nBUILD FAILURE"),
+        "mvn compiled-but-tests-failed -> point at surefire-reports")
+    check(T.maven_error_hint("BUILD SUCCESS\nTests run: 5, Failures: 0") == "",
+          "a passing Maven build gets no error hint")
     # pytest COLLECTION error vs test failure (Shared-AI-Service thrash):
     check("pip install fastapi" in T.pytest_error_hint(
         "=== ERRORS ===\nERROR collecting tests/unit/test_models.py\n"
