@@ -680,6 +680,14 @@ class UI:
     # still receives the complete output; this caps the DISPLAY only.
     # ROBODOG_STREAM_LINES=0 -> no live stream at all (summary only).
     STREAM_LIMIT = int(os.environ.get("ROBODOG_STREAM_LINES", "8") or 8)
+    # Turn-level budget: across ALL commands in one turn, cap the live preview so
+    # a many-command turn can't flood the trace (each command still gets its
+    # compact `↳` summary). 0 = no turn cap.
+    TURN_STREAM_LIMIT = int(os.environ.get("ROBODOG_TURN_STREAM_LINES", "40") or 40)
+
+    def reset_turn_stream(self):
+        """Start-of-turn: reset the per-turn live-preview budget."""
+        self._turn_stream = 0
 
     def _reset_stream(self):
         self._stream_shown = 0      # lines actually printed
@@ -705,12 +713,18 @@ class UI:
         else:
             self._stream_blank = False
 
-        if self._stream_shown < self.STREAM_LIMIT:
+        turn = getattr(self, "_turn_stream", 0)
+        over_turn = self.TURN_STREAM_LIMIT > 0 and turn >= self.TURN_STREAM_LIMIT
+        if not over_turn and self._stream_shown < self.STREAM_LIMIT:
             self._stream_shown += 1
+            self._turn_stream = turn + 1
             self.dim(f"  │ {line}")
         elif not self._stream_capped:
             self._stream_capped = True
-            self.dim("  │ … output continues (shown in full to the model)")
+            note = ("  │ … (turn preview budget reached — summaries only; "
+                    "full output still goes to the model)" if over_turn
+                    else "  │ … output continues (shown in full to the model)")
+            self.dim(note)
 
     def stream_footer(self):
         """After a command finishes, report anything the display held back."""

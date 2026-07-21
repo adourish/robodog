@@ -200,6 +200,21 @@ def main() -> int:
     check(f"{200 - ui.STREAM_LIMIT} more lines" in p,
           f"held-back count is accurate (200 - {ui.STREAM_LIMIT})")
 
+    # TURN budget: many commands in one turn cap the AGGREGATE live preview
+    # (each command still gets its summary) so a turn can't flood the trace.
+    ui, buf = capture()
+    ui.reset_turn_stream()
+    for cmd in range(10):
+        ui.tool_call("bash", {"command": f"c{cmd}"})
+        for i in range(20):
+            ui.bash_line(f"c{cmd} line {i}")
+        ui.stream_footer()
+    p = plain(buf.getvalue())
+    preview = sum(1 for l in p.splitlines() if l.strip().startswith("│") and "…" not in l)
+    check(preview <= ui.TURN_STREAM_LIMIT,
+          f"turn-level preview capped ({preview} <= {ui.TURN_STREAM_LIMIT}); "
+          f"without the cap it would be {10 * ui.STREAM_LIMIT}")
+
     # ROBODOG_STREAM_LINES=0 -> summary-only (no live │ lines at all)
     ui, buf = capture()
     ui.STREAM_LIMIT = 0

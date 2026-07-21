@@ -805,6 +805,16 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.46
+
+- **Compact trace stays compact across a whole turn.** Added a per-turn live
+  preview budget (`ROBODOG_TURN_STREAM_LINES`, default 40) so a turn that runs
+  many shell commands can't flood the trace with 8 preview lines each — once the
+  turn budget is hit, later commands show only their one-line summary (full
+  output still goes to the model). Verified in live summary-mode tests: reads
+  show `read N lines`, grep/glob show counts, a 500-line command caps at 11
+  lines, and a 10-command turn's preview caps at 40 (vs 80 before).
+
 ### 0.3.45
 
 - **`@`-path tab-completion.** Typing `@src/` (or any `@path`) now tab-completes

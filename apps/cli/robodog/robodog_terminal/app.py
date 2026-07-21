@@ -1519,6 +1519,7 @@ def main(argv=None) -> int:
         if session_id[0] is None:
             session_id[0] = store.new_session()
 
+        ui.reset_turn_stream()   # fresh per-turn live-preview budget
         runner = TurnRunner(loop)
         runner.start(expanded, _threading.Event())
         if not headless and sys.stdin.isatty():
