@@ -848,6 +848,7 @@ def main(argv=None) -> int:
     history_marks: dict = {}
     import time as _time
     _session_start = _time.time()
+    cost_tokens = {"in": 0, "out": 0}   # session input/output tokens for /stats cost
 
     # --continue / --resume at startup
     startup_resume = ("latest" if args.continue_latest else args.resume)
@@ -982,6 +983,8 @@ def main(argv=None) -> int:
         store.set_meta(session_id[0], model=ui.model_name,
                        total_tokens=ui.total_tokens + result.total_tokens)
         ui.total_tokens += result.total_tokens
+        cost_tokens["in"] += getattr(result, "prompt_tokens", 0) or 0
+        cost_tokens["out"] += getattr(result, "completion_tokens", 0) or 0
         ui.context_pct = min(99, loop.transcript_chars() * 100
                              // loop.max_transcript_chars)
         ui.assistant(result.final_text)
@@ -1044,10 +1047,17 @@ def main(argv=None) -> int:
                 elapsed = int(_time.time() - _session_start)
                 mm, ss = divmod(elapsed, 60)
                 files = len(getattr(registry, "read_paths", {}) or {})
+                from robodog_terminal.llm_client import estimate_cost as _cost
+                _c = _cost(model_label, cost_tokens["in"], cost_tokens["out"])
+                cost_line = (f"~${_c:.4f} (in {cost_tokens['in']:,} / out {cost_tokens['out']:,})"
+                             if _c is not None else
+                             f"— (no price for this model; in {cost_tokens['in']:,} / "
+                             f"out {cost_tokens['out']:,})")
                 ui.info(
                     f"session stats\n"
                     f"  model:       {model_label}\n"
                     f"  tokens:      {ui.total_tokens:,} this session\n"
+                    f"  est. cost:   {cost_line}\n"
                     f"  context:     ~{chars // 4:,} tokens ({pct}% of the trim window)\n"
                     f"  turns:       {prompt_count} prompts · {len(loop.history)} history entries\n"
                     f"  files read:  {files}\n"
@@ -1375,6 +1385,8 @@ def main(argv=None) -> int:
                     result = loop.run(prompt)
                     ui.assistant(result.final_text)
                     ui.total_tokens += result.total_tokens
+                    cost_tokens["in"] += getattr(result, "prompt_tokens", 0) or 0
+                    cost_tokens["out"] += getattr(result, "completion_tokens", 0) or 0
                 except KeyboardInterrupt:
                     ui.spinner_stop()
                     ui.dim("[interrupted]")

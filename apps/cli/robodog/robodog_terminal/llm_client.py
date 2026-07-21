@@ -162,6 +162,36 @@ def _parse_retry_after(value) -> Optional[float]:
     return None
 
 
+# Approximate USD per 1M tokens (input, output), matched by substring on the
+# model id. Rough by design — a ballpark $ figure for /stats, not billing. A
+# custom gateway / unknown model returns None (shown as "—").
+_PRICE_PER_1M = {
+    "gpt-4o-mini": (0.15, 0.60), "gpt-4o": (2.50, 10.0), "gpt-4.1-mini": (0.40, 1.60),
+    "gpt-4.1": (2.0, 8.0), "o1-mini": (1.10, 4.40), "o1": (15.0, 60.0),
+    "o3-mini": (1.10, 4.40),
+    "claude-3-5-haiku": (0.80, 4.0), "claude-3.5-haiku": (0.80, 4.0),
+    "claude-3-5-sonnet": (3.0, 15.0), "claude-3.5-sonnet": (3.0, 15.0),
+    "claude-sonnet-4": (3.0, 15.0), "claude-3-opus": (15.0, 75.0),
+    "claude-opus-4": (15.0, 75.0), "claude-haiku": (0.80, 4.0),
+    "gemini-1.5-flash": (0.075, 0.30), "gemini-1.5-pro": (1.25, 5.0),
+    "gemini-2.0-flash": (0.10, 0.40), "llama-3": (0.10, 0.30),
+}
+
+
+def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int):
+    """Ballpark USD cost for a token count, or None for an unknown/gateway model.
+    Longest-key match wins so 'claude-3-5-sonnet' beats a 'claude' prefix."""
+    m = (model or "").lower()
+    best = None
+    for key, price in _PRICE_PER_1M.items():
+        if key in m and (best is None or len(key) > len(best[0])):
+            best = (key, price)
+    if best is None:
+        return None
+    pin, pout = best[1]
+    return (prompt_tokens / 1e6) * pin + (completion_tokens / 1e6) * pout
+
+
 def _backoff_delay(attempt: int, retry_after: Optional[float] = None,
                    cap: float = 60.0) -> float:
     """Jittered backoff for a retry. Honors a server `Retry-After` (waits at

@@ -178,7 +178,7 @@ network-capable → they must default to `executes=True` and pass the 4.1 guard.
 Robodog has `@`-mention expansion; make sure it covers folders and has REPL tab-completion.
 Table-stakes ergonomics (universal across Continue/Gemini/Qwen).
 
-### 5.3 ✅ `/stats` — token + cost surface  · S · *shipped 0.3.33 (tokens/context%/turns/files/uptime; cost pending price table)*
+### 5.3 ✅ `/stats` — token + cost surface  · S · *tokens/context/turns/files/uptime (0.3.33) + estimated $ cost (0.3.41)*
 Per-session tokens, context-window %, cost, cached-token savings, duration (Gemini `/stats`).
 High-trust, and it's a **prerequisite for 2.1's threshold trigger** (you need window accounting).
 

@@ -805,6 +805,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.41
+
+- **`/stats` now shows estimated cost.** Session $ spend from a built-in
+  per-model price table (input/output per 1M tokens) — e.g.
+  `est. cost: ~$0.0087 (in 2,730 / out 34)`. Unknown/gateway models (ELSA) show
+  `—` with the raw token split. (Completes roadmap 5.3.)
+
 ### 0.3.40
 
 - **Clearer 404s.** A `404` whose body says `No endpoints found for <model>`
