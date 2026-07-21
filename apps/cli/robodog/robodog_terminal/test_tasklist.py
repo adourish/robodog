@@ -148,8 +148,13 @@ def main() -> int:
 
     # task_add missing required param (registry-level validation)
     r = reg.execute("task_add", {})
-    check(r.startswith("ERROR: missing required param"),
+    check(("missing required param" in r and r.startswith("ERROR:")),
           f"task_add without subjects -> missing-param ERROR ({r!r})")
+    # the error shows the tool name + the exact format to fix it (a weak model
+    # kept repeating a content-less write_file until the loop breaker stopped it)
+    check("task_add is missing" in r and '<tool name="task_add">' in r
+          and '<param name="subjects">' in r,
+          "missing-param error names the tool and shows the required-param skeleton")
 
     # task_update via registry
     r = reg.execute("task_update", {"id": "2", "status": "in_progress"})
@@ -215,7 +220,7 @@ def main() -> int:
           f"raising ask_fn -> ERROR string ({r!r})")
 
     r = reg.execute("ask_user", {"question": "Hi"})
-    check(r.startswith("ERROR: missing required param"),
+    check(("missing required param" in r and r.startswith("ERROR:")),
           f"ask_user without options -> missing-param ERROR ({r!r})")
 
     # tools appear in the catalog the model reads

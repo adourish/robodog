@@ -867,6 +867,16 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.48
+
+- **Missing-param errors now teach the fix (found in a live test).** A weak model
+  kept calling `write_file` with a `path` but no `content`, got a terse
+  `missing required param(s): content`, and repeated it until the loop breaker
+  stopped it — no file written. The error now names the tool and shows the exact
+  skeleton to emit (`<tool name="write_file"><param name="path">…</param><param
+  name="content">…</param></tool>`). Re-running the same live turn, the model
+  self-corrected and wrote + ran the test.
+
 ### 0.3.47
 
 - **Docs:** README + PyPI page rewritten to cover this session's work — the

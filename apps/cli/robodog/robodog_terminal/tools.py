@@ -648,7 +648,16 @@ class Tool:
     def run(self, args: Dict[str, str]) -> str:
         missing = [p.name for p in self.params if p.required and p.name not in args]
         if missing:
-            return f"ERROR: missing required param(s): {', '.join(missing)}"
+            # Show the exact format to fix it — a bare "missing content" left
+            # weak models repeating the same broken call until the loop breaker
+            # stopped them (write_file with a path but no content).
+            skeleton = "".join(
+                f'<param name="{p.name}">…</param>' for p in self.params if p.required)
+            optional = [p.name for p in self.params if not p.required]
+            opt = f" (optional: {', '.join(optional)})" if optional else ""
+            return (f"ERROR: {self.name} is missing required param(s): "
+                    f"{', '.join(missing)}. Emit ALL required params like this:\n"
+                    f'<tool name="{self.name}">{skeleton}</tool>{opt}')
         try:
             return _clamp(self.handler(args))
         except Exception as exc:  # tool errors are fed back, not fatal
