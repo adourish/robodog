@@ -128,6 +128,41 @@ def _http_error_hint(status: int, url: str, model: str) -> str:
     return ""
 
 
+def _parse_retry_after(value) -> Optional[float]:
+    """Parse an HTTP `Retry-After` header — either delta-seconds ("5") or an
+    HTTP-date. Returns seconds to wait (>=0), or None if unparseable/absent."""
+    if not value:
+        return None
+    try:
+        return max(0.0, float(str(value).strip()))
+    except (TypeError, ValueError):
+        pass
+    try:
+        from email.utils import parsedate_to_datetime
+        from datetime import timezone
+        import time as _t
+        when = parsedate_to_datetime(str(value))
+        if when is not None:
+            if when.tzinfo is None:      # non-compliant naive date -> treat as UTC
+                when = when.replace(tzinfo=timezone.utc)
+            return max(0.0, when.timestamp() - _t.time())
+    except Exception:
+        pass
+    return None
+
+
+def _backoff_delay(attempt: int, retry_after: Optional[float] = None,
+                   cap: float = 60.0) -> float:
+    """Jittered backoff for a retry. Honors a server `Retry-After` (waits at
+    least that long) and otherwise uses exponential backoff with full jitter so
+    concurrent clients don't retry in lockstep and hammer a struggling gateway."""
+    import random
+    if retry_after is not None:
+        return min(cap, max(0.5, retry_after)) + random.uniform(0.0, 0.5)
+    exp = min(2.0 ** (attempt - 1), cap)
+    return max(0.5, random.uniform(exp * 0.5, exp))   # full-ish jitter
+
+
 def clean_text(s):
     """
     Strip lone UTF-16 surrogate code points that sneak in from Windows clipboard
@@ -314,7 +349,7 @@ class GatewayClient(LLMClient):
                     raise RuntimeError(str(exc)) from exc
                 last_err = str(exc)[:120]
             if attempt < self.max_attempts:
-                delay = min(2 ** (attempt - 1), 30)  # 1,2,4,8,16 (cap 30s)
+                delay = _backoff_delay(attempt)   # jittered exponential backoff
                 self.on_retry(attempt, self.max_attempts, delay, last_err)
                 time.sleep(delay)
         raise RuntimeError(
@@ -411,6 +446,7 @@ class OpenAICompatClient(LLMClient):
         try:
             last_err = "unknown"
             for attempt in range(1, self.max_attempts + 1):
+                retry_after = None   # set from a 429/503 Retry-After header
                 try:
                     # Split timeout: a short connect budget (a dead/unreachable
                     # host fails fast) + the full read budget (a slow gateway
@@ -435,6 +471,9 @@ class OpenAICompatClient(LLMClient):
                         last_err = "empty response"
                     elif resp.status_code in (429,) or resp.status_code >= 500:
                         last_err = f"HTTP {resp.status_code}"
+                        # Honor the server's backoff ask on rate-limit / overload.
+                        retry_after = _parse_retry_after(
+                            resp.headers.get("Retry-After"))
                     else:
                         hint = _http_error_hint(resp.status_code, self.url, self.model)
                         raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}{hint}")
@@ -451,7 +490,7 @@ class OpenAICompatClient(LLMClient):
                 except _rq.Timeout as exc:
                     last_err = f"timeout ({type(exc).__name__})"
                 if attempt < self.max_attempts:
-                    delay = min(2 ** (attempt - 1), 30)
+                    delay = _backoff_delay(attempt, retry_after)
                     self.on_retry(attempt, self.max_attempts, delay, last_err)
                     time.sleep(delay)
             raise RuntimeError(f"LLM failed after {self.max_attempts} attempts: {last_err}")

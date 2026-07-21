@@ -120,8 +120,8 @@ def main() -> int:
     cl = mk([FakeResp(500, text="boom"), FakeResp(500, text="boom"),
              FakeResp(200, gateway_payload("hello"))])
     check(cl.complete("hi").text == "hello" and len(retries) == 2
-          and retries[0][1] == 1 and retries[1][1] == 2,
-          "5xx retried with 1s,2s backoff")
+          and 0.5 <= retries[0][1] <= 1.0 and 1.0 <= retries[1][1] <= 2.0,
+          "5xx retried with jittered exponential backoff (~[0.5,1], ~[1,2])")
     retries.clear()
     cl = mk([FakeResp(200, gateway_payload("")), FakeResp(200, gateway_payload("ok"))])
     check(cl.complete("hi").text == "ok" and "empty" in retries[0][2],
@@ -480,6 +480,23 @@ def main() -> int:
     r = d3.diagnose()
     check(r["ok"] is False and r["status"] == 401,
           "diagnose: HTTP 401 reported with status")
+
+    # ---- gateway resilience (roadmap 3.1): Retry-After + jittered backoff ----
+    import email.utils as _eu, time as _tt
+    from robodog_terminal.llm_client import _parse_retry_after, _backoff_delay
+    check(_parse_retry_after("5") == 5.0 and _parse_retry_after(" 12 ") == 12.0,
+          "Retry-After: delta-seconds parsed")
+    check(_parse_retry_after(None) is None and _parse_retry_after("garbage") is None,
+          "Retry-After: absent/garbage -> None")
+    _ra = _parse_retry_after(_eu.formatdate(_tt.time() + 30, usegmt=True))
+    check(_ra is not None and 20 < _ra <= 31, "Retry-After: HTTP-date -> seconds-from-now")
+    check(all(5.0 <= _backoff_delay(1, retry_after=5.0) <= 6.0 for _ in range(30)),
+          "backoff honors Retry-After (waits >= it, small jitter)")
+    _delays = {round(_backoff_delay(a), 3) for a in range(1, 6) for _ in range(20)}
+    check(all(0.5 <= d <= 60.0 for d in _delays) and len(_delays) > 20,
+          "backoff is jittered (varies) and bounded to [0.5, 60]s")
+    check(_backoff_delay(20, retry_after=9999) <= 60.5,
+          "backoff caps a huge Retry-After at ~60s")
 
     print("\nLLM CLIENT:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1

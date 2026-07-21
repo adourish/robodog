@@ -113,7 +113,7 @@ already present" idempotency note (catches double-application on retries). Robod
 
 ## Phase 3 — Gateway resilience (ELSA-specific)
 
-### 3.1 🟡 Timeout / backoff / retry budget  · M
+### 3.1 🟡 Timeout / backoff / retry budget  · M · *Retry-After honoring + jittered backoff shipped 0.3.30; global cross-call retry budget still TODO*
 Robodog auto-sets a long timeout for custom gateways. Add (cline #2941/#713, Roo #1539):
 jittered exponential backoff honoring `Retry-After`; a **global** retry budget so a retry storm
 can't run all night; distinguish "no first token yet" from "stream stalled mid-response."

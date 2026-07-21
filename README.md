@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.30
+
+- **Gateway resilience (roadmap 3.1).** LLM retries now **honor the server's
+  `Retry-After`** header on 429/503 (delta-seconds or HTTP-date) and use
+  **jittered** exponential backoff instead of lockstep 1s/2s/4s — so many clients
+  hitting a rate-limited/overloaded gateway don't retry in sync and amplify the
+  spike. Delay is bounded to [0.5s, 60s]. Applies to both the OpenAI-compatible
+  and runPixel gateway backends.
+
 ### 0.3.29
 
 - **Multi-format tool parsing (roadmap 2.4 — Phase 2 complete).**
