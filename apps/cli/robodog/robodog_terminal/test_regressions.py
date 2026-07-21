@@ -60,6 +60,20 @@ def main() -> int:
         check(twa('grep -n "max_retries" f.py')
               == 'Select-String -Pattern "max_retries" -Path f.py',
               "standalone `grep PATTERN FILE` -> Select-String -Path")
+        # `| grep -n PATTERN` (flags in a PIPE) must NOT be mis-split into
+        # -Pattern <flag> -Path <pattern> (produced 'Missing argument for Pattern').
+        g = pt('cat r.js | grep -n "resolveModule" | head -10')
+        check("Select-String \"resolveModule\"" in g and "-Path" not in g,
+              "`| grep -n P` keeps P as pattern, no bogus -Path (was: broken cmd)")
+        check(twa('git log | grep -i "fix"').count("-Path") == 0,
+              "grep flags in a pipe never invent a -Path file arg")
+        # standalone head/tail with ONE file -> Get-Content (Windows has neither).
+        check(twa("head -20 out.log") == "Get-Content out.log -TotalCount 20",
+              "standalone `head -N FILE` -> Get-Content -TotalCount")
+        check(twa("tail -n 5 server.log") == "Get-Content server.log -Tail 5",
+              "standalone `tail -n N FILE` -> Get-Content -Tail")
+        check(twa("head -5 a.js b.js") == "head -5 a.js b.js",
+              "multi-file head is left alone (no clean equivalent)")
         check(twa("curl -s -o x https://a") == "curl.exe -s -o x https://a",
               "`curl` (PS alias for Invoke-WebRequest) -> curl.exe")
         h = T.shell_syntax_hint('find C:/p -type f -name "*.py" 2>/dev/null',

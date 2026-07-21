@@ -881,6 +881,25 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.54
+
+- **Fixed a `grep`-in-a-pipe mistranslation.** `… | grep -n "pattern"` was being
+  mis-split into `Select-String -Pattern -n -Path "pattern"` (PowerShell then
+  errored *"Missing an argument for parameter 'Pattern'"*) — the flag `-n` was
+  swallowing the pattern slot. grep with a real FILE arg is now only recognised at
+  command position; a grep in a later pipe segment reads stdin and translates to a
+  plain `Select-String "pattern"`.
+- **Standalone `head`/`tail` on a single file** now translate on Windows:
+  `head -20 f` → `Get-Content f -TotalCount 20`, `tail -n 5 f` → `Get-Content f
+  -Tail 5` (previously only the `| head`/`| tail` pipe forms were handled, so
+  `head -20 f` failed with *"head is not recognized"*). Multi-file `head a b` is
+  left alone — no clean one-liner equivalent.
+- **pytest interpreter-mismatch hint.** When a known dependency (fastapi, pydantic,
+  openai, boto3, …) is *"No module named"* at collection time, robodog now flags the
+  classic Windows trap directly: the `pytest.exe` shim and `python`/`pip` are often
+  different Python versions, so a `pip install` lands in the wrong one — use
+  `python -m pip install` + `python -m pytest` so both share one interpreter.
+
 ### 0.3.53
 
 - **pytest collection-error hint.** When a run shows `=== ERRORS ===` /

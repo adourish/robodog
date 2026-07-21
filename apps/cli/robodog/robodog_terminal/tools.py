@@ -478,8 +478,30 @@ def _grep_with_file(seg: str) -> Optional[str]:
     if "r" in flags:
         return None
     pattern, files = m.group(2), m.group(3).strip()
+    # A pattern that is itself a bare flag (e.g. `-n`) means the regex backtracked
+    # and mis-split `grep -n "x"` (a PIPE filter, no file) into pattern=`-n`,
+    # file=`"x"`. That's not a grep-with-file — bail so the pipe path handles it.
+    if pattern.startswith("-") or files.startswith("-"):
+        return None
     invert = "-NotMatch " if "v" in flags else ""
     return f"Select-String {invert}-Pattern {pattern} -Path {files}"
+
+
+# Standalone `head`/`tail` at command position (NOT a pipe filter) reading ONE
+# file — `head -20 f`, `tail -n 5 f`, `head f`. Windows has no head/tail, so map
+# to Get-Content. Multi-file (`head a b`, whose Unix output interleaves `==> a
+# <==` headers) is left alone — no clean one-liner equivalent; the hint covers it.
+_HEAD_TAIL_FILE_RE = re.compile(
+    r"^(head|tail)(?:\s+-n\s+(\d+)|\s+-(\d+))?\s+(?!-)([^\s|]+)\s*$", re.IGNORECASE)
+
+
+def _head_tail_with_file(seg: str) -> Optional[str]:
+    m = _HEAD_TAIL_FILE_RE.match(seg.strip())
+    if not m:
+        return None
+    n = m.group(2) or m.group(3) or "10"
+    flag = "-TotalCount" if m.group(1).lower() == "head" else "-Tail"
+    return f"Get-Content {m.group(4)} {flag} {n}"
 
 
 def translate_windows_aliases(command: str) -> str:
@@ -494,15 +516,16 @@ def translate_windows_aliases(command: str) -> str:
     out = command
     if "curl" in out.lower():
         out = _CURL_RE.sub(lambda m: m.group(1) + "curl.exe", out)
-    if "grep" in out.lower():
+    # grep/head/tail with a FILE arg are a COMMAND, so only the first pipe
+    # segment can hold one — in `cat x | grep p` the grep reads stdin (a pipe
+    # filter, handled by translate_unix_pipe_filters), NOT a file. Translating a
+    # later segment would wrongly invent a -Path and break the pipe.
+    if any(k in out.lower() for k in ("grep", "head", "tail")):
         segs = _split_pipes_top_level(out)
-        changed = False
-        for i, s in enumerate(segs):
-            g = _grep_with_file(s)
-            if g is not None:
-                segs[i] = (" " if i else "") + g
-                changed = True
-        if changed:
+        first = segs[0]
+        repl = _grep_with_file(first) or _head_tail_with_file(first)
+        if repl is not None:
+            segs[0] = repl
             out = "|".join(segs)
     return out
 
@@ -736,13 +759,38 @@ def pytest_error_hint(combined: str) -> str:
                      r"No module named ['\"]?([\w.]+)", text)
     if mod:
         name = mod.group(1).split(".")[0]
-        return (f"\nHINT: pytest COLLECTION error (not a test failure) — a test "
-                f"module failed to IMPORT because `{name}` can't be found. Either "
-                f"the dependency isn't installed (`pip install {name}` in THIS "
-                f"interpreter), or it's your own package that isn't on sys.path — "
-                f"run pytest from the project root, `pip install -e .`, or set "
-                f"PYTHONPATH. In a mono-repo, run pytest inside the package that "
-                f"owns the tests. Re-running pytest unchanged won't fix an import.")
+        # Third-party dep vs the project's own package decide the fix. A known
+        # PyPI dep that's "missing" right after a `pip install` is almost always
+        # the Windows interpreter-mismatch trap: the `pytest.exe` shim and
+        # `python`/`pip` resolve to DIFFERENT Python versions, so the install
+        # landed in the wrong one. (Observed live: pytest.exe was 3.12 while
+        # `python` was 3.13 — `pip install fastapi` went to 3.13, pytest kept
+        # failing on 3.12 for ~5 minutes.) A local package (src/app/…) is instead
+        # a sys.path problem.
+        third_party = {
+            "fastapi", "pydantic", "pydantic_settings", "openai", "httpx",
+            "uvicorn", "starlette", "boto3", "botocore", "requests", "numpy",
+            "pandas", "markitdown", "aiohttp", "sqlalchemy", "redis", "pytest",
+            "dotenv", "yaml", "jose", "passlib", "anthropic",
+        }
+        if name.lower() in third_party:
+            return (f"\nHINT: pytest COLLECTION error (not a test failure) — `{name}` "
+                    f"isn't importable. If you just `pip install`ed it, `pip`/`python` "
+                    f"and `pytest` are likely DIFFERENT interpreters (on Windows the "
+                    f"`pytest.exe` shim and `python` are often different versions), so "
+                    f"the install went to the wrong Python. Fix by using ONE "
+                    f"interpreter both ways:\n"
+                    f"    python -m pip install {name}\n"
+                    f"    python -m pytest        # NOT the bare `pytest` shim\n"
+                    f"Run `python -c \"import sys;print(sys.executable)\"` and "
+                    f"`python -m pytest --version` to confirm they match.")
+        return (f"\nHINT: pytest COLLECTION error (not a test failure) — the test "
+                f"module can't import `{name}`, which looks like your OWN package "
+                f"rather than a dependency, so it isn't on sys.path. Run `python -m "
+                f"pytest` from the project root, `pip install -e .`, add a conftest.py "
+                f"at the root, or set PYTHONPATH. In a mono-repo, run pytest INSIDE "
+                f"the package that owns the tests — a root `src/` may shadow a "
+                f"per-service one. Re-running pytest unchanged won't fix an import.")
     return ("\nHINT: pytest reported COLLECTION errors (shown under `=== ERRORS "
             "===`), which are import/setup failures, NOT test assertions — the "
             "listed test files never ran. Read the traceback under each `ERROR "
