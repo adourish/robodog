@@ -458,18 +458,53 @@ def _translate_filter_segment(seg: str) -> Optional[str]:
 
 
 _CURL_RE = re.compile(r"(^|[|&;{(]\s*)curl(?=\s)", re.IGNORECASE)
+# `grep [flags] PATTERN FILE...` (a FILE arg present) — the standalone code-search
+# form models reach for, distinct from the `| grep` pipe filter. PATTERN keeps its
+# quoting; the rest are the file path(s).
+_GREP_FILE_RE = re.compile(
+    r"""^grep\s+((?:-[A-Za-z]+\s+)*)("[^"]*"|'[^']*'|[^\s|]+)\s+([^|]+?)\s*$""",
+    re.IGNORECASE)
+
+
+def _grep_with_file(seg: str) -> Optional[str]:
+    """A `grep [flags] PATTERN FILE...` segment -> `Select-String -Pattern P
+    -Path F` (Select-String already prints file:line:text). None if it isn't that
+    shape, or if it's recursive (`-r`, which Select-String doesn't do directly —
+    leave it for the shell hint)."""
+    m = _GREP_FILE_RE.match(seg.strip())
+    if not m:
+        return None
+    flags = (m.group(1) or "").replace("-", "").replace(" ", "").lower()
+    if "r" in flags:
+        return None
+    pattern, files = m.group(2), m.group(3).strip()
+    invert = "-NotMatch " if "v" in flags else ""
+    return f"Select-String {invert}-Pattern {pattern} -Path {files}"
 
 
 def translate_windows_aliases(command: str) -> str:
-    """On Windows, `curl` and `wget` are PowerShell ALIASES for
-    Invoke-WebRequest, which chokes on real curl flags (`curl -s -o x -w y` ->
-    "Missing an argument for parameter 'SessionVariable'"). Point `curl` at the
-    real `curl.exe` (ships with Windows 10 1803+/11) so those commands run.
-    Only rewrites `curl` in command position (start, or after |/&/;/{/(); a
-    `curl.exe` already present is left alone."""
-    if os.name != "nt" or "curl" not in command.lower():
+    """On Windows, `curl` is a PowerShell ALIAS for Invoke-WebRequest, which
+    chokes on real curl flags (`curl -s -o x -w y`). Point it at the real
+    `curl.exe`. Also translates a standalone `grep PATTERN FILE` (code search) to
+    `Select-String` — `grep` isn't a Windows command. Only command-position
+    `curl`, and only grep segments that carry a FILE arg (the `| grep PATTERN`
+    pipe filter is handled elsewhere)."""
+    if os.name != "nt":
         return command
-    return _CURL_RE.sub(lambda m: m.group(1) + "curl.exe", command)
+    out = command
+    if "curl" in out.lower():
+        out = _CURL_RE.sub(lambda m: m.group(1) + "curl.exe", out)
+    if "grep" in out.lower():
+        segs = _split_pipes_top_level(out)
+        changed = False
+        for i, s in enumerate(segs):
+            g = _grep_with_file(s)
+            if g is not None:
+                segs[i] = (" " if i else "") + g
+                changed = True
+        if changed:
+            out = "|".join(segs)
+    return out
 
 
 def translate_unix_pipe_filters(command: str) -> str:

@@ -157,6 +157,14 @@ def main() -> int:
               "curl after && -> curl.exe")
         check(_twa("curl.exe already") == "curl.exe already", "curl.exe left alone")
         check(_twa("echo mycurl") == "echo mycurl", "non-command-position curl untouched")
+        # standalone `grep PATTERN FILE` (code search) -> Select-String
+        check(_twa('grep -n "max_retries" f.py') == 'Select-String -Pattern "max_retries" -Path f.py',
+              "standalone grep PATTERN FILE -> Select-String -Path")
+        check(_twa("grep -v error log.txt") == "Select-String -NotMatch -Pattern error -Path log.txt",
+              "grep -v FILE -> -NotMatch")
+        check(_twa("grep -rn x .") == "grep -rn x .", "recursive grep left alone (hint fires)")
+        check(_twa("git log | grep x") == "git log | grep x",
+              "the `| grep` pipe filter is NOT touched here (pipe path handles it)")
         check(_tf('echo "a | head -5"') == 'echo "a | head -5"',
               "pipe inside quotes is NOT translated")
         check(_tf("type f | head file.txt") == "type f | head file.txt",

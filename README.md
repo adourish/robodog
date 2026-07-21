@@ -881,6 +881,17 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.52
+
+- **Regression suite for every live-session failure.** New `test_regressions.py`
+  — one named assertion per real symptom the agent hit (shell/PowerShell
+  translations, tool-call parsing, loop recovery, file/dir hints, error hints,
+  the safety guard, gateway resilience), so any change that reintroduces a fixed
+  failure trips a named test. 40 checks; the runner is now 24 suites.
+- **Standalone `grep PATTERN FILE`** (code search, not `| grep`) is translated to
+  `Select-String -Pattern … -Path …` on Windows — models reach for it constantly
+  and it isn't a Windows command. Recursive `grep -r` is left for the hint.
+
 ### 0.3.51
 
 - **`list_dir` misses now help (like `read_file`).** Listing a directory that

@@ -41,6 +41,7 @@ SUITES = [
     "test_loop_checkpoint.py",# loop trim/nudge/breaker/cancel + checkpointer + tool safety
     "test_app.py",            # headless -p, CLI flags, interactive REPL drive, agents bg
     "test_integration.py",    # plan mode, @-mentions, bg-bash hook, wiring
+    "test_regressions.py",    # one assertion per REAL live-session failure scenario
 ]
 
 # Opt-in LIVE suites (network / real browser / real LLM). Off by default so
