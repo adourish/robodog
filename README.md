@@ -881,6 +881,18 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.53
+
+- **pytest collection-error hint.** When a run shows `=== ERRORS ===` /
+  `ERROR collecting …` / `ImportError while importing test module`, robodog now
+  says it's a *collection* error (an import failed — those tests never ran), not a
+  test failure — and points at the actual cause: a missing dependency
+  (`pip install …` in this interpreter), the app package not on `sys.path`
+  (`pip install -e .` / run from the project root / set PYTHONPATH), or two test
+  files sharing a basename in a mono-repo (`--import-mode=importlib`). Ordinary
+  `assert x == y` failures are deliberately left alone. Stops the re-run-pytest /
+  check-versions thrash seen live on a multi-package repo.
+
 ### 0.3.52
 
 - **Regression suite for every live-session failure.** New `test_regressions.py`

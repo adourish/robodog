@@ -156,6 +156,18 @@ def main() -> int:
           "`No module named pytest` -> install / same-interpreter hint")
     check("Node project" in T.npm_error_hint('npm error Missing script: "test"'),
           "`npm Missing script: test` in a non-Node repo -> hint")
+    # pytest COLLECTION error vs test failure (Shared-AI-Service thrash):
+    check("pip install fastapi" in T.pytest_error_hint(
+        "=== ERRORS ===\nERROR collecting tests/unit/test_models.py\n"
+        "ImportError while importing test module\n"
+        "ModuleNotFoundError: No module named 'fastapi'"),
+        "pytest collection ImportError -> 'install dep / fix sys.path', not a failure")
+    check("import-mode=importlib" in T.pytest_error_hint(
+        "import file mismatch: ... not the same as the test file we want to collect"),
+        "pytest duplicate-basename import mismatch -> --import-mode=importlib hint")
+    check(T.pytest_error_hint(
+        "FAILED tests/unit/test_a.py::t - assert 422 == 200\n1 failed, 3 passed") == "",
+        "ordinary pytest assertion failure is NOT mistaken for a collection error")
 
     # ============ F. Safety — outward-facing writes gated ============
     print("=== F. safety guard ===")

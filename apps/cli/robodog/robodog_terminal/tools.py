@@ -706,6 +706,50 @@ def npm_error_hint(combined: str) -> str:
     return ""
 
 
+def pytest_error_hint(combined: str) -> str:
+    """Distinguish pytest COLLECTION errors from test failures — the model burns
+    many steps re-running pytest and inspecting versions when the real problem is
+    an import (a missing dependency, the app package not on sys.path, or two test
+    files with the same basename in a mono-repo). Observed live: `pytest tests/`
+    on Shared-AI-Service showed `=== ERRORS ===` and the model looped on version
+    checks before realising deps weren't installed. Returns a hint or ""."""
+    text = combined or ""
+    import re as _re
+    # Only fire on the collection-ERROR shape, not ordinary "N failed" assertions.
+    has_errors = bool(
+        _re.search(r"ERROR collecting|errors? during collection"
+                   r"|ImportError while importing test module"
+                   r"|import file mismatch", text, _re.IGNORECASE)
+        or (_re.search(r"^=+ ERRORS =+", text, _re.IGNORECASE | _re.MULTILINE)))
+    if not has_errors:
+        return ""
+    # Duplicate test-file basenames across dirs (classic mono-repo trap).
+    if _re.search(r"import file mismatch|not the same as the test file"
+                  r"|unique basename", text, _re.IGNORECASE):
+        return ("\nHINT: pytest COLLECTION error (not a test failure) — two test "
+                "files share a basename in different folders, so the second can't "
+                "be imported. Give them unique names, add an __init__.py to each "
+                "test dir, or run with `--import-mode=importlib`. Deleting stale "
+                "__pycache__/*.pyc also clears it.")
+    # A module failed to import — missing dep or the package-under-test not on path.
+    mod = _re.search(r"(?:ModuleNotFoundError|ImportError):\s*"
+                     r"No module named ['\"]?([\w.]+)", text)
+    if mod:
+        name = mod.group(1).split(".")[0]
+        return (f"\nHINT: pytest COLLECTION error (not a test failure) — a test "
+                f"module failed to IMPORT because `{name}` can't be found. Either "
+                f"the dependency isn't installed (`pip install {name}` in THIS "
+                f"interpreter), or it's your own package that isn't on sys.path — "
+                f"run pytest from the project root, `pip install -e .`, or set "
+                f"PYTHONPATH. In a mono-repo, run pytest inside the package that "
+                f"owns the tests. Re-running pytest unchanged won't fix an import.")
+    return ("\nHINT: pytest reported COLLECTION errors (shown under `=== ERRORS "
+            "===`), which are import/setup failures, NOT test assertions — the "
+            "listed test files never ran. Read the traceback under each `ERROR "
+            "collecting …` and fix the import (missing dependency, wrong sys.path, "
+            "or a bad conftest) before trusting any pass/fail counts.")
+
+
 @dataclass
 class ToolParam:
     name: str
@@ -1313,7 +1357,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         if returncode not in (0, None):
             for h in (python_import_hint(err, str(reg.cwd)),
                       python_error_hint(err),
-                      npm_error_hint(out + "\n" + err)):
+                      npm_error_hint(out + "\n" + err),
+                      pytest_error_hint(out + "\n" + err)):
                 if h:
                     parts.append(h.lstrip("\n"))
         return "\n".join(parts)
