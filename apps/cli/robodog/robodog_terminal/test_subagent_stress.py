@@ -81,6 +81,26 @@ def main() -> int:
     check("PARENT_ALL_DONE" in res.final_text, "parent synthesized a final answer after fan-out")
     check(dt < serial * 0.7, f"CONCURRENT: {dt:.2f}s vs serial {serial:.2f}s ({serial/dt:.1f}x)")
 
+    # ---- 2b: lifecycle events (agent_spawn/agent_done) for the progress UI --
+    import threading as _th
+    events = []; _elk = _th.Lock()
+    client = EchoClient(script=_fanout_script(3))
+    reg = default_registry(cwd=tempfile.mkdtemp())
+    peak = [0]; cur = [0]
+    def cap_ev(kind, data):
+        with _elk:
+            events.append(kind)
+            if kind == "agent_spawn":
+                cur[0] += 1; peak[0] = max(peak[0], cur[0])
+            elif kind == "agent_done":
+                cur[0] -= 1
+    register_agent_tool(reg, client, on_child_event=cap_ev)
+    AgentLoop(client, reg, max_iterations=5).run("fan out 3")
+    check(events.count("agent_spawn") == 3 and events.count("agent_done") == 3,
+          "each subagent emits one agent_spawn and one agent_done")
+    check(peak[0] >= 2, f"lifecycle shows concurrent in-flight subagents (peak {peak[0]})")
+    check(cur[0] == 0, "in-flight returns to 0 after all subagents finish")
+
     # ---- 3: failure isolation --------------------------------------------
     loopf = _parent(10, fail_ids={2, 5, 8})
     resf = loopf.run("Fan out 10; some will fail.")

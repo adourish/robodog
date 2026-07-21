@@ -694,10 +694,37 @@ def main(argv=None) -> int:
     # worker threads, so the counters are lock-guarded; /verbose restores the
     # full per-event feed.
     import threading as _cthreading
-    child_stats = {"children": set(), "calls": 0}
+    child_stats = {"children": set(), "calls": 0, "inflight": 0}
     child_lock = _cthreading.Lock()
 
+    def _fanout_spinner():
+        from robodog_terminal.llm_client import _effective_max_concurrency
+        with child_lock:
+            n = len(child_stats["children"])
+            inflight, calls = child_stats["inflight"], child_stats["calls"]
+        cap = _effective_max_concurrency()
+        # `inflight/n` = subagents still running of the total spawned. The cap is
+        # on MODEL-call concurrency (shown separately so it doesn't read as a
+        # limit on the subagent count).
+        label = (f"✳ {inflight}/{n} subagent{'' if n == 1 else 's'} running"
+                 f" · {calls} tool call{'' if calls == 1 else 's'}")
+        if cap > 0:
+            label += f" · model cap {cap}"
+        ui.spinner_update(label)
+
     def on_child_event(kind, data):
+        if kind == "agent_spawn":
+            with child_lock:
+                child_stats["children"].add(data.get("child_id"))
+                child_stats["inflight"] += 1
+            ui.spinner_start("✳ subagents starting…")
+            _fanout_spinner()
+            return
+        if kind == "agent_done":
+            with child_lock:
+                child_stats["inflight"] = max(0, child_stats["inflight"] - 1)
+            _fanout_spinner()
+            return
         if kind != "tool_start":
             return
         if verbose[0]:
@@ -708,12 +735,8 @@ def main(argv=None) -> int:
             ui.dim(f"      ⚙ {tag}{data['name']} {arg}")
             return
         with child_lock:
-            child_stats["children"].add(data.get("child_id"))
             child_stats["calls"] += 1
-            n, c = len(child_stats["children"]), child_stats["calls"]
-        ui.spinner_start(f"✳ {n} subagent{'' if n == 1 else 's'} working…")
-        ui.spinner_update(
-            f"✳ {n} subagent{'' if n == 1 else 's'} working · {c} tool call{'' if c == 1 else 's'}")
+        _fanout_spinner()
     if "agent" not in (args.disallowed_tools or ""):
         register_agent_tool(registry, client, on_child_event=on_child_event,
                             manager=manager)
@@ -723,6 +746,7 @@ def main(argv=None) -> int:
             with child_lock:      # new parent step: reset the fan-out counters
                 child_stats["children"].clear()
                 child_stats["calls"] = 0
+                child_stats["inflight"] = 0
             # Spinner carries the status bar so it stays visible mid-turn.
             ui.spinner_start(ui.thinking_line(data["iteration"]))
         elif kind == "llm_error":

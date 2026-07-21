@@ -805,6 +805,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.43
+
+- **Live subagent-fan-out progress.** During a fan-out the spinner now shows how
+  many subagents are still running of the total spawned, tool-call progress, and
+  the model-concurrency cap — e.g. `✳ 4/4 subagents running · 8 tool calls ·
+  model cap 2`, winding down `3/4 … 2/4 … 0/4` as they finish. The cap is the
+  ELSA-style throttle, now visible. (Subagents emit `agent_spawn`/`agent_done`
+  lifecycle events.)
+
 ### 0.3.42
 
 - **Cleaner compact trace (found verifying verbose-vs-summary).** After the

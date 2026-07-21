@@ -125,8 +125,15 @@ def register_agent_tool(
                     f"Continue other work; fetch its result later with "
                     f'<tool name="task_output"><param name="id">{bg.id}</param></tool>.')
 
-        child = _make_child(agent_type, child_id=child_id)
-        result = child.run(prompt)
+        # Lifecycle events so the UI can show live fan-out progress + how many
+        # subagents are actually in-flight (which reveals the concurrency cap).
+        emit = on_child_event or (lambda k, d: None)
+        emit("agent_spawn", {"child_id": child_id, "agent_type": agent_type})
+        try:
+            child = _make_child(agent_type, child_id=child_id)
+            result = child.run(prompt)
+        finally:
+            emit("agent_done", {"child_id": child_id, "agent_type": agent_type})
         return (
             f"[subagent#{child_id}:{agent_type} finished — {result.iterations} steps, "
             f"{result.total_tokens} tokens]\n{result.final_text}"
