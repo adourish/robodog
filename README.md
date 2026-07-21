@@ -805,6 +805,14 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.32
+
+- **"Always allow" for approvals (roadmap 4.3).** The confirm prompt now offers
+  `[y]es / [N]o / [a]lways this session`. Choosing **always** remembers that kind
+  of action (e.g. `git push`, a Jira POST, `rm -rf`) so the agent stops re-asking
+  for the rest of the session — approve once, not every time. Each distinct action
+  category is remembered separately; headless/sub-agent contexts still block.
+
 ### 0.3.31
 
 - **Safety: outward git is now guarded (roadmap 4.4).** `git push` (incl.

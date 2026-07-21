@@ -616,14 +616,22 @@ def main(argv=None) -> int:
         ui.dim(f"(hooks/permissions skipped: {exc})")
 
     def _confirm_danger(command, reason):
+        # Already approved "always" for this kind of action this session.
+        if reason in registry.session_allow:
+            return True
         if headless:
-            return False  # never run destructive commands unattended
+            return False  # never run destructive/outward commands unattended
         ui.spinner_stop()
-        ui.error(f"potentially destructive command: {command}")
+        ui.error(f"needs your approval: {reason}")
+        ui.dim(f"  {command[:300]}")
         try:
-            return input("  run it? [y/N]: ").strip().lower() in ("y", "yes")
+            ans = input("  run it? [y]es / [N]o / [a]lways this session: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             return False
+        if ans in ("a", "always"):
+            registry.session_allow.add(reason)   # don't ask again this session
+            return True
+        return ans in ("y", "yes")
     registry.on_confirm = _confirm_danger
 
     # Background task manager (bash + subagents).

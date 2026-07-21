@@ -649,6 +649,9 @@ class ToolRegistry:
         #   "allow"             — permit unattended (opt-in, old behavior)
         self.net_guard: str = (os.environ.get("ROBODOG_NET_WRITES", "confirm")
                                .strip().lower() or "confirm")
+        # Reasons the user chose "always allow" this session — the guard skips the
+        # prompt for a repeat of the same action (Continue's approve-once model).
+        self.session_allow: set = set()
         # Override/auto-detect the project's test command (run_tests tool).
         self.test_command: Optional[str] = None
         # Hooks + permission rules (hooks.HookEngine; wired by app.py).
@@ -716,7 +719,7 @@ class ToolRegistry:
             display = f"{name} {content[:200]}"
         # --- outward-facing network write (e.g. closing a Jira ticket) -------
         netmut = classify_network_mutation(content)
-        if netmut:
+        if netmut and netmut not in self.session_allow:   # "always" skips the prompt
             mode = self.net_guard or "confirm"
             if mode == "deny":
                 return (f"BLOCKED: outward-facing change refused — {netmut}. "
@@ -724,9 +727,10 @@ class ToolRegistry:
                         f"Re-run interactively with net-writes set to confirm/allow "
                         f"if this is intended.")
             if mode != "allow":   # "confirm" (default) or anything unrecognized
-                reason = f"outward-facing change to an external service — {netmut}"
                 if self.on_confirm is not None:
-                    if not self.on_confirm(display, reason):
+                    # reason == the netmut key so an "always" choice can be
+                    # remembered against it in self.session_allow.
+                    if not self.on_confirm(display, netmut):
                         return f"BLOCKED: user declined the outward-facing change ({netmut})."
                 else:
                     return (f"BLOCKED: outward-facing change ({netmut}) needs confirmation, "
@@ -735,7 +739,7 @@ class ToolRegistry:
                             f"ROBODOG_NET_WRITES=allow to permit unattended writes.")
         # --- destructive local shell command (rm -rf, git reset --hard, …) ---
         danger = classify_danger(content)
-        if danger:
+        if danger and danger not in self.session_allow:
             if self.guard == "confirm" and self.on_confirm is not None:
                 if not self.on_confirm(display, danger):
                     return f"BLOCKED: user declined the potentially destructive command: {display}"

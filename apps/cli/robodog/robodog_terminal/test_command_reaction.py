@@ -131,6 +131,21 @@ def main() -> int:
     check("BLOCKED" not in r and "net allow" in r, "allow mode permits unattended")
     reg.net_guard = "confirm"; reg.on_confirm = lambda c, why: True
 
+    # ---------------- 'always allow' remembers within the session --------
+    # (4.3) Approving "always" for one kind of action skips the prompt on repeats.
+    reg.session_allow.clear()
+    seen = []
+    reg.net_guard = "confirm"
+    reg.on_confirm = lambda display, reason: (seen.append(reason), True)[1]
+    reg.execute("bash", {"command": "git push origin main"})
+    check(len(seen) == 1, "first outward action prompts")
+    reg.session_allow.add(seen[0])          # user picked 'always'
+    reg.execute("bash", {"command": "git push origin dev"})
+    check(len(seen) == 1, "an 'always'-approved action is not re-prompted")
+    reg.execute("bash", {"command": "curl -X POST https://x/y"})
+    check(len(seen) == 2, "a DIFFERENT action category still prompts")
+    reg.session_allow.clear(); reg.on_confirm = lambda c, why: True
+
     # ---------------- CENTRAL guard: no tool can be added ungated ---------
     # The danger/network guard runs in ToolRegistry.execute(), so it covers
     # EVERY code-executing tool, and any new tool is guarded by DEFAULT.

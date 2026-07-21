@@ -149,7 +149,7 @@ existence/content check before any *dependent* destructive step. And a "task com
 should require evidence (a re-read, an exit code, a test result) before robodog accepts it
 (cline #8354/#9848: hallucinated completion).
 
-### 4.3 ⬜ Persistent learned permissions  · S
+### 4.3 🟡 Persistent learned permissions  · S · *session-scoped 'always allow' shipped 0.3.32; cross-session persist to settings.json still TODO*
 Robodog *reads* `settings.json` permissions; make the confirm flow **write** them — "always
 allow this" persists a rule so the same action never re-asks (Continue CLI's approve-once model).
 
