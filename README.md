@@ -881,6 +881,15 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.59
+
+- **`findstr` isn't grep — hint when `\|` alternation is used.** Models reach for
+  `findstr` as the Windows grep and write GNU-regex `\|` for OR, which findstr
+  takes literally and matches nothing (silent exit 1). robodog now explains it and
+  points at `findstr /r /c:"…" /c:"…"` or piping to `Select-String 'a|b|c'`.
+- **Maven compile hint now names a missing method/variable**, not just a class —
+  `cannot find symbol: method loadLicense` reads as *"(missing method `loadLicense`)"*.
+
 ### 0.3.58
 
 - **`dir /b` / `dir /s /b` now auto-translate to `Get-ChildItem`.** PowerShell's

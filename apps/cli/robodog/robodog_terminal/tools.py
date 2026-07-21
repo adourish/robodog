@@ -940,13 +940,15 @@ def maven_error_hint(combined: str) -> str:
                   r"|package [\w.]+ does not exist"
                   r"|maven-compiler-plugin[^\n]*compile", text, _re.IGNORECASE):
         pkg = _re.search(r"package ([\w.]+) does not exist", text)
-        cls = _re.search(r"symbol:\s*class (\w+)", text)
+        sym = _re.search(r"symbol:\s*(class|interface|enum|method|variable|"
+                         r"constructor)\s+(\w+)", text, _re.IGNORECASE)
         detail = (f" (missing package `{pkg.group(1)}`)" if pkg
-                  else f" (missing class `{cls.group(1)}`)" if cls else "")
+                  else f" (missing {sym.group(1).lower()} `{sym.group(2)}`)"
+                  if sym else "")
         return (f"\nHINT: Maven BUILD FAILURE at the COMPILE step{detail} — the "
                 f"code does not compile, so NO tests ran. This is a missing/renamed "
-                f"class, package, or import, NOT a test-logic bug — create or import "
-                f"the missing type, then re-run. (`mvn -o` skips the slow online "
+                f"symbol (class, method, package, or import), NOT a test-logic bug — "
+                f"add or fix it, then re-run. (`mvn -o` skips the slow online "
                 f"dependency check once deps are cached.)")
     # No test matched the -Dtest filter (surefire ran, found nothing).
     if _re.search(r"No tests were executed|No tests matching", text, _re.IGNORECASE):
@@ -958,6 +960,23 @@ def maven_error_hint(combined: str) -> str:
         return ("\nHINT: Maven compiled but TESTS failed — the full stack traces are "
                 "in `target/surefire-reports/` (the console summary truncates them); "
                 "read the `.txt` for the failing class.")
+    return ""
+
+
+def findstr_syntax_hint(command: str) -> str:
+    """`findstr` is not grep — models reach for it as the Windows grep and use GNU
+    regex it doesn't understand, so it silently matches nothing (exit 1). The most
+    common: `\\|` for alternation. Observed live: `findstr /n "a\\|b\\|c" f.java`
+    found nothing because findstr took `\\|` literally. Returns a hint or ""."""
+    if os.name != "nt":
+        return ""
+    import re as _re
+    if _re.search(r"\bfindstr\b", command, _re.IGNORECASE) and "\\|" in command:
+        return ("\nHINT: `findstr` isn't grep — `\\|` is NOT alternation there, so it "
+                "matched the literal text and found nothing. For OR-of-patterns use "
+                "`findstr /r /c:\"foo\" /c:\"bar\"`, or space-separated terms in regex "
+                "mode (`findstr /r \"foo bar baz\"` matches ANY), or pipe to "
+                "`Select-String 'foo|bar|baz'` (.NET regex — plain `|`, no backslash).")
     return ""
 
 
@@ -1576,7 +1595,8 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                       python_error_hint(err),
                       npm_error_hint(out + "\n" + err),
                       pytest_error_hint(out + "\n" + err),
-                      maven_error_hint(out + "\n" + err)):
+                      maven_error_hint(out + "\n" + err),
+                      findstr_syntax_hint(command or shown_cmd)):
                 if h:
                     parts.append(h.lstrip("\n"))
         return "\n".join(parts)

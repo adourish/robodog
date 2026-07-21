@@ -222,6 +222,14 @@ def main() -> int:
     check("surefire-reports" in T.maven_error_hint(
         "Tests run: 5, Failures: 2, Errors: 0\nThere are test failures.\nBUILD FAILURE"),
         "mvn compiled-but-tests-failed -> point at surefire-reports")
+    check("missing method `loadLicense`" in T.maven_error_hint(
+        "cannot find symbol\n  symbol:   method loadLicense\nBUILD FAILURE\n"
+        "maven-compiler-plugin:compile"),
+        "mvn compile error names a missing METHOD (not just a class)")
+    if win:
+        check("isn't grep" in T.findstr_syntax_hint(r'findstr /n "a\|b\|c" f.java')
+              and T.findstr_syntax_hint('findstr "plain" f.java') == "",
+              "`findstr \\|` (GNU alternation) -> use /c: or Select-String hint")
     check(T.maven_error_hint("BUILD SUCCESS\nTests run: 5, Failures: 0") == "",
           "a passing Maven build gets no error hint")
     # pytest COLLECTION error vs test failure (Shared-AI-Service thrash):
