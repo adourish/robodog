@@ -131,6 +131,30 @@ def main() -> int:
     check(any("CUT OFF" in m for m in sysmsgs), "truncated turn triggers a re-emit reflection")
     check(res.final_text.strip() == "Recovered final answer.",
           "loop recovers to the clean answer after truncation")
+    # A truncation is direct evidence max_tokens was too small for this
+    # response — the retry should get an escalated ceiling (Qwen Code
+    # precedent), not just a "make it smaller" instruction with the same
+    # unchanged budget it already failed to fit in.
+    check(len(lp.client.max_tokens_seen) >= 2 and
+          lp.client.max_tokens_seen[1] > lp.max_tokens,
+          f"truncation retry gets an escalated max_tokens "
+          f"({lp.client.max_tokens_seen})")
+
+    # Escalation is one-shot, not sticky: a THIRD call after recovery (here,
+    # a real tool call following the retry) must go back to the normal ceiling.
+    trunc3 = iter(['<tool name="read_file"><param name="path">a.py</param',  # truncated
+                   '<tool name="read_file"><param name="path">b.py</param></tool>',
+                   'Done after the real call.'])
+    lp3 = AgentLoop(EchoClient(script=lambda p, c: next(trunc3, "fb")),
+                    default_registry(cwd=str(wd)), max_iterations=6)
+    lp3.run("read it")
+    check(lp3.client.max_tokens_seen[0] == lp3.max_tokens,
+          "first call uses the normal max_tokens")
+    check(lp3.client.max_tokens_seen[1] > lp3.max_tokens,
+          "retry after truncation is escalated")
+    check(lp3.client.max_tokens_seen[2] == lp3.max_tokens,
+          f"call after recovery reverts to normal, not sticky "
+          f"({lp3.client.max_tokens_seen})")
 
     # (1.1) Tool-shaped but unparseable output -> a format reminder, then recovery.
     mal = iter(['<function_calls> broke the syntax entirely, no valid call',

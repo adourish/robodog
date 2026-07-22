@@ -973,6 +973,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.75
+
+- **A detected truncation now gets an escalated `max_tokens` ceiling on
+  retry**, not just a "make it smaller" instruction against the same
+  budget it already failed to fit in. Prompted by researching Qwen Code's
+  truncation-resilience for the comparison table: it auto-retries with a
+  raised token ceiling rather than relying solely on the model to reduce
+  its own output size, which can still truncate again if the model
+  misjudges size. The retry's ceiling is `min(max_tokens * 1.5, 32768)`,
+  never smaller than the configured `max_tokens`, and one-shot — it
+  reverts to normal on the next call once the turn recovers, so it never
+  becomes a sticky, unbounded escalation.
+
 ### 0.3.74
 
 - **Raised the transcript-trim defaults to match real session sizes.**

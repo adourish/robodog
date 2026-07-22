@@ -196,19 +196,27 @@ class AgentLoop:
         prose = (prose or "").strip()
         return f"{prose}\n\n{note}" if prose else note
 
-    def _safe_complete(self, prompt: str):
+    def _safe_complete(self, prompt: str, max_tokens_override: Optional[int] = None):
         """Call the client with one loop-level retry ABOVE its own backoff, so a
         transient backend outage (e.g. a gateway ReadTimeout) that outlasts the
         client's retries doesn't crash the whole turn. Returns the Completion,
         or (None, exc) when it finally gives up — the caller ends the turn
-        gracefully with context preserved instead of raising."""
+        gracefully with context preserved instead of raising.
+
+        `max_tokens_override`, when set, is used for just this one call instead
+        of `self.max_tokens` — the truncation-retry path in `run()` uses this to
+        grant a larger ceiling for the retry (Qwen Code precedent: a truncation
+        is direct evidence the current ceiling was too small for this response;
+        asking the model to "make it smaller" alone can still truncate again if
+        it misjudges size)."""
         import time as _t
         last_exc = None
         for attempt in range(2):   # 1 retry on top of the client's internal backoff
             try:
                 return self.client.complete(
                     prompt, context=self._system_context(),
-                    max_tokens=self.max_tokens, temperature=self.temperature), None
+                    max_tokens=max_tokens_override or self.max_tokens,
+                    temperature=self.temperature), None
             except Exception as exc:   # noqa: BLE001 — any client failure is recoverable here
                 last_exc = exc
                 self.on_event("llm_error", {"error": str(exc)[:200],
@@ -237,6 +245,7 @@ class AgentLoop:
         repeats: dict = {}       # (call+args+result sig) -> count; breaks stuck loops
         tool_errors: dict = {}   # tool name -> consecutive ERROR/BLOCKED count
         aborted = False
+        next_max_tokens = None   # one-shot escalated ceiling for a truncation retry
 
         while iterations < self.max_iterations:
             if self.cancel_event is not None and self.cancel_event.is_set():
@@ -245,7 +254,8 @@ class AgentLoop:
             iterations += 1
             prompt = self._render_prompt()
             self.on_event("llm_start", {"iteration": iterations})
-            completion, api_exc = self._safe_complete(prompt)
+            completion, api_exc = self._safe_complete(prompt, max_tokens_override=next_max_tokens)
+            next_max_tokens = None  # one-shot: never sticky past the call it was set for
             if completion is None:
                 if self.cancel_event is not None and self.cancel_event.is_set():
                     final_text = "[cancelled]"
@@ -280,6 +290,14 @@ class AgentLoop:
                 truncated = completion.truncated or has_unclosed_tool_call(text)
                 if truncated and mistakes < _MAX_MISTAKES and more_turns_left:
                     mistakes += 1
+                    # Escalate the retry's token ceiling — the truncation is direct
+                    # evidence self.max_tokens was too small for this response.
+                    # Bounded (1.5x, hard-capped at 32768) so a misconfigured
+                    # max_tokens can't balloon unboundedly; one-shot, not sticky.
+                    # max() guards against the cap ever REDUCING the ceiling below
+                    # the current setting when self.max_tokens is already >= 32768.
+                    next_max_tokens = max(self.max_tokens,
+                                          min(int(self.max_tokens * 1.5), 32768))
                     self.on_event("truncated", {"iteration": iterations})
                     self.history.append(Turn(
                         "tool",

@@ -270,8 +270,10 @@ class EchoClient(LLMClient):
     def __init__(self, script: Union[List[str], Callable[[str, str], str], None] = None):
         self._script = script
         self._i = 0
+        self.max_tokens_seen: List[int] = []  # records max_tokens on every call, for tests
 
     def complete(self, prompt, context="", max_tokens=8192, temperature=0.3) -> Completion:
+        self.max_tokens_seen.append(max_tokens)
         prompt, context = clean_text(prompt), clean_text(context)
         if callable(self._script):
             text = self._script(prompt, context)
