@@ -881,6 +881,32 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.72
+
+- **HIGH-risk shell commands (`git reset --hard`, `git push --force`, `rm -rf`,
+  `mkfs`, `dd if=`, `DROP TABLE`, …) now always require confirmation, even
+  under the default `--guard warn` mode.** Previously, `_guard_exec` only
+  confirmed a high-risk command when `guard == "confirm"` — under the
+  default `warn` mode it printed a single `⚠ running a potentially
+  destructive command...` note (easy to miss among hundreds of other
+  tool-call lines in a busy agentic session) and then ran the command
+  anyway. Live usage showed a feature branch's git history collapse from
+  10+ commits down to 2, with `origin/feature/...` also reset — consistent
+  with an unattended `git reset --hard`/`git push --force` slipping through
+  exactly this gap. `guard=warn` vs `guard=confirm` now only affects
+  MEDIUM-risk commands (`git clean -f`, `chmod -R 777`, `shutdown`/`reboot`,
+  …), which remain recoverable and still just log a note either way. This
+  matches `net_guard`'s existing default of always confirming outward-facing
+  writes rather than making that protection opt-in.
+- **`multi_edit`'s tool description now includes a concrete worked example**
+  (`old>>>new`, blocks separated by a `===` line) and explicitly calls out
+  that `>>>` must glue the old/new text together on the same construct —
+  not old-text-then-new-text on separate lines with no separator. Live
+  usage showed 3 consecutive `multi_edit` calls fail with `bad edit block
+  (missing '>>>')` on straightforward single-line import swaps; the
+  existing error message was already correct, but the format wasn't
+  self-evident enough to get right on the first try.
+
 ### 0.3.71
 
 - **Self-closing tool calls (`<tool name="x" path="y" />`) now parse

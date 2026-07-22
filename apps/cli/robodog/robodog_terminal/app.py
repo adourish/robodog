@@ -593,8 +593,12 @@ def main(argv=None) -> int:
                         help="start in plan mode (read-only, propose first) or yolo. "
                              "Default: settings.json 'defaults.permissionMode', else yolo.")
     parser.add_argument("--guard", default=None, choices=["warn", "confirm"],
-                        help="destructive-command handling: warn+proceed or confirm. "
-                             "Default: settings.json 'defaults.guard', else warn.")
+                        help="destructive-command handling for MEDIUM-risk commands "
+                             "(git clean -f, chmod -R 777, shutdown/reboot, …): "
+                             "warn+proceed or confirm. HIGH-risk commands (git reset "
+                             "--hard, git push --force, rm -rf, …) always confirm "
+                             "regardless of this setting. Default: settings.json "
+                             "'defaults.guard', else warn.")
     parser.add_argument("--net-writes", default=None,
                         choices=["confirm", "deny", "allow"],
                         help="outward-facing network writes (POST/PUT/DELETE to a "

@@ -1444,22 +1444,27 @@ class ToolRegistry:
                             f"context). Run it from the interactive session, or set "
                             f"ROBODOG_NET_WRITES=allow to permit unattended writes.")
         # --- destructive local shell command (rm -rf, git reset --hard, …) ---
-        # Risk-tiered (goose-style): guard="confirm" only actually prompts for
-        # "high"-risk commands (irreversible/hard-to-recover). "medium"-risk
-        # ones (git clean -f, chmod -R 777, shutdown/reboot, …) still surface a
-        # note either way, but don't stop and wait on an answer — this is the
-        # ROADMAP Phase 4.5 "only HIGH confirms" middle ground between
-        # confirm-everything and full YOLO, without needing an LLM classifier.
+        # Risk-tiered (goose-style): "high"-risk (irreversible/hard-to-recover —
+        # git reset --hard, git push --force, rm -rf, mkfs, dd, DROP TABLE, …)
+        # ALWAYS confirms, regardless of guard mode. Live usage showed why: with
+        # guard="warn" (the default) a high-risk command used to only print a
+        # warning NOTE and then run anyway — a `git reset --hard` buried among
+        # hundreds of other tool-call lines silently collapsed a feature branch's
+        # history with no chance to stop it. guard only still controls "medium"-
+        # risk commands (git clean -f, chmod -R 777, shutdown/reboot, …), which
+        # are disruptive but recoverable: those still just surface a note in
+        # either guard mode, matching net_guard's philosophy of always confirming
+        # hard-to-reverse actions rather than making that opt-in.
         danger = classify_danger(content)
         if danger and danger not in self.session_allow:
             risk = danger_risk(danger)
-            if self.guard == "confirm" and risk == "high":
+            if risk == "high":
                 if self.on_confirm is not None:
                     if not self.on_confirm(display, danger):
                         return f"BLOCKED: user declined the potentially destructive command: {display}"
                 else:
                     # Fail-safe, same posture as the network-write guard above:
-                    # guard="confirm" means "a human must approve this" — with
+                    # a HIGH-risk command means "a human must approve this" — with
                     # nothing able to ask (headless/subagent/an embedder that
                     # didn't wire on_confirm), the safe default is to refuse,
                     # not to silently run an irreversible command.
@@ -2043,10 +2048,22 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         description=("Apply several find/replace edits to ONE file atomically "
                      "(all succeed or none are applied). Provide edits as "
                      "'old text>>>new text' pairs, each pair separated by a line "
-                     "containing only '==='. Each old text must be unique."),
+                     "containing only '==='. Each old text must be unique. "
+                     "The '>>>' is REQUIRED on the SAME line as (or wrapping) the "
+                     "old/new text — do not just put old text then new text on "
+                     "separate lines with no separator. Example, two edits in one "
+                     "call:\n"
+                     "import foo.Old;>>>import foo.New;\n"
+                     "===\n"
+                     "int x = 1;>>>int x = 2;\n"
+                     "For a SINGLE edit, edit_file (old_string/new_string params) "
+                     "is simpler — prefer it unless you're changing 2+ spots in "
+                     "one file."),
         params=[
             ToolParam("path", "File path to edit."),
-            ToolParam("edits", "old>>>new pairs separated by '===' lines."),
+            ToolParam("edits", "old>>>new pairs separated by '===' lines. "
+                               "Example: 'foo>>>bar' (one edit) or "
+                               "'foo>>>bar\\n===\\nbaz>>>qux' (two edits)."),
         ],
         handler=_multi_edit,
         executes=False,

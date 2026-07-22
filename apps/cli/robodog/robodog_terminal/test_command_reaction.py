@@ -62,14 +62,21 @@ def main() -> int:
     check(classify_danger("format C:") is not None, "disk 'format C:' still flagged")
     check(classify_danger("format /q d:") is not None, "'format /q' still flagged")
 
-    # ---------------- guard: warn (default) proceeds ---------------------
+    # ---------------- guard: warn (default) proceeds for MEDIUM risk -----
     warns = []
     reg.on_bash_line = lambda ln: warns.append(ln)
     r = reg.execute("bash", {"command": "echo pretend-rm; exit 0"})
-    # benign; now a real (but harmless) danger pattern that still runs:
-    reg.execute("bash", {"command": "echo 'rm -rf nothing-real'"})
-    # The command text contains rm -rf -> flagged, warn mode logs + proceeds.
-    check(any("destructive" in w for w in warns), "warn mode logs destructive note")
+    # A MEDIUM-risk pattern still just logs and proceeds under guard=warn.
+    reg.execute("bash", {"command": "git clean -fd"})
+    check(any("destructive" in w for w in warns),
+          "warn mode logs a destructive note for MEDIUM-risk")
+    # A HIGH-risk pattern (rm -rf) with NO confirmer wired must now fail-safe
+    # BLOCK instead of silently logging-and-proceeding — this is the exact gap
+    # that let a `git reset --hard`/`git push --force` run unattended and
+    # collapse a feature branch's history in live usage.
+    r = reg.execute("bash", {"command": "echo 'rm -rf nothing-real'"})
+    check("BLOCKED" in r,
+          "warn mode fail-safe BLOCKS a HIGH-risk command with no confirmer")
 
     # ---------------- guard: confirm blocks on decline -------------------
     reg.guard = "confirm"
@@ -104,7 +111,31 @@ def main() -> int:
     r = reg.execute("bash", {"command": "rm -rf /tmp/still-blocked"})
     check(len(med_confirmed) == 1, "high-risk command in confirm mode DOES ask on_confirm")
     check("BLOCKED" in r, "high-risk command blocks on decline as before")
+
+    # Regression: guard="warn" (the default) used to let a HIGH-risk command
+    # through with only a warning note — no on_confirm call at all. A
+    # `git reset --hard`/`git push --force` could silently run unattended and
+    # rewrite history. HIGH-risk must confirm in EVERY guard mode; only
+    # MEDIUM-risk is affected by guard="warn" vs "confirm".
     reg.guard = "warn"
+    warn_confirmed = []
+    reg.on_confirm = lambda cmd, reason: (warn_confirmed.append(reason), False)[1]
+    r = reg.execute("bash", {"command": "git reset --hard HEAD~5"})
+    check(len(warn_confirmed) == 1,
+          "guard=warn still asks on_confirm for a HIGH-risk command")
+    check("BLOCKED" in r,
+          "guard=warn still blocks a HIGH-risk command on decline")
+    r = reg.execute("bash", {"command": "git push --force origin main"})
+    check(len(warn_confirmed) == 2,
+          "guard=warn asks on_confirm for git push --force too")
+    # MEDIUM-risk is unaffected by the fix — guard=warn still just notes it.
+    warn_med_notes = []
+    reg.on_bash_line = lambda ln: warn_med_notes.append(ln)
+    r = reg.execute("bash", {"command": "git clean -fd"})
+    check(len(warn_confirmed) == 2,
+          "guard=warn does NOT ask on_confirm for a MEDIUM-risk command")
+    check(any("medium risk" in n for n in warn_med_notes) and "BLOCKED" not in r,
+          "guard=warn still surfaces a note and proceeds for MEDIUM-risk")
 
     # ---------------- OUTWARD-FACING network-write guard -----------------
     # Regression: an agent closed Jira tickets via run_script POSTing to the
