@@ -881,6 +881,13 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.68
+
+- **Standalone `wc -l FILE` now translates** to a `Measure-Object -Line`
+  count, matching `cat`/`head`/`tail`'s existing command-position
+  translation — previously only the piped `| wc -l` filter form was
+  translated, so `wc -l FILE` on its own still failed with "not recognized."
+
 ### 0.3.67
 
 - **Fixed a path-resolution inconsistency**: `read_file` resolves a relative

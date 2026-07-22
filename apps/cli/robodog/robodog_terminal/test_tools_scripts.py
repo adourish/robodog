@@ -203,6 +203,14 @@ def main() -> int:
               "cat -n after `cd X &&` is also translated")
         check(_twa("cat file with spaces.txt") == "cat file with spaces.txt",
               "an unquoted multi-token filename is left untouched (no clean equivalent)")
+        # standalone `wc -l FILE` (real session: `wc -l elsa.py` failed — only
+        # the `| wc -l` PIPE-filter form was translated before, not this one)
+        check(_twa("wc -l elsa.py")
+              == "Get-Content elsa.py | Measure-Object -Line "
+                 "| Select-Object -ExpandProperty Lines",
+              "standalone wc -l FILE -> Measure-Object -Line count")
+        check(_twa("cd repo && wc -l elsa.py").startswith("cd repo && Get-Content elsa.py"),
+              "wc -l after `cd X &&` is also translated")
         check(_tf('echo "a | head -5"') == 'echo "a | head -5"',
               "pipe inside quotes is NOT translated")
         check(_tf("type f | head file.txt") == "type f | head file.txt",
@@ -231,6 +239,9 @@ def main() -> int:
         r_cat = cat_reg.execute("bash", {"command": "cat -n sample.py | head -3"})
         check("(exit 0)" in r_cat and "1" in r_cat and "line1" in r_cat and "line4" not in r_cat,
               f"live: `cat -n FILE | head -3` runs and limits to 3 numbered lines ({r_cat[:120]!r})")
+        r_wc = cat_reg.execute("bash", {"command": "wc -l sample.py"})
+        check("(exit 0)" in r_wc and "20" in r_wc,
+              f"live: `wc -l FILE` (standalone, not piped) runs and counts correctly ({r_wc[:80]!r})")
 
     print("=== 3c. shell_syntax_hint classifier ===")
     from robodog_terminal.tools import shell_syntax_hint as _hint

@@ -694,6 +694,21 @@ def _cat_with_file(seg: str) -> Optional[str]:
     return f"Get-Content {file_arg}"
 
 
+# Standalone `wc -l FILE` at command position (NOT a pipe filter) — same
+# reasoning as cat/head/tail above. Unlike Unix `wc -l FILE` (which prints
+# "N FILE"), this outputs just the count — matching the existing `| wc -l`
+# pipe-filter translation's behavior, for consistency between the two forms.
+_WC_FILE_RE = re.compile(r"^wc\s+-l\s+(?!-)([^\s|]+)\s*$", re.IGNORECASE)
+
+
+def _wc_with_file(seg: str) -> Optional[str]:
+    m = _WC_FILE_RE.match(seg.strip())
+    if not m:
+        return None
+    return (f"Get-Content {m.group(1)} | Measure-Object -Line "
+            f"| Select-Object -ExpandProperty Lines")
+
+
 def translate_windows_aliases(command: str) -> str:
     """On Windows, `curl` is a PowerShell ALIAS for Invoke-WebRequest, which
     chokes on real curl flags (`curl -s -o x -w y`). Point it at the real
@@ -712,7 +727,7 @@ def translate_windows_aliases(command: str) -> str:
     # command position. A grep LATER in a pipe (`cat x | grep p`) reads stdin (a
     # filter handled by translate_unix_pipe_filters), so only the FIRST pipe
     # sub-segment of each connector segment is a candidate.
-    if any(k in out.lower() for k in ("grep", "head", "tail", "cat")):
+    if any(k in out.lower() for k in ("grep", "head", "tail", "cat", "wc")):
         pieces = _split_connectors(out)
         for idx in range(0, len(pieces), 2):        # even indices = command segs
             seg = pieces[idx]
@@ -720,7 +735,7 @@ def translate_windows_aliases(command: str) -> str:
             first = psegs[0]
             lead = first[:len(first) - len(first.lstrip())]
             repl = (_translate_grep_command(first) or _head_tail_with_file(first)
-                    or _cat_with_file(first))
+                    or _cat_with_file(first) or _wc_with_file(first))
             if repl is not None:
                 psegs[0] = lead + repl
                 pieces[idx] = "|".join(psegs)
