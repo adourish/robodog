@@ -84,6 +84,24 @@ def main() -> int:
           "timeout returns tree-kill ERROR message")
     check(elapsed < 8, f"timeout returned quickly ({elapsed:.1f}s < 8s)")
 
+    # --- 3a. idle note: quiet-but-alive commands get a heads-up, never a kill
+    print("=== 3a. idle note (soft, non-killing) ===")
+    os.environ["ROBODOG_IDLE_NOTE_SECONDS"] = "1"
+    try:
+        reg = fresh_registry()
+        streamed = []
+        reg.on_bash_line = streamed.append
+        t0 = time.monotonic()
+        result = reg.execute("bash", {"command": "Start-Sleep -Seconds 3; Write-Output done"})
+        elapsed = time.monotonic() - t0
+        notes = [ln for ln in streamed if "still running" in ln]
+        check(len(notes) >= 1, f"idle note fired at least once (got {len(notes)})")
+        check("(exit 0)" in result and "done" in result,
+              "idle note never kills the process — it still finishes normally")
+        check(elapsed < 8, f"finished promptly, not held up by the watchdog ({elapsed:.1f}s)")
+    finally:
+        del os.environ["ROBODOG_IDLE_NOTE_SECONDS"]
+
     # --- 3b. PowerShell && is auto-translated and RUNS -------------------
     # A model that chains with && on Windows used to loop on the parser error;
     # now the chain is rewritten to PowerShell and actually runs.

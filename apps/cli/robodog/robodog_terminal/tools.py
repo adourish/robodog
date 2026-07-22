@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -267,25 +268,51 @@ def _clamp(text: str, limit: int = MAX_OUTPUT) -> str:
 
 
 # Commands that can destroy data or push irreversibly — flagged even in YOLO.
-_DANGER_PATTERNS = [
-    r"\brm\s+-[a-z]*[rf]", r"\brmdir\s+/s", r"\bdel\s+/[a-z]*[fs]",
-    r"\bRemove-Item\b.*-Recurse", r"\bgit\s+push\b.*(--force|-f)\b",
-    r"\bgit\s+reset\s+--hard", r"\bgit\s+clean\s+-[a-z]*f",
+# (pattern, risk) — goose-style risk tiers (its security/patterns.rs tags each
+# THREAT_PATTERN with a RiskLevel instead of one flat "dangerous" bucket).
+# "high" = irreversible / hard-to-recover (deleted data, rewritten history,
+# wiped disk); "medium" = disruptive or risky practice but recoverable/local.
+# ROADMAP Phase 4.5 wanted an LLM risk-grader for this; a deterministic tier
+# on the existing patterns gets most of the value ("only HIGH confirms") for
+# free — see _guard_exec below.
+_DANGER_SPECS = [
+    (r"\brm\s+-[a-z]*[rf]", "high"),
+    (r"\brmdir\s+/s", "high"),
+    (r"\bdel\s+/[a-z]*[fs]", "high"),
+    (r"\bRemove-Item\b.*-Recurse", "high"),
+    (r"\bgit\s+push\b.*(--force|-f)\b", "high"),
+    (r"\bgit\s+reset\s+--hard", "high"),
+    (r"\bgit\s+clean\s+-[a-z]*f", "medium"),
     # disk format only — NOT the `--format`/`-format` flag common in git/log/etc.
-    r"(?<!-)\bformat\s+([a-zA-Z]:|/[a-z])", r"\bmkfs\b", r"\bdd\s+if=",
-    r":\(\)\s*\{",  # fork bomb
-    r"\b(shutdown|reboot)\b", r">\s*/dev/sd", r"\bchmod\s+-R\s+777",
-    r"\bDrop-Item\b", r"\bTruncate\b.*Table", r"\bDROP\s+(TABLE|DATABASE)\b",
+    (r"(?<!-)\bformat\s+([a-zA-Z]:|/[a-z])", "high"),
+    (r"\bmkfs\b", "high"),
+    (r"\bdd\s+if=", "high"),
+    (r":\(\)\s*\{", "high"),  # fork bomb
+    (r"\b(shutdown|reboot)\b", "medium"),
+    (r">\s*/dev/sd", "high"),
+    (r"\bchmod\s+-R\s+777", "medium"),
+    (r"\bDrop-Item\b", "medium"),
+    (r"\bTruncate\b.*Table", "high"),
+    (r"\bDROP\s+(TABLE|DATABASE)\b", "high"),
 ]
+_DANGER_PATTERNS = [pat for pat, _risk in _DANGER_SPECS]
+_DANGER_RISK: Dict[str, str] = dict(_DANGER_SPECS)
 
 
 def classify_danger(command: str) -> Optional[str]:
-    """Return a short reason if the command looks destructive, else None."""
+    """Return a short reason (the matched pattern) if the command looks
+    destructive, else None. Pair with danger_risk() for its tier."""
     import re
     for pat in _DANGER_PATTERNS:
         if re.search(pat, command, re.IGNORECASE):
             return pat
     return None
+
+
+def danger_risk(reason: str) -> str:
+    """'low' | 'medium' | 'high' tier for a classify_danger() reason. A reason
+    this table doesn't recognize defaults to 'high' — fail toward asking."""
+    return _DANGER_RISK.get(reason, "high")
 
 
 # Outward-facing state changes — POSTing to close a Jira ticket, deleting a
@@ -527,6 +554,21 @@ def _split_connectors(command: str) -> List[str]:
         i += 1
     pieces.append("".join(buf))
     return pieces
+
+
+def split_command_segments(command: str) -> List[str]:
+    """Break a compound shell command into its independent top-level commands —
+    split on `&&`, `||`, `;`, and `|` (quote-aware, via `_split_connectors` +
+    `_split_pipes_top_level`). Used by hooks.py's permission guard so a chained
+    command (`git status && rm -rf ~`) is judged segment-by-segment instead of
+    as one opaque string: an allow-rule like `bash(git *)` must not become a
+    blanket bypass for whatever runs after `&&`, and a deny-rule for `rm -rf *`
+    must still catch it when it isn't the first thing on the line — fnmatch's
+    `*` otherwise happily matches straight through a chain operator."""
+    segments: List[str] = []
+    for chunk in _split_connectors(command)[0::2]:   # drop the &&/||/; tokens
+        segments.extend(_split_pipes_top_level(chunk))
+    return [s.strip() for s in segments if s.strip()]
 
 
 def _translate_grep_command(seg: str) -> Optional[str]:
@@ -1143,6 +1185,26 @@ class Tool:
             return f"ERROR: {type(exc).__name__}: {exc}"
 
 
+# Unified permission-mode cycle (Claude-Code-style shift+tab): each entry is
+# (name, mode, guard, net_guard). Cycling maps the registry's current
+# (mode, guard, net_guard) tuple to the nearest named state and advances to
+# the next one — the existing --permission-mode/--guard/--net-writes flags
+# and settings.json "defaults" still work unchanged, they just land on one of
+# these tuples (or "custom" if a user mixed flags in a way that matches none).
+_PERMISSION_STATES = [
+    ("default",           "yolo", "confirm", "confirm"),
+    ("acceptEdits",       "yolo", "warn",    "confirm"),
+    ("plan",              "plan", "warn",    "confirm"),
+    ("bypassPermissions", "yolo", "warn",    "allow"),
+]
+_PERMISSION_LABELS = {
+    "default":           "⏸ default (shift+tab to cycle)",
+    "acceptEdits":       "⏵ accept edits on (shift+tab to cycle)",
+    "plan":              "⏸ plan mode on (shift+tab to cycle)",
+    "bypassPermissions": "⏵⏵ bypass permissions on (shift+tab to cycle)",
+}
+
+
 class ToolRegistry:
     def __init__(self, cwd: Optional[str] = None):
         self.cwd = Path(cwd or os.getcwd()).resolve()
@@ -1185,6 +1247,31 @@ class ToolRegistry:
 
     def get(self, name: str) -> Optional[Tool]:
         return self._tools.get(name)
+
+    # ---- permission-mode cycle (shift+tab) -------------------------------
+    def _permission_state_name(self) -> str:
+        cur = (self.mode, self.guard, self.net_guard)
+        for name, mode, guard, net in _PERMISSION_STATES:
+            if (mode, guard, net) == cur:
+                return name
+        return "custom"
+
+    def permission_mode_label(self) -> str:
+        """Display text for the status bar, e.g. Claude Code's
+        '⏵⏵ bypass permissions on (shift+tab to cycle)'."""
+        name = self._permission_state_name()
+        return _PERMISSION_LABELS.get(
+            name, f"⏸ {self.guard}/{self.net_guard} (shift+tab to cycle)")
+
+    def cycle_permission_mode(self) -> str:
+        """Advance to the next permission state and return its label. An
+        unrecognized ("custom") combination — e.g. hand-set via settings.json
+        defaults — starts the cycle from 'default' rather than erroring."""
+        names = [n for n, *_ in _PERMISSION_STATES]
+        cur = self._permission_state_name()
+        idx = names.index(cur) if cur in names else -1
+        _, self.mode, self.guard, self.net_guard = _PERMISSION_STATES[(idx + 1) % len(_PERMISSION_STATES)]
+        return self.permission_mode_label()
 
     def execute(self, name: str, args: Dict[str, str]) -> str:
         tool = self._tools.get(name)
@@ -1260,13 +1347,31 @@ class ToolRegistry:
                             f"context). Run it from the interactive session, or set "
                             f"ROBODOG_NET_WRITES=allow to permit unattended writes.")
         # --- destructive local shell command (rm -rf, git reset --hard, …) ---
+        # Risk-tiered (goose-style): guard="confirm" only actually prompts for
+        # "high"-risk commands (irreversible/hard-to-recover). "medium"-risk
+        # ones (git clean -f, chmod -R 777, shutdown/reboot, …) still surface a
+        # note either way, but don't stop and wait on an answer — this is the
+        # ROADMAP Phase 4.5 "only HIGH confirms" middle ground between
+        # confirm-everything and full YOLO, without needing an LLM classifier.
         danger = classify_danger(content)
         if danger and danger not in self.session_allow:
-            if self.guard == "confirm" and self.on_confirm is not None:
-                if not self.on_confirm(display, danger):
-                    return f"BLOCKED: user declined the potentially destructive command: {display}"
+            risk = danger_risk(danger)
+            if self.guard == "confirm" and risk == "high":
+                if self.on_confirm is not None:
+                    if not self.on_confirm(display, danger):
+                        return f"BLOCKED: user declined the potentially destructive command: {display}"
+                else:
+                    # Fail-safe, same posture as the network-write guard above:
+                    # guard="confirm" means "a human must approve this" — with
+                    # nothing able to ask (headless/subagent/an embedder that
+                    # didn't wire on_confirm), the safe default is to refuse,
+                    # not to silently run an irreversible command.
+                    return (f"BLOCKED: potentially destructive command ({risk} risk) needs "
+                            f"confirmation, but nothing here can prompt for it (headless or "
+                            f"subagent context): {display}")
             elif self.on_bash_line is not None:
-                self.on_bash_line(f"⚠ running potentially destructive command: {display}")
+                self.on_bash_line(
+                    f"⚠ running a potentially destructive command ({risk} risk): {display}")
         return None
 
     # ---- read/freshness tracking ----------------------------------------
@@ -1629,6 +1734,14 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         except Exception:
             pass
 
+    # OpenHands-style soft signal: silence isn't the same as a hang (installs/
+    # builds/servers go quiet for long stretches while working fine). This
+    # NEVER kills anything — it only surfaces one informational line so a human
+    # watching the live stream (or the model reading the final result) can tell
+    # "quiet but alive" from "actually stuck," instead of just staring at a
+    # blank screen until the hard `timeout` eventually kills the tree.
+    IDLE_NOTE_SECONDS = int(os.environ.get("ROBODOG_IDLE_NOTE_SECONDS", "20") or "20")
+
     def _run_streaming(cmd_list: List[str], cwd, timeout: int, env=None
                        ) -> Tuple[Optional[int], List[str], List[str], bool]:
         """Run cmd_list, streaming each output line to reg.on_bash_line as it
@@ -1648,12 +1761,14 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         )
         out_lines: List[str] = []
         err_lines: List[str] = []
+        last_activity = [time.monotonic()]
 
         def _reader(stream, sink: List[str]) -> None:
             try:
                 for line in stream:
                     line = line.rstrip("\r\n")
                     sink.append(line)
+                    last_activity[0] = time.monotonic()
                     cb = reg.on_bash_line
                     if cb is not None:
                         try:
@@ -1666,10 +1781,29 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
                 except Exception:
                     pass
 
+        def _watch_idle() -> None:
+            notified_at = 0.0
+            while proc.poll() is None:
+                time.sleep(1)
+                idle_for = time.monotonic() - last_activity[0]
+                # re-notify every IDLE_NOTE_SECONDS of continued silence, not just once,
+                # so a long quiet build doesn't look abandoned after the first note.
+                if idle_for >= IDLE_NOTE_SECONDS and time.monotonic() - notified_at >= IDLE_NOTE_SECONDS:
+                    notified_at = time.monotonic()
+                    cb = reg.on_bash_line
+                    if cb is not None:
+                        try:
+                            cb(f"⏳ still running — no new output for {int(idle_for)}s "
+                               f"(normal for installs/builds/servers; not necessarily hung)")
+                        except Exception:
+                            pass
+
         t_out = threading.Thread(target=_reader, args=(proc.stdout, out_lines), daemon=True)
         t_err = threading.Thread(target=_reader, args=(proc.stderr, err_lines), daemon=True)
+        t_idle = threading.Thread(target=_watch_idle, daemon=True)
         t_out.start()
         t_err.start()
+        t_idle.start()
         timed_out = False
         try:
             proc.wait(timeout=timeout)
@@ -1678,6 +1812,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             _kill_tree(proc)
         t_out.join(timeout=5)
         t_err.join(timeout=5)
+        t_idle.join(timeout=2)
         return proc.returncode, out_lines, err_lines, timed_out
 
     def _format_run_result(shown_cmd: str, returncode: Optional[int],

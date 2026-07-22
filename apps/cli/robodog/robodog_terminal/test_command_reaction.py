@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from robodog_terminal.tools import (  # noqa: E402
-    default_registry, classify_danger, classify_network_mutation)
+    default_registry, classify_danger, classify_network_mutation, danger_risk)
 
 ok = True
 
@@ -79,6 +79,31 @@ def main() -> int:
     reg.on_confirm = lambda cmd, reason: True   # user approves
     r = reg.execute("bash", {"command": "echo 'rm -rf x' ; exit 0"})
     check("BLOCKED" not in r, "confirm mode proceeds on approval")
+    reg.guard = "warn"
+
+    # ---------------- risk tiers (goose-style: only HIGH confirms) --------
+    check(danger_risk(classify_danger("rm -rf /tmp/x")) == "high",
+          "rm -rf tiers as high risk")
+    check(danger_risk(classify_danger("git clean -fd")) == "medium",
+          "git clean -f tiers as medium risk")
+    check(danger_risk("not a real pattern") == "high",
+          "an unrecognized reason defaults to high (fail toward asking)")
+    # In guard=confirm mode, a MEDIUM-risk command must NOT stop and wait for
+    # on_confirm — only HIGH does. It still proceeds with a warning note.
+    reg.guard = "confirm"
+    med_confirmed = []
+    reg.on_confirm = lambda cmd, reason: (med_confirmed.append(reason), False)[1]
+    med_notes = []
+    reg.on_bash_line = lambda ln: med_notes.append(ln)
+    r = reg.execute("bash", {"command": "git clean -fd"})
+    check(not med_confirmed and "BLOCKED" not in r,
+          "medium-risk command in confirm mode is NOT blocked on decline (never asked)")
+    check(any("medium risk" in n for n in med_notes),
+          "medium-risk command still surfaces a warning note")
+    # A HIGH-risk command in the same confirm-mode registry DOES still confirm.
+    r = reg.execute("bash", {"command": "rm -rf /tmp/still-blocked"})
+    check(len(med_confirmed) == 1, "high-risk command in confirm mode DOES ask on_confirm")
+    check("BLOCKED" in r, "high-risk command blocks on decline as before")
     reg.guard = "warn"
 
     # ---------------- OUTWARD-FACING network-write guard -----------------

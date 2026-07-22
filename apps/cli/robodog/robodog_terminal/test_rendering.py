@@ -434,6 +434,39 @@ def main() -> int:
           "thinking_line contains every status_line segment")
     check("cancel" in tline.lower(), "thinking_line still tells you how to cancel")
 
+    # ---------------- color themes (/theme) -------------------------------
+    theme_ui, _ = capture()
+    check(theme_ui.theme == "default" and theme_ui._C["cyan"] == "\033[0;36m",  # noqa: SLF001
+          "UI defaults to the 'default' theme")
+    check(theme_ui.set_theme("mono") is True and theme_ui._C["cyan"] == "",  # noqa: SLF001
+          "set_theme('mono') strips all ANSI color")
+    check(theme_ui.set_theme("high-contrast") is True
+          and theme_ui._C["cyan"] == "\033[1;36m",  # noqa: SLF001
+          "set_theme('high-contrast') swaps in the bold/high-saturation palette")
+    check(theme_ui.set_theme("not-a-real-theme") is False and theme_ui.theme == "high-contrast",
+          "an unknown theme name is rejected, current theme unchanged")
+    ui_env = UI(model_name="test/model", cwd=str(Path.cwd()), theme="mono")
+    check(ui_env.theme == "mono", "theme=... constructor arg is honored")
+    check(theme_ui.set_theme("pip-boy") is True and theme_ui._C["cyan"] == "\033[0;32m",  # noqa: SLF001
+          "set_theme('pip-boy') swaps in the green monochrome CRT palette")
+    check(len({theme_ui._C[k] for k in ("magenta_b", "yellow", "gray")}) == 3,  # noqa: SLF001
+          "pip-boy still distinguishes severity tiers by intensity (distinct green shades)")
+    check(theme_ui._CODE_THEMES["pip-boy"] == "vim", "pip-boy has its own code-block theme")  # noqa: SLF001
+
+    # ---------------- two-row bottom toolbar (status + permission mode) ---
+    def _toolbar_text(u):
+        tb = u._toolbar()  # noqa: SLF001
+        return getattr(tb, "value", tb)   # unwrap prompt_toolkit's ANSI() if present
+
+    tb_ui, _ = capture()
+    tb_ui.permission_label = ""
+    single = _toolbar_text(tb_ui)
+    check("\n" not in single, "toolbar is a single row when no permission label is set")
+    tb_ui.permission_label = "⏵⏵ bypass permissions on (shift+tab to cycle)"
+    two_row = _toolbar_text(tb_ui)
+    check("\n" in two_row, "toolbar grows a second row once a permission label is set")
+    check("bypass permissions" in plain(two_row), "the second row carries the permission label")
+
     print("\nRENDERING:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

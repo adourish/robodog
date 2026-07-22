@@ -96,3 +96,52 @@ rich + prompt_toolkit TUI (emoji/color status line, clickable `file:line`) ·
 Benchmarked at **capability parity with a leading agentic coding assistant** across 20 agentic
 scenarios. See `docs/TERMINAL_MODE_PLAN.md` for the full design and `ROADMAP.md`
 for what's shipped/next.
+
+## Embedding (using robodog as a library, not the CLI)
+
+`robodog_terminal.core.build_core()` assembles the agentic core — `ToolRegistry`
++ `AgentLoop`, with hooks/skills/background/session wiring — with **no
+dependency on the terminal UI or argparse**. This is the same function the CLI
+entrypoint (`app.py::main()`) calls; it just also wires a `UI` and a REPL loop
+on top. An embedder (a web backend, a chat bot, a test harness) can call it
+directly:
+
+```python
+from robodog_terminal.core import build_core
+from robodog_terminal.llm_client import EchoClient  # or GatewayClient/OpenAICompatClient
+
+core = build_core(cwd=".", client=EchoClient())
+result = core.loop.run("list the files here and summarize the project")
+print(result.final_text)
+```
+
+Every UI touchpoint is an optional callback with a safe no-UI default (`ask_fn`
+auto-picks the first option; `on_diff`/`on_bash_line`/`on_confirm`/`on_event`
+no-op if you don't supply them — though a destructive command under
+`guard="confirm"` still fails **closed**, not open, with no `on_confirm`
+wired). Pass your own to hook into a different frontend:
+
+```python
+core = build_core(
+    cwd=".", client=my_client,
+    guard="confirm", on_confirm=lambda cmd, reason: my_approval_ui(cmd, reason),
+    on_bash_line=lambda line: my_ui.stream(line),
+    on_event=lambda kind, data: my_ui.render(kind, data),
+)
+```
+
+See `core.py`'s `build_core()` docstring for the full parameter list. Three
+extension points discovered from `<cwd>/.robodog/` (mirrored from `.claude/`
+for existing Claude Code projects) come along for free in the returned
+`Core.registry`/`Core.skills`:
+
+- **`.robodog/settings.json`** (`hooks.py`) — permission allow/deny rules and
+  `PreToolUse`/`PostToolUse`/`Stop` hooks, plus a `defaults` block
+  (`permissionMode`/`guard`/`netWrites`) that seeds `build_core()`'s own
+  defaults. Scaffold one with `/config init` in the CLI, or write it directly.
+- **`.robodog/commands/*.md`, `.robodog/agents/*.md`, `.robodog/skills/<name>/SKILL.md`**
+  (`skills.py`) — custom slash commands, custom subagent types, and
+  keyword-triggered context injection.
+- **`agents.py`**'s `AGENT_TYPES` — the built-in subagent roster (`explore`,
+  `general`); `SkillsRegistry.agent_type_overrides()` merges file-defined ones
+  in, and `build_core()` does this merge automatically.

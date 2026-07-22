@@ -23,17 +23,13 @@ from pathlib import Path
 
 try:
     from .llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient, clean_text
-    from .tools import default_registry
-    from .loop import AgentLoop
     from .ui import UI
-    from .agents import register_agent_tool
+    from .core import build_core
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from robodog_terminal.llm_client import EchoClient, GatewayClient, LLMClient, OpenAICompatClient, clean_text
-    from robodog_terminal.tools import default_registry
-    from robodog_terminal.loop import AgentLoop
     from robodog_terminal.ui import UI
-    from robodog_terminal.agents import register_agent_tool
+    from robodog_terminal.core import build_core
 
 DEMO_SCRIPT = [
     'I will create a small script for you.\n'
@@ -241,6 +237,11 @@ Commands:
   /help              show this help
   /model [name]      show or switch the model (live)
   /plan              toggle plan mode (read-only: agent proposes before editing)
+  /config [init]     show effective permission/guard config, or write a starter
+                     settings.json ('/config init [--global] [--force]')
+  (shift+tab)        cycle permission mode: default -> accept edits -> plan ->
+                     bypass permissions (shown in the bottom status bar)
+  /theme [name]      show or switch the color theme: default | high-contrast | mono | pip-boy
   /status            show model, cwd, token usage
   /context           show transcript size breakdown
   /stats             session tokens, context %, turns, files read, uptime
@@ -279,7 +280,7 @@ Anything else is sent to the agent, which can read/edit files, run commands,
 and delegate to subagents.
 """
 
-SLASH_COMMANDS = ["/help", "/model", "/plan", "/status", "/context", "/stats",
+SLASH_COMMANDS = ["/help", "/model", "/theme", "/plan", "/config", "/status", "/context", "/stats",
                   "/net-writes", "/copy", "/save", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
                   "/keepass", "/cert", "/test",
@@ -463,16 +464,6 @@ def _mk_turn(role: str, content: str, tool_name: str = ""):
     return Turn(role, content, tool_name=tool_name)
 
 
-def _make_checkpointer():
-    try:
-        from .checkpoint import Checkpointer
-    except ImportError:
-        from robodog_terminal.checkpoint import Checkpointer
-    import time as _t
-    session_dir = Path.home() / ".robodog" / "checkpoints" / _t.strftime("%Y%m%d-%H%M%S")
-    return Checkpointer(session_dir)
-
-
 INSTRUCTION_FILENAMES = (
     "CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md",
     "ROBODOG.md", ".robodog.md", "ROBODOG.local.md", ".robodog/ROBODOG.md",
@@ -575,10 +566,12 @@ def main(argv=None) -> int:
     parser.add_argument("--disallowed-tools", default=None, metavar="LIST",
                         help="comma-separated tools to remove (e.g. bash)")
     # -------- misc ------------------------------------------------------
-    parser.add_argument("--permission-mode", default="yolo", choices=["yolo", "plan"],
-                        help="start in plan mode (read-only, propose first) or yolo (default)")
-    parser.add_argument("--guard", default="warn", choices=["warn", "confirm"],
-                        help="destructive-command handling: warn+proceed (default) or confirm")
+    parser.add_argument("--permission-mode", default=None, choices=["yolo", "plan"],
+                        help="start in plan mode (read-only, propose first) or yolo. "
+                             "Default: settings.json 'defaults.permissionMode', else yolo.")
+    parser.add_argument("--guard", default=None, choices=["warn", "confirm"],
+                        help="destructive-command handling: warn+proceed or confirm. "
+                             "Default: settings.json 'defaults.guard', else warn.")
     parser.add_argument("--net-writes", default=None,
                         choices=["confirm", "deny", "allow"],
                         help="outward-facing network writes (POST/PUT/DELETE to a "
@@ -597,6 +590,11 @@ def main(argv=None) -> int:
                         choices=["file", "vscode", "cursor", "vscodium"],
                         help="editor for clickable file:line jumps (default: file:// "
                              "or $ROBODOG_EDITOR)")
+    parser.add_argument("--theme", default=None,
+                        choices=["default", "high-contrast", "mono", "pip-boy"],
+                        help="color theme (default: $ROBODOG_THEME or 'default'; "
+                             "'mono' disables ANSI color entirely; 'pip-boy' is a "
+                             "green monochrome CRT look)")
     parser.add_argument("--verbose", action="store_true",
                         help="print full tool results, not one-line summaries")
     parser.add_argument("--version", action="store_true", help="print version and exit")
@@ -618,96 +616,22 @@ def main(argv=None) -> int:
     headless = args.print_prompt is not None
     # SkillsRegistry is created below; build the completer list after discovery.
     ui = UI(model_name="…", cwd=cwd, commands=SLASH_COMMANDS, stderr=headless,
-            editor=args.editor)
+            editor=args.editor, theme=args.theme)
     # agentic visible retry line: "API error · Retrying in Ns · attempt n/N"
     def on_retry(a, m, d, r):
         ui.spinner_stop()
         ui.dim(f"  ⚠ API error ({r}) · Retrying in {d:.0f}s · attempt {a}/{m}")
     client, model_label = build_backend(args, on_retry=on_retry)
     ui.model_name = model_label
-    registry = default_registry(cwd=cwd)
+    # Tool gating flags, parsed into lists (build_core applies them to the registry).
+    allowed_tools = ([t.strip() for t in args.allowed_tools.split(",") if t.strip()]
+                    if args.allowed_tools else None)
+    disallowed_tools = ([t.strip() for t in args.disallowed_tools.split(",") if t.strip()]
+                       if args.disallowed_tools else None)
 
-    # Tool gating flags.
-    if args.allowed_tools:
-        allowed = {t.strip() for t in args.allowed_tools.split(",") if t.strip()}
-        registry._tools = {k: v for k, v in registry._tools.items() if k in allowed}
-    if args.disallowed_tools:
-        for t in args.disallowed_tools.split(","):
-            registry._tools.pop(t.strip(), None)
-
-    # Safety layer: per-prompt file checkpoints (/rewind) + diff previews.
-    checkpointer = _make_checkpointer()
-    registry.checkpointer = checkpointer
-    registry.on_diff = lambda path, diff: (ui.spinner_stop(), ui.diff(path, diff))
-    # Live-stream long-running command output (streaming bash). Bounded +
-    # blank-collapsed by the UI; the model still gets the full text.
-    registry.on_bash_line = ui.bash_line
-    if args.permission_mode == "plan":
-        registry.mode = "plan"
-    registry.guard = args.guard
-    if getattr(args, "net_writes", None):
-        registry.net_guard = args.net_writes   # CLI overrides env/default
-    registry.verify_edits = not args.no_verify_edits
-    if registry.net_guard == "deny":
-        ui.dim("🛡 network writes: DENIED (read-only for external APIs)")
-    elif registry.net_guard == "allow":
-        ui.dim("⚠ network writes: ALLOWED unattended (POST/PUT/DELETE not gated)")
-    else:
-        ui.dim("🛡 network writes require confirmation (Jira/API POST/PUT/DELETE)")
-    registry.test_command = args.test_command
-
-    # Hooks + permission rules from .robodog/.claude settings.json.
-    try:
-        from .hooks import HookEngine
-    except ImportError:
-        from robodog_terminal.hooks import HookEngine
-    try:
-        registry.hooks = HookEngine.load(cwd)
-        if registry.hooks.summary():
-            ui.dim(f"(settings: {registry.hooks.summary()})")
-    except Exception as exc:   # a bad settings file must never break startup
-        ui.dim(f"(hooks/permissions skipped: {exc})")
-
-    def _confirm_danger(command, reason):
-        # Already approved "always" for this kind of action this session.
-        if reason in registry.session_allow:
-            return True
-        if headless:
-            return False  # never run destructive/outward commands unattended
+    def on_diff(path, diff):
         ui.spinner_stop()
-        ui.warn(f"⏸ needs your approval: {reason}")
-        ui.dim(f"  {command[:300]}")
-        try:
-            ans = input("  run it? [y]es / [N]o / [a]lways this session: ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            return False
-        if ans in ("a", "always"):
-            registry.session_allow.add(reason)   # don't ask again this session
-            return True
-        return ans in ("y", "yes")
-    registry.on_confirm = _confirm_danger
-
-    # Background task manager (bash + subagents).
-    try:
-        from .background import BackgroundManager
-    except ImportError:
-        from robodog_terminal.background import BackgroundManager
-    manager = BackgroundManager()
-
-    # Discover user extensions: custom commands, agents, skills (.robodog/…).
-    try:
-        from .skills import SkillsRegistry
-        from . import agents as _agents_mod
-    except ImportError:
-        from robodog_terminal.skills import SkillsRegistry
-        from robodog_terminal import agents as _agents_mod
-    skills = SkillsRegistry(cwd=cwd)
-    try:
-        skills.discover()
-        # Merge file-defined custom agents into the built-in agent-type table.
-        _agents_mod.AGENT_TYPES.update(skills.agent_type_overrides())
-    except Exception as exc:  # never let a bad skill file break startup
-        ui.dim(f"(skills discovery skipped: {exc})")
+        ui.diff(path, diff)
 
     # Live-toggleable verbosity (/verbose flips it; --verbose sets the start).
     verbose = [bool(args.verbose)]
@@ -760,9 +684,6 @@ def main(argv=None) -> int:
         with child_lock:
             child_stats["calls"] += 1
         _fanout_spinner()
-    if "agent" not in (args.disallowed_tools or ""):
-        register_agent_tool(registry, client, on_child_event=on_child_event,
-                            manager=manager)
 
     def on_event(kind, data):
         if kind == "llm_start":
@@ -802,16 +723,6 @@ def main(argv=None) -> int:
             else:
                 ui.tool_result(data["name"], data["result"])
 
-    # Agent task checklist + ask-user tool (headless auto-answers itself).
-    try:
-        from .tasklist import TaskChecklist, register_task_tools, register_ask_tool
-    except ImportError:
-        from robodog_terminal.tasklist import TaskChecklist, register_task_tools, register_ask_tool
-    checklist = TaskChecklist()
-    checklist.on_change = lambda: (ui.spinner_stop(),
-                                   [ui.dim(f"  {ln}") for ln in checklist.render_lines()[-6:]])
-    register_task_tools(registry, checklist)
-
     def ask_fn(question, options):
         if headless:
             return options[0] + " (auto-selected: non-interactive)"
@@ -828,23 +739,65 @@ def main(argv=None) -> int:
             except (ValueError, EOFError):
                 pass
             ui.error("enter a number from the list")
-    register_ask_tool(registry, ask_fn)
 
-    # Session persistence (JSONL per project, like a modern agentic terminal).
-    try:
-        from .sessions import SessionStore
-    except ImportError:
-        from robodog_terminal.sessions import SessionStore
-    store = SessionStore(project_dir=cwd)
-    session_id = [None]  # boxed: /resume swaps it
+    def on_task_change():
+        # `checklist` resolves via closure late-binding to core.checklist below.
+        ui.spinner_stop()
+        for ln in checklist.render_lines()[-6:]:
+            ui.dim(f"  {ln}")
 
     system_suffix = "" if args.no_instructions else _load_project_instructions(cwd)
     if args.append_system_prompt:
         system_suffix = (system_suffix + "\n\n" + args.append_system_prompt).strip()
-    loop = AgentLoop(client, registry, max_iterations=args.max_iterations,
-                     max_tokens=args.max_tokens, temperature=args.temperature,
-                     on_event=on_event, system_suffix=system_suffix)
-    loop.max_transcript_chars = args.max_transcript_chars
+
+    # Assemble the agentic core (ToolRegistry + AgentLoop + hooks/skills/
+    # background/session wiring) — see core.py. Every UI touchpoint above is
+    # just a plain callback passed in; build_core itself has no UI dependency,
+    # so it's also the seam an embedder calls directly (no terminal attached).
+    core = build_core(
+        cwd, client,
+        allowed_tools=allowed_tools, disallowed_tools=disallowed_tools,
+        permission_mode=args.permission_mode, guard=args.guard,
+        net_writes=args.net_writes, verify_edits=not args.no_verify_edits,
+        test_command=args.test_command, system_suffix=system_suffix,
+        max_iterations=args.max_iterations, max_tokens=args.max_tokens,
+        temperature=args.temperature, max_transcript_chars=args.max_transcript_chars,
+        on_diff=on_diff, on_bash_line=ui.bash_line, on_child_event=on_child_event,
+        on_event=on_event, ask_fn=ask_fn, on_task_change=on_task_change, log=ui.dim,
+    )
+    registry, loop, skills, manager, checklist, store = (
+        core.registry, core.loop, core.skills, core.manager, core.checklist, core.store)
+    checkpointer = registry.checkpointer   # build_core made one; /rewind uses it directly
+    session_id = [None]  # boxed: /resume swaps it
+
+    if registry.net_guard == "deny":
+        ui.dim("🛡 network writes: DENIED (read-only for external APIs)")
+    elif registry.net_guard == "allow":
+        ui.dim("⚠ network writes: ALLOWED unattended (POST/PUT/DELETE not gated)")
+    else:
+        ui.dim("🛡 network writes require confirmation (Jira/API POST/PUT/DELETE)")
+
+    # Shift+Tab permission-mode cycle + its status-bar label.
+    ui.wire_permission_registry(registry)
+
+    def _confirm_danger(command, reason):
+        # Already approved "always" for this kind of action this session.
+        if reason in registry.session_allow:
+            return True
+        if headless:
+            return False  # never run destructive/outward commands unattended
+        ui.spinner_stop()
+        ui.warn(f"⏸ needs your approval: {reason}")
+        ui.dim(f"  {command[:300]}")
+        try:
+            ans = input("  run it? [y]es / [N]o / [a]lways this session: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return False
+        if ans in ("a", "always"):
+            registry.session_allow.add(reason)   # don't ask again this session
+            return True
+        return ans in ("y", "yes")
+    registry.on_confirm = _confirm_danger
 
     # ---- headless print mode (-p) ------------------------------------
     if headless:
@@ -1240,12 +1193,48 @@ def main(argv=None) -> int:
                            "anthropic/claude-sonnet-4.6 · openai/gpt-4o · "
                            "google/gemini-2.0-flash-001")
                     ui.dim("  (tip: OpenRouter IDs use dots, e.g. -4.8 not -4-8)")
+            elif cmd == "theme":
+                if rest:
+                    if ui.set_theme(rest):
+                        ui.info(f"theme switched to '{ui.theme}'")
+                    else:
+                        ui.error(f"unknown theme '{rest}'. "
+                                 f"available: {', '.join(sorted(ui._THEMES))}")  # noqa: SLF001
+                else:
+                    ui.info(f"theme: {ui.theme}")
+                    ui.dim(f"  available: {', '.join(sorted(ui._THEMES))}")  # noqa: SLF001
             elif cmd == "plan":
                 registry.mode = "plan" if registry.mode != "plan" else "yolo"
+                ui.permission_label = registry.permission_mode_label()
                 if registry.mode == "plan":
                     ui.info("📋 plan mode ON — read-only, agent will propose first")
                 else:
                     ui.info("⏵ plan mode OFF — YOLO")
+            elif cmd == "config":
+                parts = rest.split()
+                sub = parts[0].lower() if parts else ""
+                if sub == "init":
+                    flags = {p.lower() for p in parts[1:]}
+                    is_global = "--global" in flags
+                    force = "--force" in flags
+                    target = (Path.home() if is_global else Path(ui.cwd)) / ".robodog" / "settings.json"
+                    try:
+                        from .hooks import write_default_settings
+                    except ImportError:
+                        from robodog_terminal.hooks import write_default_settings
+                    if write_default_settings(target, force=force):
+                        ui.info(f"wrote defaults to {target}")
+                        ui.dim("  restart robodog (or /config) to see it take effect")
+                    else:
+                        ui.error(f"{target} already exists "
+                                 f"(use '/config init --force' to overwrite)")
+                else:
+                    ui.info(f"permission mode: {registry.permission_mode_label()}")
+                    ui.info(f"  guard={registry.guard}  net-writes={registry.net_guard}  "
+                            f"verify-edits={registry.verify_edits}")
+                    srcs = registry.hooks.sources if registry.hooks else []
+                    ui.info(f"  settings.json: {', '.join(srcs) if srcs else '(none found)'}")
+                    ui.dim("  /config init [--global] [--force]  write a starter settings.json")
             elif cmd == "init":
                 prompt_texts.append("/init")
                 history_marks[prompt_count] = len(loop.history)

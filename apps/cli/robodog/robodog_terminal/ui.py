@@ -20,7 +20,7 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 # Force UTF-8 so box-drawing/emoji don't crash on Windows cp1252 consoles.
 try:  # pragma: no cover - environment dependent
@@ -106,12 +106,18 @@ except Exception:  # pragma: no cover
     _HAVE_PT = False
 
 
-def _input_key_bindings():
+def _input_key_bindings(on_cycle_permission=None):
     """
     Enter submits (single-line feel); a line ending in backslash continues to
     a new line (a modern agentic terminal's `\\`+Enter); Alt/Option+Enter always inserts a
     newline. Pasted multi-line text is delivered via bracketed paste (not key
     events), so it lands in the buffer whole without triggering submit.
+
+    `on_cycle_permission`, if given, is bound to Shift+Tab (Claude Code's
+    permission-mode cycle: default -> acceptEdits -> plan -> bypassPermissions).
+    `event.app.invalidate()` is what makes the bottom toolbar redraw
+    immediately instead of waiting for the next keystroke/tick — the same
+    "prompt refreshes right now" effect asked for elsewhere in the toolbar.
     """
     kb = KeyBindings()
 
@@ -149,17 +155,26 @@ def _input_key_bindings():
         event.current_buffer.text = ""
         event.current_buffer.cursor_position = 0
 
+    if on_cycle_permission is not None:
+        @kb.add("s-tab")  # Shift+Tab -> cycle permission mode (Claude-Code-style)
+        def _(event):
+            on_cycle_permission()
+            event.app.invalidate()
+
     return kb
 
 
 class UI:
     def __init__(self, model_name: str = "gateway/sonnet", cwd: Optional[str] = None,
                  commands: Optional[List[str]] = None, stderr: bool = False,
-                 editor: Optional[str] = None):
+                 editor: Optional[str] = None, theme: Optional[str] = None):
         self.model_name = model_name
         self.cwd = str(cwd or os.getcwd())
         # Editor for clickable file:line jumps (file | vscode | cursor | vscodium).
         self.editor = editor or os.environ.get("ROBODOG_EDITOR", "file")
+        # Color theme: --theme / ROBODOG_THEME / settings.json default -> "default".
+        self.theme = (theme or os.environ.get("ROBODOG_THEME", "default")).strip().lower()
+        self._C = self._THEMES.get(self.theme, self._THEMES["default"])
         self.total_tokens = 0
         self.bg_running = 0          # background tasks (wired later)
         self.context_pct = 0         # transcript fill estimate (loop sets)
@@ -176,11 +191,21 @@ class UI:
             _HAVE_PT and sys.stdin.isatty() and sys.stdout.isatty()
         )
         self._session = None
+        # Permission-mode indicator (shift+tab cycle). Wired post-construction
+        # via wire_permission_registry() once the ToolRegistry exists; empty
+        # until then, so the segment just doesn't render.
+        self.permission_label = ""
+        self._cycle_permission_cb = None
         if self._interactive:
             hist_dir = Path.home() / ".robodog"
             hist_dir.mkdir(parents=True, exist_ok=True)
             # Slash commands + @-path completion (files/dirs under cwd).
             completer = _RobodogCompleter(commands or [], self.cwd)
+
+            def _do_cycle_permission():
+                if self._cycle_permission_cb is not None:
+                    self.permission_label = self._cycle_permission_cb()
+
             self._session = PromptSession(
                 history=_SafeFileHistory(str(hist_dir / "terminal_history")),
                 completer=completer,
@@ -192,7 +217,7 @@ class UI:
                 # custom Enter binding below does NOT fire per pasted line —
                 # multi-line cut/paste is captured whole, like a modern agentic terminal.
                 multiline=True,
-                key_bindings=_input_key_bindings(),
+                key_bindings=_input_key_bindings(_do_cycle_permission),
                 prompt_continuation=lambda width, ln, wrapped: "  " if not wrapped else "",
                 # Black background for the status toolbar (the default light/
                 # reversed bar looks out of place with the emoji + ANSI colors).
@@ -202,13 +227,59 @@ class UI:
                 }),
             )
 
+    def wire_permission_registry(self, registry) -> None:
+        """Call once the ToolRegistry exists (app.py, right after it's built)
+        to hook up shift+tab -> registry.cycle_permission_mode() and seed the
+        initial status-bar label from the registry's current mode/guard."""
+        self._cycle_permission_cb = registry.cycle_permission_mode
+        self.permission_label = registry.permission_mode_label()
+
     # ---- status line (emoji + color, an agentic coding terminal custom style) ----------
-    # ANSI palette (protanopia-safe: cyan / yellow / magenta + emoji severity)
-    _C = {
-        "magenta_b": "\033[1;35m", "magenta": "\033[0;35m",
-        "cyan": "\033[0;36m", "yellow": "\033[0;33m",
-        "gray": "\033[0;90m", "reset": "\033[0m",
+    # Swappable ANSI palettes — same keys, different values, so every call site
+    # (self._C[...]) is theme-agnostic. `self._C` is picked in __init__ (or via
+    # set_theme()); this is a CLASS attribute of named palettes, not the active
+    # one.
+    _THEMES: Dict[str, Dict[str, str]] = {
+        "default": {   # protanopia-safe: cyan / yellow / magenta + emoji severity
+            "magenta_b": "\033[1;35m", "magenta": "\033[0;35m",
+            "cyan": "\033[0;36m", "yellow": "\033[0;33m",
+            "gray": "\033[0;90m", "reset": "\033[0m",
+        },
+        "high-contrast": {   # bold + higher-saturation; red for the top severity tier
+            "magenta_b": "\033[1;31m", "magenta": "\033[0;31m",
+            "cyan": "\033[1;36m", "yellow": "\033[1;33m",
+            "gray": "\033[0;37m", "reset": "\033[0m",
+        },
+        "mono": {   # no color at all — dumb terminals, log capture, screen readers
+            "magenta_b": "", "magenta": "", "cyan": "", "yellow": "", "gray": "", "reset": "",
+        },
+        "pip-boy": {   # Fallout Pip-Boy: monochrome green phosphor CRT. Every
+            # role maps to a shade of green instead of a different hue — bold
+            # bright green for the loudest tier, dim green for the least
+            # important (folder), so severity still reads by INTENSITY, the
+            # way a real amber/green terminal has no other way to do it.
+            "magenta_b": "\033[1;92m", "magenta": "\033[0;92m",
+            "cyan": "\033[0;32m", "yellow": "\033[1;32m",
+            "gray": "\033[2;32m", "reset": "\033[0m",
+        },
     }
+    # Fenced-code-block syntax highlighting (rich Markdown's `code_theme=`,
+    # a pygments style name) — matched per theme instead of rich's unconfigured
+    # default, so `mono` genuinely means no color anywhere, code blocks included.
+    _CODE_THEMES: Dict[str, str] = {
+        "default": "monokai", "high-contrast": "fruity", "mono": "bw",
+        "pip-boy": "vim",   # closest built-in pygments style to a green CRT
+    }
+
+    def set_theme(self, name: str) -> bool:
+        """Switch the color theme live (e.g. the `/theme` command). Returns
+        False for an unrecognized name, leaving the current theme untouched."""
+        name = (name or "").strip().lower()
+        if name not in self._THEMES:
+            return False
+        self.theme = name
+        self._C = self._THEMES[name]
+        return True
 
     def _model_emoji(self) -> str:
         m = self.model_name.lower()
@@ -358,6 +429,17 @@ class UI:
         segs.append((f"📁 {short_cwd}", C["gray"]))
         return segs
 
+    def _permission_color(self) -> str:
+        C = self._C
+        lbl = self.permission_label
+        if "bypass" in lbl:
+            return C["magenta_b"]   # loudest warning — nothing is gated
+        if "plan" in lbl:
+            return C["cyan"]
+        if "accept" in lbl:
+            return C["yellow"]
+        return C["gray"]            # "default"
+
     def status_line(self) -> str:
         """Plain (uncolored) status line — fallback + tests."""
         return "  ".join(t for t, _ in self._status_segments())
@@ -375,13 +457,33 @@ class UI:
         return sep.join(f"{color}{t}{C['reset']}"
                         for t, color in self._status_segments())
 
+    def _permission_ansi(self) -> str:
+        """The permission-mode indicator, colored — rendered on its OWN toolbar
+        row (see _toolbar) rather than crammed in among the token/model/branch
+        segments, so it reads like Claude Code's own status line instead of
+        getting lost in a long `|`-separated row."""
+        if not self.permission_label:
+            return ""
+        C = self._C
+        return f"{self._permission_color()}{self.permission_label}{C['reset']}"
+
     def _toolbar(self):
-        # prompt_toolkit bottom toolbar — render ANSI colors + emoji.
+        # prompt_toolkit bottom toolbar — two rows: status segments, then the
+        # permission-mode indicator on its own line underneath. Returning text
+        # with an embedded newline is all multi-line takes here; prompt_toolkit
+        # sizes the toolbar window to fit it automatically.
         try:
             from prompt_toolkit.formatted_text import ANSI
-            return ANSI(" " + self._status_ansi())
+            lines = [" " + self._status_ansi()]
+            perm = self._permission_ansi()
+            if perm:
+                lines.append(" " + perm)
+            return ANSI("\n".join(lines))
         except Exception:
-            return " " + self.status_line()
+            lines = [self.status_line()]
+            if self.permission_label:
+                lines.append(self.permission_label)
+            return "\n".join(" " + ln for ln in lines)
 
     def print_status(self):
         if self.console:
@@ -616,7 +718,8 @@ class UI:
         """Render a final answer as markdown (falls back to plain text)."""
         if self.console:
             try:
-                self.console.print(Markdown(text))
+                code_theme = self._CODE_THEMES.get(self.theme, "monokai")
+                self.console.print(Markdown(text, code_theme=code_theme))
                 return
             except Exception:
                 pass

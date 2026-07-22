@@ -14,6 +14,11 @@ an existing Claude Code project's settings work unchanged:
 Shape (all keys optional):
 
     {
+      "defaults": {
+        "permissionMode": "yolo",
+        "guard": "warn",
+        "netWrites": "confirm"
+      },
       "permissions": {
         "allow": ["bash(git *)", "read_file(*)"],
         "deny":  ["bash(rm -rf *)", "write_file(*.env)"]
@@ -27,12 +32,24 @@ Shape (all keys optional):
       }
     }
 
+DEFAULTS — startup values (CLI flags still win over these; scalars, so the
+first location that sets a key wins — project before user). `/config init`
+(app.py) writes a starter file via `write_default_settings()` below; shift+tab
+in the REPL cycles permission-mode/guard/net-writes live (ToolRegistry.
+cycle_permission_mode in tools.py) without touching this file.
+
 PERMISSION RULES — "tool" or "tool(glob)". The glob is fnmatch-style and is
 tested against the call's primary argument (command for bash/run_script,
-path for file tools, prompt for agent). Semantics:
-  deny match   -> the call is refused (BLOCKED, deny always wins)
+path for file tools, prompt for agent). A `command` value is first split into
+its top-level `&&`/`||`/`;`/`|` segments (quote-aware) and each is matched
+independently — so `allow: ["bash(git *)"]` does NOT bless `git status &&
+rm -rf ~` as a whole, and `deny: ["bash(rm -rf *)"]` still catches that same
+payload even though it isn't the first thing on the line. Semantics:
+  deny match   -> the call is refused (BLOCKED, deny always wins;
+                  fires if ANY segment matches)
   allow match  -> the call is pre-approved: the dangerous-command confirm
-                  prompt is skipped for it
+                  prompt is skipped for it (fires only if EVERY segment
+                  matches an allow rule)
   no match     -> default behavior (danger guard still applies)
 
 HOOKS — each entry's `matcher` is a regex fullmatched against the tool name
@@ -55,11 +72,42 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+try:
+    from .tools import split_command_segments
+except ImportError:  # pragma: no cover - alt import path (see app.py)
+    from robodog_terminal.tools import split_command_segments
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_HOOK_TIMEOUT = 30
 _RULE_RE = re.compile(r"^\s*([\w-]+)\s*(?:\((.*)\))?\s*$")
 HOOK_EVENTS = ("PreToolUse", "PostToolUse", "Stop")
+
+# Starter settings.json for `/config init`. The "defaults" block seeds
+# permission-mode/guard/net-writes at startup (CLI flags still override it);
+# everything else is an empty scaffold the user can fill in.
+DEFAULT_SETTINGS = {
+    "defaults": {
+        "permissionMode": "yolo",
+        "guard": "warn",
+        "netWrites": "confirm",
+        "verifyEdits": True,
+    },
+    "permissions": {"allow": [], "deny": []},
+    "hooks": {ev: [] for ev in HOOK_EVENTS},
+}
+
+
+def write_default_settings(path, force: bool = False) -> bool:
+    """Write a starter settings.json at `path`. No-op (returns False) if the
+    file already exists and `force` is falsy, so `/config init` never clobbers
+    a hand-edited config by accident."""
+    path = Path(path)
+    if path.exists() and not force:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(DEFAULT_SETTINGS, indent=2) + "\n", encoding="utf-8")
+    return True
 
 
 def primary_arg(args: Dict[str, str]) -> str:
@@ -91,6 +139,9 @@ class HookEngine:
             ev: [h for h in (hooks.get(ev) or []) if isinstance(h, dict) and h.get("command")]
             for ev in HOOK_EVENTS
         }
+        # Startup defaults (permissionMode/guard/netWrites/...) — scalars, so
+        # "first wins" (project before user) rather than list-concatenation.
+        self.defaults: Dict[str, object] = dict(settings.get("defaults") or {})
         self.sources: List[str] = settings.get("_sources", [])
 
     # ---- loading ---------------------------------------------------------
@@ -106,7 +157,8 @@ class HookEngine:
             home_dir / ".claude" / "settings.json",
         ]
         merged: dict = {"permissions": {"allow": [], "deny": []},
-                        "hooks": {ev: [] for ev in HOOK_EVENTS}, "_sources": []}
+                        "hooks": {ev: [] for ev in HOOK_EVENTS},
+                        "defaults": {}, "_sources": []}
         seen = set()
         for p in paths:
             key = str(p.resolve()) if p.exists() else str(p)
@@ -125,6 +177,8 @@ class HookEngine:
             merged["permissions"]["deny"] += list(perms.get("deny") or [])
             for ev in HOOK_EVENTS:
                 merged["hooks"][ev] += list((data.get("hooks") or {}).get(ev) or [])
+            for k, v in (data.get("defaults") or {}).items():
+                merged["defaults"].setdefault(k, v)   # paths ordered project -> home
             merged["_sources"].append(str(p))
         return cls(merged, cwd=str(cwd))
 
@@ -142,15 +196,31 @@ class HookEngine:
 
     # ---- permissions -----------------------------------------------------
     def check_permission(self, tool: str, args: Dict[str, str]) -> Tuple[Optional[str], str]:
-        """('deny'|'allow'|None, matched_rule). Deny always wins."""
+        """('deny'|'allow'|None, matched_rule). Deny always wins.
+
+        A `command` arg is split into its top-level `&&`/`||`/`;`/`|` segments
+        (quote-aware) and each is checked independently, rather than matching
+        the glob against the whole string. Without this, `fnmatch`'s `*` in an
+        allow-rule like `bash(git *)` matches straight through a chain operator
+        — `git status && rm -rf ~` would be blessed in full — and a deny-rule
+        for `rm -rf *` would miss that same payload because it isn't the first
+        thing on the line. So: deny fires if ANY segment matches; allow only
+        fires if EVERY segment matches an allow rule."""
         target = primary_arg(args)
-        for name, pattern in self.deny:
-            if name == tool and fnmatch.fnmatchcase(target, pattern):
-                return "deny", f"{name}({pattern})"
-        for name, pattern in self.allow:
-            if name == tool and fnmatch.fnmatchcase(target, pattern):
-                return "allow", f"{name}({pattern})"
-        return None, ""
+        segments = split_command_segments(target) if "command" in args else [target]
+        segments = segments or [target]
+        for seg in segments:
+            for name, pattern in self.deny:
+                if name == tool and fnmatch.fnmatchcase(seg, pattern):
+                    return "deny", f"{name}({pattern})"
+        matched: List[str] = []
+        for seg in segments:
+            hit = next((f"{name}({pattern})" for name, pattern in self.allow
+                       if name == tool and fnmatch.fnmatchcase(seg, pattern)), None)
+            if hit is None:
+                return None, ""   # a segment isn't pre-approved -> no blanket allow
+            matched.append(hit)
+        return "allow", "; ".join(dict.fromkeys(matched))   # de-duped, order kept
 
     # ---- hook execution ---------------------------------------------------
     def _matching(self, event: str, tool: str) -> List[dict]:
