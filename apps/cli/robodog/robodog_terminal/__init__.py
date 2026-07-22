@@ -6,7 +6,7 @@ Provides an agentic tool-use loop (prompted tool-calling), file editing,
 and shell command execution, on top of pluggable LLM backends (the gateway / echo /
 OpenAI-compatible). See docs/TERMINAL_MODE_PLAN.md.
 """
-__version__ = "0.3.62"
+__version__ = "0.3.63"
 from .llm_client import LLMClient, Completion, EchoClient, GatewayClient
 from .tools import ToolRegistry, default_registry
 from .loop import AgentLoop

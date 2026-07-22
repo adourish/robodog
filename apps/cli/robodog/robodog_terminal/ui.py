@@ -446,10 +446,16 @@ class UI:
 
     def thinking_line(self, iteration: int) -> str:
         """Spinner text for a running turn, WITH the status bar folded in — the
-        spinner is the only element that persists on screen mid-turn, so this is
-        how model/tokens/context/branch stay visible while the agent works."""
-        return (f"✳ Thinking… step {iteration} (ctrl-c cancel) · "
+        spinner is the only element that persists on screen mid-turn (the
+        prompt_toolkit bottom toolbar, incl. its permission-mode row, only
+        renders while actively prompting for input — NOT during a rich
+        Console.status() spinner), so this is how model/tokens/context/branch
+        AND the permission-mode indicator stay visible while the agent works."""
+        line = (f"✳ Thinking… step {iteration} (ctrl-c cancel) · "
                 + self.status_line())
+        if self.permission_label:
+            line += f"  ·  {self.permission_label}"
+        return line
 
     def _status_ansi(self) -> str:
         C = self._C

@@ -1,10 +1,19 @@
 # file: robodog_terminal/run_tests.py
 """
 Master test runner for the Robodog Terminal package.
-Runs every suite as a subprocess, prints a summary, exits non-zero on any failure.
+Runs every suite as a subprocess IN PARALLEL, prints a summary, exits non-zero
+on any failure.
 
 Run:  python robodog_terminal/run_tests.py            (from robodogcli/robodog)
       python robodog_terminal/run_tests.py --coverage (line coverage via coverage.py)
+
+Suites run concurrently (ThreadPoolExecutor — each thread just blocks on its
+own subprocess, so this is about overlapping wall-clock wait time, not CPU).
+Profiled: 25 suites took ~90-95s sequential on a 16-core box, dominated by
+subprocess/PowerShell spin-up inside the slower suites; none of them touch
+shared mutable state (the few that reference ~/.robodog are either read-only
+assertions or timestamp-namespaced), so parallelizing is safe. Override the
+worker count with ROBODOG_TEST_WORKERS if a box is more resource-constrained.
 """
 from __future__ import annotations
 
@@ -12,6 +21,7 @@ import os
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -55,27 +65,51 @@ if os.environ.get("ROBODOG_LIVE") == "1":
     SUITES.append("test_live_web.py")  # parallel live-site fetch, polyglot squad, playwright
 
 
+def _run_one(suite: str, use_cov: bool):
+    """Run a single suite as a subprocess. Returns (suite, passed_or_None, dur,
+    stdout, stderr). `passed` is None for a missing file (never attempted)."""
+    path = HERE / suite
+    if not path.exists():
+        return suite, None, 0.0, "", ""
+    cmd = [sys.executable]
+    if use_cov:
+        # --parallel-mode: each subprocess writes its own uniquely-suffixed
+        # .coverage.* data file instead of one shared file — required for
+        # concurrent writers (plain --append is NOT safe to race across
+        # processes). Combined back into one file in main() after they finish.
+        cmd += ["-m", "coverage", "run", "--parallel-mode",
+                f"--include={HERE}/*", "--omit=*/test_*,*/selftest.py,*/run_tests.py"]
+    cmd.append(str(path))
+    t = time.time()
+    proc = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
+    return suite, proc.returncode == 0, time.time() - t, proc.stdout or "", proc.stderr or ""
+
+
 def main() -> int:
     use_cov = "--coverage" in sys.argv
-    results = []
+    try:
+        workers = int(os.environ.get("ROBODOG_TEST_WORKERS", "8"))
+    except ValueError:
+        workers = 8
+    workers = max(1, min(workers, len(SUITES)))
+
     t0 = time.time()
-    for suite in SUITES:
-        path = HERE / suite
-        if not path.exists():
-            results.append((suite, None, 0.0))
-            continue
-        cmd = [sys.executable]
-        if use_cov:
-            cmd += ["-m", "coverage", "run", "--append",
-                    f"--include={HERE}/*", "--omit=*/test_*,*/selftest.py,*/run_tests.py"]
-        cmd.append(str(path))
-        t = time.time()
-        proc = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
-        results.append((suite, proc.returncode == 0, time.time() - t))
-        if proc.returncode != 0:
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_run_one, suite, use_cov): i
+                   for i, suite in enumerate(SUITES)}
+        raw = [None] * len(SUITES)
+        for fut in futures:
+            raw[futures[fut]] = fut.result()
+
+    # Print any failures in the suites' declared order (not completion order)
+    # so output stays reproducible run-to-run.
+    results = []
+    for suite, passed, dur, out, err in raw:
+        results.append((suite, passed, dur))
+        if passed is False:
             print(f"--- {suite} FAILED ---")
-            print((proc.stdout or "")[-2000:])
-            print((proc.stderr or "")[-1000:])
+            print(out[-2000:])
+            print(err[-1000:])
 
     print("\n===== SUMMARY =====")
     failed = 0
@@ -88,9 +122,11 @@ def main() -> int:
             print(f"  [FAIL] {suite} ({dur:.1f}s)")
             failed += 1
     total = sum(1 for _, p, _ in results if p is not None)
-    print(f"  {total - failed}/{total} suites passed in {time.time() - t0:.1f}s")
+    print(f"  {total - failed}/{total} suites passed in {time.time() - t0:.1f}s "
+          f"({workers} workers)")
 
     if use_cov:
+        subprocess.run([sys.executable, "-m", "coverage", "combine"], cwd=str(ROOT))
         subprocess.run([sys.executable, "-m", "coverage", "report",
                         "--show-missing", f"--include={HERE}/*",
                         "--omit=*/test_*,*/selftest.py,*/run_tests.py"],

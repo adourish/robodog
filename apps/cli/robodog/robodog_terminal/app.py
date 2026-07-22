@@ -657,6 +657,12 @@ def main(argv=None) -> int:
                  f" · {calls} tool call{'' if calls == 1 else 's'}")
         if cap > 0:
             label += f" · model cap {cap}"
+        # Same fix as thinking_line: this spinner text is the ONLY thing on
+        # screen during fan-out (the bottom toolbar doesn't render mid-turn),
+        # so fold the permission-mode indicator in here too instead of it
+        # silently vanishing while subagents are running.
+        if ui.permission_label:
+            label += f"  ·  {ui.permission_label}"
         ui.spinner_update(label)
 
     def on_child_event(kind, data):

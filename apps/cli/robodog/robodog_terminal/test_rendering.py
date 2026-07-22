@@ -434,6 +434,18 @@ def main() -> int:
           "thinking_line contains every status_line segment")
     check("cancel" in tline.lower(), "thinking_line still tells you how to cancel")
 
+    # Regression: the permission-mode row only renders via the prompt_toolkit
+    # bottom toolbar, which doesn't draw at all during a turn — thinking_line
+    # (the rich spinner text) is the ONLY thing on screen then, so it must
+    # fold the permission label in or it silently vanishes while "thinking".
+    tl_ui.permission_label = "⏵⏵ bypass permissions on (shift+tab to cycle)"
+    tline_perm = tl_ui.thinking_line(3)
+    check("bypass permissions" in tline_perm,
+          "thinking_line carries the permission-mode indicator too")
+    tl_ui.permission_label = ""
+    check("·" not in tl_ui.thinking_line(3)[-3:],
+          "no dangling separator when there's no permission label to show")
+
     # ---------------- color themes (/theme) -------------------------------
     theme_ui, _ = capture()
     check(theme_ui.theme == "default" and theme_ui._C["cyan"] == "\033[0;36m",  # noqa: SLF001

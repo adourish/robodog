@@ -16,6 +16,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import queue
 import re
 import shutil
 import signal
@@ -24,6 +25,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -1240,6 +1242,18 @@ class ToolRegistry:
         self.test_command: Optional[str] = None
         # Hooks + permission rules (hooks.HookEngine; wired by app.py).
         self.hooks = None
+        # Persistent PowerShell session for the bash tool (Windows only, lazy —
+        # created on first bash call; see _PersistentPowerShell above).
+        self._shell: Optional["_PersistentPowerShell"] = None
+
+    def close(self) -> None:
+        """Release any long-lived resources (the persistent shell session).
+        Call when the registry's session is ending — never required for
+        correctness (an orphaned powershell.exe is harmless and short-lived
+        in practice), just tidy."""
+        if self._shell is not None:
+            self._shell.kill()
+            self._shell = None
 
     # ---- registration ---------------------------------------------------
     def register(self, tool: Tool) -> None:
@@ -1468,6 +1482,211 @@ class ToolRegistry:
                 req = "required" if p.required else "optional"
                 lines.append(f"    · {p.name} ({req}): {p.description}")
         return "\n".join(lines)
+
+
+# ========================================================================
+# Persistent shell session (Windows/PowerShell) — reuses ONE process across
+# bash tool calls instead of spawning a fresh `powershell.exe` per call.
+# Profiled: a one-shot call costs ~0.75-1.0s of pure process-spawn overhead,
+# paid on EVERY bash call — a turn with 5 shell commands burns ~4-5s just on
+# cold starts. OpenHands solves this the same way for its bash tool (a
+# persistent tmux/bash session with a completion sentinel); this is the
+# PowerShell equivalent: one long-lived `-Command -` process reading
+# statements from stdin, each terminated with a unique marker line carrying
+# a synthetic exit code ($? / $LASTEXITCODE combined the same way a real
+# terminal session would report it).
+# ========================================================================
+def _persistent_shell_enabled() -> bool:
+    # Read fresh on every call (not cached at import time) so the toggle is
+    # actually live — matches _run_streaming's IDLE_NOTE_SECONDS pattern.
+    return os.environ.get("ROBODOG_PERSISTENT_SHELL", "1").strip().lower() not in (
+        "0", "false", "no")
+
+
+def _ps_quote(path: str) -> str:
+    """Single-quote a path for PowerShell (doubling embedded single quotes) —
+    used with -LiteralPath so glob/wildcard characters in the path are never
+    interpreted."""
+    return "'" + str(path).replace("'", "''") + "'"
+
+
+class _PersistentPowerShell:
+    """A long-lived `powershell.exe` process reused across bash tool calls.
+
+    State (variables, aliases, and — deliberately — the working directory set
+    by a bare `cd`/`Set-Location` in a command) persists across calls within a
+    session, matching how a real terminal behaves; a `cwd` tool-param override
+    is scoped to just that one call (saved and restored around it) so it
+    doesn't silently redirect every later call.
+
+    Self-healing: any anomaly (broken stdin pipe, the process having died, a
+    malformed/hung script that never reaches its sentinel) kills the session
+    and reports it as a failure for that one call — the NEXT call transparently
+    starts a fresh session. It never wedges the loop; worst case a call pays
+    the one-shot cold-start cost again.
+    """
+
+    def __init__(self):
+        self._proc: Optional[subprocess.Popen] = None
+        self._out_q: "queue.Queue[str]" = queue.Queue()
+        self._err_q: "queue.Queue[str]" = queue.Queue()
+        self._lock = threading.Lock()   # one command in flight at a time
+
+    def _alive(self) -> bool:
+        return self._proc is not None and self._proc.poll() is None
+
+    def _start(self, cwd: str) -> None:
+        self._proc = subprocess.Popen(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", "-"],
+            cwd=str(cwd),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8", errors="replace", bufsize=1,
+        )
+        self._out_q = queue.Queue()
+        self._err_q = queue.Queue()
+
+        def _reader(stream, q):
+            try:
+                for line in stream:
+                    q.put(line.rstrip("\r\n"))
+            except Exception:
+                pass
+
+        threading.Thread(target=_reader, args=(self._proc.stdout, self._out_q),
+                         daemon=True).start()
+        threading.Thread(target=_reader, args=(self._proc.stderr, self._err_q),
+                         daemon=True).start()
+        # UTF-8 both ways, once per session (the one-shot path re-does this
+        # every call since it starts a fresh process each time).
+        self._proc.stdin.write(
+            "[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+            "$OutputEncoding=[Text.Encoding]::UTF8\n")
+        self._proc.stdin.flush()
+
+    def kill(self) -> None:
+        if self._proc is not None:
+            try:
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(self._proc.pid)],
+                               capture_output=True)
+            except Exception:
+                pass
+            try:
+                self._proc.wait(timeout=5)
+            except Exception:
+                pass
+        self._proc = None
+
+    def run(self, command: str, cwd_override: Optional[str], base_cwd: str,
+            timeout: int, on_line: Optional[Callable[[str], None]] = None,
+            idle_note_seconds: int = 20
+            ) -> Tuple[Optional[int], List[str], List[str], bool]:
+        """Run one command in the persistent session. Returns (returncode,
+        stdout_lines, stderr_lines, timed_out) — the same shape _run_streaming
+        returns, so callers can treat the two interchangeably. `returncode is
+        None and not timed_out` means the session itself died before/while
+        dispatching — the caller should fall back to a one-shot run for this
+        call."""
+        with self._lock:
+            if not self._alive():
+                self._start(base_cwd)
+            marker = uuid.uuid4().hex
+            marker_prefix = f"@@ROBODOG_DONE:{marker}:"
+            try:
+                if cwd_override:
+                    self._proc.stdin.write(
+                        f"$__prevloc = (Get-Location).Path\n"
+                        f"Set-Location -LiteralPath {_ps_quote(cwd_override)}\n")
+                self._proc.stdin.write(command + "\n")
+                # $? = did the last statement succeed; $LASTEXITCODE = last
+                # NATIVE process's exit code. Combine like a real terminal:
+                # 0 on success, else LASTEXITCODE if a native command set one,
+                # else a generic 1 for a failed cmdlet — computed BEFORE the
+                # cwd restore below so that statement can't clobber it.
+                self._proc.stdin.write(
+                    "$__rc = if ($?) { 0 } else "
+                    "{ if ($LASTEXITCODE) { $LASTEXITCODE } else { 1 } }\n")
+                if cwd_override:
+                    self._proc.stdin.write("Set-Location -LiteralPath $__prevloc\n")
+                self._proc.stdin.write(f'Write-Output "{marker_prefix}$__rc@@"\n')
+                self._proc.stdin.flush()
+            except Exception:
+                self.kill()
+                return None, [], [], False   # caller falls back to one-shot
+
+            out_lines: List[str] = []
+            deadline = time.monotonic() + timeout
+            last_activity = time.monotonic()
+            notified_at = 0.0
+            rc: Optional[int] = None
+            timed_out = False
+            while True:
+                if not self._alive():
+                    # The process exited on its own rather than reaching our
+                    # sentinel — most likely a top-level `exit N` IN the
+                    # command (unlike bash, PowerShell's `exit` terminates the
+                    # whole session, not just a subshell), or a crash. That's
+                    # not a hang: drain whatever output already arrived and
+                    # report the process's own exit code, same as the
+                    # one-shot path would have for an identical `exit N`.
+                    while True:
+                        try:
+                            out_lines.append(self._out_q.get_nowait())
+                        except queue.Empty:
+                            break
+                    rc = self._proc.returncode if self._proc is not None else 1
+                    self._proc = None
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                try:
+                    line = self._out_q.get(timeout=min(0.25, max(0.01, remaining)))
+                except queue.Empty:
+                    idle_for = time.monotonic() - last_activity
+                    if (on_line is not None and idle_for >= idle_note_seconds
+                            and time.monotonic() - notified_at >= idle_note_seconds):
+                        notified_at = time.monotonic()
+                        on_line(f"⏳ still running — no new output for {int(idle_for)}s "
+                                f"(normal for installs/builds/servers; not necessarily hung)")
+                    continue
+                last_activity = time.monotonic()
+                if line.startswith(marker_prefix):
+                    try:
+                        rc = int(line[len(marker_prefix):].rstrip("@"))
+                    except ValueError:
+                        rc = 1
+                    break
+                out_lines.append(line)
+                if on_line is not None:
+                    try:
+                        on_line(line)
+                    except Exception:
+                        pass
+
+            err_lines: List[str] = []
+            # Brief grace drain: stderr for a just-finished command should
+            # already be queued by the time the stdout sentinel arrives, but
+            # give it a moment in case the two pipes were read slightly out
+            # of step.
+            drain_until = time.monotonic() + 0.2
+            while time.monotonic() < drain_until:
+                try:
+                    err_lines.append(self._err_q.get(timeout=0.05))
+                except queue.Empty:
+                    break
+            while True:
+                try:
+                    err_lines.append(self._err_q.get_nowait())
+                except queue.Empty:
+                    break
+
+            if timed_out:
+                # Can't safely interrupt one command in a shared session —
+                # the whole thing gets reset for the next call instead.
+                self.kill()
+                return None, out_lines, err_lines, True
+            return rc, out_lines, err_lines, False
 
 
 # ========================================================================
@@ -1868,6 +2087,15 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         return f"{head}\n... [truncated {len(text) - limit} chars] ...\n{tail}"
 
     # --- bash / run command ---------------------------------------------
+    def _one_shot_powershell_cmd(run_cmd: str) -> List[str]:
+        # Force UTF-8 so non-ASCII survives BOTH ways: native-command output
+        # (git log) is decoded as UTF-8, and args we pass to native commands
+        # (git commit -m "…") are encoded as UTF-8 — no more `—` -> `â€"`.
+        # (The persistent-session path sets this once at session start instead.)
+        run_cmd = ("[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                   "$OutputEncoding=[Text.Encoding]::UTF8;" + run_cmd)
+        return ["powershell", "-NoProfile", "-NonInteractive", "-Command", run_cmd]
+
     def _bash(args):
         command = args["command"]
         background = str(args.get("background", "")).strip().lower()
@@ -1890,15 +2118,27 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             # segment inside powershell_translate).
             run_cmd = powershell_translate(translate_null_redirects(
                 translate_dir_switches(translate_windows_aliases(command))))
-            # Force UTF-8 so non-ASCII survives BOTH ways: native-command output
-            # (git log) is decoded as UTF-8, and args we pass to native commands
-            # (git commit -m "…") are encoded as UTF-8 — no more `—` -> `â€"`.
-            run_cmd = ("[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
-                       "$OutputEncoding=[Text.Encoding]::UTF8;" + run_cmd)
-            shell_cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", run_cmd]
+            rc = out_lines = err_lines = timed_out = None
+            if _persistent_shell_enabled():
+                if reg._shell is None:
+                    reg._shell = _PersistentPowerShell()
+                # `cwd` (the RAW param, not cwd_path's registry-default fallback)
+                # is a scoped per-call override in the persistent session — a
+                # bare `cd`/`Set-Location` INSIDE the command text still
+                # persists naturally to the next call, same as a real terminal.
+                rc, out_lines, err_lines, timed_out = reg._shell.run(
+                    run_cmd, str(cwd) if cwd else None, str(reg.cwd), timeout,
+                    on_line=reg.on_bash_line, idle_note_seconds=IDLE_NOTE_SECONDS)
+            # rc is None + not timed_out => the session died before/while
+            # dispatching (stdin write failed) — fall back to a one-shot run
+            # for THIS call rather than losing it. Also the path taken when
+            # the feature is toggled off entirely.
+            if rc is None and not timed_out:
+                shell_cmd = _one_shot_powershell_cmd(run_cmd)
+                rc, out_lines, err_lines, timed_out = _run_streaming(shell_cmd, cwd_path, timeout)
         else:
             shell_cmd = ["/bin/sh", "-c", command]
-        rc, out_lines, err_lines, timed_out = _run_streaming(shell_cmd, cwd_path, timeout)
+            rc, out_lines, err_lines, timed_out = _run_streaming(shell_cmd, cwd_path, timeout)
         return _format_run_result(command, rc, out_lines, err_lines, timed_out,
                                   timeout, command=command)
 

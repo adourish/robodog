@@ -367,6 +367,79 @@ def main() -> int:
           "run_script timeout returns tree-kill ERROR message")
     check(elapsed < 8, f"run_script timeout returned quickly ({elapsed:.1f}s < 8s)")
 
+    # --- 7a. persistent shell session (Windows bash-tool speedup) ---------
+    if os.name == "nt":
+        print("=== 7a. persistent shell session ===")
+        from robodog_terminal.tools import _PersistentPowerShell
+
+        reg = fresh_registry()
+        t0 = time.monotonic()
+        r1 = reg.execute("bash", {"command": "Write-Output first-call"})
+        first_call_dur = time.monotonic() - t0
+        check("first-call" in r1, "first bash call works and starts the session")
+        check(reg._shell is not None and reg._shell._alive(),  # noqa: SLF001
+              "a persistent shell session is now attached to the registry")
+
+        t0 = time.monotonic()
+        r2 = reg.execute("bash", {"command": "Write-Output second-call"})
+        second_call_dur = time.monotonic() - t0
+        check("second-call" in r2, "second bash call reuses the session")
+        check(second_call_dur < first_call_dur,
+              f"reused call is faster than the cold-start one "
+              f"({second_call_dur:.2f}s < {first_call_dur:.2f}s)")
+
+        # State persists across calls: a bare `cd` sticks (like a real terminal),
+        # unlike the old one-shot-per-call behavior.
+        other_dir = str(Path(tempfile.mkdtemp(prefix="rd_shell_cd_")))
+        reg.execute("bash", {"command": f"Set-Location -LiteralPath '{other_dir}'"})
+        r3 = reg.execute("bash", {"command": "(Get-Location).Path"})
+        check(other_dir.rstrip("\\/").lower() in r3.replace("\\\\", "\\").lower(),
+              f"a bare cd/Set-Location persists to the NEXT call ({r3.strip()[:80]!r})")
+
+        # A `cwd` tool-param override is scoped to just that one call — it must
+        # NOT leak into the following call the way a bare `cd` does.
+        reg2 = fresh_registry()
+        scoped_dir = str(Path(tempfile.mkdtemp(prefix="rd_shell_scoped_")))
+        r_scoped = reg2.execute("bash", {"command": "(Get-Location).Path", "cwd": scoped_dir})
+        check(scoped_dir.rstrip("\\/").lower() in r_scoped.replace("\\\\", "\\").lower(),
+              "a cwd override applies to its own call")
+        r_after = reg2.execute("bash", {"command": "(Get-Location).Path"})
+        check(scoped_dir.lower() not in r_after.lower(),
+              "…but does NOT leak into the next call (unlike a bare cd)")
+
+        # `exit N` — PowerShell (unlike bash) terminates the WHOLE session on a
+        # top-level exit, not just the current command. Must be reported as
+        # that exit code, not misclassified as a hang/timeout, and the session
+        # must recover cleanly on the next call.
+        reg3 = fresh_registry()
+        r_exit = reg3.execute("bash", {"command": "exit 3"})
+        check("COMMAND FAILED (exit 3)" in r_exit,
+              "a session-terminating `exit N` reports the real exit code, not a timeout")
+        r_recover = reg3.execute("bash", {"command": "Write-Output back-again"})
+        check("back-again" in r_recover, "the session transparently restarts on the next call")
+
+        # Feature flag: ROBODOG_PERSISTENT_SHELL=0 falls back to one-shot.
+        os.environ["ROBODOG_PERSISTENT_SHELL"] = "0"
+        try:
+            reg4 = fresh_registry()
+            r_off = reg4.execute("bash", {"command": "Write-Output still-works"})
+            check("still-works" in r_off and reg4._shell is None,  # noqa: SLF001
+                  "ROBODOG_PERSISTENT_SHELL=0 disables the persistent session entirely")
+        finally:
+            del os.environ["ROBODOG_PERSISTENT_SHELL"]
+
+        # Direct unit test of the class: stderr + exit code together.
+        sh = _PersistentPowerShell()
+        try:
+            rc, out, err, timed_out = sh.run(
+                "Write-Output line1; Write-Error boom", None, str(Path.cwd()), 10)
+            check(rc == 1 and any("boom" in e for e in err) and out == ["line1"]
+                  and not timed_out,
+                  f"class-level: mixed stdout/stderr + failing exit code "
+                  f"(rc={rc}, out={out}, err has boom={any('boom' in e for e in err)})")
+        finally:
+            sh.kill()
+
     # --- 8. regression: selftest still passes ----------------------------
     print("=== 8. selftest regression ===")
     proc = subprocess.run(
