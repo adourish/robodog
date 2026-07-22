@@ -161,6 +161,24 @@ def main() -> int:
     st = [t.content for t in lp4.history if t.role == "tool" and t.tool_name == "silent"]
     check(st and "did not return anything" in st[0], "empty tool result is named, not blank")
 
+    # (1.5) Repeating the SAME task_update call is bookkeeping, not a stuck
+    # loop — it must not trip the "repeated same call" breaker, unlike a real
+    # tool repeating identically (which legitimately should abort).
+    regT = default_registry(cwd=str(wd))
+    clT = TaskChecklist()
+    register_task_tools(regT, clT)
+    regT.execute("task_add", {"subjects": "write the template"})
+    same_update = ('<tool name="task_update"><param name="id">1</param>'
+                   '<param name="status">in_progress</param></tool>')
+    ups = iter([same_update, same_update, same_update, same_update, 'Done.'])
+    lpU = AgentLoop(EchoClient(script=lambda p, c: next(ups, "Done.")),
+                    regT, max_iterations=8)
+    resU = lpU.run("track progress")
+    check("repeated the same task_update call" not in resU.final_text,
+          "repeated task_update does not abort the loop")
+    check(resU.final_text.strip() == "Done.",
+          "loop reaches the final answer after repeated task_update calls")
+
     # (1.3) Unknown tool name suggests the closest real one.
     r = default_registry(cwd=str(wd)).execute("write_files", {"path": "x", "content": "y"})
     check("unknown tool" in r and "Did you mean 'write_file'" in r,

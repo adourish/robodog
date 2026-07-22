@@ -881,6 +881,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.70
+
+- **Repeating the same `task_update` call no longer aborts the step.** The
+  "repeated identical tool call" stuck-loop breaker (which correctly kills a
+  step that repeats the same *failing* tool call 3 times) was also catching
+  `task_update` — a pure, idempotent checklist-status mutation with no side
+  effects. Live usage showed a step make real progress (a successful
+  `write_file`), then get killed re-affirming a task's `in_progress` status
+  three times, right before it reached the next actual edit. `task_update` now
+  gets the same exemption `task_output`/`ask_user` already had (`task_add`
+  keeps tripping the breaker, since it creates a new item each call and
+  repeating it really would be a bug).
+
 ### 0.3.69
 
 - **Truncated/malformed tool calls are now visible in the terminal, not just

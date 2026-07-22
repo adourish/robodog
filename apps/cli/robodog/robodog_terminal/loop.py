@@ -339,8 +339,13 @@ class AgentLoop:
                 self.on_event("tool_done", {"name": call.name, "result": result})
                 self.history.append(Turn("tool", result, tool_name=call.name))
                 # Polling a background task legitimately repeats — never treat
-                # task_output/ask_user as a stuck loop.
-                if call.name in ("task_output", "ask_user"):
+                # task_output/ask_user as a stuck loop. task_update is a pure,
+                # idempotent state mutation (same args -> same "Updated task
+                # #N" result every time) with no side effects beyond the
+                # checklist, so re-affirming a task's status isn't evidence of
+                # being stuck either — unlike task_add, which creates a new
+                # item each call and should still trip the breaker.
+                if call.name in ("task_output", "ask_user", "task_update"):
                     continue
 
                 is_error = result.lstrip().startswith(("ERROR", "BLOCKED"))
