@@ -881,6 +881,22 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.71
+
+- **Self-closing tool calls (`<tool name="x" path="y" />`) now parse
+  correctly.** Some models emit this shorthand for calls with only scalar
+  args. Previously the parser's lazy body match (`<tool ...>(.*?)</tool>`)
+  couldn't match a self-closing tag at all — there's no `</tool>` right
+  after it — so the call either vanished entirely (parsed to zero calls,
+  completely silently, with no error surfaced anywhere) or, worse, its lazy
+  match bled forward to some unrelated LATER call's close tag and swallowed
+  everything in between as bogus tool-call "body". Self-closing tags are now
+  extracted and blanked out before the body-matching regex runs, so they
+  parse as their own call and can never contaminate a later one.
+  `has_unclosed_tool_call` (the truncation-retry trigger) was updated to
+  match — a complete self-closing call is no longer misreported as a
+  cut-off response.
+
 ### 0.3.70
 
 - **Repeating the same `task_update` call no longer aborts the step.** The

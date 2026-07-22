@@ -44,6 +44,15 @@ _PARAM_RE = re.compile(
 )
 # key="value" / key='value' attributes on a tag.
 _ATTR_RE = re.compile(r"(?P<k>[\w.\-]+)\s*=\s*\"(?P<v>[^\"]*)\"|(?P<k2>[\w.\-]+)\s*=\s*'(?P<v2>[^']*)'")
+# A self-closing tag (<tool name="x" path="y" />) — no body, no separate close
+# tag. Models occasionally emit this for calls with only scalar args. _TOOL_RE
+# can't match it (there's no </tool> immediately after), and worse, its lazy
+# body match would either fail outright or bleed forward to some LATER call's
+# close tag, swallowing everything between as bogus "body" — so these must be
+# pulled out and blanked before _TOOL_RE ever runs.
+_SELF_CLOSING_TOOL_RE = re.compile(
+    r"<(?:tool|invoke)\s+name\s*=\s*[\"']?(?P<name>[\w.\-]+)[\"']?(?P<attrs>[^>]*)/>",
+    re.IGNORECASE)
 
 
 _FENCE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
@@ -160,6 +169,31 @@ def _parse_xml(text: str) -> Tuple[List[ToolCall], str]:
     matchable = _mask_impure_fences(normalized)
     calls: List[ToolCall] = []
     spans = []
+
+    # Self-closing tags first: extract them into calls, then blank their span
+    # (length preserved, so spans still map onto `normalized`) so _TOOL_RE
+    # below never sees the dangling open tag.
+    self_closing_spans = []
+    for m in _SELF_CLOSING_TOOL_RE.finditer(matchable):
+        name = m.group("name").strip()
+        args: Dict[str, str] = {}
+        attrs = m.group("attrs") or ""
+        for am in _ATTR_RE.finditer(attrs):
+            k = am.group("k") or am.group("k2")
+            v = am.group("v") if am.group("v") is not None else am.group("v2")
+            if k and k.lower() != "name":
+                args[k] = html.unescape(v)
+        raw = normalized[m.start():m.end()]
+        calls.append(ToolCall(name=name, args=args, raw=raw))
+        spans.append((m.start(), m.end()))
+        self_closing_spans.append((m.start(), m.end()))
+    if self_closing_spans:
+        chars = list(matchable)
+        for s, e in self_closing_spans:
+            for i in range(s, e):
+                chars[i] = "\x00"
+        matchable = "".join(chars)
+
     for m in _TOOL_RE.finditer(matchable):
         raw = normalized[m.start():m.end()]
         name = m.group("name").strip()
@@ -189,6 +223,14 @@ def _parse_xml(text: str) -> Tuple[List[ToolCall], str]:
             args[pname] = val
         calls.append(ToolCall(name=name, args=args, raw=raw))
         spans.append((m.start(), m.end()))
+
+    # Self-closing calls were collected before _TOOL_RE ran, so `calls`/`spans`
+    # may be out of document order — sort both together so tool calls execute
+    # in the order the model actually emitted them.
+    order = sorted(range(len(spans)), key=lambda i: spans[i][0])
+    calls = [calls[i] for i in order]
+    spans = [spans[i] for i in order]
+
     # prose = normalized text minus the tool-call spans
     out = []
     last = 0
@@ -214,9 +256,11 @@ def has_unclosed_tool_call(text: str) -> bool:
     """True if `text` opens a tool/param tag that never closes — the signature of
     a response TRUNCATED mid-tool-call (the gateway hit max_tokens). Used as a
     fallback truncation signal when finish_reason isn't reported: after removing
-    every COMPLETE <tool>…</tool> block, a leftover `<tool name=` / `<param name=`
-    open tag means the model was cut off before finishing the call."""
-    remainder = _TOOL_RE.sub("", text)
+    every COMPLETE <tool>…</tool> block AND every complete self-closing
+    <tool .../> tag (a full, valid call — not a truncation), a leftover
+    `<tool name=` / `<param name=` open tag means the model was cut off before
+    finishing the call."""
+    remainder = _SELF_CLOSING_TOOL_RE.sub("", _TOOL_RE.sub("", text))
     return bool(_OPEN_TOOL_RE.search(remainder) or _OPEN_PARAM_RE.search(remainder))
 
 

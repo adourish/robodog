@@ -9,7 +9,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from robodog_terminal.toolcall import parse_tool_calls, has_tool_calls  # noqa: E402
+from robodog_terminal.toolcall import (parse_tool_calls, has_tool_calls,  # noqa: E402
+                                        has_unclosed_tool_call)
 
 ok = True
 
@@ -168,9 +169,53 @@ def main() -> int:
     check(calls == [] and "result" in prose,
           'a plain JSON answer (no tool name) is NOT hijacked as a tool call')
 
+    # Self-closing tags (<tool name="x" path="y" />) — some models emit this
+    # for calls with only scalar args. Before the fix these matched ZERO
+    # calls silently (no </tool> for the lazy body match to find).
+    calls, prose = parse_tool_calls(
+        'Reading it.\n<tool name="read_file" path="a.py" />')
+    check(len(calls) == 1 and calls[0].name == 'read_file'
+          and calls[0].args.get('path') == 'a.py',
+          'self-closing tool tag parses as a call')
+    check(prose == 'Reading it.', 'self-closing tag removed from prose')
+
+    # Anthropic-style self-closing <invoke .../> too.
+    calls, _ = parse_tool_calls('<invoke name="list_dir" path="C:/x"/>')
+    check(len(calls) == 1 and calls[0].name == 'list_dir'
+          and calls[0].args.get('path') == 'C:/x',
+          'self-closing <invoke> tag parses as a call')
+
+    # A self-closing call followed by a normal full call must NOT bleed —
+    # the dangling open tag used to make the lazy body match swallow
+    # everything up to the SECOND call's close tag as bogus "body".
+    calls, prose = parse_tool_calls(
+        '<tool name="read_file" path="a.py"/>\n'
+        '<tool name="bash"><param name="command">ls</param></tool>')
+    check([c.name for c in calls] == ['read_file', 'bash'],
+          'self-closing call does not bleed into the next full call')
+    check(calls[1].args.get('command') == 'ls',
+          'the following full call keeps its own params, uncontaminated')
+    check('bash' not in prose and 'read_file' not in prose,
+          'both calls removed from prose, no leftover tag text')
+
+    # Multiple attributes on a self-closing tag all become params.
+    calls, _ = parse_tool_calls(
+        '<tool name="grep" pattern="TODO" path="src" recursive="true"/>')
+    check(calls[0].args.get('pattern') == 'TODO'
+          and calls[0].args.get('path') == 'src'
+          and calls[0].args.get('recursive') == 'true',
+          'multiple attrs on a self-closing tag all become params')
+
+    # A genuinely truncated call (opens, no closing anything) is still
+    # correctly flagged as unclosed — self-closing detection must not
+    # swallow a truncated tag that never reaches its own "/>".
+    check(has_unclosed_tool_call('<tool name="write_file" path="a.py"'),
+          'a truncated self-closing-style open tag is still flagged unclosed')
+    check(not has_unclosed_tool_call('<tool name="read_file" path="a.py"/>'),
+          'a complete self-closing call is NOT flagged as unclosed')
+
     # Truncation / attempted-tool detectors (Phase 1 loop recovery).
-    from robodog_terminal.toolcall import (has_unclosed_tool_call,
-                                           looks_like_attempted_tool)
+    from robodog_terminal.toolcall import looks_like_attempted_tool
     check(has_unclosed_tool_call('<tool name="bash"><param name="command">ls C:/'),
           'unclosed <tool>/<param> detected (truncation)')
     check(not has_unclosed_tool_call('<tool name="read_file"><param name="path">a</param></tool>'),
