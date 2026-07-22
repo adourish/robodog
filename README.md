@@ -881,6 +881,25 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.69
+
+- **Truncated/malformed tool calls are now visible in the terminal, not just
+  fed back to the model silently.** A large `write_file` call that gets cut
+  off before its closing tag (hitting `max_tokens` mid-content) used to fail
+  completely silently: the loop already detected it and asked the model to
+  retry, but the user saw no indication anything had gone wrong — just raw
+  file content appearing as plain text with no `⚙ write_file` marker, no
+  error, and (if the retry didn't land before a repeated-failure breaker
+  fired) no file ever created. Now both the `truncated` and
+  `malformed_toolcall` loop events render an inline `⚠` warning so it's clear
+  in real time that a tool call didn't run and why.
+- **`dir /b X && dir /b Y` chains now translate fully.** `translate_dir_switches`
+  previously ran its `dir /b` → `Get-ChildItem` rewrite against the whole
+  command string at once, so only the first segment of a `&&`/`||`/`;`-joined
+  chain got translated; later segments were left as raw `dir` and failed on
+  Windows. It now splits on connectors first (matching `translate_windows_aliases`)
+  and translates each segment independently.
+
 ### 0.3.68
 
 - **Standalone `wc -l FILE` now translates** to a `Measure-Object -Line`

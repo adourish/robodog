@@ -128,6 +128,22 @@ def main() -> int:
               "multi-glob `dir` is left for the hint (GCI can't take 2 filespecs)")
         check(T.translate_dir_switches("dir C:\\p") == "dir C:\\p",
               "plain `dir` (no cmd switch) is untouched — it works in PowerShell")
+        # REGRESSION: `dir /b X && dir /b Y` (two chained dir calls — a common
+        # pattern once a model has used `dir /b` once and chains a second) left
+        # BOTH untranslated, since the old implementation only ever checked
+        # whether the WHOLE string started with `dir`, never split per
+        # &&/||/; segment the way grep/head/tail/cat/wc already did.
+        check(T.translate_dir_switches('dir /b "C:\\a" && dir /b "C:\\b"')
+              == 'Get-ChildItem "C:\\a" -Name&&Get-ChildItem "C:\\b" -Name',
+              "chained `dir /b X && dir /b Y` translates BOTH sides")
+        check(T.translate_dir_switches('dir /b "C:\\a" && echo done')
+              == 'Get-ChildItem "C:\\a" -Name&& echo done',
+              "dir /b chained with a non-dir command translates just the dir side")
+        r_chain_dir = T.powershell_translate(
+            T.translate_null_redirects(T.translate_dir_switches(
+                T.translate_windows_aliases('dir /b "C:\\a" && dir /b "C:\\b"'))))
+        check(r_chain_dir == 'Get-ChildItem "C:\\a" -Name; if ($?) { Get-ChildItem "C:\\b" -Name }',
+              "full pipeline: chained dir /b composes correctly with && translation")
         # `Get-Content`/`cat` on a missing path (bash-read of an ASSUMED file) gets
         # the same did-you-mean + read_file nudge that read_file gives.
         preg, pwd = _reg({"config/babel.config.cjs": "x"})

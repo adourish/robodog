@@ -243,6 +243,19 @@ def main() -> int:
         check("(exit 0)" in r_wc and "20" in r_wc,
               f"live: `wc -l FILE` (standalone, not piped) runs and counts correctly ({r_wc[:80]!r})")
 
+        # live: chained `dir /b X && dir /b Y` (real session: this failed
+        # outright — both sides stayed as cmd.exe syntax through a PowerShell
+        # && chain) now translates and runs both listings.
+        dir_reg = fresh_registry()
+        (Path(dir_reg.cwd) / "dirA").mkdir()
+        (Path(dir_reg.cwd) / "dirB").mkdir()
+        (Path(dir_reg.cwd) / "dirA" / "a.txt").write_text("x", encoding="utf-8")
+        (Path(dir_reg.cwd) / "dirB" / "b.txt").write_text("y", encoding="utf-8")
+        r_dirchain = dir_reg.execute("bash", {"command": 'dir /b "dirA" && dir /b "dirB"'})
+        check("(exit 0)" in r_dirchain and "a.txt" in r_dirchain and "b.txt" in r_dirchain,
+              f"live: chained `dir /b X && dir /b Y` runs and lists BOTH dirs "
+              f"({r_dirchain[:150]!r})")
+
     print("=== 3c. shell_syntax_hint classifier ===")
     from robodog_terminal.tools import shell_syntax_hint as _hint
     if os.name == "nt":

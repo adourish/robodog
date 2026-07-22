@@ -794,12 +794,16 @@ _REDIR_TOK_RE = re.compile(r"^(?:\d*>{1,2}|&>|<)")
 _DIR_SWITCHES = {"/b": "-Name", "/s": "-Recurse", "/a": "-Force"}
 
 
-def translate_dir_switches(command: str) -> str:
-    if os.name != "nt" or not _DIR_HEAD_RE.match(command):
-        return command
-    segs = _split_pipes_top_level(command)
+def _translate_one_dir_segment(seg: str) -> str:
+    """Translate a single `dir /b ...` invocation at command position (`seg`
+    may itself contain a pipe — only the first pipe-sub-segment, the command
+    itself, is a candidate). Returns `seg` unchanged when it isn't a
+    translatable single-path `dir` with a cmd.exe switch."""
+    if not _DIR_HEAD_RE.match(seg):
+        return seg
+    segs = _split_pipes_top_level(seg)
     if not _DIR_HEAD_RE.match(segs[0]):
-        return command
+        return seg
     toks = _tokenize_ws(segs[0])
     out = ["Get-ChildItem"]
     tail: List[str] = []          # redirects, appended after the switches
@@ -809,7 +813,7 @@ def translate_dir_switches(command: str) -> str:
         if re.fullmatch(r"/[A-Za-z]", t):
             repl = _DIR_SWITCHES.get(t.lower())
             if repl is None:
-                return command      # unknown cmd switch -> let the hint guide
+                return seg          # unknown cmd switch -> let the hint guide
             if repl not in out:
                 out.append(repl)
             saw_switch = True
@@ -818,12 +822,31 @@ def translate_dir_switches(command: str) -> str:
         else:
             paths += 1
             if paths > 1:
-                return command      # >1 filespec -> GCI can't; hint instead
+                return seg          # >1 filespec -> GCI can't; hint instead
             out.insert(1, t)        # path right after Get-ChildItem
     if not saw_switch:
-        return command              # plain `dir` already works in PowerShell
+        return seg                  # plain `dir` already works in PowerShell
     segs[0] = " ".join(out + tail)
     return "|".join(segs)
+
+
+def translate_dir_switches(command: str) -> str:
+    """Rewrite `dir /b`/`dir /s /b` to Get-ChildItem, at the command position
+    of EVERY top-level `&&`/`||`/`;` segment — not just when the whole string
+    happens to start with `dir`. Without this, `dir /b X && dir /b Y` (two
+    chained dir calls — a common pattern once a model has already used one
+    `dir /b` successfully and chains a second) left BOTH untranslated, since
+    the original single-segment check only ever looked at the full string."""
+    if os.name != "nt" or "dir" not in command.lower():
+        return command
+    pieces = _split_connectors(command)
+    changed = False
+    for idx in range(0, len(pieces), 2):        # even indices = command segs
+        new_seg = _translate_one_dir_segment(pieces[idx])
+        if new_seg != pieces[idx]:
+            pieces[idx] = new_seg
+            changed = True
+    return "".join(pieces) if changed else command
 
 
 def translate_unix_pipe_filters(command: str) -> str:

@@ -728,6 +728,14 @@ def main(argv=None) -> int:
                 if not verbose[0] and len(prose) > 600:
                     prose = prose[:600].rstrip() + f"  …[+{len(prose) - 600} chars, /verbose for all]"
                 ui.assistant(prose)
+        elif kind == "truncated":
+            ui.spinner_stop()
+            ui.dim("  ⚠ response cut off mid-tool-call (likely a large file write) — "
+                   "nothing ran; asking the model to re-send it")
+        elif kind == "malformed_toolcall":
+            ui.spinner_stop()
+            ui.dim("  ⚠ tool call didn't parse (bad format) — nothing ran; "
+                   "asking the model to correct it")
         elif kind == "tool_start":
             ui.spinner_stop()
             ui.tool_call(data["name"], data["args"])
