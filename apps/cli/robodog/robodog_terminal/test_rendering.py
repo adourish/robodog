@@ -496,6 +496,23 @@ def main() -> int:
     check("\n" in two_row, "toolbar grows a second row once a permission label is set")
     check("bypass permissions" in plain(two_row), "the second row carries the permission label")
 
+    # print_status() — used for /status AND as a header wherever the real
+    # bottom toolbar isn't available (turn-start, the non-prompt_toolkit
+    # input fallback in ui.prompt()). Same class of bug as thinking_line/
+    # _fanout_label: this path is TTY-agnostic (unlike the toolbar, which
+    # only prompt_toolkit renders), so it's actually reachable by a plain
+    # unit test — no isatty() mocking needed here.
+    ps_ui, ps_buf = capture()
+    ps_ui.permission_label = ""
+    ps_ui.print_status()
+    check("shift+tab" not in plain(ps_buf.getvalue()),
+          "print_status prints one line when there's no permission label")
+    ps_ui2, ps_buf2 = capture()
+    ps_ui2.permission_label = "⏸ plan mode on (shift+tab to cycle)"
+    ps_ui2.print_status()
+    check("plan mode on" in plain(ps_buf2.getvalue()),
+          "print_status ALSO prints the permission-mode row when one is set")
+
     print("\nRENDERING:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

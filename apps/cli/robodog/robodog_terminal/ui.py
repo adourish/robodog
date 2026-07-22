@@ -492,11 +492,22 @@ class UI:
             return "\n".join(" " + ln for ln in lines)
 
     def print_status(self):
+        """Print the status bar as a plain line (not the live bottom toolbar) —
+        used for /status, and as a header wherever the real toolbar isn't
+        available (turn-start, the non-prompt_toolkit input fallback). Same
+        fix as thinking_line/_fanout_label: the permission-mode row must be
+        printed alongside the segments, or it silently vanishes anywhere this
+        is used as a stand-in for the toolbar."""
         if self.console:
             from rich.text import Text as _T
             self.console.print(_T.from_ansi(self._status_ansi()))
+            perm = self._permission_ansi()
+            if perm:
+                self.console.print(_T.from_ansi(perm))
         else:
             print(self.status_line())
+            if self.permission_label:
+                print(self.permission_label)
 
     # ---- banner ---------------------------------------------------------
     def welcome(self):
