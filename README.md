@@ -984,6 +984,22 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.78
+
+- **The system prompt now teaches the model to batch independent read-only
+  tool calls into one reply**, directly acting on what live tracing (0.3.77)
+  showed: LLM call time is 96%+ of wall clock, so every extra round trip is
+  a full latency payment — worse the slower the backend. `_PARALLEL_SAFE`
+  already let `read_file`/`glob`/`grep`/`list_dir`/`ask_user`/`task_output`
+  and `type=explore` `agent` calls run concurrently when batched, and the
+  `agent` tool's own description already taught this pattern for subagents
+  — but the general system prompt never told the model it could do the same
+  for plain read-only calls, only implicitly allowing (never encouraging)
+  more than one `<tool>` block per reply. Verified live (not just by
+  reading the new text): across 3 runs of a "read 3 independent files"
+  task, the model consistently batched all 3 reads into one reply and ran
+  them concurrently, rather than one round trip per file.
+
 ### 0.3.77
 
 - **Added opt-in performance tracing** — `--trace` / `ROBODOG_TRACE=1`

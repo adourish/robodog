@@ -45,6 +45,9 @@ class Turn:
 # Tools that are safe to run concurrently within one turn. Subagents (`agent`)
 # have isolated CONVERSATIONS; read-only tools have no side effects. Mutating
 # file/shell tools stay sequential to avoid write conflicts.
+# NOTE: this exact tool list is also named in tools.py's catalog() rule #7,
+# which tells the model it can batch these into one reply for a speed win —
+# keep the two in sync if this set changes.
 _PARALLEL_SAFE = {"agent", "task_output", "read_file", "glob", "grep",
                   "list_dir", "ask_user"}
 

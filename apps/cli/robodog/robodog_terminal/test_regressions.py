@@ -371,6 +371,22 @@ def main() -> int:
                                           _call("read_file", path="a")]),
           "a mutating non-agent tool still makes the batch non-parallel-safe")
 
+    # ============ I. Round-trip reduction via batching guidance ============
+    # Live testing (0.3.77's --trace) showed LLM call time dominates wall
+    # clock (96%+) and each round trip is a full latency payment -- the
+    # system prompt never told the model it could batch independent
+    # read-only calls into one reply, even though _PARALLEL_SAFE already
+    # supports running them concurrently once batched.
+    print("=== I. batching guidance in the system prompt ===")
+    ireg, _ = _reg()
+    cat = ireg.catalog()
+    check("emit ALL of those" in cat and "ONE reply" in cat,
+          "catalog tells the model to batch independent read-only calls")
+    check("read_file/glob/grep/list_dir/ask_user/task_output" in cat,
+          "batching rule names the exact _PARALLEL_SAFE tool set (kept in sync)")
+    check("never batch an edit with" in cat,
+          "batching rule warns against batching dependent/conflicting calls")
+
     print("\nREGRESSIONS:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 
