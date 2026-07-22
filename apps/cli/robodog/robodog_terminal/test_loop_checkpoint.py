@@ -34,6 +34,8 @@ def main() -> int:
     # ---------------- loop: transcript trim ------------------------------
     loop = AgentLoop(EchoClient(script=["done"]), default_registry(cwd=str(wd)))
     loop.max_transcript_chars = 2000
+    loop.trim_keep_recent = 8  # pin the window so this test is independent
+                               # of whatever the current default happens to be
     for i in range(20):
         loop.history.append(Turn("tool", "x" * 500, tool_name="bash"))
     loop.history.append(Turn("user", "latest question"))
@@ -45,6 +47,20 @@ def main() -> int:
     cleared = sum(1 for t in loop.history if "cleared" in t.content)
     check(cleared > 0, f"old tool outputs cleared ({cleared})")
     check(loop.history[-1].content == "latest question", "recent turns untouched")
+
+    # Regression: the default budget/window must be large enough for real
+    # multi-hundred-K-token agentic sessions. Live usage showed the OLD
+    # 120k-char / keep-8 defaults trim a read_file result from 15-20 calls
+    # back well before the model is done needing it, forcing silent
+    # re-fetches (or worse, confusing the model about which of two
+    # remembered versions of a file's content is current).
+    default_loop = AgentLoop(EchoClient(script=["done"]), default_registry(cwd=str(wd)))
+    check(default_loop.max_transcript_chars >= 400_000,
+          f"default trim budget is large enough for real sessions "
+          f"({default_loop.max_transcript_chars})")
+    check(default_loop.trim_keep_recent >= 20,
+          f"default keep-recent window protects enough recent turns "
+          f"({default_loop.trim_keep_recent})")
 
     # ---------------- loop: nudge on intent-without-action ----------------
     loop2 = AgentLoop(EchoClient(script=[

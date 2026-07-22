@@ -576,7 +576,7 @@ def main(argv=None) -> int:
     parser.add_argument("--max-tokens", type=int, default=8192,
                         help="max completion tokens per LLM call (default 8192)")
     parser.add_argument("--temperature", type=float, default=0.3)
-    parser.add_argument("--max-transcript-chars", type=int, default=120_000,
+    parser.add_argument("--max-transcript-chars", type=int, default=450_000,
                         help="auto-trim threshold for the running transcript")
     # -------- context / prompt ----------------------------------------
     parser.add_argument("--append-system-prompt", default=None, metavar="TEXT",

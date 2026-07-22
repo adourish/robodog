@@ -84,7 +84,7 @@ def build_core(
     max_iterations: int = 25,
     max_tokens: int = 8192,
     temperature: float = 0.3,
-    max_transcript_chars: int = 120_000,
+    max_transcript_chars: int = 450_000,
     on_diff: Optional[Callable[[str, str], None]] = None,
     on_bash_line: Optional[Callable[[str], None]] = None,
     on_confirm: Optional[Callable[[str, str], bool]] = None,

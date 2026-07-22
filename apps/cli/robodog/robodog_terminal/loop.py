@@ -91,7 +91,18 @@ class AgentLoop:
         self.history: List[Turn] = []
         # the gateway re-sends the full transcript every iteration, so trim old tool
         # outputs first (a modern agentic terminal's compaction order) before any summarizing.
-        self.max_transcript_chars = 120_000  # ~30k tokens
+        # Raised from 120k (~30k tokens): live sessions with 20-40+ tool calls in one
+        # continuous step routinely ran 250k-370k total tokens, 8-12x the old
+        # threshold — a read_file result from 15-20 calls back fell outside the
+        # protected recent-turns window and got replaced with a placeholder long
+        # before the model was done needing it, forcing it to silently re-fetch
+        # (or worse, reason from a STALE memory of content it can no longer see,
+        # confusing itself about which of "two different versions" of a file is
+        # real). Raising the budget and widening the protected window both trade
+        # a larger, slightly costlier prompt on long sessions for far less
+        # wasted/duplicate work.
+        self.max_transcript_chars = 450_000  # ~112k tokens
+        self.trim_keep_recent = 20  # turns never eligible for trim-to-placeholder
 
     def transcript_chars(self) -> int:
         return sum(len(t.content) for t in self.history)
@@ -101,7 +112,8 @@ class AgentLoop:
         if total <= self.max_transcript_chars:
             return
         placeholder = "[old tool output cleared to save context]"
-        for t in self.history[:-8]:  # never touch the 8 most recent turns
+        keep = self.trim_keep_recent
+        for t in (self.history[:-keep] if keep > 0 else self.history):
             if t.role == "tool" and len(t.content) > len(placeholder):
                 total -= len(t.content) - len(placeholder)
                 t.content = placeholder

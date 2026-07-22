@@ -881,6 +881,23 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.74
+
+- **Raised the transcript-trim defaults to match real session sizes.**
+  `max_transcript_chars` was 120,000 (~30K tokens) and only the last 8 turns
+  were protected from being replaced with `"[old tool output cleared to save
+  context]"`. Live sessions with 20-40+ tool calls in one continuous step
+  routinely ran 250K-370K total tokens — 8-12x the old threshold — so a
+  `read_file` result from 15-20 calls back fell out of the protected window
+  and got blanked long before the model was done needing it. Symptom seen
+  directly in a live transcript: the model got confused finding "two
+  different versions" of the same DTO file's structure — one it correctly
+  remembered reasoning about, and one from a fresh re-read — because the
+  earlier read's actual content had already been trimmed away. Default is
+  now 450,000 chars (~112K tokens) with the last 20 turns protected
+  (`AgentLoop.trim_keep_recent`), trading a larger prompt on long sessions
+  for far less silently-wasted re-fetching.
+
 ### 0.3.73
 
 - **The `agent` tool now defaults to `type=explore` (read-only), not
