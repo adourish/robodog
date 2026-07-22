@@ -445,6 +445,57 @@ prompt_toolkit **TUI** (emoji/color status line, clickable `file:line` links) ·
 Read-only commands (`/status`, `/doctor`, `/stats`, …) also work **mid-turn**
 while the agent is running.
 
+## How robodog compares
+
+Criteria most relevant to picking an agentic coding tool. The 8 open-source columns
+come from a **source-level read** of each project (see `ROADMAP.md` for citations).
+**Claude Code is closed-source** — its column reflects documented/observed behavior
+from actual usage, not code I could read, so treat it as less rigorously verified
+than the other 9. ✅ full support · 🟡 partial · ❌ not found/not present.
+
+| Criteria (why it matters) | Cline | Roo Code | Aider | goose | OpenHands | Continue | Gemini CLI | Qwen Code | Claude Code | **robodog** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **License** | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 | MIT | Apache-2.0 | Apache-2.0 | Apache-2.0 | **proprietary** | **MIT** |
+| **Primary interface** | VS Code ext | VS Code ext | CLI | CLI (Rust) | CLI/SDK/web | VS Code ext + CLI | CLI | CLI | CLI + IDE + desktop + web | **CLI** |
+| **Windows command translation** — rewrites Unix-isms (`grep`, `dir`, `2>nul`, pipe filters) instead of just hoping the model writes native syntax | ❌ | ❌ | ❌ | ❌ (prompts native syntax) | ❌ (native Windows backend instead) | ❌ | ❌ | ❌ | 🟡 some translation/hints observed, narrower than robodog's ~20+ patterns | **✅** most extensive found |
+| **Persistent shell session** — avoids a fresh process spawn (~0.75-1s) per command | 🟡 VS Code terminal reuse only | 🟡 VS Code terminal reuse only | ❌ | ❌ | ✅ tmux (Linux) + native PowerShell reader (Windows) | ❌ | ❌ | ❌ (has ConPTY option) | ✅ documented persistent session | **✅** |
+| **Compound-command permission splitting** — an `allow`/`deny` rule matches per `&&`/`;`/`\|` segment, not the whole line | ❌ | ✅ (matching only, not exec) | ❌ | ❌ | ❌ | ❌ | ✅ real AST parsing | ✅ | 🟡 has prefix-based permission matching; exact mechanism unverifiable | **✅** |
+| **Risk-tiered danger classification** — not everything destructive needs the same confirm | ❌ | ❌ (allow/deny only) | ❌ | ✅✅ regex + optional ML | 🟡 LLM classifier | ❌ | ❌ | ❌ | 🟡 ask/allow/deny prompting, not a verified explicit tier system | **✅** deterministic 3-tier — HIGH-risk (`rm -rf`, `git reset --hard`, `git push --force`, …) always confirms in *every* guard mode, not just when explicitly opted into |
+| **Windows process-tree kill** (`taskkill /T /F`, not just the parent) | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ✅ | ✅ | 🟡 unverifiable (closed-source) | **✅** |
+| **Long-running command UX** — hard-kill vs. a non-killing "still alive" signal | hard timeout / detach | dual timeout | ❌ no timeout at all | timeout + cancel | ✅✅ soft-timeout, model can poll/interrupt | idle-reset timeout | idle-reset timeout | timeout + bg-promote | ✅ timeout + backgrounding (Ctrl+B) | **🟡 idle-note (non-killing)** |
+| **MCP client support** | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **❌ not yet** |
+| **Sandbox/container isolation** | ❌ | ❌ | ❌ | ❌ | ✅✅ Docker | ❌ | ✅ Docker/podman/seatbelt | ✅ (same as Gemini) | 🟡 permission modes; OS-level sandboxing unverifiable | **❌ not yet** |
+| **Embeddable as a library** (no-UI core, usable outside the CLI) | ❌ | ❌ | 🟡 | ❌ (Rust binary) | ✅ SDK-first | 🟡 headless `cn` | ❌ | ❌ | ✅ Claude Agent SDK (separate product, not the CLI itself) | **✅✅ `build_core()`** |
+| **Config file** (permission rules + hooks) | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ `settings.json` (robodog's own `hooks.py` deliberately mirrors this) | **✅** `.robodog/settings.json` |
+| **Customizable color themes** | IDE theme | IDE theme | ❌ | ❌ | N/A | IDE theme | ✅ | ✅ (inherited) | 🟡 light/dark, not arbitrary custom palettes | **✅✅** 4 incl. pip-boy |
+
+**What robodog covers that most others don't:** Unix→Windows command *rewriting*
+(the rest either prompt the model to use native syntax or, like Claude Code, do
+narrower translation) — the only one in the table with a Python-native,
+explicitly-embeddable core (`build_core()`) built for that from day one, not
+retrofitted — and 4 switchable themes vs. everyone else's IDE-inherited or
+none.
+
+**robodog's real gaps** — the two rows below are the honest answer to "what's
+missing": every other tool in this table (including Claude Code) has MCP;
+robodog doesn't yet (`ROADMAP.md` Phase 5.1, the single biggest ecosystem
+unlock available). Sandbox/container isolation is the second gap — OpenHands
+(Docker) and Gemini CLI/Qwen Code (Docker/podman/seatbelt) have real
+process-level isolation; robodog has permission gating but no execution
+sandbox yet (`ROADMAP.md` Phase 6). Its long-running-command UX (idle-note) is
+also a notch behind OpenHands' true soft-timeout-with-polling — informational
+only, doesn't let the model interactively poll or send input mid-command.
+
+**On Claude Code specifically:** it's the most feature-complete tool in this
+table overall (widest interface surface, MCP, an Agent SDK, a real settings
+file) — but "covers everything robodog does" isn't quite accurate: robodog's
+Windows command-*rewriting* is more extensive than what's been observed from
+Claude Code, and Claude Code doesn't ship an embeddable no-UI core the way
+`build_core()` is — the Agent SDK is a related but separate product, not the
+CLI's own internals made importable. Being closed-source also means several
+rows above are inherently unverifiable rather than confirmed, which is a real
+asymmetry against the 8 tools whose source I could actually read.
+
 ## Screenshots
 
 Every image is rendered by the real UI code (rich SVG export), not a mockup.
