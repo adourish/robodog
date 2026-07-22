@@ -881,6 +881,60 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.65
+
+- **Closed live-test gaps around the permission-mode toolbar.** `print_status()`
+  (used for `/status`, the turn-start header, and the plain-`input()` fallback)
+  had the same bug as 0.3.63's thinking-line fix: the permission-mode row
+  silently vanished anywhere it stood in for the real bottom toolbar. Fixed, and
+  backed by real end-to-end tests of the Shift+Tab keybinding and the
+  interactive `PromptSession` itself — previously untested since it only builds
+  on a real TTY, which no piped-stdin test harness is.
+
+### 0.3.64
+
+- **Test coverage fix**: 0.3.63's subagent-fan-out permission-indicator fix had
+  no test coverage — it lived in a closure unreachable without a real TTY.
+  Extracted into a standalone, directly-testable function.
+
+### 0.3.63
+
+- **The `bash` tool now reuses one persistent PowerShell process** across calls
+  instead of spawning a fresh one every time — cuts ~0.75-1s of pure
+  process-spawn overhead per call (a turn with 5 shell commands used to burn
+  ~4-5s just on cold starts). State (variables, a bare `cd`) now persists
+  across calls like a real terminal; a `cwd` tool-param override stays scoped
+  to just that call. Handles PowerShell's `exit N` correctly (it kills the
+  whole session, unlike bash) and falls back to the old one-shot behavior on
+  any anomaly — `ROBODOG_PERSISTENT_SHELL=0` disables it entirely.
+- **Fixed a status-bar regression**: the permission-mode indicator vanished
+  while the agent was "thinking" or fanning out subagents, since the bottom
+  toolbar doesn't render at all mid-turn.
+- **Test suite now runs in parallel** (`run_tests.py`) — ~90-95s → ~30s
+  wall-clock on a 16-core box.
+
+### 0.3.62
+
+- **`/config init`** scaffolds a starter `.robodog/settings.json` with sane
+  defaults (permission mode, guard, net-writes).
+- **Shift+Tab cycles permission mode** — default → accept edits → plan →
+  bypass permissions — shown live in the bottom toolbar.
+- **Fixed a real permission-bypass bug**: an `allow` rule like `bash(git *)`
+  could bless a chained destructive command in full (`git status && rm -rf ~`),
+  because the whole compound command was matched as one glob. Commands are now
+  split on `&&`/`||`/`;`/`|` before matching, so an allow-rule only pre-approves
+  a call when *every* segment matches, and a deny-rule catches a dangerous
+  segment even when it isn't first.
+- **Risk-tiered danger classification** (goose-style): only `HIGH`-risk commands
+  (`rm -rf`, `git reset --hard`, force-push, disk format, `DROP TABLE`) actually
+  stop and confirm; `MEDIUM`-risk ones (`git clean -f`, `chmod -R 777`,
+  shutdown/reboot) still warn but don't block.
+- **`build_core()`** (`core.py`): the agentic core — `ToolRegistry` + `AgentLoop`
+  + hooks/skills/background wiring — can now be assembled with zero UI/argparse
+  dependency, for embedding in something other than the CLI.
+- **New `pip-boy` theme** (green monochrome CRT), plus `high-contrast` and
+  `mono`, via `/theme`.
+
 ### 0.3.61
 
 - **`grep` translation now covers the forms models actually use.** Two gaps made

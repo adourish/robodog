@@ -440,6 +440,36 @@ def main() -> int:
         finally:
             sh.kill()
 
+        # REGRESSION (hit in production): a command whose text contains a
+        # literal embedded newline — e.g. `git commit -m "subject\n\nbody"`,
+        # a completely ordinary multi-line commit message — used to hang the
+        # WHOLE session for the full timeout. PowerShell's parser, upon
+        # seeing the opening quote, kept scanning subsequent lines for the
+        # closing one; since our own rc-capture/sentinel lines were written
+        # right after on the same stdin stream, they got silently swallowed
+        # as more of that unterminated string instead of running as separate
+        # statements. Fixed by base64-encoding the whole command (like
+        # PowerShell's own -EncodedCommand) so embedded newlines/quotes can
+        # never be ambiguous on the wire.
+        print("=== 7b. persistent shell: embedded-newline command (regression) ===")
+        reg5 = fresh_registry()
+        # An ordinary multi-line commit-message-shaped command — a literal
+        # newline INSIDE a quoted string, exactly what a real
+        # `git commit -m "subject\n\nbody"` looks like on the wire.
+        multiline_cmd = 'Write-Output "subject\n\nbody line"'
+        t0 = time.monotonic()
+        r5 = reg5.execute("bash", {"command": multiline_cmd, "timeout": "15"})
+        elapsed5 = time.monotonic() - t0
+        check(elapsed5 < 5,
+              f"a command with an embedded literal newline no longer hangs "
+              f"the session ({elapsed5:.1f}s, was a 15s timeout before the fix)")
+        check("(exit 0)" in r5 and "subject" in r5 and "body line" in r5,
+              "…and its multi-line output is captured correctly")
+        # The session must still be alive and usable for the NEXT call too —
+        # confirms the fix didn't just avoid the hang by killing the session.
+        r5b = reg5.execute("bash", {"command": "Write-Output still-alive"})
+        check("still-alive" in r5b, "the session survives an embedded-newline command intact")
+
     # --- 8. regression: selftest still passes ----------------------------
     print("=== 8. selftest regression ===")
     proc = subprocess.run(

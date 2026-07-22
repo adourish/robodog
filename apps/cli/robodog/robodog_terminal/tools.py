@@ -13,6 +13,7 @@ can be added later in permissions.py.
 """
 from __future__ import annotations
 
+import base64
 import fnmatch
 import json
 import os
@@ -1596,15 +1597,36 @@ class _PersistentPowerShell:
                     self._proc.stdin.write(
                         f"$__prevloc = (Get-Location).Path\n"
                         f"Set-Location -LiteralPath {_ps_quote(cwd_override)}\n")
-                self._proc.stdin.write(command + "\n")
-                # $? = did the last statement succeed; $LASTEXITCODE = last
-                # NATIVE process's exit code. Combine like a real terminal:
-                # 0 on success, else LASTEXITCODE if a native command set one,
-                # else a generic 1 for a failed cmdlet — computed BEFORE the
-                # cwd restore below so that statement can't clobber it.
+                # Base64-encode the command (the same trick PowerShell's own
+                # -EncodedCommand uses) so ANY content — an embedded literal
+                # newline (a multi-line `git commit -m "subject\n\nbody"`),
+                # stray quotes/backticks, or text that happens to resemble our
+                # own sentinel — can never be ambiguous on the wire. Without
+                # this, a command with an unterminated-looking quoted string
+                # (one containing a real newline) left PowerShell's parser
+                # still hunting for a closing quote, so our OWN follow-up
+                # lines (the rc-capture + sentinel) got silently swallowed as
+                # more of that string — hanging until the timeout killed the
+                # whole session. (Hit in production: a multi-line `git commit`
+                # message hung for 120s instead of committing instantly.)
+                encoded = base64.b64encode(command.encode("utf-8")).decode("ascii")
                 self._proc.stdin.write(
-                    "$__rc = if ($?) { 0 } else "
-                    "{ if ($LASTEXITCODE) { $LASTEXITCODE } else { 1 } }\n")
+                    '$__cmd = [System.Text.Encoding]::UTF8.GetString('
+                    f'[System.Convert]::FromBase64String("{encoded}"))\n')
+                # $? alone does NOT propagate through Invoke-Expression — a
+                # failing cmdlet inside it still reports $?=True to the OUTER
+                # scope (verified empirically: Get-Item on a bad path via
+                # Invoke-Expression left $?=True). So failure is detected via
+                # $Error growing (a cmdlet's non-terminating error) or
+                # $LASTEXITCODE changing (a native process's exit code),
+                # falling back to $? only as a last resort.
+                self._proc.stdin.write(
+                    "$__errBefore = $Error.Count; $__lastExitBefore = $LASTEXITCODE\n"
+                    "Invoke-Expression $__cmd\n"
+                    "if ($Error.Count -gt $__errBefore) { $__rc = 1 } "
+                    "elseif ($LASTEXITCODE -ne $null -and $LASTEXITCODE -ne $__lastExitBefore) "
+                    "{ $__rc = $LASTEXITCODE } "
+                    "elseif (-not $?) { $__rc = 1 } else { $__rc = 0 }\n")
                 if cwd_override:
                     self._proc.stdin.write("Set-Location -LiteralPath $__prevloc\n")
                 self._proc.stdin.write(f'Write-Output "{marker_prefix}$__rc@@"\n')
