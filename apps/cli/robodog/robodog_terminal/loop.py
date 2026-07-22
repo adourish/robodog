@@ -43,17 +43,35 @@ class Turn:
 
 
 # Tools that are safe to run concurrently within one turn. Subagents (`agent`)
-# are isolated contexts; read-only tools have no side effects. Mutating file/
-# shell tools stay sequential to avoid write conflicts.
+# have isolated CONVERSATIONS; read-only tools have no side effects. Mutating
+# file/shell tools stay sequential to avoid write conflicts.
 _PARALLEL_SAFE = {"agent", "task_output", "read_file", "glob", "grep",
                   "list_dir", "ask_user"}
 
 
 def _batch_parallel_safe(registry, calls) -> bool:
-    """True when a batch of >1 tool calls can be executed concurrently."""
+    """True when a batch of >1 tool calls can be executed concurrently.
+
+    An `agent` call's CONVERSATION is isolated from its siblings, but its
+    FILESYSTEM side effects are not — a `type="general"` subagent (explicit
+    opt-in to write/execute, since 0.3.73's read-only default) can write to
+    the same files another concurrent call in this batch reads or writes,
+    with zero coordination between them (the same shape of race 0.3.73 fixed
+    between a subagent and its parent, just within one parallel batch here
+    instead). Only agent calls that resolve to the safe, read-only default
+    are treated as parallel-safe; a batch containing even one general-type
+    agent call falls back to sequential execution for the WHOLE batch.
+    """
     if len(calls) < 2:
         return False
-    return all(c.name in _PARALLEL_SAFE for c in calls)
+    for c in calls:
+        if c.name not in _PARALLEL_SAFE:
+            return False
+        if c.name == "agent":
+            agent_type = (c.args.get("type") or "explore").strip().lower()
+            if agent_type != "explore":
+                return False
+    return True
 
 
 @dataclass

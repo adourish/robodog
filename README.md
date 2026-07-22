@@ -982,6 +982,23 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.76
+
+- **Fixed a race condition in parallel tool-call batching**: `_batch_parallel_safe`
+  only checked a tool call's NAME, never its args — so a batch containing a
+  `type="general"` (write-capable, since 0.3.73's read-only-by-default fix)
+  `agent` call still ran concurrently via `ThreadPoolExecutor` with zero
+  coordination against every other call in that same batch. Found by asking
+  "does robodog have the same shape of bug it just fixed, somewhere else" —
+  a subagent's *conversation* is isolated from its siblings, but its
+  filesystem side effects never were, so multiple general-type subagents
+  (or a general-type one alongside a `read_file`) fanned out in one turn
+  could race each other with no coordination, the same failure mode 0.3.73
+  fixed between a subagent and its parent, just one batch deeper. A batch
+  is now only treated as parallel-safe when every `agent` call in it
+  resolves to the safe `type=explore` default; a single `type=general` call
+  makes the whole batch fall back to sequential execution.
+
 ### 0.3.75
 
 - **A detected truncation now gets an escalated `max_tokens` ceiling on

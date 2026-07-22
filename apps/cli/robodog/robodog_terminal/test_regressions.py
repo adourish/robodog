@@ -341,6 +341,36 @@ def main() -> int:
           and estimate_cost("8405ac40-gateway-model", 100, 100) is None,
           "cost estimate: priced model + None for a gateway/unknown model")
 
+    # ============ H. Parallel-batch safety ============
+    # _batch_parallel_safe only checked tool NAME, never args -- so a batch
+    # containing a type="general" (write-capable, 0.3.73 opt-in) agent call
+    # still ran concurrently via ThreadPoolExecutor with zero coordination
+    # against other calls in the same batch, the same shape of race 0.3.73
+    # fixed between a subagent and its parent, just one level deeper.
+    print("=== H. parallel-batch safety ===")
+    from robodog_terminal.loop import _batch_parallel_safe
+    from robodog_terminal.toolcall import ToolCall
+    hreg, _ = _reg()
+
+    def _call(name, **args):
+        return ToolCall(name=name, args=args, raw="")
+
+    check(_batch_parallel_safe(hreg, [_call("read_file", path="a"),
+                                      _call("agent", prompt="explore")]),
+          "reads + a default (explore) agent call ARE parallel-safe")
+    check(_batch_parallel_safe(hreg, [_call("read_file", path="a"),
+                                      _call("agent", prompt="x", type="explore")]),
+          "reads + an explicit type=explore agent call ARE parallel-safe")
+    check(not _batch_parallel_safe(hreg, [_call("read_file", path="a"),
+                                          _call("agent", prompt="x", type="general")]),
+          "a type=general agent call makes the WHOLE batch non-parallel-safe")
+    check(not _batch_parallel_safe(hreg, [_call("agent", prompt="x", type="general"),
+                                          _call("agent", prompt="y", type="general")]),
+          "two general-type agent calls together are non-parallel-safe too")
+    check(not _batch_parallel_safe(hreg, [_call("write_file", path="a"),
+                                          _call("read_file", path="a")]),
+          "a mutating non-agent tool still makes the batch non-parallel-safe")
+
     print("\nREGRESSIONS:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

@@ -51,8 +51,13 @@ def _fanout_script(n, fail_ids=()):
             time.sleep(CHILD_SLEEP)
             return f"STRESSCHILD_DONE:{unit}"
         return "".join(                            # parent's 1st turn: fan out n calls
+            # type=explore: this stress-tests the fan-out/concurrency MECHANISM
+            # itself (wall-clock speedup, peak in-flight count), not write
+            # behavior -- a type=general batch is intentionally NOT run
+            # concurrently since 0.3.75's parallel-batch-safety fix (a
+            # write-capable subagent can race another call in the same batch).
             f'<tool name="agent"><param name="prompt">STRESSCHILD unit {i}</param>'
-            f'<param name="type">general</param></tool>'
+            f'<param name="type">explore</param></tool>'
             for i in range(n))
     return script
 
