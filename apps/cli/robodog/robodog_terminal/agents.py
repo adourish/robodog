@@ -97,7 +97,15 @@ def register_agent_tool(
 
     def _agent(args: Dict[str, str]) -> str:
         prompt = args["prompt"]
-        agent_type = (args.get("type") or "general").strip().lower()
+        # Default to the LEAST-privileged tier when the model omits `type`.
+        # Defaulting to "general" (full write/bash access) meant a delegated
+        # task that was clearly read-only by its own wording ("explore... and
+        # report back") could still silently get write access if the caller
+        # just forgot the param — and a subagent racing an uncoordinated
+        # write against the main session's own edit to the same file has
+        # actually clobbered work in live usage. A model that truly wants a
+        # mutating subagent must now opt in explicitly with type="general".
+        agent_type = (args.get("type") or "explore").strip().lower()
         background = str(args.get("background", "")).lower() in ("1", "true", "yes")
         if agent_type not in AGENT_TYPES:
             return (f"ERROR: unknown agent type '{agent_type}'. "
@@ -143,9 +151,10 @@ def register_agent_tool(
         name="agent",
         description=(
             "Delegate a scoped task to a subagent with its own fresh context. "
-            "Use type=explore for read-only codebase investigation (searching, "
-            "reading, summarizing) and type=general for delegated work that may "
-            "edit files or run commands. The subagent's final message is returned "
+            "Defaults to type=explore (read-only: searching, reading, "
+            "summarizing — cannot edit files or run commands). Pass "
+            "type=general explicitly when the delegated work must edit files "
+            "or run commands. The subagent's final message is returned "
             "to you; its intermediate work is not. Subagents cannot spawn subagents. "
             "PARALLEL FAN-OUT: to run subagents in parallel, emit SEVERAL agent "
             "calls (foreground, background NOT set) in ONE response — they run "
@@ -155,7 +164,9 @@ def register_agent_tool(
         ),
         params=[
             ToolParam("prompt", "Complete, self-contained task description for the subagent."),
-            ToolParam("type", "explore | general (default general).", required=False),
+            ToolParam("type", "explore | general (default explore — read-only; "
+                              "pass general explicitly for a subagent that must "
+                              "edit files or run commands).", required=False),
             ToolParam("background", "true to run concurrently (default false).", required=False),
         ],
         handler=_agent,

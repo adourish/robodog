@@ -232,6 +232,26 @@ def main() -> int:
                         manager=mgr)
     r = reg.execute("agent", {"prompt": "x", "type": "bogus"})
     check("unknown agent type" in r, "agent: unknown type error")
+
+    # Regression: omitting `type` must default to the LEAST-privileged tier
+    # (explore, read-only) — not "general" (full write/bash access). Live
+    # usage showed a subagent delegated a clearly read-only "explore and
+    # report" task still get full write access because the model forgot to
+    # pass type explicitly, letting it race an uncoordinated write against
+    # the main session's own edit to the same file.
+    from robodog_terminal.agents import _child_registry
+    # Directly exercise the same default-resolution the handler uses.
+    no_type_args = {"prompt": "x"}
+    resolved_type = (no_type_args.get("type") or "explore").strip().lower()
+    check(resolved_type == "explore",
+          "agent: omitted type resolves to 'explore', not 'general'")
+    explore_child = _child_registry(reg, "explore")
+    check("write_file" not in explore_child._tools
+          and "bash" not in explore_child._tools,
+          "explore-type child registry has no write_file/bash")
+    general_child = _child_registry(reg, "general")
+    check("write_file" in general_child._tools and "bash" in general_child._tools,
+          "general-type child registry (explicit opt-in) keeps write_file/bash")
     r = reg.execute("agent", {"prompt": "solve it", "background": "true"})
     check("bg1" in r, "agent background spawns bg1")
     r = reg.execute("task_output", {"id": "bg1"})

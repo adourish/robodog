@@ -881,6 +881,23 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.73
+
+- **The `agent` tool now defaults to `type=explore` (read-only), not
+  `type=general` (full write/bash access).** The tool's own description told
+  the model to use `type=explore` for read-only investigation, but omitting
+  `type` entirely silently granted the MORE permissive `general` tier — the
+  opposite of a safe default. Live usage showed a subagent delegated a
+  clearly read-only "explore the codebase and report back" task still get
+  full write access because the model just forgot to pass `type`
+  explicitly; it then raced an uncoordinated `write_file` against the main
+  session's own concurrent edit to the same `HANDOFF.md`, silently
+  clobbering one of the two writes (there is no lock between a subagent and
+  its parent's own file operations). A model that genuinely wants a
+  mutating subagent must now opt in explicitly with `type="general"` —
+  matching the existing "confirm by default, opt into permissive" posture
+  used elsewhere (`net_guard`, and the 0.3.72 guard fix).
+
 ### 0.3.72
 
 - **HIGH-risk shell commands (`git reset --hard`, `git push --force`, `rm -rf`,
