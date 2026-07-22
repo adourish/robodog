@@ -245,6 +245,7 @@ Commands:
   /status            show model, cwd, token usage
   /context           show transcript size breakdown
   /stats             session tokens, context %, turns, files read, uptime
+  /trace             timing breakdown (LLM/tool/render/parse) — needs --trace or ROBODOG_TRACE=1
   /copy              copy the last answer to the clipboard
   /save <file>       write the last answer to a file
   /net-writes [mode] remote-write approvals: confirm (default) | allow | deny
@@ -281,6 +282,7 @@ and delegate to subagents.
 """
 
 SLASH_COMMANDS = ["/help", "/model", "/theme", "/plan", "/config", "/status", "/context", "/stats",
+                  "/trace",
                   "/net-writes", "/copy", "/save", "/btw",
                   "/compact", "/clear", "/rewind", "/resume", "/init", "/doctor",
                   "/keepass", "/cert", "/test",
@@ -464,6 +466,59 @@ def _fanout_label(inflight: int, n: int, calls: int, cap: int,
     return label
 
 
+def _format_trace_summary(loop) -> str:
+    """Build the /trace summary text from `loop.trace` (a pure function over
+    the trace list, not `loop` itself, so it's unit-testable without a real
+    AgentLoop) — a wall-clock breakdown of where a slow backend's time
+    actually goes: LLM call time vs. tool execution vs. prompt rendering vs.
+    parsing, plus a per-tool-name breakdown and the slowest individual calls.
+    """
+    if not getattr(loop, "trace_enabled", False):
+        return ("tracing is off — start with --trace or set ROBODOG_TRACE=1 "
+                "to record timing for /trace to summarize.")
+    trace = loop.trace
+    if not trace:
+        return "tracing is on, but no timed events yet this session."
+
+    by_kind: dict = {}
+    for e in trace:
+        k = e["kind"]
+        by_kind.setdefault(k, []).append(e["duration_s"])
+    total = sum(sum(v) for v in by_kind.values())
+
+    lines = ["timing breakdown (this session)"]
+    kind_labels = {"llm_call": "LLM calls", "tool_call": "tool calls",
+                   "render_prompt": "prompt rendering", "parse_tool_calls": "parsing"}
+    for kind in ("llm_call", "tool_call", "render_prompt", "parse_tool_calls"):
+        durs = by_kind.get(kind, [])
+        if not durs:
+            continue
+        tot = sum(durs)
+        pct = (tot / total * 100) if total else 0
+        lines.append(f"  {kind_labels[kind]:<18} {len(durs):>4} calls · "
+                     f"{tot:>7.2f}s total ({pct:4.1f}%) · {tot / len(durs):.2f}s avg")
+
+    tool_calls = [e for e in trace if e["kind"] == "tool_call"]
+    if tool_calls:
+        per_tool: dict = {}
+        for e in tool_calls:
+            per_tool.setdefault(e["name"], []).append(e["duration_s"])
+        lines.append("  by tool (slowest total first):")
+        for name, durs in sorted(per_tool.items(), key=lambda kv: -sum(kv[1])):
+            lines.append(f"    {name:<16} {len(durs):>3} calls · "
+                         f"{sum(durs):>7.2f}s total · {sum(durs) / len(durs):.2f}s avg")
+
+    slowest = sorted(trace, key=lambda e: -e["duration_s"])[:5]
+    if slowest:
+        lines.append("  slowest individual calls:")
+        for e in slowest:
+            label = e.get("name", kind_labels.get(e["kind"], e["kind"]))
+            lines.append(f"    {e['duration_s']:>6.2f}s  iter {e.get('iteration', '?')}  "
+                         f"{kind_labels.get(e['kind'], e['kind'])}: {label}")
+
+    return "\n".join(lines)
+
+
 def _normalize_model_id(raw: str) -> str:
     """
     Clean up a model id typed at /model or --model:
@@ -624,6 +679,13 @@ def main(argv=None) -> int:
                              "green monochrome CRT look)")
     parser.add_argument("--verbose", action="store_true",
                         help="print full tool results, not one-line summaries")
+    parser.add_argument("--trace", action="store_true",
+                        default=os.environ.get("ROBODOG_TRACE", "").lower()
+                                in ("1", "true", "yes"),
+                        help="record wall-clock timing per LLM call / tool call / "
+                             "prompt-render / parse step (in-memory, no file I/O); "
+                             "view with /trace. Off by default. Also settable via "
+                             "ROBODOG_TRACE=1.")
     parser.add_argument("--version", action="store_true", help="print version and exit")
     args = parser.parse_args(argv)
 
@@ -790,6 +852,7 @@ def main(argv=None) -> int:
         test_command=args.test_command, system_suffix=system_suffix,
         max_iterations=args.max_iterations, max_tokens=args.max_tokens,
         temperature=args.temperature, max_transcript_chars=args.max_transcript_chars,
+        trace_enabled=args.trace,
         on_diff=on_diff, on_bash_line=ui.bash_line, on_child_event=on_child_event,
         on_event=on_event, ask_fn=ask_fn, on_task_change=on_task_change, log=ui.dim,
     )
@@ -1092,6 +1155,8 @@ def main(argv=None) -> int:
                     f"  turns:       {prompt_count} prompts · {len(loop.history)} history entries\n"
                     f"  files read:  {files}\n"
                     f"  uptime:      {mm}m {ss}s")
+            elif cmd == "trace":
+                ui.info(_format_trace_summary(loop))
             elif cmd == "copy":
                 if not last_answer[0].strip():
                     ui.info("nothing to copy yet — no answer this session.")

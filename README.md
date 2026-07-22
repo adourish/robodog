@@ -426,7 +426,8 @@ commands** with keyword triggers (`.robodog/` or `.claude/` — Claude Code layo
 work unchanged) · `CLAUDE.md`/`ROBODOG.md` instruction hierarchy · rich +
 prompt_toolkit **TUI** (emoji/color status line, clickable `file:line` links) ·
 `/stats` (tokens + est. cost), `/copy`, `/save` · **headless `-p`** (text/json) ·
-`/doctor`.
+`/doctor` · opt-in `--trace`/`/trace` (LLM/tool/render/parse timing breakdown,
+zero overhead when off).
 
 ### Slash commands
 
@@ -440,6 +441,7 @@ prompt_toolkit **TUI** (emoji/color status line, clickable `file:line` links) ·
 | `/copy` `/save <file>` | copy / write the last answer |
 | `/btw <q>` | ask a side question (sees the convo, adds nothing to it; works mid-turn) |
 | `/tasks` `/tail` `/bg` `/kill` | background tasks · `/todos` · `/skills` · `/tools` · `/verbose` |
+| `/trace` | timing breakdown (LLM/tool/render/parse) — needs `--trace` or `ROBODOG_TRACE=1` |
 | `@path` | tab-completes files/dirs; inlines a file (or lists a folder) into your message |
 
 Read-only commands (`/status`, `/doctor`, `/stats`, …) also work **mid-turn**
@@ -981,6 +983,19 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
+
+### 0.3.77
+
+- **Added opt-in performance tracing** — `--trace` / `ROBODOG_TRACE=1`
+  (off by default, zero overhead otherwise) records wall-clock timing for
+  every LLM call, tool call, prompt render, and tool-call parse step
+  in-memory for the session. New `/trace` command summarizes it: total
+  time and count per category, a per-tool-name breakdown sorted by total
+  time (so the biggest time sink is obvious), and the 5 slowest individual
+  calls. Built to investigate where time actually goes against a slow
+  backend, rather than guessing — the LLM-call time itself is broken out
+  separately from tool/parse/render overhead so it's clear how much of a
+  slow turn is the backend vs. robodog's own processing.
 
 ### 0.3.76
 

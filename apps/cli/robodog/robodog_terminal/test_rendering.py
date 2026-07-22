@@ -513,6 +513,34 @@ def main() -> int:
     check("plan mode on" in plain(ps_buf2.getvalue()),
           "print_status ALSO prints the permission-mode row when one is set")
 
+    # _format_trace_summary: pure function over a fake loop-like object (no
+    # real AgentLoop needed), so /trace's summary is directly unit-testable.
+    from types import SimpleNamespace
+    fmt_trace = app_mod._format_trace_summary  # noqa: SLF001
+    off_loop = SimpleNamespace(trace_enabled=False, trace=[])
+    check("tracing is off" in fmt_trace(off_loop) and "ROBODOG_TRACE" in fmt_trace(off_loop),
+          "trace summary tells you how to enable it when off")
+    empty_loop = SimpleNamespace(trace_enabled=True, trace=[])
+    check("no timed events" in fmt_trace(empty_loop),
+          "trace summary reports no events yet, distinct from 'tracing is off'")
+    sample = [
+        {"kind": "llm_call", "iteration": 1, "duration_s": 5.0, "ok": True},
+        {"kind": "render_prompt", "iteration": 1, "duration_s": 0.01},
+        {"kind": "parse_tool_calls", "iteration": 1, "duration_s": 0.02},
+        {"kind": "tool_call", "iteration": 1, "name": "bash", "duration_s": 2.0},
+        {"kind": "tool_call", "iteration": 1, "name": "bash", "duration_s": 3.0},
+        {"kind": "tool_call", "iteration": 1, "name": "read_file", "duration_s": 0.1},
+    ]
+    full_loop = SimpleNamespace(trace_enabled=True, trace=sample)
+    summary = fmt_trace(full_loop)
+    check("LLM calls" in summary and "1 calls" in summary, "LLM call count/total shown")
+    check("bash" in summary and "5.00s total" in summary,
+          "per-tool breakdown aggregates bash's two calls (2.0s + 3.0s)")
+    check(summary.index("bash") < summary.index("read_file"),
+          "per-tool breakdown is sorted slowest-total-first (bash before read_file)")
+    check("slowest individual calls" in summary and "3.00s" in summary,
+          "slowest-calls section lists the biggest single sample")
+
     print("\nRENDERING:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 

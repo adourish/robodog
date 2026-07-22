@@ -85,6 +85,10 @@ def main() -> int:
     guard_core = build_core(fresh_cwd(), EchoClient(), guard="confirm", net_writes="deny")
     check(guard_core.registry.guard == "confirm" and guard_core.registry.net_guard == "deny",
           "guard/net_writes params propagate to the registry")
+    off_core = build_core(fresh_cwd(), EchoClient())
+    check(off_core.loop.trace_enabled is False, "trace_enabled defaults to False")
+    on_core = build_core(fresh_cwd(), EchoClient(), trace_enabled=True)
+    check(on_core.loop.trace_enabled is True, "trace_enabled=True propagates to the loop")
 
     # ---- caller-supplied callbacks are actually wired, not ignored --------
     print("=== caller-supplied callbacks fire ===")

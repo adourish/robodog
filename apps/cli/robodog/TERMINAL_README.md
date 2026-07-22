@@ -211,7 +211,8 @@ mode · encrypted KeePass vault (`/keepass`) · skills & custom commands with
 keyword triggers (`.robodog/`, `.claude/`) · `CLAUDE.md`/`ROBODOG.md` hierarchy ·
 rich + prompt_toolkit TUI (emoji/color status line, clickable `file:line`) ·
 `/stats` (tokens + est. cost), `/copy`, `/save` · headless `-p` (text/json) ·
-`/doctor`.
+`/doctor` · opt-in `--trace`/`/trace` (LLM/tool/render/parse timing breakdown,
+zero overhead when off).
 
 Benchmarked at **capability parity with a leading agentic coding assistant** across 20 agentic
 scenarios. See `docs/TERMINAL_MODE_PLAN.md` for the full design and `ROADMAP.md`

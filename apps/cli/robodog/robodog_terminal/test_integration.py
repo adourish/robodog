@@ -203,6 +203,30 @@ def main() -> int:
     check(resU.final_text.strip() == "Done.",
           "loop reaches the final answer after repeated task_update calls")
 
+    # (1.6) Opt-in tracing (/trace): off by default, no overhead; when enabled,
+    # records a timed sample for each render/LLM/parse/tool step.
+    regTr = default_registry(cwd=str(wd))
+    scr = iter(['<tool name="bash"><param name="command">echo hi</param></tool>', 'Done.'])
+    lpTr = AgentLoop(EchoClient(script=lambda p, c: next(scr, "Done.")),
+                     regTr, max_iterations=6)
+    lpTr.run("go")
+    check(lpTr.trace == [], "trace stays empty when trace_enabled is False (default)")
+
+    regTr2 = default_registry(cwd=str(wd))
+    scr2 = iter(['<tool name="bash"><param name="command">echo hi</param></tool>', 'Done.'])
+    lpTr2 = AgentLoop(EchoClient(script=lambda p, c: next(scr2, "Done.")),
+                      regTr2, max_iterations=6, trace_enabled=True)
+    lpTr2.run("go")
+    kinds = [e["kind"] for e in lpTr2.trace]
+    check(kinds.count("llm_call") == 2, "one llm_call trace per completion (got "
+          f"{kinds.count('llm_call')})")
+    check(kinds.count("render_prompt") == 2, "one render_prompt trace per iteration")
+    check(kinds.count("parse_tool_calls") == 2, "one parse_tool_calls trace per iteration")
+    check(any(e["kind"] == "tool_call" and e["name"] == "bash" for e in lpTr2.trace),
+          "the bash call itself is traced")
+    check(all(e["duration_s"] >= 0 for e in lpTr2.trace),
+          "every traced event has a non-negative duration")
+
     # (1.3) Unknown tool name suggests the closest real one.
     r = default_registry(cwd=str(wd)).execute("write_files", {"path": "x", "content": "y"})
     check("unknown tool" in r and "Did you mean 'write_file'" in r,

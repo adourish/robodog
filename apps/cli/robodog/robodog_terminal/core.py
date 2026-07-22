@@ -85,6 +85,7 @@ def build_core(
     max_tokens: int = 8192,
     temperature: float = 0.3,
     max_transcript_chars: int = 450_000,
+    trace_enabled: bool = False,
     on_diff: Optional[Callable[[str, str], None]] = None,
     on_bash_line: Optional[Callable[[str], None]] = None,
     on_confirm: Optional[Callable[[str, str], bool]] = None,
@@ -166,7 +167,8 @@ def build_core(
 
     loop = AgentLoop(client, registry, max_iterations=max_iterations,
                      max_tokens=max_tokens, temperature=temperature,
-                     on_event=on_event, system_suffix=system_suffix)
+                     on_event=on_event, system_suffix=system_suffix,
+                     trace_enabled=trace_enabled)
     loop.max_transcript_chars = max_transcript_chars
 
     return Core(registry=registry, loop=loop, skills=skills, manager=manager,

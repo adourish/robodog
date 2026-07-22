@@ -96,6 +96,7 @@ class AgentLoop:
         on_event: Optional[Callable[[str, dict], None]] = None,
         system_suffix: str = "",
         cancel_event=None,
+        trace_enabled: bool = False,
     ):
         self.client = client
         self.registry = registry
@@ -107,6 +108,14 @@ class AgentLoop:
         self.cancel_event = cancel_event  # threading.Event; checked between steps
         self.api_retry_pause = 4.0        # seconds before the loop-level API retry
         self.history: List[Turn] = []
+        # Opt-in wall-clock breakdown of where a turn's time actually goes
+        # (LLM call vs. tool execution vs. prompt rendering vs. parsing) — off
+        # by default so normal sessions pay zero timing overhead; turn on with
+        # --trace / ROBODOG_TRACE=1 to investigate a slow backend. Kept
+        # in-memory only (no file I/O) and accumulates across every run()
+        # call in this session, not just the current turn.
+        self.trace_enabled = trace_enabled
+        self.trace: List[dict] = []
         # the gateway re-sends the full transcript every iteration, so trim old tool
         # outputs first (a modern agentic terminal's compaction order) before any summarizing.
         # Raised from 120k (~30k tokens): live sessions with 20-40+ tool calls in one
@@ -214,6 +223,12 @@ class AgentLoop:
         prose = (prose or "").strip()
         return f"{prose}\n\n{note}" if prose else note
 
+    def _trace(self, kind: str, **fields) -> None:
+        """Record one timing sample when trace_enabled — a no-op otherwise,
+        so normal sessions pay zero cost for this. See /trace."""
+        if self.trace_enabled:
+            self.trace.append({"kind": kind, **fields})
+
     def _safe_complete(self, prompt: str, max_tokens_override: Optional[int] = None):
         """Call the client with one loop-level retry ABOVE its own backoff, so a
         transient backend outage (e.g. a gateway ReadTimeout) that outlasts the
@@ -270,11 +285,18 @@ class AgentLoop:
                 final_text = "[cancelled]"
                 break
             iterations += 1
+            _render_t0 = _time.monotonic()
             prompt = self._render_prompt()
+            self._trace("render_prompt", iteration=iterations,
+                       duration_s=_time.monotonic() - _render_t0, prompt_chars=len(prompt))
             self.on_event("llm_start", {"iteration": iterations})
+            _llm_t0 = _time.monotonic()
             completion, api_exc = self._safe_complete(prompt, max_tokens_override=next_max_tokens)
+            _llm_dt = _time.monotonic() - _llm_t0
             next_max_tokens = None  # one-shot: never sticky past the call it was set for
             if completion is None:
+                self._trace("llm_call", iteration=iterations, duration_s=_llm_dt,
+                           ok=False, error=type(api_exc).__name__ if api_exc else "error")
                 if self.cancel_event is not None and self.cancel_event.is_set():
                     final_text = "[cancelled]"
                     break
@@ -287,8 +309,15 @@ class AgentLoop:
             total_tokens += completion.total_tokens
             ptok_sum += getattr(completion, "prompt_tokens", 0) or 0
             ctok_sum += getattr(completion, "completion_tokens", 0) or 0
+            self._trace("llm_call", iteration=iterations, duration_s=_llm_dt, ok=True,
+                       prompt_tokens=getattr(completion, "prompt_tokens", 0) or 0,
+                       completion_tokens=getattr(completion, "completion_tokens", 0) or 0)
             text = completion.text or ""
+            _parse_t0 = _time.monotonic()
             calls, prose = parse_tool_calls(text)
+            self._trace("parse_tool_calls", iteration=iterations,
+                       duration_s=_time.monotonic() - _parse_t0,
+                       text_chars=len(text), n_calls=len(calls))
             self.on_event("llm_done", {
                 "iteration": iterations, "text": text,
                 "prose": prose, "n_calls": len(calls),
@@ -368,16 +397,31 @@ class AgentLoop:
                 for call in calls:
                     self.on_event("tool_start", {"name": call.name, "args": call.args})
                 import concurrent.futures as _cf
+
+                def _timed_exec(c):
+                    t0 = _time.monotonic()
+                    r = self.registry.execute(c.name, c.args)
+                    return r, _time.monotonic() - t0
+
                 with _cf.ThreadPoolExecutor(max_workers=min(8, len(calls))) as _ex:
-                    results = list(_ex.map(
-                        lambda c: self.registry.execute(c.name, c.args), calls))
+                    timed = list(_ex.map(_timed_exec, calls))
+                results = [r for r, _dt in timed]
+                # Appended on the MAIN thread only (after _ex.map returns), not
+                # from within worker threads — self.trace isn't thread-safe.
+                for call, (_r, _dt) in zip(calls, timed):
+                    self._trace("tool_call", iteration=iterations, name=call.name,
+                               duration_s=_dt, parallel=True)
             else:
                 results = []
                 for call in calls:
                     if self.cancel_event is not None and self.cancel_event.is_set():
                         break
                     self.on_event("tool_start", {"name": call.name, "args": call.args})
-                    results.append(self.registry.execute(call.name, call.args))
+                    _tool_t0 = _time.monotonic()
+                    r = self.registry.execute(call.name, call.args)
+                    self._trace("tool_call", iteration=iterations, name=call.name,
+                               duration_s=_time.monotonic() - _tool_t0, parallel=False)
+                    results.append(r)
 
             for call, result in zip(calls, results):
                 # (1.4) Never feed back an empty result — a blank tool result can
