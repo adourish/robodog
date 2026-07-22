@@ -446,6 +446,23 @@ def main() -> int:
     check("·" not in tl_ui.thinking_line(3)[-3:],
           "no dangling separator when there's no permission label to show")
 
+    # Same regression, subagent-fan-out side: _fanout_label is the pure
+    # function app.py's _fanout_spinner() delegates to (the spinner itself
+    # only runs on a real TTY, unreachable from a piped-stdin test harness —
+    # this is what actually gets exercised).
+    fanout_label = app_mod._fanout_label  # noqa: SLF001
+    plain_fanout = fanout_label(2, 3, 5, 4, "")
+    check("2/3 subagent" in plain_fanout and "5 tool call" in plain_fanout
+          and "model cap 4" in plain_fanout,
+          f"fan-out label carries inflight/total/calls/cap ({plain_fanout!r})")
+    perm_fanout = fanout_label(2, 3, 5, 4, "⏵⏵ bypass permissions on (shift+tab to cycle)")
+    check("bypass permissions" in perm_fanout,
+          "fan-out spinner label ALSO carries the permission-mode indicator")
+    check(perm_fanout.startswith(plain_fanout),
+          "permission label is appended, not replacing the fan-out stats")
+    no_cap = fanout_label(1, 1, 2, 0, "")
+    check("model cap" not in no_cap, "cap segment omitted when there's no concurrency cap")
+
     # ---------------- color themes (/theme) -------------------------------
     theme_ui, _ = capture()
     check(theme_ui.theme == "default" and theme_ui._C["cyan"] == "\033[0;36m",  # noqa: SLF001

@@ -441,6 +441,29 @@ def _hard_quit(ui=None, code: int = 0) -> int:
     return code
 
 
+def _fanout_label(inflight: int, n: int, calls: int, cap: int,
+                  permission_label: str = "") -> str:
+    """Build the subagent fan-out spinner text. A pure function (no ui/child_lock
+    closure) specifically so it's unit-testable without a real TTY — the
+    spinner itself only runs when sys.stdout.isatty(), which a test harness
+    driving the REPL via piped stdin never is, so the label-building logic has
+    to be reachable on its own.
+
+    `inflight`/`n` = subagents still running of the total spawned. `cap` is the
+    MODEL-call concurrency limit (shown separately so it doesn't read as a cap
+    on subagent count). `permission_label`, when set, is folded in because this
+    spinner text is the ONLY thing on screen during fan-out — the bottom
+    toolbar (and its permission-mode row) doesn't render at all mid-turn — so
+    without this the indicator would silently vanish while subagents run."""
+    label = (f"✳ {inflight}/{n} subagent{'' if n == 1 else 's'} running"
+             f" · {calls} tool call{'' if calls == 1 else 's'}")
+    if cap > 0:
+        label += f" · model cap {cap}"
+    if permission_label:
+        label += f"  ·  {permission_label}"
+    return label
+
+
 def _normalize_model_id(raw: str) -> str:
     """
     Clean up a model id typed at /model or --model:
@@ -650,20 +673,7 @@ def main(argv=None) -> int:
             n = len(child_stats["children"])
             inflight, calls = child_stats["inflight"], child_stats["calls"]
         cap = _effective_max_concurrency()
-        # `inflight/n` = subagents still running of the total spawned. The cap is
-        # on MODEL-call concurrency (shown separately so it doesn't read as a
-        # limit on the subagent count).
-        label = (f"✳ {inflight}/{n} subagent{'' if n == 1 else 's'} running"
-                 f" · {calls} tool call{'' if calls == 1 else 's'}")
-        if cap > 0:
-            label += f" · model cap {cap}"
-        # Same fix as thinking_line: this spinner text is the ONLY thing on
-        # screen during fan-out (the bottom toolbar doesn't render mid-turn),
-        # so fold the permission-mode indicator in here too instead of it
-        # silently vanishing while subagents are running.
-        if ui.permission_label:
-            label += f"  ·  {ui.permission_label}"
-        ui.spinner_update(label)
+        ui.spinner_update(_fanout_label(inflight, n, calls, cap, ui.permission_label))
 
     def on_child_event(kind, data):
         if kind == "agent_spawn":
