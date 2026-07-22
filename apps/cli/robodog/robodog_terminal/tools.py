@@ -181,24 +181,34 @@ def _is_excluded(path: Path) -> bool:
 
 
 def find_by_basename(root: Path, name: str, limit: int = 5,
-                     max_scan: int = 40_000) -> List[str]:
-    """Find files named exactly `name` (case-insensitive) anywhere under `root`,
-    skipping EXCLUDE_DIRS. Used to turn a read_file 'not found' into a 'did you
-    mean …' when the model has the right filename but the wrong directory.
-    Uses os.walk with in-place dir pruning so node_modules/.git etc. are never
-    descended into; bounded by `max_scan` files so a huge tree can't stall it."""
+                     max_scan: int = 40_000, kind: str = "file") -> List[str]:
+    """Find files (or directories) named exactly `name` (case-insensitive)
+    anywhere under `root`, skipping EXCLUDE_DIRS. Used to turn a read_file
+    'not found' into a 'did you mean …' when the model has the right filename
+    but the wrong directory — and, with kind="dir"/"any", a `cd`/Set-Location
+    miss into a 'did you mean …' too (that error names a DIRECTORY, which the
+    file-only search could never find). Uses os.walk with in-place dir
+    pruning so node_modules/.git etc. are never descended into; bounded by
+    `max_scan` entries so a huge tree can't stall it."""
     name_l = name.lower()
     hits, scanned = [], 0
     try:
         for dirpath, dirnames, filenames in os.walk(str(root)):
             dirnames[:] = [d for d in dirnames
                            if d not in EXCLUDE_DIRS and not d.endswith(".egg-info")]
-            scanned += len(filenames)
-            for fn in filenames:
-                if fn.lower() == name_l:
-                    hits.append(os.path.join(dirpath, fn))
-                    if len(hits) >= limit:
-                        return hits
+            if kind in ("dir", "any"):
+                for dn in dirnames:
+                    if dn.lower() == name_l:
+                        hits.append(os.path.join(dirpath, dn))
+                        if len(hits) >= limit:
+                            return hits
+            if kind in ("file", "any"):
+                scanned += len(filenames)
+                for fn in filenames:
+                    if fn.lower() == name_l:
+                        hits.append(os.path.join(dirpath, fn))
+                        if len(hits) >= limit:
+                            return hits
             if scanned > max_scan:
                 break
     except (OSError, RuntimeError):
@@ -665,6 +675,25 @@ def _head_tail_with_file(seg: str) -> Optional[str]:
     return f"Get-Content {m.group(4)} {flag} {n}"
 
 
+# Standalone `cat [-n] FILE` at command position (NOT a pipe filter) reading
+# ONE file — same reasoning as head/tail above: `cat` isn't a Windows command
+# (models reach for it constantly, esp. `cat -n FILE | head/sed` to read a
+# chunk of a file), and multi-file cat (interleaved concatenation) has no
+# clean one-liner equivalent so it's left for the hint.
+_CAT_FILE_RE = re.compile(r"^cat(\s+-n)?\s+(?!-)([^\s|]+)\s*$", re.IGNORECASE)
+
+
+def _cat_with_file(seg: str) -> Optional[str]:
+    m = _CAT_FILE_RE.match(seg.strip())
+    if not m:
+        return None
+    file_arg = m.group(2)
+    if m.group(1):   # -n : line-numbered, like `cat -n`
+        return (f"Get-Content {file_arg} | ForEach-Object -Begin {{$__n=0}} "
+                f"-Process {{$__n++; \"$__n`t$_\"}}")
+    return f"Get-Content {file_arg}"
+
+
 def translate_windows_aliases(command: str) -> str:
     """On Windows, `curl` is a PowerShell ALIAS for Invoke-WebRequest, which
     chokes on real curl flags (`curl -s -o x -w y`). Point it at the real
@@ -683,14 +712,15 @@ def translate_windows_aliases(command: str) -> str:
     # command position. A grep LATER in a pipe (`cat x | grep p`) reads stdin (a
     # filter handled by translate_unix_pipe_filters), so only the FIRST pipe
     # sub-segment of each connector segment is a candidate.
-    if any(k in out.lower() for k in ("grep", "head", "tail")):
+    if any(k in out.lower() for k in ("grep", "head", "tail", "cat")):
         pieces = _split_connectors(out)
         for idx in range(0, len(pieces), 2):        # even indices = command segs
             seg = pieces[idx]
             psegs = _split_pipes_top_level(seg)
             first = psegs[0]
             lead = first[:len(first) - len(first.lstrip())]
-            repl = _translate_grep_command(first) or _head_tail_with_file(first)
+            repl = (_translate_grep_command(first) or _head_tail_with_file(first)
+                    or _cat_with_file(first))
             if repl is not None:
                 psegs[0] = lead + repl
                 pieces[idx] = "|".join(psegs)
@@ -885,13 +915,23 @@ _PS_MISSING_PATH_RE = re.compile(
     r"Cannot find path '([^']+)' because it does not exist", re.IGNORECASE)
 
 
-def shell_path_not_found_hint(command: str, combined: str, cwd: str) -> str:
+def shell_path_not_found_hint(command: str, combined: str, cwd: str,
+                              project_root: Optional[str] = None) -> str:
     """PowerShell's `Cannot find path 'X' because it does not exist` (from
-    Get-Content/cat/gc/type/Remove-Item/…) is a raw dead-end. Give it the same
-    did-you-mean that read_file gives — models constantly `cat`/`Get-Content` a
-    file at a path they only ASSUMED (seen repeatedly on a mono-repo) — and, for a
-    plain file read, nudge toward the read_file tool (which tracks the file for a
-    later edit and suggests near-misses itself). Returns a hint or ""."""
+    Get-Content/cat/gc/type/Remove-Item/… — AND from `cd`/Set-Location onto a
+    missing directory) is a raw dead-end. Give it the same did-you-mean that
+    read_file gives — models constantly assume a path relative to the wrong
+    root (seen repeatedly on a mono-repo, and whenever robodog's cwd is deep
+    inside the tree, e.g. docs/feature/<ticket>/) — and, for a plain file
+    read, nudge toward the read_file tool (which tracks the file for a later
+    edit and suggests near-misses itself). Returns a hint or "".
+
+    Searches `project_root` (pass reg._project_root(), the nearest ancestor
+    with a .git) FIRST when given, falling back to `cwd` — mirrors
+    ToolRegistry._resolve's search=True so this hint can find something even
+    when cwd isn't the repo root. Matches directories too (kind="any"), not
+    just files: a `cd`/Set-Location miss names a DIRECTORY, which the
+    file-only search could never find."""
     if os.name != "nt":
         return ""
     m = _PS_MISSING_PATH_RE.search(combined or "")
@@ -902,8 +942,12 @@ def shell_path_not_found_hint(command: str, combined: str, cwd: str) -> str:
     hint = f"\nHINT: '{missing}' does not exist."
     if name:
         try:
-            hits = [h for h in find_by_basename(Path(cwd), name, limit=3)
+            hits = [h for h in find_by_basename(Path(project_root or cwd), name,
+                                                limit=3, kind="any")
                     if os.path.normpath(h) != os.path.normpath(missing)]
+            if not hits and project_root and os.path.normpath(project_root) != os.path.normpath(cwd):
+                hits = [h for h in find_by_basename(Path(cwd), name, limit=3, kind="any")
+                        if os.path.normpath(h) != os.path.normpath(missing)]
         except Exception:
             hits = []
         if hits:
@@ -1810,7 +1854,15 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
 
     # --- write_file ------------------------------------------------------
     def _write_file(args):
-        path = reg._resolve(args["path"])
+        # search=True (same as read_file): a REPO-RELATIVE path resolves even
+        # when cwd is deep in the tree, instead of silently landing on a
+        # different, wrong cwd-relative path. Safe for overwrites — the
+        # read-before-write check right below still requires this exact
+        # resolved path to be in read_paths. Safe for brand-new files too:
+        # search only widens resolution when something ALREADY exists up the
+        # ancestor chain; if nothing exists anywhere, _resolve falls back to
+        # the plain cwd-relative path, identical to today's behavior.
+        path = reg._resolve(args["path"], search=True)
         content = args.get("content", "")
         existed = path.exists()
         if existed and str(path) not in reg.read_paths:
@@ -1841,7 +1893,13 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
 
     # --- edit_file (string replace) -------------------------------------
     def _edit_file(args):
-        path = reg._resolve(args["path"])
+        # search=True: see _write_file's comment. Without this, a relative
+        # path that read_file resolved via ancestor-search (cwd is deep in
+        # the tree, e.g. inside docs/feature/<ticket>/) would resolve to a
+        # DIFFERENT, wrong path here — a real bug hit in production: the same
+        # relative path worked for read_file but edit_file reported "file not
+        # found... it doesn't exist yet" for a file that plainly did exist.
+        path = reg._resolve(args["path"], search=True)
         if not path.exists():
             return (f"ERROR: file not found: {path} — it doesn't exist yet, so "
                     "there's nothing to edit. Use write_file to CREATE it.")
@@ -1896,7 +1954,7 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
 
     # --- multi_edit (atomic multi-replace on one file) -------------------
     def _multi_edit(args):
-        path = reg._resolve(args["path"])
+        path = reg._resolve(args["path"], search=True)  # see _edit_file's comment
         if not path.exists():
             return f"ERROR: file not found: {path}"
         if str(path) not in reg.read_paths:
@@ -2083,8 +2141,9 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
             parts.append(hint.lstrip("\n"))
         # Missing-path did-you-mean also keys on error text (Get-Content on a
         # non-existent file is a non-terminating error — may exit 0).
+        _proot = reg._project_root()
         ph = shell_path_not_found_hint(command or shown_cmd, out + "\n" + err,
-                                       str(reg.cwd))
+                                       str(reg.cwd), str(_proot) if _proot else None)
         if ph:
             parts.append(ph.lstrip("\n"))
         # Python self-heal hints (failed runs only): hyphenated-skill-dir import

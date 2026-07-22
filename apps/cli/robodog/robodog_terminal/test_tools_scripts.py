@@ -190,6 +190,19 @@ def main() -> int:
               "grep after `cd X &&` is now translated (was: 'grep not recognized')")
         check(_twa("git log | grep x") == "git log | grep x",
               "the `| grep` pipe filter is NOT touched here (pipe path handles it)")
+        # standalone `cat [-n] FILE` (real session: `cat -n elsa.py | head -200`
+        # and `cat -n elsa.py | sed -n '500,650p'` both failed — cat isn't a
+        # Windows command, and only the pipe-FILTER form was translated before)
+        check(_twa("cat elsa.py") == "Get-Content elsa.py",
+              "standalone cat FILE -> Get-Content")
+        check(_twa("cat -n elsa.py")
+              == 'Get-Content elsa.py | ForEach-Object -Begin {$__n=0} '
+                 '-Process {$__n++; "$__n`t$_"}',
+              "cat -n FILE -> line-numbered Get-Content")
+        check(_twa("cd repo && cat -n elsa.py").startswith("cd repo && Get-Content elsa.py"),
+              "cat -n after `cd X &&` is also translated")
+        check(_twa("cat file with spaces.txt") == "cat file with spaces.txt",
+              "an unquoted multi-token filename is left untouched (no clean equivalent)")
         check(_tf('echo "a | head -5"') == 'echo "a | head -5"',
               "pipe inside quotes is NOT translated")
         check(_tf("type f | head file.txt") == "type f | head file.txt",
@@ -209,6 +222,15 @@ def main() -> int:
             "bash", {"command": "cd . && git log --oneline | head -2"})
         check("(exit 0)" in r_chain and "COMMAND FAILED" not in r_chain,
               "live: `cd . && git log | head -2` runs clean end-to-end")
+
+        # live: the EXACT chained pattern from the transcript that failed
+        # repeatedly in production (`cat -n FILE | head -N`) now actually runs.
+        cat_reg = fresh_registry()
+        sample = Path(cat_reg.cwd) / "sample.py"
+        sample.write_text("\n".join(f"line{i}" for i in range(1, 21)), encoding="utf-8")
+        r_cat = cat_reg.execute("bash", {"command": "cat -n sample.py | head -3"})
+        check("(exit 0)" in r_cat and "1" in r_cat and "line1" in r_cat and "line4" not in r_cat,
+              f"live: `cat -n FILE | head -3` runs and limits to 3 numbered lines ({r_cat[:120]!r})")
 
     print("=== 3c. shell_syntax_hint classifier ===")
     from robodog_terminal.tools import shell_syntax_hint as _hint

@@ -881,6 +881,42 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.67
+
+- **Fixed a path-resolution inconsistency**: `read_file` resolves a relative
+  path with ancestor-search (walks up to the `.git` root when the direct
+  cwd-relative path doesn't exist), but `edit_file`/`write_file`/`multi_edit`
+  were cwd-strict — so a file `read_file` just found successfully (cwd deep
+  inside the tree, e.g. `docs/feature/<ticket>/`, then asked to edit a file
+  elsewhere in the repo) would fail on `edit_file` with "file not found... it
+  doesn't exist yet," even though it plainly did. All three now use the same
+  resolution `read_file` already had — safe, since read-before-edit already
+  gates on the resolved path, and search only widens resolution when the
+  direct path is missing.
+- **`shell_path_not_found_hint` widened**: now searches the project root (not
+  just cwd) and matches directories, not just files — a `cd`/Set-Location
+  onto a missing directory now gets a real "did you mean," not nothing.
+- **`cat`/`cat -n FILE` now actually translate** to `Get-Content` (with line
+  numbers for `-n`), composing correctly with the existing `| head`/`| grep`
+  pipe-filter translation — previously only hinted at, not translated, unlike
+  `grep`/`head`/`tail` which already ran automatically.
+
+### 0.3.66
+
+- **Fixed a real production bug**: a command with an embedded literal newline
+  — an entirely ordinary multi-line `git commit -m "subject\n\nbody"` —
+  hung the persistent PowerShell session (0.3.63) for the full timeout.
+  PowerShell's parser, on seeing the opening quote, kept scanning subsequent
+  lines for the closing one, so robodog's own follow-up lines (the
+  exit-code-capture + completion sentinel) got silently swallowed as more of
+  that unterminated string. Fixed by base64-encoding the whole command (the
+  same trick PowerShell's own `-EncodedCommand` uses), plus a corrected
+  exit-code heuristic (`$?` doesn't propagate through the resulting
+  `Invoke-Expression` indirection the way a naive read would assume).
+- Added a feature-comparison table (9 open-source agentic tools + Claude
+  Code) and a full `.robodog/settings.json` reference — every field, the
+  4-location load order, and the exact order things fail in when malformed.
+
 ### 0.3.65
 
 - **Closed live-test gaps around the permission-mode toolbar.** `print_status()`

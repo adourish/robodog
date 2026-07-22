@@ -139,6 +139,31 @@ def main() -> int:
               and "read_file tool" in ph,
               "bash `Get-Content missing` -> did-you-mean + read_file nudge")
 
+        # REGRESSION: a `cd`/Set-Location miss names a DIRECTORY, and the repo
+        # root is often NOT cwd (e.g. robodog started deep in docs/feature/
+        # <ticket>/, then the model tries `cd Agentic-Lambdas/lambdas/...`
+        # relative to the wrong root). Two gaps fixed together: (1) the search
+        # only covered cwd, not the project root — widened via project_root=;
+        # (2) find_by_basename was file-only and could never match a
+        # directory name at all — fixed via kind="any".
+        droot = Path(tempfile.mkdtemp(prefix="rd_regr_droot_"))
+        (droot / ".git").mkdir()
+        (droot / "Agentic-Lambdas" / "lambdas" / "AI-LLM-Invoke-Provider").mkdir(parents=True)
+        deep_cwd = droot / "docs" / "feature" / "ticket"
+        deep_cwd.mkdir(parents=True)
+        missing_path = str(deep_cwd / "Agentic-Lambdas" / "lambdas" / "AI-LLM-Invoke-Provider")
+        combined = (f"Set-Location : Cannot find path '{missing_path}' because it "
+                    "does not exist.")
+        ph_cwd_only = T.shell_path_not_found_hint(
+            "cd Agentic-Lambdas/lambdas/AI-LLM-Invoke-Provider", combined, str(deep_cwd))
+        check("Did you mean" not in ph_cwd_only,
+              "without project_root, a dir outside cwd's subtree isn't found (baseline)")
+        ph_widened = T.shell_path_not_found_hint(
+            "cd Agentic-Lambdas/lambdas/AI-LLM-Invoke-Provider", combined,
+            str(deep_cwd), str(droot))
+        check("Did you mean" in ph_widened and "AI-LLM-Invoke-Provider" in ph_widened,
+              f"WITH project_root, the real directory is found ({ph_widened.strip()[:100]!r})")
+
     # ============ B. Prompted tool-call parsing ============
     print("=== B. tool-call parsing ===")
     c, _ = parse_tool_calls('<tool name="bash"><param name="command">ls C:/x'

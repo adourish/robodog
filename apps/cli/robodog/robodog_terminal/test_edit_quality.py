@@ -301,6 +301,57 @@ def main() -> int:
     check("empty" in edit_not_found_hint(src, "   ").lower(),
           "hint: empty old_string is named")
 
+    # ---------------- REGRESSION: edit/write/multi_edit match read_file's --
+    # ---------------- ancestor-search path resolution ----------------------
+    # Hit in production: cwd deep inside a repo (e.g. docs/feature/<ticket>/,
+    # a common workflow — start robodog there to write feature docs, then ask
+    # it to explore the wider codebase). read_file resolves a repo-relative
+    # path via ancestor search up to the .git root, so `src/module.py`
+    # resolves correctly and the read succeeds — but edit_file/write_file/
+    # multi_edit were cwd-strict, so the SAME relative path resolved to a
+    # different (nonexistent) location and failed with "file not found...
+    # it doesn't exist yet", even though the model just read it moments
+    # before. Fixed by giving write/edit tools the same search=True ancestor
+    # resolution read_file already had — safe because read-before-edit
+    # already requires the resolved path to be in read_paths, and search
+    # only WIDENS resolution when the direct cwd-relative path is missing.
+    print("=== nested-cwd path resolution (edit/write/multi_edit match read_file) ===")
+    repo = Path(tempfile.mkdtemp(prefix="rd_nested_"))
+    (repo / ".git").mkdir()                      # repo-root marker
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text("value = 1\n", encoding="utf-8")
+    deep_cwd = repo / "docs" / "feature" / "ticket"
+    deep_cwd.mkdir(parents=True)
+    nreg = default_registry(cwd=str(deep_cwd))
+
+    r = nreg.execute("read_file", {"path": "src/module.py"})
+    check("value = 1" in r, "read_file finds the file via ancestor search from a deep cwd")
+
+    r = nreg.execute("edit_file", {"path": "src/module.py",
+                                   "old_string": "value = 1", "new_string": "value = 2"})
+    check("ERROR" not in r, f"edit_file resolves the SAME relative path read_file just used ({r[:80]!r})")
+    check((repo / "src" / "module.py").read_text(encoding="utf-8") == "value = 2\n",
+          "the edit landed on the actual file (not a phantom cwd-relative path)")
+
+    r = nreg.execute("multi_edit", {"path": "src/module.py",
+                                    "edits": "value = 2>>>value = 3"})
+    check("ERROR" not in r, "multi_edit resolves the same way")
+    check((repo / "src" / "module.py").read_text(encoding="utf-8") == "value = 3\n",
+          "multi_edit's edit landed on the actual file")
+
+    r = nreg.execute("write_file", {"path": "src/module.py", "content": "value = 4\n"})
+    check("ERROR" not in r, "write_file (overwrite) resolves the same way")
+    check((repo / "src" / "module.py").read_text(encoding="utf-8") == "value = 4\n",
+          "write_file's overwrite landed on the actual file")
+
+    # A brand-new file (doesn't exist ANYWHERE) still behaves exactly as
+    # before: falls back to plain cwd-relative, no ancestor-search surprise.
+    r = nreg.execute("write_file", {"path": "brand_new.py", "content": "x = 1\n"})
+    check("ERROR" not in r and (deep_cwd / "brand_new.py").exists(),
+          "a genuinely new file is still created at the cwd-relative path")
+    check(not (repo / "brand_new.py").exists(),
+          "…NOT accidentally created at the repo root")
+
     print("\nEDIT QUALITY:", "ALL PASS" if ok else "FAILURES")
     return 0 if ok else 1
 
