@@ -798,34 +798,46 @@ def _translate_one_dir_segment(seg: str) -> str:
     """Translate a single `dir /b ...` invocation at command position (`seg`
     may itself contain a pipe — only the first pipe-sub-segment, the command
     itself, is a candidate). Returns `seg` unchanged when it isn't a
-    translatable single-path `dir` with a cmd.exe switch."""
+    translatable `dir` with a cmd.exe switch.
+
+    Multiple filename arguments (`dir /s /b "A.java" "B.java" "C.java"` — a
+    model reaching for "find these several specific files somewhere in the
+    tree", observed live) translate via `-Include`, which PowerShell only
+    honors alongside `-Recurse` (or a wildcard path) — so the multi-name form
+    only translates when `/s` was also given; without it, bail to the hint,
+    same as an unknown switch."""
     if not _DIR_HEAD_RE.match(seg):
         return seg
     segs = _split_pipes_top_level(seg)
     if not _DIR_HEAD_RE.match(segs[0]):
         return seg
     toks = _tokenize_ws(segs[0])
-    out = ["Get-ChildItem"]
-    tail: List[str] = []          # redirects, appended after the switches
-    paths = 0
+    switches: List[str] = []      # e.g. -Name, -Recurse, -Force, first-seen order
+    tail: List[str] = []          # redirects, appended after everything else
+    paths: List[str] = []
     saw_switch = False
     for t in toks[1:]:
         if re.fullmatch(r"/[A-Za-z]", t):
             repl = _DIR_SWITCHES.get(t.lower())
             if repl is None:
                 return seg          # unknown cmd switch -> let the hint guide
-            if repl not in out:
-                out.append(repl)
+            if repl not in switches:
+                switches.append(repl)
             saw_switch = True
         elif _REDIR_TOK_RE.match(t):
             tail.append(t)
         else:
-            paths += 1
-            if paths > 1:
-                return seg          # >1 filespec -> GCI can't; hint instead
-            out.insert(1, t)        # path right after Get-ChildItem
+            paths.append(t)
     if not saw_switch:
         return seg                  # plain `dir` already works in PowerShell
+    if len(paths) > 1 and "-Recurse" not in switches:
+        return seg                  # -Include needs -Recurse/wildcard -> hint instead
+    out = ["Get-ChildItem"]
+    if len(paths) == 1:
+        out.append(paths[0])        # path right after Get-ChildItem
+    elif len(paths) > 1:
+        out += ["-Include", ",".join(paths)]
+    out += switches
     segs[0] = " ".join(out + tail)
     return "|".join(segs)
 
@@ -843,6 +855,91 @@ def translate_dir_switches(command: str) -> str:
     changed = False
     for idx in range(0, len(pieces), 2):        # even indices = command segs
         new_seg = _translate_one_dir_segment(pieces[idx])
+        if new_seg != pieces[idx]:
+            pieces[idx] = new_seg
+            changed = True
+    return "".join(pieces) if changed else command
+
+
+_FIND_HEAD_RE = re.compile(r"^\s*find\s+", re.IGNORECASE)
+
+
+def _translate_one_find_segment(seg: str) -> str:
+    """Translate a single `find PATH -name X [-o -name Y ...] [-type f|d]`
+    invocation (`seg` may itself contain a pipe — only the first pipe-sub-
+    segment, the command itself, is a candidate) to Get-ChildItem.
+
+    Unix `find` searches BY FILENAME; Windows' own `find.exe` is a completely
+    different tool (searches for a literal STRING INSIDE files), so
+    `find PATH -name "*.java"` doesn't just behave differently on Windows —
+    it errors immediately (`FIND: Parameter format not correct`), observed
+    live searching for DTOs by class name across a multi-module repo. Returns
+    `seg` unchanged for anything this can't confidently translate (`-exec`,
+    `-mtime`, `-size`, `-maxdepth`, `-regex`, `-path`, ...) — those fall
+    through to the existing `find`-isn't-available hint instead."""
+    if not _FIND_HEAD_RE.match(seg):
+        return seg
+    segs = _split_pipes_top_level(seg)
+    if not _FIND_HEAD_RE.match(segs[0]):
+        return seg
+    toks = _tokenize_ws(segs[0])[1:]      # drop the leading 'find'
+    if not toks or toks[0].startswith("-"):
+        return seg                        # `find -name x` (implicit cwd) -> hint
+    path = toks[0]
+    names: List[str] = []
+    is_file_only = False
+    is_dir_only = False
+    tail: List[str] = []
+    i = 1
+    while i < len(toks):
+        t = toks[i]
+        low = t.lower()
+        if low in ("-name", "-iname") and i + 1 < len(toks):
+            names.append(toks[i + 1])
+            i += 2
+        elif low == "-o":
+            i += 1                        # OR connector between -name clauses
+        elif low == "-type" and i + 1 < len(toks):
+            kind = toks[i + 1].lower()
+            if kind == "f":
+                is_file_only = True
+            elif kind == "d":
+                is_dir_only = True
+            else:
+                return seg
+            i += 2
+        elif _REDIR_TOK_RE.match(t):
+            tail = toks[i:]
+            break
+        else:
+            return seg                    # -exec/-mtime/-size/... -> let the hint guide
+    if not names:
+        return seg
+    out = ["Get-ChildItem", "-Path", path, "-Recurse"]
+    if len(names) == 1:
+        out += ["-Filter", names[0]]
+    else:
+        out += ["-Include", ",".join(names)]
+    if is_file_only:
+        out.append("-File")
+    elif is_dir_only:
+        out.append("-Directory")
+    segs[0] = " ".join(out + tail)
+    return "|".join(segs)
+
+
+def translate_find_commands(command: str) -> str:
+    """Rewrite Unix `find PATH -name ...` to Get-ChildItem, at the command
+    position of EVERY top-level `&&`/`||`/`;` segment — same per-segment
+    treatment as translate_dir_switches, so a `find ... || dir /s /b ...`
+    fallback chain (a real pattern models reach for once `find` has failed
+    once already) gets both sides fixed instead of just one."""
+    if os.name != "nt" or "find" not in command.lower():
+        return command
+    pieces = _split_connectors(command)
+    changed = False
+    for idx in range(0, len(pieces), 2):        # even indices = command segs
+        new_seg = _translate_one_find_segment(pieces[idx])
         if new_seg != pieces[idx]:
             pieces[idx] = new_seg
             changed = True
@@ -2258,11 +2355,13 @@ def default_registry(cwd: Optional[str] = None) -> ToolRegistry:
         # Use PowerShell on Windows, sh elsewhere, matching the host shell.
         if os.name == "nt":
             # Auto-fix the bash-isms models reach for on Windows so they run
-            # instead of erroring: `&&`/`||` chains -> if ($?)/if (-not $?), and
+            # instead of erroring: `&&`/`||` chains -> if ($?)/if (-not $?),
             # `| head/tail/wc` -> Select-Object/Measure-Object (handled per chain
-            # segment inside powershell_translate).
+            # segment inside powershell_translate), `dir /b`/`/s` and Unix
+            # `find PATH -name` -> Get-ChildItem.
             run_cmd = powershell_translate(translate_null_redirects(
-                translate_dir_switches(translate_windows_aliases(command))))
+                translate_dir_switches(translate_find_commands(
+                    translate_windows_aliases(command)))))
             rc = out_lines = err_lines = timed_out = None
             if _persistent_shell_enabled():
                 if reg._shell is None:

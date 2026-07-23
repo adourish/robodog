@@ -123,11 +123,47 @@ def main() -> int:
         check("-Recurse" in T.translate_dir_switches('dir "C:\\p" /s /b')
               and "-Name" in T.translate_dir_switches('dir "C:\\p" /s /b'),
               "`dir PATH /s /b` -> Get-ChildItem PATH -Recurse -Name")
-        check(T.translate_dir_switches("dir /s /b *a* *b* 2>nul")
-              == "dir /s /b *a* *b* 2>nul",
-              "multi-glob `dir` is left for the hint (GCI can't take 2 filespecs)")
+        # REGRESSION: `dir /s /b "A.java" "B.java" "C.java"` (search a tree for
+        # several specific filenames — observed live, twice, hunting DTO
+        # classes across a multi-module repo) used to bail entirely (GCI can't
+        # take >1 positional filespec) and fail outright. -Recurse makes
+        # -Include valid, so the multi-name form now translates too.
+        multi_dir = T.translate_dir_switches('dir /s /b "A.java" "B.java" "C.java"')
+        check("-Include" in multi_dir and '"A.java","B.java","C.java"' in multi_dir
+              and "-Recurse" in multi_dir and "-Name" in multi_dir,
+              "`dir /s /b A B C` -> Get-ChildItem -Include A,B,C -Recurse -Name")
+        check(T.translate_dir_switches("dir /b *a* *b* 2>nul")
+              == "dir /b *a* *b* 2>nul",
+              "multi-glob `dir` WITHOUT /s is still left for the hint "
+              "(-Include needs -Recurse or a wildcard path)")
         check(T.translate_dir_switches("dir C:\\p") == "dir C:\\p",
               "plain `dir` (no cmd switch) is untouched — it works in PowerShell")
+        # `find PATH -name X` — Unix find isn't grep or Windows find.exe; models
+        # reach for it constantly hunting a class/file by name and it errors
+        # immediately (`FIND: Parameter format not correct`), observed live
+        # against a real multi-module Java repo.
+        find1 = T.translate_find_commands('find C:\\proj -name "Seizure.java"')
+        check(find1 == 'Get-ChildItem -Path C:\\proj -Recurse -Filter "Seizure.java"',
+              "`find PATH -name X` -> Get-ChildItem -Path PATH -Recurse -Filter X")
+        # the `-o -name` OR-chain (search several filenames in one call) —
+        # observed live, the exact form that failed hunting 3 DTO classes.
+        find2 = T.translate_find_commands(
+            'find C:\\proj -name "A.java" -o -name "B.java" -o -name "C.java"')
+        check("-Include" in find2 and '"A.java","B.java","C.java"' in find2
+              and "-Recurse" in find2,
+              "`find PATH -name A -o -name B -o -name C` -> "
+              "Get-ChildItem -Include A,B,C -Recurse")
+        check("-File" in T.translate_find_commands('find . -name "*.py" -type f'),
+              "`find . -name X -type f` adds -File")
+        check(T.translate_find_commands('find . -mtime -1 -name "*.py"')
+              == 'find . -mtime -1 -name "*.py"',
+              "`find` with an untranslatable flag (-mtime) is left for the hint")
+        # the exact fallback pattern observed live: `find ... || dir /s /b ...`
+        # — both sides of a `||` chain get fixed, not just one.
+        find_or_dir = T.translate_find_commands(
+            'find C:\\p -name "X.java" 2>/dev/null || dir /s /b "X.java"')
+        check("Get-ChildItem -Path C:\\p" in find_or_dir and '"X.java"' in find_or_dir,
+              "`find ... || dir /s /b ...` fallback chain: find side translates too")
         # REGRESSION: `dir /b X && dir /b Y` (two chained dir calls — a common
         # pattern once a model has used `dir /b` once and chains a second) left
         # BOTH untranslated, since the old implementation only ever checked

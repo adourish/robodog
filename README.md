@@ -1060,6 +1060,21 @@ Full design, gap analysis, and roadmap: **`apps/cli/docs/TERMINAL_MODE_PLAN.md`*
 Published to PyPI as [`robodog-terminal`](https://pypi.org/project/robodog-terminal/)
 (`pip install -U robodog-terminal`).
 
+### 0.3.79
+
+- **`dir /s /b` with multiple filenames and Unix `find PATH -name` now both
+  translate to `Get-ChildItem`**, instead of erroring outright. Found live,
+  twice, in a real session hunting several DTO classes by name across a
+  multi-module Java repo: `dir /s /b "A.java" "B.java" "C.java"` used to bail
+  entirely (Get-ChildItem can't take >1 positional filespec) — `-Recurse`
+  makes `-Include` valid, so the multi-name form now translates too. Unix
+  `find PATH -name "X.java"` (and the `-o -name` OR-chain for several names
+  at once) had only a hint before; it's now a real translation, including
+  through a `find ... || dir /s /b ...` fallback chain — a pattern models
+  reach for once `find` has already failed once. Anything `find`-related
+  this can't confidently translate (`-exec`, `-mtime`, `-size`, `-maxdepth`,
+  `-regex`) still falls through to the existing hint.
+
 ### 0.3.78
 
 - **The system prompt now teaches the model to batch independent read-only
