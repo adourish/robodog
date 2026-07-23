@@ -319,6 +319,82 @@ CLI's own internals made importable. Being closed-source also means several
 rows above are inherently unverifiable rather than confirmed, which is a real
 asymmetry against the 8 tools whose source I could actually read.
 
+## Benchmarks
+
+Live measurements against real models via OpenRouter, using robodog's own
+opt-in `--trace`/`ROBODOG_TRACE=1` instrumentation and `build_core()` — the
+embeddable core, no CLI/UI overhead. Real API calls, not simulated; 2 trials
+per scenario per model, small sample, presented as a directional snapshot
+rather than a rigorous statistical benchmark (network and provider-side
+variance is real, especially for wall-clock).
+
+**Scenarios:**
+- **Single-task** — read a file, add a docstring, run a bash command to
+  verify it still works. A baseline read+edit+verify round trip.
+- **Fan-out** — 3 independent files, delegated to 3 parallel `type=explore`
+  subagents in one reply. Speedup = sum(subagent durations) / max(subagent
+  duration); 3.0x would be perfect parallelism.
+- **Batching** — 3 independent config files, asked about in one prompt.
+  Checks whether the model puts all 3 reads in its *first* reply (as the
+  0.3.78 batching rule instructs) or trickles them out one read per round
+  trip.
+
+| Model | Single-task wall | Fan-out speedup | Batches reads on first try |
+|---|---|---|---|
+| Claude Sonnet 4.6 | 14.74s | 2.5x | 2/2 |
+| Claude Opus 4.8 | 9.38s | 2.7x | 2/2 |
+| GPT-4o mini | 35.07s | 2.7x | 1/2 |
+| o4-mini | 34.18s | 2.2x | 2/2 |
+| GPT-5 Codex | 203.25s | 1.1x | 0/2 |
+| Gemini 2.5 Flash | 3.02s | 2.1x | 0/2 |
+
+A few honest reads on this data:
+
+**GPT-4o mini and o4-mini took 34-35s on the single-task scenario** — 5-7
+iterations average, vs. 3-4 for Sonnet/Opus — not because the model is
+slower per call, but because it needed more round trips to get from read to
+edit to verified bash output. Fewer, more decisive iterations beats a faster
+per-call response time.
+
+**GPT-5 Codex was dramatically slower across all three scenarios** (203s
+single-task vs. under 35s for everything else) and never batched the
+independent reads despite the instruction. This may be a property of the
+model itself (heavier reasoning overhead), OpenRouter's routing for that
+specific slug, or both — the sample size here (2 trials) isn't enough to
+tell apart "this model is just slower" from "this run hit a slow route."
+Flagging it rather than smoothing it over.
+
+**Gemini 2.5 Flash is the fastest model tested** (3.02s single-task) but,
+like GPT-5 Codex, didn't batch the independent reads (0/2) even though the
+prompt asked for it. The batching rule (0.3.78, see below) is a system-prompt
+instruction, not an enforced mechanism — some models follow it reliably,
+others don't, regardless of how fast they otherwise are.
+
+### The headline finding: batching guidance is a 4.6x win — for the model that listens
+
+Separately from the 6-model snapshot above, a controlled A/B test (same
+task, same files, same model, `catalog()` monkeypatched to strip the 0.3.78
+batching rule for the "before" runs) measured what that rule actually
+changed, on the two models where OpenRouter access was available for
+repeated runs:
+
+| Model | Before (no batching rule) | After (0.3.78) | Change |
+|---|---|---|---|
+| GPT-4o mini | 3.26s avg wall, 2.50 avg iterations | 3.14s avg wall, 2.25 avg iterations | small, noisy |
+| **Claude Sonnet 4.6** | **33.46s avg wall, 2.75 avg iterations, 8390 avg tokens** | **7.21s avg wall, 2.00 avg iterations, 4638 avg tokens** | **4.6x faster** |
+
+GPT-4o mini already batches independent reads reasonably well on its own —
+the instruction barely moves it. Claude Sonnet 4.6 does not, by default —
+and Sonnet 4.6 is specifically the model the FDA/ELSA gateway serves under
+the hood, which is the slow backend this optimization was originally aimed
+at. This is the single largest verified win from robodog's tracing/live-test
+work: a 9-line system-prompt rule, tested and shipped in 0.3.78.
+
+A related hypothesis — extending the same guidance to cover independent
+*mutations* (not just reads) — was tested the same way and showed **no
+measurable difference** on Sonnet 4.6 (2.00 avg iterations either way). Not
+shipped; recorded here as a negative result rather than left untested.
+
 ## Embedding (using robodog as a library, not the CLI)
 
 `robodog_terminal.core.build_core()` assembles the agentic core — `ToolRegistry`
